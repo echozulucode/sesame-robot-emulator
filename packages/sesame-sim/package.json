@@ -1,0 +1,38 @@
+{
+  "name": "@sesame-lab/sesame-sim",
+  "version": "0.1.0",
+  "private": true,
+  "description": "SimulatedSesameRobot: a cooperative, virtual-time behaviour model of the Sesame firmware, driven entirely by the extracted choreography in hardware/hardware-map.json",
+  "license": "Apache-2.0",
+  "type": "module",
+  "sideEffects": false,
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "tsc -p tsconfig.build.json",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "build:choreography": "node scripts/build-choreography.mjs",
+    "validate:choreography": "node scripts/build-choreography.mjs --check",
+    "clean": "node -e \"import('node:fs').then(fs => fs.rmSync('dist', { recursive: true, force: true }))\""
+  },
+  "dependencies": {
+    "@sesame-lab/sesame-model": "workspace:*",
+    "@sesame-lab/sesame-protocol": "workspace:*"
+  },
+  "devDependencies": {
+    "@types/node": "^24.10.1",
+    "typescript": "^5.9.3",
+    "vitest": "^3.2.4"
+  }
+}
