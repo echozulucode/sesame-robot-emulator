@@ -1,0 +1,298 @@
+11:09:09.1773 [INFO] Loaded monitor commands from: C:\Projects\sesame-robot-emulator\tools\renode\scripts/monitor.py
+Renode, version 1.16.1 (d66b0c2a-202602161036)
+
+(monitor) i @<local-path>/AppData/Local/Temp/r4probe.resc
+11:09:09.3631 [INFO] Including script(s): <local-path>\AppData\Local\Temp\r4probe.resc
+11:09:09.3870 [INFO] System bus created.
+11:09:10.2259 [WARNING] The debug mode now has no effect - connect a debugger, and switch to stepping mode.
+### cpu introspection
+
+The following methods are available:
+ - UInt64 AcquireExternalMmuWindow (Privilege type)
+ - Void ActivateNewHooks ()
+ - Void AddHook (UInt64 addr, String pythonScript)
+ - Void AddHookAtInterruptBegin (String pythonScript)
+ - Void AddHookAtInterruptEnd (String pythonScript)
+ - Void AddHookAtWfiStateChange (String pythonScript)
+ - Void AddSymbolHook (String hookSymbol, String pythonScript)
+ - UInt32 AssembleBlock (UInt64 addr, String instructions, UInt32 flags = 0)
+ - UInt32 CheckExternalPermissions (UInt64 address)
+ - Void ClearHookAtBlockBegin ()
+ - Void ClearPageAccessViaIo (UInt64 address)
+ - Void ClearTranslationCache ()
+ - Void ContinueAndEnterStepModeAfterFinishingTimeInterval ()
+ - Void CreateExecutionTracing (String name, String fileName, TraceFormat format, Boolean isBinary = False, Boolean compress = False, Boolean isSynchronous = False)
+ - Void CreateExecutionTracingSynchronous (String name, String fileName, TraceFormat format, Boolean isBinary = False, Boolean compress = False)
+ - Void DebugLog (String message)
+ - Void DelayStepCommand ()
+ - Void DisableExecutionTracing ()
+ - Void DisableProfiler ()
+ - Void DisableTimeSkip (String symbol)
+ - Void DisableUbootMode ()
+ - Void DisableZephyrMode ()
+ - String DisassembleBlock (UInt64 addr = 18446744073709551615, UInt32 blockSize = 40, UInt32 flags = 0)
+ - Void Dispose ()
+ - Void EnableExternalWindowMmu (Boolean value)
+ - Void EnableExternalWindowMmu (ExternalMmuPosition position)
+ - Void EnableProfiler (ProfilerType type, String filename, Boolean flushInstantly = False, Boolean enableMultipleTracks = True, Int64? fileSizeLimit = null, Int32? maximumNestedContexts = null, Boolean enableFrameTracking = False)
+ - Void EnableProfilerCollapsedStack (String filename, Boolean flushInstantly = False, Int64? fileSizeLimit = null, Int32? maximumNestedContexts = null, Boolean enableFrameTracking = False)
+ - Void EnableProfilerPerfetto (String filename, Boolean flushInstantly = False, Boolean enableMultipleTracks = True, Int64? fileSizeLimit = null, Int32? maximumNestedContexts = null)
+ - Void EnableProfiling ()
+ - Void EnableReadCache (UInt64 accessAddress, UInt64 lowerAccessCount, UInt64 upperAccessCount = 0)
+ - Void EnableTimeSkip (String symbol, UInt64 usPerTick = 1)
+ - Void EnableUbootMode ()
+ - Void EnableZephyrMode (params String[] disableIfSymbolsPresent)
+ - Void ErrorLog (String message)
+ - Object ExtractPreservedState ()
+ - Void FlushProfiler ()
+ - Void FlushTlb ()
+ - Void FlushTlbPage (UInt64 address)
+ - Void ForEach (Action<BaseCPU> action)
+ - String[,] GetAllOpcodesCounters ()
+ - String GetCPUThreadName (IMachine machine)
+ - UInt64 GetCurrentInstructionsCount ()
+ - String GetDescription ()
+ - Endianess GetEndianness (Endianess? defaultEndianness = null)
+ - IEnumerator<TranslationCPU> GetEnumerator ()
+ - IEnumerator<BaseCPU> GetEnumerator ()
+ - IEnumerable<Tuple<String,IGPIO>> GetGPIOs ()
+ - IMachine GetMachine ()
+ - UInt64 GetMmuWindowAddend (UInt64 id)
+ - UInt64 GetMmuWindowEnd (UInt64 id)
+ - UInt32 GetMmuWindowPrivileges (UInt64 id)
+ - UInt64 GetMmuWindowStart (UInt64 id)
+ - String GetName ()
+ - UInt64 GetOpcodeCounter (String name)
+ - Int32 GetPeripheralInputCount ()
+ - String GetProfilerStack ()
+ - RegisterValue GetRegister (Int32 register)
+ - RegisterValue GetRegister (String register)
+ - IEnumerable<CPURegister> GetRegisters ()
+ - String[,] GetRegistersValues ()
+ - UInt64 GetRegisterUlong (Int32 register)
+ - UInt64 GetRegisterUlong (String register)
+ - RegisterValue GetRegisterUnsafe (Int32 register)
+ - Boolean HasGPIO ()
+ - Void InfoLog (String message)
+ - Void InitStoreTable (Boolean afterDeserialization = False)
+ - Void InstallOpcodeCounterPattern (String name, String pattern)
+ - Void InstallOpcodeCounterPattern (String name, UInt64 opcode, UInt64 mask)
+ - Void InvalidateTranslationBlocks ()
+ - Boolean IsHostEndian ()
+ - Void Log (LogLevel type, String message)
+ - Void LogCpuInterrupts (Boolean isEnabled)
+ - Void LogFunctionNames (Boolean value, Boolean removeDuplicates = False, Boolean useFunctionSymbolsOnly = True)
+ - Void LogFunctionNames (Boolean value, String spaceSeparatedPrefixes = "", Boolean removeDuplicates = False, Boolean useFunctionSymbolsOnly = True)
+ - Void LogUnhandledRead (Int64 offset)
+ - Void LogUnhandledWrite (Int64 offset, UInt64 value)
+ - Void NativeUnwind ()
+ - Void NoisyLog (String message)
+ - IDisposable ObtainSinkActiveState ()
+ - IDisposable ObtainSinkInactiveState ()
+ - Void OnGPIO (Int32 number, Boolean value)
+ - Void Pause ()
+ - Void RaiseException (UInt32 exceptionId)
+ - Void RegisterAccessFlags (UInt64 startAddress, UInt64 size, Boolean isIoMemory = False)
+ - Void RemoveAllHooks ()
+ - Void RemoveHooksAt (UInt64 addr)
+ - Void RequestReturn ()
+ - Boolean RequestTranslationBlockRestart (Boolean quiet = False)
+ - Void Reset ()
+ - Void ResetAllMmuWindows ()
+ - Void ResetMmuWindow (UInt64 id)
+ - Void ResetMmuWindowsCoveringAddress (UInt64 address)
+ - Void ResetOpcodesCounters ()
+ - Void Resume ()
+ - Void SaveAllOpcodesCounters (String path)
+ - IEnumerable<Object> Select (Func<BaseCPU,Object> selector)
+ - Void SetBroadcastDirty (Boolean enable)
+ - Void SetHookAtBlockBegin (String pythonScript)
+ - Void SetHookAtBlockEnd (String pythonScript)
+ - Void SetMappedMemoryEnabled (Range range, Boolean enabled)
+ - Void SetMmuWindowAddend (UInt64 id, UInt64 addend)
+ - Void SetMmuWindowEnd (UInt64 id, UInt64 endAddress)
+ - Void SetMmuWindowPrivileges (UInt64 id, Privilege permissions)
+ - Void SetMmuWindowStart (UInt64 id, UInt64 startAddress)
+ - Void SetPageAccessViaIo (UInt64 address)
+ - Void SetRegister (Int32 register, RegisterValue value)
+ - Void SetRegister (String register, RegisterValue value)
+ - Void SetRegisterUlong (Int32 register, UInt64 value)
+ - Void SetRegisterUlong (String register, UInt64 value)
+ - Void SetRegisterUnsafe (Int32 register, RegisterValue value)
+ - Void ShowAnalyzer (String analyzerTypeName = null, String externalName = null)
+ - Void SkipTime (TimeInterval amountOfTime)
+ - Void Start ()
+ - UInt64 Step (Int32 count = 1)
+ - Void SyncTime ()
+ - String ToString ()
+ - UInt64 TranslateAddress (UInt64 logicalAddress, MpuAccess accessType)
+ - Void UnmapMemory (Range range)
+ - Void Unregister (SemihostingUart peripheral)
+ - Void WarningLog (String message)
+
+Usage:
+ sysbus.cpu MethodName param1 param2 ...
+
+
+The following properties are available:
+ - String Architecture
+     available for 'get'
+ - RegisterValue ATOMCTL
+     available for 'get' and 'set'
+ - IBusController Bus
+     available for 'get'
+ - RegisterValue CCOUNT
+     available for 'get' and 'set'
+ - Boolean ChainingEnabled
+     available for 'get' and 'set'
+ - IEnumerable<TranslationCPU> Clustered
+     available for 'get'
+ - IEnumerable<BaseCPU> Clustered
+     available for 'get'
+ - IEnumerable<ICluster<TranslationCPU>> Clusters
+     available for 'get'
+ - IEnumerable<ICluster<BaseCPU>> Clusters
+     available for 'get'
+ - UInt32 CurrentBlockDisassemblyFlags
+     available for 'get'
+ - Decimal CyclesPerInstruction
+     available for 'get' and 'set'
+ - RegisterValue DDR
+     available for 'get' and 'set'
+ - RegisterValue DEBUGCAUSE
+     available for 'get' and 'set'
+ - Boolean DebuggerConnected
+     available for 'get' and 'set'
+ - RegisterValue DEPC
+     available for 'get' and 'set'
+ - Boolean DisableInterruptsWhileStepping
+     available for 'get' and 'set'
+ - UInt64 ElapsedCycles
+     available for 'get'
+ - EmulationCPUState EmulationState
+     available for 'get'
+ - Boolean EnableOpcodesCounting
+     available for 'set'
+ - Endianess Endianness
+     available for 'get'
+ - RegisterValue EXCCAUSE
+     available for 'get' and 'set'
+ - RegisterValue EXCVADDR
+     available for 'get' and 'set'
+ - UInt64 ExecutedInstructions
+     available for 'get'
+ - ExecutionMode ExecutionMode
+     available for 'get' and 'set'
+ - RegisterValue EXPSTATE
+     available for 'get' and 'set'
+ - UInt32 ExternalMmuWindowsCount
+     available for 'get'
+ - String GDBArchitecture
+     available for 'get'
+ - RegisterValue IBREAKENABLE
+     available for 'get' and 'set'
+ - RegisterValue ICOUNT
+     available for 'get' and 'set'
+ - RegisterValue ICOUNTLEVEL
+     available for 'get' and 'set'
+ - RegisterValue INTCLEAR
+     available for 'get' and 'set'
+ - RegisterValue INTENABLE
+     available for 'get' and 'set'
+ - RegisterValue INTERRUPT
+     available for 'get' and 'set'
+ - RegisterValue INTSET
+     available for 'get' and 'set'
+ - UInt32 IRQ
+     available for 'get'
+ - Boolean IsHalted
+     available for 'get' and 'set'
+ - Boolean IsPaused
+     available for 'get'
+ - Boolean IsStarted
+     available for 'get'
+ - String LogFile
+     available for 'get' and 'set'
+ - Boolean LogTranslatedBlocks
+     available for 'get' and 'set'
+ - Boolean LogTranslationBlockFetch
+     available for 'get' and 'set'
+ - Int32 MaximumBlockSize
+     available for 'get' and 'set'
+ - RegisterValue MMID
+     available for 'get' and 'set'
+ - String Model
+     available for 'get'
+ - UInt32 MultiprocessingId
+     available for 'get'
+ - Boolean OnPossessedThread
+     available for 'get'
+ - UInt32 PageSize
+     available for 'get'
+ - RegisterValue PC
+     available for 'get' and 'set'
+ - UInt32 PerformanceInMips
+     available for 'get' and 'set'
+ - String PreservableName
+     available for 'get'
+ - RegisterValue PRID
+     available for 'get' and 'set'
+ - RegisterValue PS
+     available for 'get' and 'set'
+ - RegisterValue PSCALLINC
+     available for 'get' and 'set'
+ - RegisterValue PSEXCM
+     available for 'get' and 'set'
+ - RegisterValue PSINTLEVEL
+     available for 'get' and 'set'
+ - RegisterValue PSOWB
+     available for 'get' and 'set'
+ - RegisterValue PSUM
+     available for 'get' and 'set'
+ - RegisterValue PSWOE
+     available for 'get' and 'set'
+ - RegisterValue SAR
+     available for 'get' and 'set'
+ - Boolean ShouldEnterDebugMode
+     available for 'get' and 'set'
+ - UInt64 SkipInstructions
+     available for 'get'
+ - UInt64 SkippedInstructions
+     available for 'get'
+ - Int32 Slot
+     available for 'get'
+ - Boolean SyncPCEveryInstructionDisabled
+     available for 'get' and 'set'
+ - Boolean TbCacheEnabled
+     available for 'get' and 'set'
+ - Boolean ThreadSentinelEnabled
+     available for 'get' and 'set'
+ - Int32 UniqueObjectId
+     available for 'get'
+ - Boolean UpdateContextOnLoadAndStore
+     available for 'get' and 'set'
+ - RegisterValue VECBASE
+     available for 'get' and 'set'
+ - RegisterValue WINDOWBASE
+     available for 'get' and 'set'
+ - RegisterValue WINDOWSTART
+     available for 'get' and 'set'
+
+Usage:
+ - get: sysbus.cpu PropertyName
+ - set: sysbus.cpu PropertyName Value
+
+
+The following fields are available:
+ - HashSet<String> FrameProfilerIgnoredSymbols
+ - Boolean UseMachineAtomicState (read only)
+
+Usage:
+ - get: sysbus.cpu fieldName
+ - set: sysbus.cpu fieldName Value
+
+Renode is quitting
+11:09:10.8399 [WARNING] cpu: Some memory allocated by the translation library was not freed - 128.08KiB left allocated. This might indicate a memory leak. Cleaning up...
+11:09:10.8474 [INFO] probe: Disposed.
+
+### R4-RUNNER: exit code 0

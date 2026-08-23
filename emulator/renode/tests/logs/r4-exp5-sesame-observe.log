@@ -1,0 +1,426 @@
+11:38:51.9023 [INFO] Loaded monitor commands from: C:\Projects\sesame-robot-emulator\tools\renode\scripts/monitor.py
+Renode, version 1.16.1 (d66b0c2a-202602161036)
+
+(monitor) i $CWD/emulator/renode/scripts/r4-exp5-sesame-observe.resc
+11:38:52.0587 [INFO] Including script(s): C:\Projects\sesame-robot-emulator\emulator\renode\scripts\r4-exp5-sesame-observe.resc
+11:38:52.0811 [INFO] System bus created.
+11:38:52.7394 [WARNING] The debug mode now has no effect - connect a debugger, and switch to stepping mode.
+11:38:53.0150 [INFO] sysbus: Loading block of 114384 bytes length at 0x40000000.
+11:38:53.0398 [INFO] sysbus: Loading block of 14636 bytes length at 0x3FFAC600.
+11:38:53.0409 [INFO] sysbus: Loading block of 5160 bytes length at 0x3FFFEB70.
+### ROM image loaded (code 0x40000000, rodata 0x3FFAC600, data 0x3FFFEB70)
+11:38:53.1394 [INFO] sysbus: Loading block of 253854 bytes length at 0x3F000020.
+11:38:53.1398 [INFO] sysbus: Loading block of 40 bytes length at 0x3FF9FFD8.
+11:38:53.1398 [INFO] sysbus: Loading block of 149488 bytes length at 0x3FFB4000.
+11:38:53.1400 [INFO] sysbus: Loading block of 69844 bytes length at 0x40024000.
+11:38:53.1400 [INFO] sysbus: Loading block of 803934 bytes length at 0x40080020.
+11:38:53.1403 [INFO] sysbus: Loading block of 32 bytes length at 0x50000200.
+11:38:53.3675 [INFO] cpu: Setting PC value to 0x40025738.
+### bootstate applied - PS / WINDOWSTART / SP trampoline at 0x4006FF00
+0x50020
+'esp32s2' is not a recognized processor for this target (ignoring processor)
+'esp32s2' is not a recognized processor for this target (ignoring processor)
+11:38:53.6596 [INFO] Created new disassembler for triple xtensa, cpu esp32s2, with flags 0
+11:38:53.6597 [WARNING] The disassembler for Xtensa is currently an experimental feature in Renode
+0x4006ff00:   11feff 	l32r	a1, . -8
+0x4006ff03:   81feff 	l32r	a8, . -8
+0x4006ff06:   a00800 	jx	a8
+
+11:38:53.7894 [INFO] r4-sesame-obs: Machine started.
+11:38:53.8039 [INFO] cpu: Entering function without name at 0x4006FF00
+11:38:53.8061 [INFO] cpu: Entering function call_start_cpu0 (entry) at 0x40025738
+11:38:53.8064 [INFO] cpu: Entering function rtc_get_reset_reason (entry) at 0x4000FF58
+11:38:53.8176 [WARNING] sysbus: [cpu: 0x4000FF65] ReadDoubleWord from non existing peripheral at 0x3F408038.
+11:38:53.8177 [INFO] cpu: Entering function call_start_cpu0 at 0x4002574A
+11:38:53.8179 [INFO] cpu: Entering function memset (entry) at 0x4001AD3C
+11:38:53.8231 [INFO] cpu: Entering function call_start_cpu0 at 0x40025761
+11:38:53.8232 [INFO] cpu: Entering function memset (entry) at 0x4001AD3C
+11:38:53.8232 [INFO] cpu: Entering function call_start_cpu0 at 0x40025775
+11:38:53.8232 [INFO] cpu: Entering function cache_hal_init (entry) at 0x4002F96C
+11:38:53.8232 [INFO] cpu: Entering function s_cache_hal_init_ctx (entry) at 0x4002F92C
+11:38:53.8234 [INFO] cpu: Entering function cache_hal_init at 0x4002F972
+11:38:53.8234 [INFO] cpu: Entering function Cache_Enable_ICache (entry) at 0x40018CF8
+11:38:53.8234 [INFO] cpu: Entering function Cache_Resume_ICache (entry) at 0x40018CDC
+11:38:53.8235 [INFO] cpu: Entering function Cache_Resume_ICache_Autoload (entry) at 0x400184C4
+11:38:53.8235 [INFO] cpu: Entering function Cache_Resume_ICache at 0x40018CF6
+11:38:53.8235 [INFO] cpu: Entering function Cache_Enable_ICache at 0x40018D00
+11:38:53.8236 [INFO] cpu: Entering function cache_hal_init at 0x4002F981
+11:38:53.8236 [INFO] cpu: Entering function Cache_Enable_DCache (entry) at 0x40018D58
+11:38:53.8236 [INFO] cpu: Entering function Cache_Resume_DCache (entry) at 0x40018D3C
+11:38:53.8236 [INFO] cpu: Entering function Cache_Resume_DCache_Autoload (entry) at 0x4001850C
+11:38:53.8237 [INFO] cpu: Entering function Cache_Resume_DCache at 0x40018D56
+11:38:53.8237 [INFO] cpu: Entering function Cache_Enable_DCache at 0x40018D60
+11:38:53.8238 [INFO] cpu: Entering function cache_hal_init at 0x4002F98A
+11:38:53.8238 [INFO] cpu: Entering function call_start_cpu0 at 0x40025778
+11:38:53.8238 [INFO] cpu: Entering function esp_config_instruction_cache_mode (entry) at 0x4002556C
+11:38:53.8239 [INFO] cpu: Entering function Cache_Allocate_SRAM (entry) at 0x40018D6C
+11:38:53.8240 [WARNING] sysbus: [cpu: 0x40018D86] ReadDoubleWord from non existing peripheral at 0x3F4C107C.
+11:38:53.8251 [WARNING] sysbus: [cpu: 0x40018D9A] WriteDoubleWord to non existing peripheral at 0x3F4C107C, value 0x1.
+11:38:53.8253 [WARNING] sysbus: [cpu: 0x40018DC2] ReadDoubleWord from non existing peripheral at 0x3F4C10D8.
+11:38:53.8253 [WARNING] sysbus: [cpu: 0x40018DCD] WriteDoubleWord to non existing peripheral at 0x3F4C10D8, value 0x1.
+11:38:53.8253 [INFO] cpu: Entering function esp_config_instruction_cache_mode at 0x4002557D
+11:38:53.8253 [INFO] cpu: Entering function Cache_Suspend_ICache (entry) at 0x40018CA4
+11:38:53.8254 [INFO] cpu: Entering function Cache_Suspend_ICache_Autoload (entry) at 0x40018498
+11:38:53.8255 [INFO] cpu: Entering function Cache_Suspend_ICache at 0x40018CBD
+11:38:53.8257 [INFO] cpu: Entering function esp_config_instruction_cache_mode at 0x40025583
+11:38:53.8257 [INFO] cpu: Entering function Cache_Set_ICache_Mode (entry) at 0x4001803C
+11:38:53.8257 [INFO] cpu: Entering function esp_config_instruction_cache_mode at 0x40025590
+11:38:53.8257 [INFO] cpu: Entering function Cache_Invalidate_ICache_All (entry) at 0x40018420
+11:38:53.8257 [INFO] cpu: Entering function Cache_Invalidate_ICache_Items (entry) at 0x400181B8
+11:38:53.8258 [INFO] cpu: Entering function Cache_Invalidate_ICache_All at 0x4001842A
+11:38:53.8258 [INFO] cpu: Entering function esp_config_instruction_cache_mode at 0x40025596
+11:38:53.8258 [INFO] cpu: Entering function Cache_Resume_ICache (entry) at 0x40018CDC
+11:38:53.8258 [INFO] cpu: Entering function Cache_Resume_ICache_Autoload (entry) at 0x400184C4
+11:38:53.8258 [INFO] cpu: Entering function Cache_Resume_ICache at 0x40018CF6
+11:38:53.8258 [INFO] cpu: Entering function esp_config_instruction_cache_mode at 0x4002559E
+11:38:53.8258 [INFO] cpu: Entering function call_start_cpu0 at 0x4002577B
+11:38:53.8258 [INFO] cpu: Entering function esp_config_data_cache_mode (entry) at 0x400255A0
+11:38:53.8258 [INFO] cpu: Entering function Cache_Allocate_SRAM (entry) at 0x40018D6C
+11:38:53.8258 [WARNING] sysbus: [cpu: 0x40018D86] ReadDoubleWord from non existing peripheral at 0x3F4C107C.
+11:38:53.8258 [WARNING] sysbus: [cpu: 0x40018D9A] WriteDoubleWord to non existing peripheral at 0x3F4C107C, value 0x41.
+11:38:53.8259 [WARNING] sysbus: [cpu: 0x40018DC2] ReadDoubleWord from non existing peripheral at 0x3F4C10D8.
+11:38:53.8259 [WARNING] sysbus: [cpu: 0x40018DCD] WriteDoubleWord to non existing peripheral at 0x3F4C10D8, value 0x3.
+11:38:53.8259 [INFO] cpu: Entering function esp_config_data_cache_mode at 0x400255B1
+11:38:53.8259 [INFO] cpu: Entering function Cache_Set_DCache_Mode (entry) at 0x40018074
+11:38:53.8260 [INFO] cpu: Entering function esp_config_data_cache_mode at 0x400255BD
+11:38:53.8260 [INFO] cpu: Entering function Cache_Invalidate_DCache_All (entry) at 0x4001842C
+11:38:53.8260 [INFO] cpu: Entering function Cache_Invalidate_DCache_Items (entry) at 0x40018208
+11:38:53.8261 [INFO] cpu: Entering function Cache_Invalidate_DCache_All at 0x40018436
+11:38:53.8261 [INFO] cpu: Entering function esp_config_data_cache_mode at 0x400255C3
+11:38:53.8261 [INFO] cpu: Entering function call_start_cpu0 at 0x4002577E
+11:38:53.8261 [INFO] cpu: Entering function Cache_Enable_DCache (entry) at 0x40018D58
+11:38:53.8261 [INFO] cpu: Entering function Cache_Resume_DCache (entry) at 0x40018D3C
+11:38:53.8261 [INFO] cpu: Entering function Cache_Resume_DCache_Autoload (entry) at 0x4001850C
+11:38:53.8262 [INFO] cpu: Entering function Cache_Resume_DCache at 0x40018D56
+11:38:53.8262 [INFO] cpu: Entering function Cache_Enable_DCache at 0x40018D60
+11:38:53.8262 [INFO] cpu: Entering function call_start_cpu0 at 0x40025786
+11:38:53.8263 [INFO] cpu: Entering function sys_rtc_init$isra$0 (entry) at 0x4009BA84
+11:38:53.8264 [INFO] cpu: Entering function esp_rtc_init (entry) at 0x4009BF0C
+11:38:53.8264 [INFO] cpu: Entering function rtc_get_reset_reason (entry) at 0x4000FF58
+11:38:53.8264 [WARNING] sysbus: [cpu: 0x4000FF65] ReadDoubleWord from non existing peripheral at 0x3F408038.
+11:38:53.8264 [INFO] cpu: Entering function esp_rtc_init at 0x4009BF1D
+11:38:53.8265 [INFO] cpu: Entering function rtc_init (entry) at 0x40142FD0
+11:38:53.8266 [WARNING] sysbus: [cpu: 0x40142FDE] ReadDoubleWord from non existing peripheral at 0x3F40808C.
+11:38:53.8266 [WARNING] sysbus: [cpu: 0x40142FE9] WriteDoubleWord to non existing peripheral at 0x3F40808C, value 0x0.
+11:38:53.8266 [WARNING] sysbus: [cpu: 0x40142FEE] ReadDoubleWord from non existing peripheral at 0x3F408090.
+11:38:53.8266 [WARNING] sysbus: [cpu: 0x40142FFC] WriteDoubleWord to non existing peripheral at 0x3F408090, value 0x0.
+11:38:53.8266 [WARNING] sysbus: [cpu: 0x40143001] ReadDoubleWord from non existing peripheral at 0x3F408034.
+11:38:53.8267 [WARNING] sysbus: [cpu: 0x4014300F] WriteDoubleWord to non existing peripheral at 0x3F408034, value 0x0.
+11:38:53.8268 [WARNING] sysbus: [cpu: 0x40143014] ReadDoubleWord from non existing peripheral at 0x3F40801C.
+11:38:53.8268 [WARNING] sysbus: [cpu: 0x40143028] WriteDoubleWord to non existing peripheral at 0x3F40801C, value 0x14000000.
+11:38:53.8268 [WARNING] sysbus: [cpu: 0x4014302D] ReadDoubleWord from non existing peripheral at 0x3F40801C.
+11:38:53.8268 [WARNING] sysbus: [cpu: 0x40143046] WriteDoubleWord to non existing peripheral at 0x3F40801C, value 0x500.
+11:38:53.8268 [WARNING] sysbus: [cpu: 0x4014304B] ReadDoubleWord from non existing peripheral at 0x3F40802C.
+11:38:53.8268 [WARNING] sysbus: [cpu: 0x4014305F] WriteDoubleWord to non existing peripheral at 0x3F40802C, value 0x200.
+11:38:53.8268 [WARNING] sysbus: [cpu: 0x40143064] ReadDoubleWord from non existing peripheral at 0x3F408024.
+11:38:53.8268 [WARNING] sysbus: [cpu: 0x40143075] WriteDoubleWord to non existing peripheral at 0x3F408024, value 0x200.
+11:38:53.8268 [WARNING] sysbus: [cpu: 0x4014307A] ReadDoubleWord from non existing peripheral at 0x3F408024.
+11:38:53.8268 [WARNING] sysbus: [cpu: 0x40143087] WriteDoubleWord to non existing peripheral at 0x3F408024, value 0x1.
+11:38:53.8268 [WARNING] sysbus: [cpu: 0x4014308F] ReadDoubleWord from non existing peripheral at 0x3F408028.
+11:38:53.8268 [WARNING] sysbus: [cpu: 0x4014309A] WriteDoubleWord to non existing peripheral at 0x3F408028, value 0x200.
+11:38:53.8269 [WARNING] sysbus: [cpu: 0x4014309F] ReadDoubleWord from non existing peripheral at 0x3F408028.
+11:38:53.8269 [WARNING] sysbus: [cpu: 0x401430AA] WriteDoubleWord to non existing peripheral at 0x3F408028, value 0x1.
+11:38:53.8269 [WARNING] sysbus: [cpu: 0x401430AF] ReadDoubleWord from non existing peripheral at 0x3F408028.
+11:38:53.8269 [WARNING] sysbus: [cpu: 0x401430C2] WriteDoubleWord to non existing peripheral at 0x3F408028, value 0x2000000.
+11:38:53.8269 [WARNING] sysbus: [cpu: 0x401430C7] ReadDoubleWord from non existing peripheral at 0x3F408028.
+11:38:53.8269 [WARNING] sysbus: [cpu: 0x401430DA] WriteDoubleWord to non existing peripheral at 0x3F408028, value 0x10000.
+11:38:53.8269 [WARNING] sysbus: [cpu: 0x401430DF] ReadDoubleWord from non existing peripheral at 0x3F40802C.
+11:38:53.8269 [WARNING] sysbus: [cpu: 0x401430ED] WriteDoubleWord to non existing peripheral at 0x3F40802C, value 0x2000000.
+11:38:53.8269 [WARNING] sysbus: [cpu: 0x401430F2] ReadDoubleWord from non existing peripheral at 0x3F40802C.
+11:38:53.8269 [WARNING] sysbus: [cpu: 0x40143103] WriteDoubleWord to non existing peripheral at 0x3F40802C, value 0x10000.
+11:38:53.8269 [WARNING] sysbus: [cpu: 0x40143108] ReadDoubleWord from non existing peripheral at 0x3F408080.
+11:38:53.8269 [WARNING] sysbus: [cpu: 0x40143115] WriteDoubleWord to non existing peripheral at 0x3F408080, value 0x60000000.
+11:38:53.8269 [WARNING] sysbus: [cpu: 0x40143120] ReadDoubleWord from non existing peripheral at 0x3F408084.
+11:38:53.8269 [WARNING] sysbus: [cpu: 0x40143130] WriteDoubleWord to non existing peripheral at 0x3F408084, value 0x8000000.
+11:38:53.8269 [WARNING] sysbus: [cpu: 0x40143135] ReadDoubleWord from non existing peripheral at 0x3F408084.
+11:38:53.8269 [WARNING] sysbus: [cpu: 0x4014314B] WriteDoubleWord to non existing peripheral at 0x3F408084, value 0x1000000.
+11:38:53.8269 [WARNING] sysbus: [cpu: 0x40143150] ReadDoubleWord from non existing peripheral at 0x3F408020.
+11:38:53.8269 [WARNING] sysbus: [cpu: 0x40143160] WriteDoubleWord to non existing peripheral at 0x3F408020, value 0x80000.
+11:38:53.8270 [WARNING] sysbus: [cpu: 0x4014317F] ReadDoubleWord from non existing peripheral at 0x3F4C0000.
+11:38:53.8270 [WARNING] sysbus: [cpu: 0x40143187] WriteDoubleWord to non existing peripheral at 0x3F4C0000, value 0x0.
+11:38:53.8270 [WARNING] sysbus: [cpu: 0x4014318F] ReadDoubleWord from non existing peripheral at 0x3F4C0008.
+11:38:53.8270 [WARNING] sysbus: [cpu: 0x4014319A] WriteDoubleWord to non existing peripheral at 0x3F4C0008, value 0x0.
+11:38:53.8270 [WARNING] sysbus: [cpu: 0x401431C2] ReadDoubleWord from non existing peripheral at 0x3F4030DC.
+11:38:53.8270 [WARNING] sysbus: [cpu: 0x401431CA] WriteDoubleWord to non existing peripheral at 0x3F4030DC, value 0x0.
+11:38:53.8270 [WARNING] sysbus: [cpu: 0x401431D2] ReadDoubleWord from non existing peripheral at 0x3F4020DC.
+11:38:53.8270 [WARNING] sysbus: [cpu: 0x401431DA] WriteDoubleWord to non existing peripheral at 0x3F4020DC, value 0x0.
+11:38:53.8270 [WARNING] sysbus: [cpu: 0x401431ED] ReadDoubleWord from non existing peripheral at 0x3F408074.
+11:38:53.8270 [WARNING] sysbus: [cpu: 0x401431F5] WriteDoubleWord to non existing peripheral at 0x3F408074, value 0x0.
+11:38:53.8270 [WARNING] sysbus: [cpu: 0x4014320C] ReadDoubleWord from non existing peripheral at 0x3F408000.
+11:38:53.8271 [WARNING] sysbus: [cpu: 0x40143219] WriteDoubleWord to non existing peripheral at 0x3F408000, value 0x0.
+11:38:53.8271 [WARNING] sysbus: [cpu: 0x4014321E] ReadDoubleWord from non existing peripheral at 0x3F408034.
+11:38:53.8271 [WARNING] sysbus: [cpu: 0x40143229] WriteDoubleWord to non existing peripheral at 0x3F408034, value 0x0.
+11:38:53.8271 [WARNING] sysbus: [cpu: 0x4014322E] ReadDoubleWord from non existing peripheral at 0x3F408034.
+11:38:53.8271 [WARNING] sysbus: [cpu: 0x4014323B] WriteDoubleWord to non existing peripheral at 0x3F408034, value 0x800000.
+11:38:53.8271 [WARNING] sysbus: [cpu: 0x40143240] ReadDoubleWord from non existing peripheral at 0x3F408000.
+11:38:53.8272 [WARNING] sysbus: [cpu: 0x40143253] WriteDoubleWord to non existing peripheral at 0x3F408000, value 0x0.
+11:38:53.8272 [WARNING] sysbus: [cpu: 0x40143258] ReadDoubleWord from non existing peripheral at 0x3F408000.
+11:38:53.8272 [WARNING] sysbus: [cpu: 0x40143263] WriteDoubleWord to non existing peripheral at 0x3F408000, value 0x0.
+11:38:53.8273 [WARNING] sysbus: [cpu: 0x40143268] ReadDoubleWord from non existing peripheral at 0x3F408000.
+11:38:53.8273 [WARNING] sysbus: [cpu: 0x40143276] WriteDoubleWord to non existing peripheral at 0x3F408000, value 0x0.
+11:38:53.8273 [WARNING] sysbus: [cpu: 0x4014327B] ReadDoubleWord from non existing peripheral at 0x3F408088.
+11:38:53.8273 [WARNING] sysbus: [cpu: 0x40143289] WriteDoubleWord to non existing peripheral at 0x3F408088, value 0x0.
+11:38:53.8273 [WARNING] sysbus: [cpu: 0x4014328E] ReadDoubleWord from non existing peripheral at 0x3F408084.
+11:38:53.8273 [WARNING] sysbus: [cpu: 0x4014329B] WriteDoubleWord to non existing peripheral at 0x3F408084, value 0x0.
+11:38:53.8274 [WARNING] sysbus: [cpu: 0x401432A0] ReadDoubleWord from non existing peripheral at 0x3F408084.
+11:38:53.8274 [WARNING] sysbus: [cpu: 0x401432AA] WriteDoubleWord to non existing peripheral at 0x3F408084, value 0x0.
+11:38:53.8274 [WARNING] sysbus: [cpu: 0x401432AF] ReadDoubleWord from non existing peripheral at 0x3F408088.
+11:38:53.8274 [WARNING] sysbus: [cpu: 0x401432B7] WriteDoubleWord to non existing peripheral at 0x3F408088, value 0x0.
+11:38:53.8274 [WARNING] sysbus: [cpu: 0x401432BC] ReadDoubleWord from non existing peripheral at 0x3F408088.
+11:38:53.8274 [WARNING] sysbus: [cpu: 0x401432C4] WriteDoubleWord to non existing peripheral at 0x3F408088, value 0x0.
+11:38:53.8274 [WARNING] sysbus: [cpu: 0x401432C9] ReadDoubleWord from non existing peripheral at 0x3F408084.
+11:38:53.8274 [WARNING] sysbus: [cpu: 0x401432D7] WriteDoubleWord to non existing peripheral at 0x3F408084, value 0x10000000.
+11:38:53.8274 [WARNING] sysbus: [cpu: 0x401432DC] ReadDoubleWord from non existing peripheral at 0x3F408034.
+11:38:53.8274 [WARNING] sysbus: [cpu: 0x401432E7] WriteDoubleWord to non existing peripheral at 0x3F408034, value 0x0.
+11:38:53.8275 [WARNING] sysbus: [cpu: 0x401432EC] ReadDoubleWord from non existing peripheral at 0x3F408088.
+11:38:53.8275 [WARNING] sysbus: [cpu: 0x401432F7] WriteDoubleWord to non existing peripheral at 0x3F408088, value 0x0.
+11:38:53.8275 [WARNING] sysbus: [cpu: 0x401432FC] ReadDoubleWord from non existing peripheral at 0x3F4C003C.
+11:38:53.8275 [WARNING] sysbus: [cpu: 0x40143307] WriteDoubleWord to non existing peripheral at 0x3F4C003C, value 0x0.
+11:38:53.8275 [INFO] cpu: Entering function rtc_sleep_pd (entry) at 0x4002B0C8
+11:38:53.8277 [WARNING] sysbus: [cpu: 0x4002B0D6] ReadDoubleWord from non existing peripheral at 0x3F40808C.
+11:38:53.8277 [WARNING] sysbus: [cpu: 0x4002B0F5] WriteDoubleWord to non existing peripheral at 0x3F40808C, value 0x0.
+11:38:53.8277 [WARNING] sysbus: [cpu: 0x4002B100] ReadDoubleWord from non existing peripheral at 0x3F408088.
+11:38:53.8277 [WARNING] sysbus: [cpu: 0x4002B10E] WriteDoubleWord to non existing peripheral at 0x3F408088, value 0x0.
+11:38:53.8277 [WARNING] sysbus: [cpu: 0x4002B113] ReadDoubleWord from non existing peripheral at 0x3F408088.
+11:38:53.8277 [WARNING] sysbus: [cpu: 0x4002B129] WriteDoubleWord to non existing peripheral at 0x3F408088, value 0x0.
+11:38:53.8278 [WARNING] sysbus: [cpu: 0x4002B12E] ReadDoubleWord from non existing peripheral at 0x3F40F0A4.
+11:38:53.8278 [WARNING] sysbus: [cpu: 0x4002B13E] WriteDoubleWord to non existing peripheral at 0x3F40F0A4, value 0x0.
+11:38:53.8278 [WARNING] sysbus: [cpu: 0x4002B143] ReadDoubleWord from non existing peripheral at 0x3F40F0A4.
+11:38:53.8278 [WARNING] sysbus: [cpu: 0x4002B152] WriteDoubleWord to non existing peripheral at 0x3F40F0A4, value 0x0.
+11:38:53.8278 [WARNING] sysbus: [cpu: 0x4002B15A] ReadDoubleWord from non existing peripheral at 0x3F426098.
+11:38:53.8278 [WARNING] sysbus: [cpu: 0x4002B168] WriteDoubleWord to non existing peripheral at 0x3F426098, value 0x0.
+11:38:53.8278 [WARNING] sysbus: [cpu: 0x4002B16D] ReadDoubleWord from non existing peripheral at 0x3F426098.
+11:38:53.8278 [WARNING] sysbus: [cpu: 0x4002B17D] WriteDoubleWord to non existing peripheral at 0x3F426098, value 0x0.
+11:38:53.8278 [WARNING] sysbus: [cpu: 0x4002B182] ReadDoubleWord from non existing peripheral at 0x3F426098.
+11:38:53.8278 [WARNING] sysbus: [cpu: 0x4002B18F] WriteDoubleWord to non existing peripheral at 0x3F426098, value 0x0.
+11:38:53.8278 [WARNING] sysbus: [cpu: 0x4002B19A] ReadDoubleWord from non existing peripheral at 0x3F41D054.
+11:38:53.8278 [WARNING] sysbus: [cpu: 0x4002B1A7] WriteDoubleWord to non existing peripheral at 0x3F41D054, value 0x0.
+11:38:53.8278 [WARNING] sysbus: [cpu: 0x4002B1AC] ReadDoubleWord from non existing peripheral at 0x3F41D054.
+11:38:53.8278 [WARNING] sysbus: [cpu: 0x4002B1BA] WriteDoubleWord to non existing peripheral at 0x3F41D054, value 0x0.
+11:38:53.8278 [WARNING] sysbus: [cpu: 0x4002B1C5] ReadDoubleWord from non existing peripheral at 0x3F41CCD4.
+11:38:53.8278 [WARNING] sysbus: [cpu: 0x4002B1D0] WriteDoubleWord to non existing peripheral at 0x3F41CCD4, value 0x0.
+11:38:53.8278 [WARNING] sysbus: [cpu: 0x4002B1D5] ReadDoubleWord from non existing peripheral at 0x3F41CCD4.
+11:38:53.8278 [WARNING] sysbus: [cpu: 0x4002B1E3] WriteDoubleWord to non existing peripheral at 0x3F41CCD4, value 0x0.
+11:38:53.8278 [WARNING] sysbus: [cpu: 0x4002B1E8] ReadDoubleWord from non existing peripheral at 0x3F41CCD4.
+11:38:53.8279 [WARNING] sysbus: [cpu: 0x4002B1F5] WriteDoubleWord to non existing peripheral at 0x3F41CCD4, value 0x0.
+11:38:53.8279 [WARNING] sysbus: [cpu: 0x4002B200] ReadDoubleWord from non existing peripheral at 0x3F406090.
+11:38:53.8279 [WARNING] sysbus: [cpu: 0x4002B20E] WriteDoubleWord to non existing peripheral at 0x3F406090, value 0x0.
+11:38:53.8279 [WARNING] sysbus: [cpu: 0x4002B219] ReadDoubleWord from non existing peripheral at 0x3F4050F0.
+11:38:53.8279 [WARNING] sysbus: [cpu: 0x4002B224] WriteDoubleWord to non existing peripheral at 0x3F4050F0, value 0x0.
+11:38:53.8279 [INFO] cpu: Entering function rtc_init at 0x40143310
+11:38:53.8279 [WARNING] sysbus: [cpu: 0x40143315] ReadDoubleWord from non existing peripheral at 0x3F40808C.
+11:38:53.8279 [WARNING] sysbus: [cpu: 0x40143320] WriteDoubleWord to non existing peripheral at 0x3F40808C, value 0x0.
+11:38:53.8279 [WARNING] sysbus: [cpu: 0x40143325] ReadDoubleWord from non existing peripheral at 0x3F40808C.
+11:38:53.8279 [WARNING] sysbus: [cpu: 0x40143330] WriteDoubleWord to non existing peripheral at 0x3F40808C, value 0x0.
+11:38:53.8279 [WARNING] sysbus: [cpu: 0x40143335] ReadDoubleWord from non existing peripheral at 0x3F408090.
+11:38:53.8279 [WARNING] sysbus: [cpu: 0x40143342] WriteDoubleWord to non existing peripheral at 0x3F408090, value 0x0.
+11:38:53.8279 [WARNING] sysbus: [cpu: 0x40143347] ReadDoubleWord from non existing peripheral at 0x3F408090.
+11:38:53.8279 [WARNING] sysbus: [cpu: 0x4014334F] WriteDoubleWord to non existing peripheral at 0x3F408090, value 0x0.
+11:38:53.8279 [WARNING] sysbus: [cpu: 0x40143354] ReadDoubleWord from non existing peripheral at 0x3F408088.
+11:38:53.8279 [WARNING] sysbus: [cpu: 0x4014335C] WriteDoubleWord to non existing peripheral at 0x3F408088, value 0x0.
+11:38:53.8280 [WARNING] sysbus: [cpu: 0x40143364] ReadDoubleWord from non existing peripheral at 0x3F4C0018.
+11:38:53.8280 [WARNING] sysbus: [cpu: 0x40143374] WriteDoubleWord to non existing peripheral at 0x3F4C0018, value 0x0.
+11:38:53.8280 [WARNING] sysbus: [cpu: 0x40143379] ReadDoubleWord from non existing peripheral at 0x3F408090.
+11:38:53.8280 [WARNING] sysbus: [cpu: 0x40143386] WriteDoubleWord to non existing peripheral at 0x3F408090, value 0x0.
+11:38:53.8280 [WARNING] sysbus: [cpu: 0x4014338B] ReadDoubleWord from non existing peripheral at 0x3F408090.
+11:38:53.8280 [WARNING] sysbus: [cpu: 0x40143398] WriteDoubleWord to non existing peripheral at 0x3F408090, value 0x0.
+11:38:53.8280 [WARNING] sysbus: [cpu: 0x4014339D] ReadDoubleWord from non existing peripheral at 0x3F408090.
+11:38:53.8280 [WARNING] sysbus: [cpu: 0x401433A7] WriteDoubleWord to non existing peripheral at 0x3F408090, value 0x10000000.
+11:38:53.8280 [WARNING] sysbus: [cpu: 0x401433AC] ReadDoubleWord from non existing peripheral at 0x3F40808C.
+11:38:53.8280 [WARNING] sysbus: [cpu: 0x401433B7] WriteDoubleWord to non existing peripheral at 0x3F40808C, value 0x20000.
+11:38:53.8281 [WARNING] sysbus: [cpu: 0x4014342A] WriteDoubleWord to non existing peripheral at 0x3F408040, value 0x0.
+11:38:53.8281 [WARNING] sysbus: [cpu: 0x40143434] WriteDoubleWord to non existing peripheral at 0x3F40804C, value 0xFFFFFFFF.
+11:38:53.8281 [INFO] cpu: Entering function sar_periph_ctrl_init (entry) at 0x4009DF98
+11:38:53.8281 [WARNING] sysbus: [cpu: 0x4009DFA5] ReadDoubleWord from non existing peripheral at 0x3F408808.
+11:38:53.8281 [WARNING] sysbus: [cpu: 0x4009DFB0] WriteDoubleWord to non existing peripheral at 0x3F408808, value 0x800000.
+11:38:53.8281 [WARNING] sysbus: [cpu: 0x4009DFB5] ReadDoubleWord from non existing peripheral at 0x3F40883C.
+11:38:53.8281 [WARNING] sysbus: [cpu: 0x4009DFC0] WriteDoubleWord to non existing peripheral at 0x3F40883C, value 0x0.
+11:38:53.8282 [INFO] cpu: Entering function rtc_init at 0x4014343A
+11:38:53.8282 [INFO] cpu: Entering function esp_rtc_init at 0x4009BF38
+11:38:53.8283 [INFO] cpu: Entering function sys_rtc_init$isra$0 at 0x4009BA8A
+11:38:53.8283 [INFO] cpu: Entering function call_start_cpu0 at 0x4002578C
+11:38:53.8283 [INFO] cpu: Entering function mspi_init (entry) at 0x4009B99C
+11:38:53.8283 [INFO] cpu: Entering function esp_mspi_pin_init (entry) at 0x4002A370
+11:38:53.8284 [INFO] cpu: Entering function mspi_init at 0x4009B9A5
+11:38:53.8284 [INFO] cpu: Entering function bootloader_flash_update_id (entry) at 0x400E6AAC
+11:38:53.8285 [INFO] cpu: Entering function bootloader_read_flash_id (entry) at 0x40025430
+11:38:53.8285 [INFO] cpu: Entering function bootloader_execute_flash_command (entry) at 0x40025410
+11:38:53.8285 [INFO] cpu: Entering function bootloader_flash_execute_command_common (entry) at 0x400251B4
+11:38:53.8287 [WARNING] sysbus: [cpu: 0x400251FB] ReadDoubleWord from non existing peripheral at 0x3F402008.
+11:38:53.8288 [WARNING] sysbus: [cpu: 0x40025200] ReadDoubleWord from non existing peripheral at 0x3F402018.
+11:38:53.8288 [WARNING] sysbus: [cpu: 0x40025205] ReadDoubleWord from non existing peripheral at 0x3F40201C.
+11:38:53.8288 [WARNING] sysbus: [cpu: 0x4002520A] ReadDoubleWord from non existing peripheral at 0x3F402020.
+11:38:53.8288 [WARNING] sysbus: [cpu: 0x4002520F] WriteDoubleWord to non existing peripheral at 0x3F402008, value 0x0.
+11:38:53.8288 [WARNING] sysbus: [cpu: 0x40025214] ReadDoubleWord from non existing peripheral at 0x3F402008.
+11:38:53.8288 [WARNING] sysbus: [cpu: 0x40025221] WriteDoubleWord to non existing peripheral at 0x3F402008, value 0x200000.
+11:38:53.8288 [WARNING] sysbus: [cpu: 0x40025226] ReadDoubleWord from non existing peripheral at 0x3F402018.
+11:38:53.8288 [WARNING] sysbus: [cpu: 0x40025233] WriteDoubleWord to non existing peripheral at 0x3F402018, value 0x80000000.
+11:38:53.8288 [WARNING] sysbus: [cpu: 0x40025238] ReadDoubleWord from non existing peripheral at 0x3F402020.
+11:38:53.8288 [WARNING] sysbus: [cpu: 0x40025261] WriteDoubleWord to non existing peripheral at 0x3F402020, value 0x9F.
+11:38:53.8288 [WARNING] sysbus: [cpu: 0x40025266] ReadDoubleWord from non existing peripheral at 0x3F402020.
+11:38:53.8288 [WARNING] sysbus: [cpu: 0x4002528B] WriteDoubleWord to non existing peripheral at 0x3F402020, value 0x70000000.
+11:38:53.8288 [WARNING] sysbus: [cpu: 0x40025290] ReadDoubleWord from non existing peripheral at 0x3F40201C.
+11:38:53.8288 [WARNING] sysbus: [cpu: 0x400252A0] WriteDoubleWord to non existing peripheral at 0x3F40201C, value 0xFC000000.
+11:38:53.8288 [WARNING] sysbus: [cpu: 0x400252A8] ReadDoubleWord from non existing peripheral at 0x3F402018.
+11:38:53.8288 [WARNING] sysbus: [cpu: 0x400252B9] WriteDoubleWord to non existing peripheral at 0x3F402018, value 0x0.
+11:38:53.8288 [WARNING] sysbus: [cpu: 0x400252BE] WriteDoubleWord to non existing peripheral at 0x3F402004, value 0x0.
+11:38:53.8289 [WARNING] sysbus: [cpu: 0x400252CD] ReadDoubleWord from non existing peripheral at 0x3F402018.
+11:38:53.8289 [WARNING] sysbus: [cpu: 0x400252E3] WriteDoubleWord to non existing peripheral at 0x3F402018, value 0x0.
+11:38:53.8289 [WARNING] sysbus: [cpu: 0x40025316] ReadDoubleWord from non existing peripheral at 0x3F402018.
+11:38:53.8289 [WARNING] sysbus: [cpu: 0x4002532C] WriteDoubleWord to non existing peripheral at 0x3F402018, value 0x0.
+11:38:53.8289 [WARNING] sysbus: [cpu: 0x4002533A] ReadDoubleWord from non existing peripheral at 0x3F402024.
+11:38:53.8289 [WARNING] sysbus: [cpu: 0x4002534B] WriteDoubleWord to non existing peripheral at 0x3F402024, value 0x0.
+11:38:53.8290 [WARNING] sysbus: [cpu: 0x40025375] ReadDoubleWord from non existing peripheral at 0x3F402018.
+11:38:53.8290 [WARNING] sysbus: [cpu: 0x4002538B] WriteDoubleWord to non existing peripheral at 0x3F402018, value 0x10000000.
+11:38:53.8290 [WARNING] sysbus: [cpu: 0x40025399] ReadDoubleWord from non existing peripheral at 0x3F402028.
+11:38:53.8290 [WARNING] sysbus: [cpu: 0x400253A7] WriteDoubleWord to non existing peripheral at 0x3F402028, value 0x17.
+11:38:53.8290 [WARNING] sysbus: [cpu: 0x400253AC] ReadDoubleWord from non existing peripheral at 0x3F402000.
+11:38:53.8290 [WARNING] sysbus: [cpu: 0x400253B9] WriteDoubleWord to non existing peripheral at 0x3F402000, value 0x40000.
+11:38:53.8290 [WARNING] sysbus: [cpu: 0x400253BE] ReadDoubleWord from non existing peripheral at 0x3F402000.
+11:38:53.8291 [WARNING] sysbus: [cpu: 0x400253C6] WriteDoubleWord to non existing peripheral at 0x3F402008, value 0x0.
+11:38:53.8291 [WARNING] sysbus: [cpu: 0x400253CB] WriteDoubleWord to non existing peripheral at 0x3F402018, value 0x0.
+11:38:53.8291 [WARNING] sysbus: [cpu: 0x400253D0] WriteDoubleWord to non existing peripheral at 0x3F40201C, value 0x0.
+11:38:53.8291 [WARNING] sysbus: [cpu: 0x400253D5] WriteDoubleWord to non existing peripheral at 0x3F402020, value 0x0.
+11:38:53.8291 [WARNING] sysbus: [cpu: 0x400253EB] ReadDoubleWord from non existing peripheral at 0x3F402058.
+11:38:53.8291 [INFO] cpu: Entering function memcpy (entry) at 0x4001ABA8
+11:38:53.8293 [INFO] cpu: Entering function bootloader_flash_execute_command_common at 0x400253F9
+11:38:53.8293 [INFO] cpu: Entering function bootloader_execute_flash_command at 0x4002542C
+11:38:53.8294 [INFO] cpu: Entering function bootloader_read_flash_id at 0x40025440
+11:38:53.8294 [INFO] cpu: Entering function __bswapsi2 (entry) at 0x40006D0C
+11:38:53.8294 [INFO] cpu: Entering function bootloader_read_flash_id at 0x40025446
+11:38:53.8294 [INFO] cpu: Entering function bootloader_flash_update_id at 0x400E6AB5
+11:38:53.8294 [INFO] cpu: Entering function mspi_init at 0x4009B9A8
+11:38:53.8294 [INFO] cpu: Entering function flash_init_state (entry) at 0x4002572C
+11:38:53.8295 [INFO] cpu: Entering function spi_flash_init_chip_state (entry) at 0x4002A378
+11:38:53.8295 [INFO] cpu: Entering function flash_init_state at 0x40025732
+11:38:53.8295 [INFO] cpu: Entering function mspi_timing_flash_tuning (entry) at 0x4002A788
+11:38:53.8295 [INFO] cpu: Entering function flash_init_state at 0x40025735
+11:38:53.8295 [INFO] cpu: Entering function mspi_init at 0x4009B9AE
+11:38:53.8295 [INFO] cpu: Entering function esp_mmu_map_init (entry) at 0x400E6B6C
+11:38:53.8296 [INFO] cpu: Entering function memset (entry) at 0x4001AD3C
+11:38:53.8296 [INFO] cpu: Entering function esp_mmu_map_init at 0x400E6B7C
+11:38:53.8298 [INFO] cpu: Entering function s_get_bus_mask (entry) at 0x400E6ABC
+11:38:53.8305 [ERROR] cpu: unrecognized opcode in slot 0 (pc = 400e6ad2)
+    
+11:38:53.8305 [INFO] cpu: Entering function _UserExceptionVector (entry) at 0x40024340
+11:38:53.8305 [INFO] cpu: Entering function _xt_user_exc (entry) at 0x40027098
+11:38:53.8306 [INFO] cpu: Entering function _xt_handle_exc (entry) at 0x400270A1
+11:38:53.8309 [INFO] cpu: Entering function _xt_context_save (entry) at 0x40034FC8
+11:38:53.8309 [INFO] cpu: Entering function xthal_save_extra_nw (entry) at 0x40034FC0
+11:38:53.8309 [INFO] cpu: Entering function _xt_context_save+0x38 (guessed) at 0x40035000
+11:38:53.8310 [INFO] cpu: Entering function _WindowOverflow4 (entry) at 0x40024000
+11:38:53.8310 [INFO] cpu: Entering function _xt_context_save+0x63 (guessed) at 0x4003502B
+11:38:53.8311 [INFO] cpu: Entering function _WindowOverflow8 (entry) at 0x40024080
+11:38:53.8311 [INFO] cpu: Entering function _xt_context_save+0x69 (guessed) at 0x40035031
+11:38:53.8311 [INFO] cpu: Entering function _WindowOverflow8 (entry) at 0x40024080
+11:38:53.8311 [INFO] cpu: Entering function _xt_context_save+0x69 (guessed) at 0x40035031
+11:38:53.8311 [INFO] cpu: Entering function _WindowOverflow8 (entry) at 0x40024080
+11:38:53.8311 [INFO] cpu: Entering function _xt_context_save+0x6F (guessed) at 0x40035037
+11:38:53.8312 [INFO] cpu: Entering function _xt_handle_exc+0x2F (guessed) at 0x400270D0
+11:38:53.8313 [INFO] cpu: Entering function xt_unhandled_exception (entry) at 0x400257C8
+11:38:53.8313 [INFO] cpu: Entering function panic_enable_cache (entry) at 0x400257A4
+11:38:53.8313 [INFO] cpu: Entering function spi_flash_cache_enabled (entry) at 0x40025558
+11:38:53.8313 [INFO] cpu: Entering function cache_hal_is_cache_enabled (entry) at 0x4002FA3C
+11:38:53.8314 [INFO] cpu: Entering function spi_flash_cache_enabled at 0x40025564
+11:38:53.8315 [INFO] cpu: Entering function panic_enable_cache at 0x400257AA
+11:38:53.8315 [INFO] cpu: Entering function xt_unhandled_exception at 0x400257CE
+11:38:53.8315 [INFO] cpu: Entering function panic_handler (entry) at 0x4009BA8C
+11:38:53.8315 [INFO] cpu: Entering function esp_panic_handler_feed_wdts (entry) at 0x401437BC
+11:38:53.8316 [INFO] cpu: Entering function wdt_hal_is_enabled (entry) at 0x40031814
+11:38:53.8317 [WARNING] sysbus: [cpu: 0x4003182E] ReadDoubleWord from non existing peripheral at 0x3F41F048.
+11:38:53.8317 [INFO] cpu: Entering function esp_panic_handler_feed_wdts at 0x401437DE
+11:38:53.8317 [INFO] cpu: Entering function wdt_hal_is_enabled (entry) at 0x40031814
+11:38:53.8317 [WARNING] sysbus: [cpu: 0x4003182E] ReadDoubleWord from non existing peripheral at 0x3F420048.
+11:38:53.8318 [INFO] cpu: Entering function esp_panic_handler_feed_wdts at 0x4014380E
+11:38:53.8318 [INFO] cpu: Entering function wdt_hal_is_enabled (entry) at 0x40031814
+11:38:53.8318 [WARNING] sysbus: [cpu: 0x40031823] ReadDoubleWord from non existing peripheral at 0x3F408094.
+11:38:53.8318 [INFO] cpu: Entering function esp_panic_handler_feed_wdts at 0x40143834
+11:38:53.8318 [INFO] cpu: Entering function panic_handler at 0x4009BA95
+11:38:53.8319 [INFO] cpu: Entering function esp_panic_handler_increment_entry_count (entry) at 0x40143850
+11:38:53.8319 [INFO] cpu: Entering function panic_handler at 0x4009BA9D
+11:38:53.8319 [INFO] cpu: Entering function memset (entry) at 0x4001AD3C
+11:38:53.8320 [INFO] cpu: Entering function panic_handler at 0x4009BAA9
+11:38:53.8320 [INFO] cpu: Entering function esp_panic_handler_enable_rtc_wdt (entry) at 0x40143764
+11:38:53.8320 [INFO] cpu: Entering function wdt_hal_init (entry) at 0x400312E4
+11:38:53.8320 [INFO] cpu: Entering function memset (entry) at 0x4001AD3C
+11:38:53.8320 [INFO] cpu: Entering function wdt_hal_init at 0x400312F4
+11:38:53.8322 [WARNING] sysbus: [cpu: 0x40031431] WriteDoubleWord to non existing peripheral at 0x3F4080AC, value 0x50D83AA1.
+11:38:53.8323 [WARNING] sysbus: [cpu: 0x40031437] ReadDoubleWord from non existing peripheral at 0x3F408094.
+11:38:53.8323 [WARNING] sysbus: [cpu: 0x40031445] WriteDoubleWord to non existing peripheral at 0x3F408094, value 0x0.
+11:38:53.8323 [WARNING] sysbus: [cpu: 0x4003144B] ReadDoubleWord from non existing peripheral at 0x3F408094.
+11:38:53.8323 [WARNING] sysbus: [cpu: 0x40031457] WriteDoubleWord to non existing peripheral at 0x3F408094, value 0x0.
+11:38:53.8323 [WARNING] sysbus: [cpu: 0x4003145D] ReadDoubleWord from non existing peripheral at 0x3F408094.
+11:38:53.8323 [WARNING] sysbus: [cpu: 0x40031469] WriteDoubleWord to non existing peripheral at 0x3F408094, value 0x0.
+11:38:53.8323 [WARNING] sysbus: [cpu: 0x4003146F] ReadDoubleWord from non existing peripheral at 0x3F408094.
+11:38:53.8323 [WARNING] sysbus: [cpu: 0x4003147B] WriteDoubleWord to non existing peripheral at 0x3F408094, value 0x0.
+11:38:53.8323 [WARNING] sysbus: [cpu: 0x40031481] ReadDoubleWord from non existing peripheral at 0x3F408094.
+11:38:53.8323 [WARNING] sysbus: [cpu: 0x4003148D] WriteDoubleWord to non existing peripheral at 0x3F408094, value 0x0.
+11:38:53.8323 [WARNING] sysbus: [cpu: 0x40031493] ReadDoubleWord from non existing peripheral at 0x3F408094.
+11:38:53.8323 [WARNING] sysbus: [cpu: 0x400314B3] WriteDoubleWord to non existing peripheral at 0x3F408094, value 0x0.
+11:38:53.8323 [WARNING] sysbus: [cpu: 0x400314B9] ReadDoubleWord from non existing peripheral at 0x3F408094.
+11:38:53.8323 [WARNING] sysbus: [cpu: 0x400314C2] WriteDoubleWord to non existing peripheral at 0x3F408094, value 0x0.
+11:38:53.8323 [WARNING] sysbus: [cpu: 0x400314C8] ReadDoubleWord from non existing peripheral at 0x3F40804C.
+11:38:53.8323 [WARNING] sysbus: [cpu: 0x400314D3] WriteDoubleWord to non existing peripheral at 0x3F40804C, value 0x8.
+11:38:53.8324 [WARNING] sysbus: [cpu: 0x400314D9] ReadDoubleWord from non existing peripheral at 0x3F408040.
+11:38:53.8324 [WARNING] sysbus: [cpu: 0x400314EA] WriteDoubleWord to non existing peripheral at 0x3F408040, value 0x0.
+11:38:53.8324 [WARNING] sysbus: [cpu: 0x400314F0] ReadDoubleWord from non existing peripheral at 0x3F408094.
+11:38:53.8324 [WARNING] sysbus: [cpu: 0x400314FE] WriteDoubleWord to non existing peripheral at 0x3F408094, value 0x800.
+11:38:53.8324 [WARNING] sysbus: [cpu: 0x40031504] ReadDoubleWord from non existing peripheral at 0x3F408094.
+11:38:53.8324 [WARNING] sysbus: [cpu: 0x40031510] WriteDoubleWord to non existing peripheral at 0x3F408094, value 0x200.
+11:38:53.8324 [WARNING] sysbus: [cpu: 0x40031516] ReadDoubleWord from non existing peripheral at 0x3F408094.
+11:38:53.8324 [WARNING] sysbus: [cpu: 0x40031524] WriteDoubleWord to non existing peripheral at 0x3F408094, value 0x70000.
+11:38:53.8324 [WARNING] sysbus: [cpu: 0x4003152C] ReadDoubleWord from non existing peripheral at 0x3F408094.
+11:38:53.8324 [WARNING] sysbus: [cpu: 0x40031538] WriteDoubleWord to non existing peripheral at 0x3F408094, value 0xE000.
+11:38:53.8324 [WARNING] sysbus: [cpu: 0x4003153E] WriteDoubleWord to non existing peripheral at 0x3F4080AC, value 0x0.
+11:38:53.8324 [INFO] cpu: Entering function esp_panic_handler_enable_rtc_wdt at 0x40143780
+11:38:53.8324 [INFO] cpu: Entering function rtc_clk_slow_freq_get_hz (entry) at 0x4002ABF8
+11:38:53.8324 [INFO] cpu: Entering function rtc_clk_slow_src_get (entry) at 0x4002ABDC
+11:38:53.8324 [WARNING] sysbus: [cpu: 0x4002ABE7] ReadDoubleWord from non existing peripheral at 0x3F408074.
+11:38:53.8325 [INFO] cpu: Entering function rtc_clk_slow_freq_get_hz at 0x4002AC00
+11:38:53.8325 [INFO] cpu: Entering function esp_panic_handler_enable_rtc_wdt at 0x40143786
+11:38:53.8325 [INFO] cpu: Entering function wdt_hal_write_protect_disable (entry) at 0x400316A0
+11:38:53.8326 [WARNING] sysbus: [cpu: 0x400316B2] WriteDoubleWord to non existing peripheral at 0x3F4080AC, value 0x50D83AA1.
+11:38:53.8326 [INFO] cpu: Entering function esp_panic_handler_enable_rtc_wdt at 0x40143790
+11:38:53.8326 [INFO] cpu: Entering function wdt_hal_config_stage (entry) at 0x40031540
+11:38:53.8327 [WARNING] sysbus: [cpu: 0x40031587] ReadDoubleWord from non existing peripheral at 0x3F408094.
+11:38:53.8327 [WARNING] sysbus: [cpu: 0x40031599] WriteDoubleWord to non existing peripheral at 0x3F408094, value 0x40000000.
+11:38:53.8327 [WARNING] sysbus: [cpu: 0x400315A1] ReadDoubleWord from non existing peripheral at 0x3F41A034.
+11:38:53.8328 [WARNING] sysbus: [cpu: 0x400315B2] WriteDoubleWord to non existing peripheral at 0x3F408098, value 0x6DDD0.
+11:38:53.8328 [INFO] cpu: Entering function esp_panic_handler_enable_rtc_wdt at 0x401437A8
+11:38:53.8328 [INFO] cpu: Entering function wdt_hal_enable (entry) at 0x400316DC
+11:38:53.8328 [WARNING] sysbus: [cpu: 0x400316F0] ReadDoubleWord from non existing peripheral at 0x3F4080A8.
+11:38:53.8328 [WARNING] sysbus: [cpu: 0x400316F9] WriteDoubleWord to non existing peripheral at 0x3F4080A8, value 0x80000000.
+11:38:53.8328 [WARNING] sysbus: [cpu: 0x400316FF] ReadDoubleWord from non existing peripheral at 0x3F408094.
+11:38:53.8328 [WARNING] sysbus: [cpu: 0x40031708] WriteDoubleWord to non existing peripheral at 0x3F408094, value 0x80000000.
+11:38:53.8328 [INFO] cpu: Entering function esp_panic_handler_enable_rtc_wdt at 0x401437B0
+11:38:53.8329 [INFO] cpu: Entering function wdt_hal_write_protect_enable (entry) at 0x400316C0
+11:38:53.8329 [WARNING] sysbus: [cpu: 0x400316CF] WriteDoubleWord to non existing peripheral at 0x3F4080AC, value 0x0.
+11:38:53.8329 [INFO] cpu: Entering function esp_panic_handler_enable_rtc_wdt at 0x401437B8
+11:38:53.8329 [INFO] cpu: Entering function panic_handler at 0x4009BAB9
+11:38:53.8329 [INFO] cpu: Entering function esp_panic_handler_disable_timg_wdts (entry) at 0x40143714
+11:38:53.8330 [INFO] cpu: Entering function wdt_hal_write_protect_disable (entry) at 0x400316A0
+11:38:53.8330 [WARNING] sysbus: [cpu: 0x400316BA] WriteDoubleWord to non existing peripheral at 0x3F41F064, value 0x50D83AA1.
+11:38:53.8330 [INFO] cpu: Entering function esp_panic_handler_disable_timg_wdts at 0x4014372A
+11:38:53.8330 [INFO] cpu: Entering function wdt_hal_disable (entry) at 0x40031724
+11:38:53.8331 [WARNING] sysbus: [cpu: 0x40031746] ReadDoubleWord from non existing peripheral at 0x3F41F048.
+11:38:53.8331 [WARNING] sysbus: [cpu: 0x40031751] WriteDoubleWord to non existing peripheral at 0x3F41F048, value 0x0.
+11:38:53.8331 [INFO] cpu: Entering function esp_panic_handler_disable_timg_wdts at 0x40143732
+11:38:53.8331 [INFO] cpu: Entering function wdt_hal_write_protect_enable (entry) at 0x400316C0
+11:38:53.8331 [WARNING] sysbus: [cpu: 0x400316D9] WriteDoubleWord to non existing peripheral at 0x3F41F064, value 0x0.
+11:38:53.8332 [INFO] cpu: Entering function esp_panic_handler_disable_timg_wdts at 0x4014373A
+11:38:53.8332 [INFO] cpu: Entering function wdt_hal_write_protect_disable (entry) at 0x400316A0
+11:38:53.8332 [WARNING] sysbus: [cpu: 0x400316BA] WriteDoubleWord to non existing peripheral at 0x3F420064, value 0x50D83AA1.
+11:38:53.8332 [INFO] cpu: Entering function esp_panic_handler_disable_timg_wdts at 0x40143750
+11:38:53.8332 [INFO] cpu: Entering function wdt_hal_disable (entry) at 0x40031724
+11:38:53.8332 [WARNING] sysbus: [cpu: 0x40031746] ReadDoubleWord from non existing peripheral at 0x3F420048.
+11:38:53.8332 [WARNING] sysbus: [cpu: 0x40031751] WriteDoubleWord to non existing peripheral at 0x3F420048, value 0x0.
+11:38:53.8332 [INFO] cpu: Entering function esp_panic_handler_disable_timg_wdts at 0x40143758
+11:38:53.8332 [INFO] cpu: Entering function wdt_hal_write_protect_enable (entry) at 0x400316C0
+11:38:53.8332 [WARNING] sysbus: [cpu: 0x400316D9] WriteDoubleWord to non existing peripheral at 0x3F420064, value 0x0.
+11:38:53.8333 [INFO] cpu: Entering function esp_panic_handler_disable_timg_wdts at 0x40143760
+11:38:53.8333 [INFO] cpu: Entering function panic_handler at 0x4009BABF
+11:38:53.8338 [ERROR] cpu: CPU abort [PC=0x4009BAC2]: reading from external register not yet supported.
+
+### R4-RUNNER: timeout after 300000 ms - killing pid 48832 tree
+
+### R4-RUNNER: exit code 1 (KILLED ON TIMEOUT)

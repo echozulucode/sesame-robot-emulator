@@ -1,0 +1,237 @@
+11:24:58.6341 [INFO] Loaded monitor commands from: C:\Projects\sesame-robot-emulator\tools\renode\scripts/monitor.py
+Renode, version 1.16.1 (d66b0c2a-202602161036)
+
+(monitor) i $CWD/emulator/renode/scripts/r4-exp4-arduino-rom.resc
+11:24:58.7962 [INFO] Including script(s): C:\Projects\sesame-robot-emulator\emulator\renode\scripts\r4-exp4-arduino-rom.resc
+11:24:58.8171 [INFO] System bus created.
+11:24:59.4844 [WARNING] The debug mode now has no effect - connect a debugger, and switch to stepping mode.
+11:24:59.7667 [INFO] sysbus: Loading block of 114384 bytes length at 0x40000000.
+11:24:59.7842 [INFO] sysbus: Loading block of 14636 bytes length at 0x3FFAC600.
+11:24:59.7853 [INFO] sysbus: Loading block of 5160 bytes length at 0x3FFFEB70.
+### ROM image loaded (code 0x40000000, rodata 0x3FFAC600, data 0x3FFFEB70)
+11:24:59.8705 [INFO] sysbus: Loading block of 55500 bytes length at 0x3F000020.
+11:24:59.8708 [INFO] sysbus: Loading block of 40 bytes length at 0x3FF9FFD8.
+11:24:59.8708 [INFO] sysbus: Loading block of 98456 bytes length at 0x3FFB4000.
+11:24:59.8709 [INFO] sysbus: Loading block of 49600 bytes length at 0x40024000.
+11:24:59.8753 [INFO] sysbus: Loading block of 174038 bytes length at 0x40080020.
+11:24:59.8755 [INFO] sysbus: Loading block of 32 bytes length at 0x50000200.
+11:24:59.9768 [INFO] cpu: Setting PC value to 0x40025504.
+
+### entry PC
+0x40025504
+### bootstate applied - PS / WINDOWSTART / SP trampoline at 0x4006FF00
+0x50020
+'esp32s2' is not a recognized processor for this target (ignoring processor)
+'esp32s2' is not a recognized processor for this target (ignoring processor)
+11:25:00.3107 [INFO] Created new disassembler for triple xtensa, cpu esp32s2, with flags 0
+11:25:00.3107 [WARNING] The disassembler for Xtensa is currently an experimental feature in Renode
+0x4006ff00:   11feff 	l32r	a1, . -8
+0x4006ff03:   81feff 	l32r	a8, . -8
+0x4006ff06:   a00800 	jx	a8
+
+11:25:00.4558 [INFO] r4-arduino-c: Machine started.
+11:25:00.4795 [WARNING] sysbus: [cpu: 0x4000FF65] ReadDoubleWord from non existing peripheral at 0x3F408038.
+11:25:00.4823 [WARNING] sysbus: [cpu: 0x4002AE02] ReadDoubleWord from non existing peripheral at 0x61800000.
+11:25:00.4823 [WARNING] sysbus: [cpu: 0x4002AE13] ReadDoubleWord from non existing peripheral at 0x61800040.
+11:25:00.4823 [WARNING] sysbus: [cpu: 0x4002AE1E] ReadDoubleWord from non existing peripheral at 0x61800000.
+11:25:00.4823 [WARNING] sysbus: [cpu: 0x4002AE29] ReadDoubleWord from non existing peripheral at 0x61800040.
+11:25:00.4824 [WARNING] sysbus: [cpu: 0x40018CE9] ReadDoubleWord from non existing peripheral at 0x61800040.
+11:25:00.4834 [WARNING] sysbus: [cpu: 0x40018CF1] WriteDoubleWord to non existing peripheral at 0x61800040, value 0x1.
+11:25:00.4835 [WARNING] sysbus: [cpu: 0x40018D49] ReadDoubleWord from non existing peripheral at 0x61800000.
+11:25:00.4835 [WARNING] sysbus: [cpu: 0x40018D51] WriteDoubleWord to non existing peripheral at 0x61800000, value 0x1.
+11:25:00.4836 [WARNING] sysbus: [cpu: 0x4002AE5E] ReadDoubleWord from non existing peripheral at 0x61800044.
+11:25:00.4836 [WARNING] sysbus: [cpu: 0x4002AE68] WriteDoubleWord to non existing peripheral at 0x61800044, value 0x0.
+11:25:00.4836 [WARNING] sysbus: [cpu: 0x4002AE70] ReadDoubleWord from non existing peripheral at 0x61800004.
+11:25:00.4837 [WARNING] sysbus: [cpu: 0x4002AE75] WriteDoubleWord to non existing peripheral at 0x61800004, value 0x0.
+11:25:00.4837 [WARNING] sysbus: [cpu: 0x4002AE7A] ReadDoubleWord from non existing peripheral at 0x61800044.
+11:25:00.4837 [WARNING] sysbus: [cpu: 0x4002AE82] WriteDoubleWord to non existing peripheral at 0x61800044, value 0x0.
+11:25:00.4837 [WARNING] sysbus: [cpu: 0x4002AE87] ReadDoubleWord from non existing peripheral at 0x61800004.
+11:25:00.4837 [WARNING] sysbus: [cpu: 0x4002AE8C] WriteDoubleWord to non existing peripheral at 0x61800004, value 0x0.
+11:25:00.4838 [WARNING] sysbus: [cpu: 0x40018D86] ReadDoubleWord from non existing peripheral at 0x3F4C107C.
+11:25:00.4838 [WARNING] sysbus: [cpu: 0x40018D9A] WriteDoubleWord to non existing peripheral at 0x3F4C107C, value 0x1.
+11:25:00.4838 [WARNING] sysbus: [cpu: 0x40018DC2] ReadDoubleWord from non existing peripheral at 0x3F4C10D8.
+11:25:00.4838 [WARNING] sysbus: [cpu: 0x40018DCD] WriteDoubleWord to non existing peripheral at 0x3F4C10D8, value 0x1.
+11:25:00.4839 [WARNING] sysbus: [cpu: 0x40018CB1] ReadDoubleWord from non existing peripheral at 0x61800040.
+11:25:00.4839 [WARNING] sysbus: [cpu: 0x40018CBA] WriteDoubleWord to non existing peripheral at 0x61800040, value 0x0.
+11:25:00.4839 [WARNING] sysbus: [cpu: 0x400184A6] ReadDoubleWord from non existing peripheral at 0x61800040.
+11:25:00.4839 [WARNING] sysbus: [cpu: 0x400184AB] ReadDoubleWord from non existing peripheral at 0x61800040.
+11:25:00.4839 [WARNING] sysbus: [cpu: 0x400184B6] WriteDoubleWord to non existing peripheral at 0x61800040, value 0x0.
+11:25:00.4839 [WARNING] sysbus: [cpu: 0x400184BE] ReadDoubleWord from non existing peripheral at 0x61800040.
+11:25:00.5377 [WARNING] sysbus: [cpu: 0x400184BE] ReadDoubleWord from non existing peripheral at 0x61800040. (10000)
+11:25:00.5866 [WARNING] sysbus: [cpu: 0x400184BE] ReadDoubleWord from non existing peripheral at 0x61800040. (10000)
+11:25:00.6358 [WARNING] sysbus: [cpu: 0x400184BE] ReadDoubleWord from non existing peripheral at 0x61800040. (10000)
+11:25:00.6836 [WARNING] sysbus: [cpu: 0x400184BE] ReadDoubleWord from non existing peripheral at 0x61800040. (10000)
+11:25:00.7316 [WARNING] sysbus: [cpu: 0x400184BE] ReadDoubleWord from non existing peripheral at 0x61800040. (10000)
+11:25:00.7760 [WARNING] sysbus: [cpu: 0x400184BE] ReadDoubleWord from non existing peripheral at 0x61800040. (10000)
+11:25:00.8224 [WARNING] sysbus: [cpu: 0x400184BE] ReadDoubleWord from non existing peripheral at 0x61800040. (10000)
+11:25:00.8705 [WARNING] sysbus: [cpu: 0x400184BE] ReadDoubleWord from non existing peripheral at 0x61800040. (10000)
+11:25:00.9141 [WARNING] sysbus: [cpu: 0x400184BE] ReadDoubleWord from non existing peripheral at 0x61800040. (10000)
+11:25:00.9626 [WARNING] sysbus: [cpu: 0x400184BE] ReadDoubleWord from non existing peripheral at 0x61800040. (10000)
+11:25:01.0107 [WARNING] sysbus: [cpu: 0x400184BE] ReadDoubleWord from non existing peripheral at 0x61800040. (10000)
+11:25:01.0568 [WARNING] sysbus: [cpu: 0x400184BE] ReadDoubleWord from non existing peripheral at 0x61800040. (10000)
+11:25:01.1026 [WARNING] sysbus: [cpu: 0x400184BE] ReadDoubleWord from non existing peripheral at 0x61800040. (10000)
+11:25:01.1485 [WARNING] sysbus: [cpu: 0x400184BE] ReadDoubleWord from non existing peripheral at 0x61800040. (10000)
+11:25:01.1963 [WARNING] sysbus: [cpu: 0x400184BE] ReadDoubleWord from non existing peripheral at 0x61800040. (10000)
+11:25:01.2404 [WARNING] sysbus: [cpu: 0x400184BE] ReadDoubleWord from non existing peripheral at 0x61800040. (10000)
+11:25:01.2870 [WARNING] sysbus: [cpu: 0x400184BE] ReadDoubleWord from non existing peripheral at 0x61800040. (10000)
+11:25:01.3333 [WARNING] sysbus: [cpu: 0x400184BE] ReadDoubleWord from non existing peripheral at 0x61800040. (10000)
+11:25:01.3790 [WARNING] sysbus: [cpu: 0x400184BE] ReadDoubleWord from non existing peripheral at 0x61800040. (10000)
+11:25:01.4276 [WARNING] sysbus: [cpu: 0x400184BE] ReadDoubleWord from non existing peripheral at 0x61800040. (10000)
+11:25:01.4751 [WARNING] sysbus: [cpu: 0x400184BE] ReadDoubleWord from non existing peripheral at 0x61800040. (10000)
+11:25:01.5286 [WARNING] sysbus: [cpu: 0x400184BE] ReadDoubleWord from non existing peripheral at 0x61800040. (10000)
+11:25:01.5758 [WARNING] sysbus: [cpu: 0x400184BE] ReadDoubleWord from non existing peripheral at 0x61800040. (10000)
+11:25:01.6235 [WARNING] sysbus: [cpu: 0x400184BE] ReadDoubleWord from non existing peripheral at 0x61800040. (10000)
+11:25:01.6743 [WARNING] sysbus: [cpu: 0x400184BE] ReadDoubleWord from non existing peripheral at 0x61800040. (10000)
+11:25:01.7192 [WARNING] sysbus: [cpu: 0x400184BE] ReadDoubleWord from non existing peripheral at 0x61800040. (10000)
+11:25:01.7712 [WARNING] sysbus: [cpu: 0x400184BE] ReadDoubleWord from non existing peripheral at 0x61800040. (10000)
+11:25:01.8167 [WARNING] sysbus: [cpu: 0x400184BE] ReadDoubleWord from non existing peripheral at 0x61800040. (10000)
+11:25:01.8631 [WARNING] sysbus: [cpu: 0x400184BE] ReadDoubleWord from non existing peripheral at 0x61800040. (10000)
+11:25:01.9093 [WARNING] sysbus: [cpu: 0x400184BE] ReadDoubleWord from non existing peripheral at 0x61800040. (10000)
+11:25:01.9551 [WARNING] sysbus: [cpu: 0x400184BE] ReadDoubleWord from non existing peripheral at 0x61800040. (10000)
+11:25:02.0014 [WARNING] sysbus: [cpu: 0x400184BE] ReadDoubleWord from non existing peripheral at 0x61800040. (10000)
+11:25:02.0467 [WARNING] sysbus: [cpu: 0x400184BE] ReadDoubleWord from non existing peripheral at 0x61800040. (10000)
+11:25:02.0931 [WARNING] sysbus: [cpu: 0x400184BE] ReadDoubleWord from non existing peripheral at 0x61800040. (10000)
+11:25:02.1431 [WARNING] sysbus: [cpu: 0x400184BE] ReadDoubleWord from non existing peripheral at 0x61800040. (10000)
+11:25:02.1900 [WARNING] sysbus: [cpu: 0x400184BE] ReadDoubleWord from non existing peripheral at 0x61800040. (10000)
+11:25:02.2365 [WARNING] sysbus: [cpu: 0x400184BE] ReadDoubleWord from non existing peripheral at 0x61800040. (10000)
+11:25:02.2796 [WARNING] sysbus: [cpu: 0x400184BE] ReadDoubleWord from non existing peripheral at 0x61800040. (10000)
+11:25:02.3260 [WARNING] sysbus: [cpu: 0x400184BE] ReadDoubleWord from non existing peripheral at 0x61800040. (10000)
+11:25:02.3714 [WARNING] sysbus: [cpu: 0x400184BE] ReadDoubleWord from non existing peripheral at 0x61800040. (10000)
+11:25:02.4167 [WARNING] sysbus: [cpu: 0x400184BE] ReadDoubleWord from non existing peripheral at 0x61800040. (10000)
+11:25:02.4646 [WARNING] sysbus: [cpu: 0x400184BE] ReadDoubleWord from non existing peripheral at 0x61800040. (10000)
+11:25:02.5147 [WARNING] sysbus: [cpu: 0x400184BE] ReadDoubleWord from non existing peripheral at 0x61800040. (10000)
+11:25:02.5606 [WARNING] sysbus: [cpu: 0x400184BE] ReadDoubleWord from non existing peripheral at 0x61800040. (10000)
+11:25:02.6130 [WARNING] sysbus: [cpu: 0x400184BE] ReadDoubleWord from non existing peripheral at 0x61800040. (10000)
+11:25:02.6520 [WARNING] sysbus: [cpu: 0x400184BE] ReadDoubleWord from non existing peripheral at 0x61800040. (10000)
+11:25:02.6811 [WARNING] sysbus: [cpu: 0x400184BE] ReadDoubleWord from non existing peripheral at 0x61800040. (10000)
+11:25:02.7015 [WARNING] sysbus: [cpu: 0x400184BE] ReadDoubleWord from non existing peripheral at 0x61800040. (10000)
+11:25:02.7201 [WARNING] sysbus: [cpu: 0x400184BE] ReadDoubleWord from non existing peripheral at 0x61800040. (10000)
+11:25:02.7402 [WARNING] sysbus: [cpu: 0x400184BE] ReadDoubleWord from non existing peripheral at 0x61800040. (10000)
+11:25:02.7589 [WARNING] sysbus: [cpu: 0x400184BE] ReadDoubleWord from non existing peripheral at 0x61800040. (10000)
+11:25:02.7797 [WARNING] sysbus: [cpu: 0x400184BE] ReadDoubleWord from non existing peripheral at 0x61800040. (10000)
+11:25:02.8011 [WARNING] sysbus: [cpu: 0x400184BE] ReadDoubleWord from non existing peripheral at 0x61800040. (10000)
+11:25:02.8191 [WARNING] sysbus: [cpu: 0x400184BE] ReadDoubleWord from non existing peripheral at 0x61800040. (10000)
+11:25:02.8389 [WARNING] sysbus: [cpu: 0x400184BE] ReadDoubleWord from non existing peripheral at 0x61800040. (10000)
+11:25:02.8589 [WARNING] sysbus: [cpu: 0x400184BE] ReadDoubleWord from non existing peripheral at 0x61800040. (10000)
+11:25:02.8789 [WARNING] sysbus: [cpu: 0x400184BE] ReadDoubleWord from non existing peripheral at 0x61800040. (10000)
+11:25:02.8969 [WARNING] sysbus: [cpu: 0x400184BE] ReadDoubleWord from non existing peripheral at 0x61800040. (10000)
+11:25:02.9147 [WARNING] sysbus: [cpu: 0x400184BE] ReadDoubleWord from non existing peripheral at 0x61800040. (10000)
+11:25:02.9350 [WARNING] sysbus: [cpu: 0x400184BE] ReadDoubleWord from non existing peripheral at 0x61800040. (10000)
+11:25:02.9536 [WARNING] sysbus: [cpu: 0x400184BE] ReadDoubleWord from non existing peripheral at 0x61800040. (10000)
+11:25:02.9731 [WARNING] sysbus: [cpu: 0x400184BE] ReadDoubleWord from non existing peripheral at 0x61800040. (10000)
+11:25:02.9923 [WARNING] sysbus: [cpu: 0x400184BE] ReadDoubleWord from non existing peripheral at 0x61800040. (10000)
+11:25:03.0108 [WARNING] sysbus: [cpu: 0x400184BE] ReadDoubleWord from non existing peripheral at 0x61800040. (10000)
+11:25:03.0299 [WARNING] sysbus: [cpu: 0x400184BE] ReadDoubleWord from non existing peripheral at 0x61800040. (10000)
+11:25:03.0491 [WARNING] sysbus: [cpu: 0x400184BE] ReadDoubleWord from non existing peripheral at 0x61800040. (10000)
+11:25:03.0685 [WARNING] sysbus: [cpu: 0x400184BE] ReadDoubleWord from non existing peripheral at 0x61800040. (10000)
+11:25:03.0864 [WARNING] sysbus: [cpu: 0x400184BE] ReadDoubleWord from non existing peripheral at 0x61800040. (10000)
+11:25:03.1048 [WARNING] sysbus: [cpu: 0x400184BE] ReadDoubleWord from non existing peripheral at 0x61800040. (10000)
+11:25:03.1237 [WARNING] sysbus: [cpu: 0x400184BE] ReadDoubleWord from non existing peripheral at 0x61800040. (10000)
+11:25:03.1421 [WARNING] sysbus: [cpu: 0x400184BE] ReadDoubleWord from non existing peripheral at 0x61800040. (10000)
+11:25:03.1618 [WARNING] sysbus: [cpu: 0x400184BE] ReadDoubleWord from non existing peripheral at 0x61800040. (10000)
+11:25:03.1817 [WARNING] sysbus: [cpu: 0x400184BE] ReadDoubleWord from non existing peripheral at 0x61800040. (10000)
+11:25:03.2012 [WARNING] sysbus: [cpu: 0x400184BE] ReadDoubleWord from non existing peripheral at 0x61800040. (10000)
+11:25:03.2258 [WARNING] sysbus: [cpu: 0x400184BE] ReadDoubleWord from non existing peripheral at 0x61800040. (10000)
+11:25:03.2467 [WARNING] sysbus: [cpu: 0x400184BE] ReadDoubleWord from non existing peripheral at 0x61800040. (10000)
+11:25:03.2663 [WARNING] sysbus: [cpu: 0x400184BE] ReadDoubleWord from non existing peripheral at 0x61800040. (10000)
+11:25:03.2843 [WARNING] sysbus: [cpu: 0x400184BE] ReadDoubleWord from non existing peripheral at 0x61800040. (10000)
+11:25:03.3032 [WARNING] sysbus: [cpu: 0x400184BE] ReadDoubleWord from non existing peripheral at 0x61800040. (10000)
+11:25:03.3225 [WARNING] sysbus: [cpu: 0x400184BE] ReadDoubleWord from non existing peripheral at 0x61800040. (10000)
+11:25:03.3404 [WARNING] sysbus: [cpu: 0x400184BE] ReadDoubleWord from non existing peripheral at 0x61800040. (10000)
+11:25:03.3604 [WARNING] sysbus: [cpu: 0x400184BE] ReadDoubleWord from non existing peripheral at 0x61800040. (10000)
+11:25:03.3780 [WARNING] sysbus: [cpu: 0x400184BE] ReadDoubleWord from non existing peripheral at 0x61800040. (10000)
+11:25:03.3971 [WARNING] sysbus: [cpu: 0x400184BE] ReadDoubleWord from non existing peripheral at 0x61800040. (10000)
+11:25:03.4179 [WARNING] sysbus: [cpu: 0x400184BE] ReadDoubleWord from non existing peripheral at 0x61800040. (10000)
+11:25:03.4393 [WARNING] sysbus: [cpu: 0x400184BE] ReadDoubleWord from non existing peripheral at 0x61800040. (10000)
+11:25:03.4603 [WARNING] sysbus: [cpu: 0x400184BE] ReadDoubleWord from non existing peripheral at 0x61800040. (10000)
+11:25:03.4800 [WARNING] sysbus: [cpu: 0x400184BE] ReadDoubleWord from non existing peripheral at 0x61800040. (10000)
+11:25:03.5014 [WARNING] sysbus: [cpu: 0x400184BE] ReadDoubleWord from non existing peripheral at 0x61800040. (10000)
+11:25:03.5216 [WARNING] sysbus: [cpu: 0x400184BE] ReadDoubleWord from non existing peripheral at 0x61800040. (10000)
+11:25:03.5406 [WARNING] sysbus: [cpu: 0x400184BE] ReadDoubleWord from non existing peripheral at 0x61800040. (10000)
+11:25:03.5594 [WARNING] sysbus: [cpu: 0x400184BE] ReadDoubleWord from non existing peripheral at 0x61800040. (10000)
+11:25:03.5804 [WARNING] sysbus: [cpu: 0x400184BE] ReadDoubleWord from non existing peripheral at 0x61800040. (10000)
+11:25:03.6014 [WARNING] sysbus: [cpu: 0x400184BE] ReadDoubleWord from non existing peripheral at 0x61800040. (10000)
+11:25:03.6227 [WARNING] sysbus: [cpu: 0x400184BE] ReadDoubleWord from non existing peripheral at 0x61800040. (10000)
+11:25:03.6434 [WARNING] sysbus: [cpu: 0x400184BE] ReadDoubleWord from non existing peripheral at 0x61800040. (10000)
+11:25:03.6637 [WARNING] sysbus: [cpu: 0x400184BE] ReadDoubleWord from non existing peripheral at 0x61800040. (10000)
+11:25:03.6855 [WARNING] sysbus: [cpu: 0x400184BE] ReadDoubleWord from non existing peripheral at 0x61800040. (10000)
+11:25:03.7113 [WARNING] sysbus: [cpu: 0x400184BE] ReadDoubleWord from non existing peripheral at 0x61800040. (10000)
+11:25:03.7342 [WARNING] sysbus: [cpu: 0x400184BE] ReadDoubleWord from non existing peripheral at 0x61800040. (10000)
+11:25:03.7540 [WARNING] sysbus: [cpu: 0x400184BE] ReadDoubleWord from non existing peripheral at 0x61800040. (10000)
+11:25:03.7766 [WARNING] sysbus: [cpu: 0x400184BE] ReadDoubleWord from non existing peripheral at 0x61800040. (10000)
+11:25:03.8039 [WARNING] sysbus: [cpu: 0x400184BE] ReadDoubleWord from non existing peripheral at 0x61800040. (10000)
+11:25:03.8250 [WARNING] sysbus: [cpu: 0x400184BE] ReadDoubleWord from non existing peripheral at 0x61800040. (10000)
+11:25:03.8451 [WARNING] sysbus: [cpu: 0x400184BE] ReadDoubleWord from non existing peripheral at 0x61800040. (10000)
+11:25:03.8633 [WARNING] sysbus: [cpu: 0x400184BE] ReadDoubleWord from non existing peripheral at 0x61800040. (10000)
+11:25:03.8827 [WARNING] sysbus: [cpu: 0x400184BE] ReadDoubleWord from non existing peripheral at 0x61800040. (10000)
+11:25:03.9031 [WARNING] sysbus: [cpu: 0x400184BE] ReadDoubleWord from non existing peripheral at 0x61800040. (10000)
+11:25:03.9221 [WARNING] sysbus: [cpu: 0x400184BE] ReadDoubleWord from non existing peripheral at 0x61800040. (10000)
+11:25:03.9442 [WARNING] sysbus: [cpu: 0x400184BE] ReadDoubleWord from non existing peripheral at 0x61800040. (10000)
+11:25:03.9633 [WARNING] sysbus: [cpu: 0x400184BE] ReadDoubleWord from non existing peripheral at 0x61800040. (10000)
+11:25:03.9842 [WARNING] sysbus: [cpu: 0x400184BE] ReadDoubleWord from non existing peripheral at 0x61800040. (10000)
+11:25:04.0064 [WARNING] sysbus: [cpu: 0x400184BE] ReadDoubleWord from non existing peripheral at 0x61800040. (10000)
+11:25:04.0259 [WARNING] sysbus: [cpu: 0x400184BE] ReadDoubleWord from non existing peripheral at 0x61800040. (10000)
+11:25:04.0478 [WARNING] sysbus: [cpu: 0x400184BE] ReadDoubleWord from non existing peripheral at 0x61800040. (10000)
+11:25:04.0683 [WARNING] sysbus: [cpu: 0x400184BE] ReadDoubleWord from non existing peripheral at 0x61800040. (10000)
+11:25:04.0906 [WARNING] sysbus: [cpu: 0x400184BE] ReadDoubleWord from non existing peripheral at 0x61800040. (10000)
+11:25:04.1145 [WARNING] sysbus: [cpu: 0x400184BE] ReadDoubleWord from non existing peripheral at 0x61800040. (10000)
+11:25:04.1348 [WARNING] sysbus: [cpu: 0x400184BE] ReadDoubleWord from non existing peripheral at 0x61800040. (10000)
+11:25:04.1632 [WARNING] sysbus: [cpu: 0x400184BE] ReadDoubleWord from non existing peripheral at 0x61800040. (10000)
+11:25:04.1895 [WARNING] sysbus: [cpu: 0x400184BE] ReadDoubleWord from non existing peripheral at 0x61800040. (10000)
+11:25:04.2144 [WARNING] sysbus: [cpu: 0x400184BE] ReadDoubleWord from non existing peripheral at 0x61800040. (10000)
+11:25:04.2414 [WARNING] sysbus: [cpu: 0x400184BE] ReadDoubleWord from non existing peripheral at 0x61800040. (10000)
+11:25:04.2617 [WARNING] sysbus: [cpu: 0x400184BE] ReadDoubleWord from non existing peripheral at 0x61800040. (10000)
+11:25:04.2833 [WARNING] sysbus: [cpu: 0x400184BE] ReadDoubleWord from non existing peripheral at 0x61800040. (10000)
+11:25:04.3027 [WARNING] sysbus: [cpu: 0x400184BE] ReadDoubleWord from non existing peripheral at 0x61800040. (10000)
+11:25:04.3234 [WARNING] sysbus: [cpu: 0x400184BE] ReadDoubleWord from non existing peripheral at 0x61800040. (10000)
+11:25:04.3463 [WARNING] sysbus: [cpu: 0x400184BE] ReadDoubleWord from non existing peripheral at 0x61800040. (10000)
+11:25:04.3687 [WARNING] sysbus: [cpu: 0x400184BE] ReadDoubleWord from non existing peripheral at 0x61800040. (10000)
+11:25:04.3893 [WARNING] sysbus: [cpu: 0x400184BE] ReadDoubleWord from non existing peripheral at 0x61800040. (10000)
+11:25:04.4116 [WARNING] sysbus: [cpu: 0x400184BE] ReadDoubleWord from non existing peripheral at 0x61800040. (10000)
+11:25:04.4328 [WARNING] sysbus: [cpu: 0x400184BE] ReadDoubleWord from non existing peripheral at 0x61800040. (10000)
+11:25:04.4553 [WARNING] sysbus: [cpu: 0x400184BE] ReadDoubleWord from non existing peripheral at 0x61800040. (10000)
+11:25:04.4798 [WARNING] sysbus: [cpu: 0x400184BE] ReadDoubleWord from non existing peripheral at 0x61800040. (10000)
+11:25:04.5052 [WARNING] sysbus: [cpu: 0x400184BE] ReadDoubleWord from non existing peripheral at 0x61800040. (10000)
+11:25:04.5253 [WARNING] sysbus: [cpu: 0x400184BE] ReadDoubleWord from non existing peripheral at 0x61800040. (10000)
+11:25:04.5464 [WARNING] sysbus: [cpu: 0x400184BE] ReadDoubleWord from non existing peripheral at 0x61800040. (10000)
+11:25:04.5702 [WARNING] sysbus: [cpu: 0x400184BE] ReadDoubleWord from non existing peripheral at 0x61800040. (10000)
+11:25:04.5943 [WARNING] sysbus: [cpu: 0x400184BE] ReadDoubleWord from non existing peripheral at 0x61800040. (10000)
+11:25:04.6221 [WARNING] sysbus: [cpu: 0x400184BE] ReadDoubleWord from non existing peripheral at 0x61800040. (10000)
+11:25:04.6436 [WARNING] sysbus: [cpu: 0x400184BE] ReadDoubleWord from non existing peripheral at 0x61800040. (10000)
+11:25:04.6636 [WARNING] sysbus: [cpu: 0x400184BE] ReadDoubleWord from non existing peripheral at 0x61800040. (10000)
+11:25:04.6843 [WARNING] sysbus: [cpu: 0x400184BE] ReadDoubleWord from non existing peripheral at 0x61800040. (10000)
+11:25:04.7042 [WARNING] sysbus: [cpu: 0x400184BE] ReadDoubleWord from non existing peripheral at 0x61800040. (10000)
+11:25:04.7255 [WARNING] sysbus: [cpu: 0x400184BE] ReadDoubleWord from non existing peripheral at 0x61800040. (10000)
+11:25:04.7461 [WARNING] sysbus: [cpu: 0x400184BE] ReadDoubleWord from non existing peripheral at 0x61800040. (10000)
+11:25:04.7683 [WARNING] sysbus: [cpu: 0x400184BE] ReadDoubleWord from non existing peripheral at 0x61800040. (10000)
+11:25:04.7895 [WARNING] sysbus: [cpu: 0x400184BE] ReadDoubleWord from non existing peripheral at 0x61800040. (10000)
+11:25:04.8096 [WARNING] sysbus: [cpu: 0x400184BE] ReadDoubleWord from non existing peripheral at 0x61800040. (10000)
+11:25:04.8304 [WARNING] sysbus: [cpu: 0x400184BE] ReadDoubleWord from non existing peripheral at 0x61800040. (10000)
+11:25:04.8503 [WARNING] sysbus: [cpu: 0x400184BE] ReadDoubleWord from non existing peripheral at 0x61800040. (10000)
+11:25:04.8714 [WARNING] sysbus: [cpu: 0x400184BE] ReadDoubleWord from non existing peripheral at 0x61800040. (10000)
+11:25:04.8927 [WARNING] sysbus: [cpu: 0x400184BE] ReadDoubleWord from non existing peripheral at 0x61800040. (10000)
+11:25:04.9144 [WARNING] sysbus: [cpu: 0x400184BE] ReadDoubleWord from non existing peripheral at 0x61800040. (10000)
+11:25:04.9433 [WARNING] sysbus: [cpu: 0x400184BE] ReadDoubleWord from non existing peripheral at 0x61800040. (10000)
+11:25:04.9643 [WARNING] sysbus: [cpu: 0x400184BE] ReadDoubleWord from non existing peripheral at 0x61800040. (10000)
+11:25:04.9870 [WARNING] sysbus: [cpu: 0x400184BE] ReadDoubleWord from non existing peripheral at 0x61800040. (10000)
+11:25:05.0121 [WARNING] sysbus: [cpu: 0x400184BE] ReadDoubleWord from non existing peripheral at 0x61800040. (10000)
+11:25:05.0315 [WARNING] sysbus: [cpu: 0x400184BE] ReadDoubleWord from non existing peripheral at 0x61800040. (10000)
+11:25:05.0528 [WARNING] sysbus: [cpu: 0x400184BE] ReadDoubleWord from non existing peripheral at 0x61800040. (10000)
+11:25:05.0726 [WARNING] sysbus: [cpu: 0x400184BE] ReadDoubleWord from non existing peripheral at 0x61800040. (10000)
+11:25:05.0918 [WARNING] sysbus: [cpu: 0x400184BE] ReadDoubleWord from non existing peripheral at 0x61800040. (10000)
+11:25:05.1119 [WARNING] sysbus: [cpu: 0x400184BE] ReadDoubleWord from non existing peripheral at 0x61800040. (10000)
+11:25:05.1389 [WARNING] sysbus: [cpu: 0x400184BE] ReadDoubleWord from non existing peripheral at 0x61800040. (10000)
+11:25:05.1680 [WARNING] sysbus: [cpu: 0x400184BE] ReadDoubleWord from non existing peripheral at 0x61800040. (10000)
+11:25:05.1900 [WARNING] sysbus: [cpu: 0x400184BE] ReadDoubleWord from non existing peripheral at 0x61800040. (10000)
+11:25:05.1955 [WARNING] sysbus: [cpu: 0x400184BE] ReadDoubleWord from non existing peripheral at 0x61800040. (1805)
+11:25:05.1955 [INFO] r4-arduino-c: Machine paused.
+
+### final PC
+0x400184bc
+### executed instructions
+0x00000000004C4B40
+Renode is quitting
+11:25:05.2172 [WARNING] cpu: Some memory allocated by the translation library was not freed - 128.08KiB left allocated. This might indicate a memory leak. Cleaning up...
+11:25:05.2219 [INFO] r4-arduino-c: Disposed.
+
+### R4-RUNNER: exit code 0

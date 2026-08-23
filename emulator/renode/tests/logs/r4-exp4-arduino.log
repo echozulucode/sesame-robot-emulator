@@ -1,0 +1,24 @@
+11:06:14.8048 [INFO] Loaded monitor commands from: C:\Projects\sesame-robot-emulator\tools\renode\scripts/monitor.py
+Renode, version 1.16.1 (d66b0c2a-202602161036)
+
+(monitor) i $CWD/emulator/renode/scripts/r4-arduino-min.resc
+11:06:14.9840 [INFO] Including script(s): C:\Projects\sesame-robot-emulator\emulator\renode\scripts\r4-arduino-min.resc
+11:06:15.0098 [INFO] System bus created.
+11:06:15.7453 [WARNING] The debug mode now has no effect - connect a debugger, and switch to stepping mode.
+11:06:16.0449 [INFO] sysbus: Loading block of 55500 bytes length at 0x3F000020.
+11:06:16.0578 [INFO] sysbus: Loading block of 40 bytes length at 0x3FF9FFD8.
+11:06:16.0580 [INFO] sysbus: Loading block of 98456 bytes length at 0x3FFB4000.
+11:06:16.0581 [INFO] sysbus: Loading block of 49600 bytes length at 0x40024000.
+11:06:16.0582 [INFO] sysbus: Loading block of 174038 bytes length at 0x40080020.
+11:06:16.0584 [INFO] sysbus: Loading block of 32 bytes length at 0x50000200.
+11:06:16.1709 [INFO] cpu: Setting PC value to 0x40025504.
+
+### entry PC
+0x40025504
+11:06:16.5866 [INFO] r4-arduino: Machine started.
+11:06:16.6135 [ERROR] cpu: Illegal entry instruction(pc = 40025504)
+    
+11:06:16.6303 [WARNING] sysbus: [cpu: 0x400003C0] ReadByte from non existing peripheral at 0x400003C0.
+11:06:16.6316 [ERROR] cpu: CPU abort [PC=0x400003C0]: Trying to execute code outside RAM or ROM at 0x400003C0.
+
+### R4-RUNNER: timeout after 120000 ms - killing pid 4704 tree

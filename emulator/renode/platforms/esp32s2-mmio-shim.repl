@@ -1,0 +1,50 @@
+// ---------------------------------------------------------------------------
+// *** DIAGNOSTIC ONLY - NOT A MODEL OF ANYTHING ***
+//
+// RAM-backed stand-ins for the ESP32-S2 peripheral address windows, so that a
+// boot attempt walks PAST the first unmodelled register access instead of
+// stopping there, and we can enumerate the peripherals a boot actually touches
+// in the order it touches them.
+//
+// Reads return whatever was last written (zero initially). That is correct for
+// exactly no peripheral. Any behaviour observed with this overlay loaded is
+// NON-AUTHORITATIVE and must be labelled as such in findings. It is a
+// blocker-enumeration instrument, nothing more.
+//
+// Load AFTER esp32s2-sesame.repl (and after esp32s2-rom.repl if used). The
+// windows deliberately skip the pages occupied by the real uart0/uart1 models.
+//
+// Window bases from esp32s2-libs/3.3.11/include/soc/esp32s2/register/soc/reg_base.h:
+//   0x3F400000 UART0 (real model)      0x3F410000 UART1 (real model)
+//   0x3F402000 SPI1   0x3F403000 SPI0   0x3F404000 GPIO   0x3F407000 FRC_TIMER
+//   0x3F408000 RTCCNTL 0x3F408400 RTCIO 0x3F409000 IO_MUX 0x3F40F000 I2S
+//   0x3F413000 I2C0   0x3F416000 RMT   0x3F419000 LEDC   0x3F41A000 EFUSE
+//   0x3F41F000 TIMG0  0x3F420000 TIMG1 0x3F423000 SYSTIMER 0x3F424000 SPI2
+//   0x3F426000 SYSCON 0x3F427000 I2C1  0x3F439000 USB_WRAP 0x3F440000 SARADC
+//   0x3F4C0000 SYSTEM 0x3F4C1000 SENSITIVE 0x3F4C2000 INTERRUPT MATRIX
+//   0x3F4CE000 ASSIST_DEBUG 0x3F4CF000 DEDICATED_GPIO 0x3F4D0000 INTRUSION
+//   0x6003A000 AES/SHA/RSA/DS/HMAC/CRYPTO_DMA   0x60080000 USB
+//   0x61800000 EXTMEM (cache) 0x61801000 MMU table 0x61802/3000 I/D tag tables
+// ---------------------------------------------------------------------------
+
+// 0x3F401000 .. 0x3F40FFFF  (everything between UART0's page and UART1's page)
+shim_periph_a: Memory.MappedMemory @ sysbus 0x3F401000
+    size: 0xF000
+
+// 0x3F411000 .. 0x3F4BFFFF  (I2C0, RMT, LEDC, EFUSE, TIMG0/1, SYSTIMER, SPI2/3,
+//                            SYSCON, I2C1, USB_WRAP, SARADC)
+shim_periph_b: Memory.MappedMemory @ sysbus 0x3F411000
+    size: 0xAF000
+
+// 0x3F4C0000 .. 0x3F4DFFFF  (SYSTEM, SENSITIVE, INTERRUPT MATRIX, DMA_COPY,
+//                            ASSIST_DEBUG, DEDICATED_GPIO, INTRUSION)
+shim_periph_c: Memory.MappedMemory @ sysbus 0x3F4C0000
+    size: 0x20000
+
+// 0x60000000 .. 0x600FFFFF  (crypto block at 0x6003xxxx, USB core at 0x60080000)
+shim_periph_d: Memory.MappedMemory @ sysbus 0x60000000
+    size: 0x100000
+
+// 0x61800000 .. 0x6180FFFF  (EXTMEM/cache control, MMU table, cache tag tables)
+shim_extmem: Memory.MappedMemory @ sysbus 0x61800000
+    size: 0x10000

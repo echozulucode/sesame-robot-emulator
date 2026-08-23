@@ -1,0 +1,43 @@
+11:36:49.1987 [INFO] Loaded monitor commands from: C:\Projects\sesame-robot-emulator\tools\renode\scripts/monitor.py
+Renode, version 1.16.1 (d66b0c2a-202602161036)
+
+(monitor) i $CWD/emulator/renode/scripts/r4-exp5-sesame-shim.resc
+11:36:49.3649 [INFO] Including script(s): C:\Projects\sesame-robot-emulator\emulator\renode\scripts\r4-exp5-sesame-shim.resc
+11:36:49.3885 [INFO] System bus created.
+11:36:50.0571 [WARNING] The debug mode now has no effect - connect a debugger, and switch to stepping mode.
+11:36:50.3554 [INFO] sysbus: Loading block of 114384 bytes length at 0x40000000.
+11:36:50.3921 [INFO] sysbus: Loading block of 14636 bytes length at 0x3FFAC600.
+11:36:50.3934 [INFO] sysbus: Loading block of 5160 bytes length at 0x3FFFEB70.
+### ROM image loaded (code 0x40000000, rodata 0x3FFAC600, data 0x3FFFEB70)
+11:36:50.5166 [INFO] sysbus: Loading block of 253854 bytes length at 0x3F000020.
+11:36:50.5172 [INFO] sysbus: Loading block of 40 bytes length at 0x3FF9FFD8.
+11:36:50.5172 [INFO] sysbus: Loading block of 149488 bytes length at 0x3FFB4000.
+11:36:50.5174 [INFO] sysbus: Loading block of 69844 bytes length at 0x40024000.
+11:36:50.5175 [INFO] sysbus: Loading block of 803934 bytes length at 0x40080020.
+11:36:50.5179 [INFO] sysbus: Loading block of 32 bytes length at 0x50000200.
+11:36:50.7952 [INFO] cpu: Setting PC value to 0x40025738.
+
+### entry PC
+0x40025738
+### bootstate applied - PS / WINDOWSTART / SP trampoline at 0x4006FF00
+0x50020
+'esp32s2' is not a recognized processor for this target (ignoring processor)
+'esp32s2' is not a recognized processor for this target (ignoring processor)
+11:36:51.1917 [INFO] Created new disassembler for triple xtensa, cpu esp32s2, with flags 0
+11:36:51.1918 [WARNING] The disassembler for Xtensa is currently an experimental feature in Renode
+0x4006ff00:   11feff 	l32r	a1, . -8
+0x4006ff03:   81feff 	l32r	a8, . -8
+0x4006ff06:   a00800 	jx	a8
+
+11:36:51.3822 [INFO] r4-sesame-d: Machine started.
+11:36:51.5858 [INFO] r4-sesame-d: Machine paused.
+
+### final PC
+0x400253be
+### executed instructions
+0x0000000001312D00
+Renode is quitting
+11:36:51.6102 [WARNING] cpu: Some memory allocated by the translation library was not freed - 128.08KiB left allocated. This might indicate a memory leak. Cleaning up...
+11:36:51.6162 [INFO] r4-sesame-d: Disposed.
+
+### R4-RUNNER: exit code 0

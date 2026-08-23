@@ -1,0 +1,45 @@
+:name: R4 / Experiment 5 - DIAGNOSTIC: real Sesame ELF on cpuType de233_fpu
+:description: *** NON-AUTHORITATIVE - NOT AN ESP32-S2 *** R2 section 4 found that the
+:description: de233_fpu tlib core config executes `salt`/`saltu`, which the
+:description: esp32/esp32s2/esp32s3 configs reject. This run swaps ONLY the cpuType,
+:description: keeping the same memory map, the same real ROM image and the same
+:description: RAM-backed MMIO shim, to test whether the missing LX7 opcodes are
+:description: anywhere near the binding constraint on this boot.
+:description:
+:description: de233_fpu is a different Xtensa configuration with different window,
+:description: exception and special-register behaviour. Nothing observed here is
+:description: evidence about the ESP32-S2.
+:description:
+:description:   node emulator/renode/tests/r4-run.mjs emulator/renode/scripts/r4-exp5-sesame-de233.resc r4-exp5-sesame-de233 300
+
+using sysbus
+
+mach create "r4-sesame-de233"
+machine LoadPlatformDescriptionFromString "cpu: CPU.Xtensa @ sysbus { cpuType: \"de233_fpu\"; frequency: 240000000 }"
+machine LoadPlatformDescriptionFromString "iram: Memory.MappedMemory @ sysbus 0x40020000 { size: 0x50000 }"
+machine LoadPlatformDescriptionFromString "dram: Memory.MappedMemory @ sysbus 0x3FFB0000 { size: 0x50000 }"
+machine LoadPlatformDescriptionFromString "rtc_fast_data: Memory.MappedMemory @ sysbus 0x3FF9E000 { size: 0x2000 }"
+machine LoadPlatformDescriptionFromString "rtc_fast_instr: Memory.MappedMemory @ sysbus 0x40070000 { size: 0x2000 }"
+machine LoadPlatformDescriptionFromString "rtc_slow: Memory.MappedMemory @ sysbus 0x50000000 { size: 0x2000 }"
+machine LoadPlatformDescriptionFromString "drom: Memory.MappedMemory @ sysbus 0x3F000000 { size: 0x3F0000 }"
+machine LoadPlatformDescriptionFromString "irom: Memory.MappedMemory @ sysbus 0x40080000 { size: 0x780000 }"
+machine LoadPlatformDescriptionFromString "uart0: UART.ESP32_UART @ sysbus 0x3F400000"
+i @emulator/renode/scripts/r4-romimage.resc
+machine LoadPlatformDescription @emulator/renode/platforms/esp32s2-mmio-shim.repl
+
+logLevel 1
+sysbus LoadELF @firmware/artifacts/s2mini/sesame-firmware-main.ino.elf
+
+$entry = 0x40025738
+i @emulator/renode/scripts/r4-bootstate.resc
+i @emulator/renode/scripts/r4-shim-seeds.resc
+
+emulation RunFor "0.05"
+
+echo ""
+echo "### final PC"
+cpu PC
+echo "### executed instructions"
+cpu ExecutedInstructions
+
+quit

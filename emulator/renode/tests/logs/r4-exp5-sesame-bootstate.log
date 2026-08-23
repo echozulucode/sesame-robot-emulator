@@ -1,0 +1,34 @@
+11:33:18.1590 [INFO] Loaded monitor commands from: C:\Projects\sesame-robot-emulator\tools\renode\scripts/monitor.py
+Renode, version 1.16.1 (d66b0c2a-202602161036)
+
+(monitor) i $CWD/emulator/renode/scripts/r4-exp5-sesame-bootstate.resc
+11:33:18.3189 [INFO] Including script(s): C:\Projects\sesame-robot-emulator\emulator\renode\scripts\r4-exp5-sesame-bootstate.resc
+11:33:18.3410 [INFO] System bus created.
+11:33:19.0084 [WARNING] The debug mode now has no effect - connect a debugger, and switch to stepping mode.
+11:33:19.3386 [INFO] sysbus: Loading block of 253854 bytes length at 0x3F000020.
+11:33:19.3514 [INFO] sysbus: Loading block of 40 bytes length at 0x3FF9FFD8.
+11:33:19.3516 [INFO] sysbus: Loading block of 149488 bytes length at 0x3FFB4000.
+11:33:19.3517 [INFO] sysbus: Loading block of 69844 bytes length at 0x40024000.
+11:33:19.3518 [INFO] sysbus: Loading block of 803934 bytes length at 0x40080020.
+11:33:19.3522 [INFO] sysbus: Loading block of 32 bytes length at 0x50000200.
+11:33:19.5916 [INFO] cpu: Setting PC value to 0x40025738.
+
+### entry PC
+0x40025738
+### bootstate applied - PS / WINDOWSTART / SP trampoline at 0x4006FF00
+0x50020
+'esp32s2' is not a recognized processor for this target (ignoring processor)
+'esp32s2' is not a recognized processor for this target (ignoring processor)
+11:33:19.9374 [INFO] Created new disassembler for triple xtensa, cpu esp32s2, with flags 0
+11:33:19.9375 [WARNING] The disassembler for Xtensa is currently an experimental feature in Renode
+0x4006ff00:   11feff 	l32r	a1, . -8
+0x4006ff03:   81feff 	l32r	a8, . -8
+0x4006ff06:   a00800 	jx	a8
+
+11:33:20.0692 [INFO] r4-sesame-b: Machine started.
+11:33:20.0944 [WARNING] sysbus: [cpu: 0x4000FF58] ReadByte from non existing peripheral at 0x4000FF58.
+11:33:20.0956 [ERROR] cpu: CPU abort [PC=0x4000FF58]: Trying to execute code outside RAM or ROM at 0x4000FF58.
+
+### R4-RUNNER: timeout after 200000 ms - killing pid 28404 tree
+
+### R4-RUNNER: exit code 1 (KILLED ON TIMEOUT)

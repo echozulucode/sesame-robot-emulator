@@ -1,0 +1,33 @@
+// ---------------------------------------------------------------------------
+// ESP32-S2 mask-ROM windows - OVERLAY on esp32s2-sesame.repl
+//
+// Load AFTER esp32s2-sesame.repl:
+//     machine LoadPlatformDescription @emulator/renode/platforms/esp32s2-sesame.repl
+//     machine LoadPlatformDescription @emulator/renode/platforms/esp32s2-rom.repl
+//
+// esp32s2-sesame.repl note 3 says "NO BOOT ROM". This overlay adds the two
+// address windows the ROM occupies; the CONTENTS come from Espressif's own
+// published ROM ELF and are loaded by emulator/renode/scripts/r4-romimage.resc
+// (fetch with `node scripts/fetch-esp32s2-rom.mjs`).
+//
+// Windows, from esp32s2-libs/3.3.11/include/soc/esp32s2/include/soc/soc.h:
+//   162-163  SOC_IROM_MASK_LOW 0x40000000 .. SOC_IROM_MASK_HIGH 0x40020000
+// and from the ROM ELF's own section table (readelf -S esp32s2_rev0_rom.elf):
+//   .WindowVectors.text 0x40000000 ... .text 0x40007118+0x14DB8 = 0x4001BED0
+//   .rodata             0x3FFAC600 + 0x392C                     = 0x3FFAFF2C
+//
+// The ROM's rodata sits at 0x3FFA0000-0x3FFAFFFF, i.e. BELOW SOC_DRAM_LOW
+// (0x3FFB0000, soc.h:166), so it is not covered by the `dram` region in the base
+// platform and needs its own window here.
+//
+// This is a real image, not a stub: every ROM function the application calls
+// (memcpy, memset, esp_rom_printf, the libgcc soft-float set, the SPI-flash and
+// cache helpers) executes its actual silicon code. What it does NOT bring is the
+// peripherals that code drives - see docs/findings/R4-boot-probe.md.
+// ---------------------------------------------------------------------------
+
+rom: Memory.MappedMemory @ sysbus 0x40000000
+    size: 0x20000
+
+rom_data: Memory.MappedMemory @ sysbus 0x3FFA0000
+    size: 0x10000

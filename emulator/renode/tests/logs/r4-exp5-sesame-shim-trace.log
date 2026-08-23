@@ -1,0 +1,117 @@
+11:37:19.9951 [INFO] Loaded monitor commands from: C:\Projects\sesame-robot-emulator\tools\renode\scripts/monitor.py
+Renode, version 1.16.1 (d66b0c2a-202602161036)
+
+(monitor) i $CWD/emulator/renode/scripts/r4-exp5-sesame-shim-trace.resc
+11:37:20.1553 [INFO] Including script(s): C:\Projects\sesame-robot-emulator\emulator\renode\scripts\r4-exp5-sesame-shim-trace.resc
+11:37:20.1768 [INFO] System bus created.
+11:37:20.8683 [WARNING] The debug mode now has no effect - connect a debugger, and switch to stepping mode.
+11:37:21.1590 [INFO] sysbus: Loading block of 114384 bytes length at 0x40000000.
+11:37:21.1759 [INFO] sysbus: Loading block of 14636 bytes length at 0x3FFAC600.
+11:37:21.1770 [INFO] sysbus: Loading block of 5160 bytes length at 0x3FFFEB70.
+### ROM image loaded (code 0x40000000, rodata 0x3FFAC600, data 0x3FFFEB70)
+11:37:21.2880 [INFO] sysbus: Loading block of 253854 bytes length at 0x3F000020.
+11:37:21.2885 [INFO] sysbus: Loading block of 40 bytes length at 0x3FF9FFD8.
+11:37:21.2885 [INFO] sysbus: Loading block of 149488 bytes length at 0x3FFB4000.
+11:37:21.2887 [INFO] sysbus: Loading block of 69844 bytes length at 0x40024000.
+11:37:21.2888 [INFO] sysbus: Loading block of 803934 bytes length at 0x40080020.
+11:37:21.2892 [INFO] sysbus: Loading block of 32 bytes length at 0x50000200.
+11:37:21.5289 [INFO] cpu: Setting PC value to 0x40025738.
+### bootstate applied - PS / WINDOWSTART / SP trampoline at 0x4006FF00
+0x50020
+'esp32s2' is not a recognized processor for this target (ignoring processor)
+'esp32s2' is not a recognized processor for this target (ignoring processor)
+11:37:21.8443 [INFO] Created new disassembler for triple xtensa, cpu esp32s2, with flags 0
+11:37:21.8444 [WARNING] The disassembler for Xtensa is currently an experimental feature in Renode
+0x4006ff00:   11feff 	l32r	a1, . -8
+0x4006ff03:   81feff 	l32r	a8, . -8
+0x4006ff06:   a00800 	jx	a8
+
+11:37:21.9834 [INFO] r4-sesame-dt: Machine started.
+11:37:21.9978 [INFO] cpu: Entering function without name at 0x4006FF00
+11:37:22.0000 [INFO] cpu: Entering function call_start_cpu0 (entry) at 0x40025738
+11:37:22.0003 [INFO] cpu: Entering function rtc_get_reset_reason (entry) at 0x4000FF58
+11:37:22.0007 [INFO] cpu: Entering function call_start_cpu0 at 0x4002574A
+11:37:22.0009 [INFO] cpu: Entering function memset (entry) at 0x4001AD3C
+11:37:22.0061 [INFO] cpu: Entering function call_start_cpu0 at 0x40025761
+11:37:22.0062 [INFO] cpu: Entering function memset (entry) at 0x4001AD3C
+11:37:22.0062 [INFO] cpu: Entering function call_start_cpu0 at 0x40025775
+11:37:22.0062 [INFO] cpu: Entering function cache_hal_init (entry) at 0x4002F96C
+11:37:22.0062 [INFO] cpu: Entering function s_cache_hal_init_ctx (entry) at 0x4002F92C
+11:37:22.0064 [INFO] cpu: Entering function cache_hal_init at 0x4002F972
+11:37:22.0064 [INFO] cpu: Entering function Cache_Enable_ICache (entry) at 0x40018CF8
+11:37:22.0064 [INFO] cpu: Entering function Cache_Resume_ICache (entry) at 0x40018CDC
+11:37:22.0065 [INFO] cpu: Entering function Cache_Resume_ICache_Autoload (entry) at 0x400184C4
+11:37:22.0066 [INFO] cpu: Entering function Cache_Resume_ICache at 0x40018CF6
+11:37:22.0066 [INFO] cpu: Entering function Cache_Enable_ICache at 0x40018D00
+11:37:22.0066 [INFO] cpu: Entering function cache_hal_init at 0x4002F981
+11:37:22.0066 [INFO] cpu: Entering function Cache_Enable_DCache (entry) at 0x40018D58
+11:37:22.0067 [INFO] cpu: Entering function Cache_Resume_DCache (entry) at 0x40018D3C
+11:37:22.0067 [INFO] cpu: Entering function Cache_Resume_DCache_Autoload (entry) at 0x4001850C
+11:37:22.0068 [INFO] cpu: Entering function Cache_Resume_DCache at 0x40018D56
+11:37:22.0068 [INFO] cpu: Entering function Cache_Enable_DCache at 0x40018D60
+11:37:22.0068 [INFO] cpu: Entering function cache_hal_init at 0x4002F98A
+11:37:22.0068 [INFO] cpu: Entering function call_start_cpu0 at 0x40025778
+11:37:22.0068 [INFO] cpu: Entering function esp_config_instruction_cache_mode (entry) at 0x4002556C
+11:37:22.0069 [INFO] cpu: Entering function Cache_Allocate_SRAM (entry) at 0x40018D6C
+11:37:22.0071 [INFO] cpu: Entering function esp_config_instruction_cache_mode at 0x4002557D
+11:37:22.0071 [INFO] cpu: Entering function Cache_Suspend_ICache (entry) at 0x40018CA4
+11:37:22.0071 [INFO] cpu: Entering function Cache_Suspend_ICache_Autoload (entry) at 0x40018498
+11:37:22.0072 [INFO] cpu: Entering function Cache_Suspend_ICache at 0x40018CBD
+11:37:22.0072 [INFO] cpu: Entering function esp_config_instruction_cache_mode at 0x40025583
+11:37:22.0072 [INFO] cpu: Entering function Cache_Set_ICache_Mode (entry) at 0x4001803C
+11:37:22.0073 [INFO] cpu: Entering function esp_config_instruction_cache_mode at 0x40025590
+11:37:22.0074 [INFO] cpu: Entering function Cache_Invalidate_ICache_All (entry) at 0x40018420
+11:37:22.0074 [INFO] cpu: Entering function Cache_Invalidate_ICache_Items (entry) at 0x400181B8
+11:37:22.0075 [INFO] cpu: Entering function Cache_Invalidate_ICache_All at 0x4001842A
+11:37:22.0075 [INFO] cpu: Entering function esp_config_instruction_cache_mode at 0x40025596
+11:37:22.0075 [INFO] cpu: Entering function Cache_Resume_ICache (entry) at 0x40018CDC
+11:37:22.0075 [INFO] cpu: Entering function Cache_Resume_ICache_Autoload (entry) at 0x400184C4
+11:37:22.0075 [INFO] cpu: Entering function Cache_Resume_ICache at 0x40018CF6
+11:37:22.0075 [INFO] cpu: Entering function esp_config_instruction_cache_mode at 0x4002559E
+11:37:22.0075 [INFO] cpu: Entering function call_start_cpu0 at 0x4002577B
+11:37:22.0076 [INFO] cpu: Entering function esp_config_data_cache_mode (entry) at 0x400255A0
+11:37:22.0076 [INFO] cpu: Entering function Cache_Allocate_SRAM (entry) at 0x40018D6C
+11:37:22.0076 [INFO] cpu: Entering function esp_config_data_cache_mode at 0x400255B1
+11:37:22.0076 [INFO] cpu: Entering function Cache_Set_DCache_Mode (entry) at 0x40018074
+11:37:22.0077 [INFO] cpu: Entering function esp_config_data_cache_mode at 0x400255BD
+11:37:22.0077 [INFO] cpu: Entering function Cache_Invalidate_DCache_All (entry) at 0x4001842C
+11:37:22.0078 [INFO] cpu: Entering function Cache_Invalidate_DCache_Items (entry) at 0x40018208
+11:37:22.0078 [INFO] cpu: Entering function Cache_Invalidate_DCache_All at 0x40018436
+11:37:22.0078 [INFO] cpu: Entering function esp_config_data_cache_mode at 0x400255C3
+11:37:22.0079 [INFO] cpu: Entering function call_start_cpu0 at 0x4002577E
+11:37:22.0079 [INFO] cpu: Entering function Cache_Enable_DCache (entry) at 0x40018D58
+11:37:22.0079 [INFO] cpu: Entering function Cache_Resume_DCache (entry) at 0x40018D3C
+11:37:22.0079 [INFO] cpu: Entering function Cache_Resume_DCache_Autoload (entry) at 0x4001850C
+11:37:22.0079 [INFO] cpu: Entering function Cache_Resume_DCache at 0x40018D56
+11:37:22.0079 [INFO] cpu: Entering function Cache_Enable_DCache at 0x40018D60
+11:37:22.0079 [INFO] cpu: Entering function call_start_cpu0 at 0x40025786
+11:37:22.0081 [INFO] cpu: Entering function sys_rtc_init$isra$0 (entry) at 0x4009BA84
+11:37:22.0081 [INFO] cpu: Entering function esp_rtc_init (entry) at 0x4009BF0C
+11:37:22.0082 [INFO] cpu: Entering function rtc_get_reset_reason (entry) at 0x4000FF58
+11:37:22.0082 [INFO] cpu: Entering function esp_rtc_init at 0x4009BF1D
+11:37:22.0083 [INFO] cpu: Entering function rtc_init (entry) at 0x40142FD0
+11:37:22.0087 [INFO] cpu: Entering function rtc_sleep_pd (entry) at 0x4002B0C8
+11:37:22.0090 [INFO] cpu: Entering function rtc_init at 0x40143310
+11:37:22.0091 [INFO] cpu: Entering function sar_periph_ctrl_init (entry) at 0x4009DF98
+11:37:22.0091 [INFO] cpu: Entering function rtc_init at 0x4014343A
+11:37:22.0091 [INFO] cpu: Entering function esp_rtc_init at 0x4009BF38
+11:37:22.0092 [INFO] cpu: Entering function sys_rtc_init$isra$0 at 0x4009BA8A
+11:37:22.0092 [INFO] cpu: Entering function call_start_cpu0 at 0x4002578C
+11:37:22.0092 [INFO] cpu: Entering function mspi_init (entry) at 0x4009B99C
+11:37:22.0092 [INFO] cpu: Entering function esp_mspi_pin_init (entry) at 0x4002A370
+11:37:22.0092 [INFO] cpu: Entering function mspi_init at 0x4009B9A5
+11:37:22.0093 [INFO] cpu: Entering function bootloader_flash_update_id (entry) at 0x400E6AAC
+11:37:22.0093 [INFO] cpu: Entering function bootloader_read_flash_id (entry) at 0x40025430
+11:37:22.0093 [INFO] cpu: Entering function bootloader_execute_flash_command (entry) at 0x40025410
+11:37:22.0094 [INFO] cpu: Entering function bootloader_flash_execute_command_common (entry) at 0x400251B4
+11:37:23.1551 [INFO] r4-sesame-dt: Machine paused.
+
+### final PC
+0x400253be
+### executed instructions
+0x00000000004C4B40
+Renode is quitting
+11:37:23.1797 [WARNING] cpu: Some memory allocated by the translation library was not freed - 128.08KiB left allocated. This might indicate a memory leak. Cleaning up...
+11:37:23.1857 [INFO] r4-sesame-dt: Disposed.
+
+### R4-RUNNER: exit code 0

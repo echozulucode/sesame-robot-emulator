@@ -1,0 +1,37 @@
+:name: R4 / Experiment 5 - DIAGNOSTIC: enumerate the MMIO addresses the boot touches
+:description: *** NON-AUTHORITATIVE *** Rung C (real Sesame ELF + real ROM) plus a
+:description: RAM stand-in for the EXTMEM/cache window ONLY, so the boot walks past the
+:description: cache busy-waits while every other peripheral access stays UNMAPPED and
+:description: is therefore logged by the system bus as
+:description:     "Read/WriteDoubleWord from/to non existing peripheral at 0x...".
+:description: That log is the observed peripheral touch list in
+:description: docs/findings/R4-boot-probe.md - real addresses from a real run, not a
+:description: static guess.
+:description:
+:description:   node emulator/renode/tests/r4-run.mjs emulator/renode/scripts/r4-exp5-sesame-observe.resc r4-exp5-sesame-observe 300
+
+using sysbus
+
+mach create "r4-sesame-obs"
+machine LoadPlatformDescription @emulator/renode/platforms/esp32s2-sesame.repl
+i @emulator/renode/scripts/r4-romimage.resc
+machine LoadPlatformDescriptionFromString "shim_extmem: Memory.MappedMemory @ sysbus 0x61800000 { size: 0x10000 }"
+
+logLevel 1
+sysbus LoadELF @firmware/artifacts/s2mini/sesame-firmware-main.ino.elf
+
+$entry = 0x40025738
+i @emulator/renode/scripts/r4-bootstate.resc
+i @emulator/renode/scripts/r4-shim-seeds.resc
+
+cpu LogFunctionNames true true
+
+emulation RunFor "0.02"
+
+echo ""
+echo "### final PC"
+cpu PC
+echo "### executed instructions"
+cpu ExecutedInstructions
+
+quit

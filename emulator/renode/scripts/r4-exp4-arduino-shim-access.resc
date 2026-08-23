@@ -1,0 +1,34 @@
+:name: R4 / Experiment 4 rung D + peripheral-access log - DIAGNOSTIC
+:description: *** NON-AUTHORITATIVE *** Same machine as r4-exp4-arduino-shim.resc with
+:description: `sysbus LogAllPeripheralsAccess true`, so every MMIO read and write the
+:description: boot performs is logged with its address. Used to produce the
+:description: "observed touched at 0x..." column of the peripheral backlog in
+:description: docs/findings/R4-boot-probe.md.
+:description:
+:description:   node emulator/renode/tests/r4-run.mjs emulator/renode/scripts/r4-exp4-arduino-shim-access.resc r4-exp4-arduino-shim-access 300
+
+using sysbus
+
+mach create "r4-arduino-da"
+machine LoadPlatformDescription @emulator/renode/platforms/esp32s2-sesame.repl
+i @emulator/renode/scripts/r4-romimage.resc
+machine LoadPlatformDescription @emulator/renode/platforms/esp32s2-mmio-shim.repl
+
+logLevel 0
+sysbus LoadELF @firmware/probes/build/r4-arduino-min.elf
+
+$entry = 0x40025504
+i @emulator/renode/scripts/r4-bootstate.resc
+i @emulator/renode/scripts/r4-shim-seeds.resc
+
+sysbus LogAllPeripheralsAccess true
+
+emulation RunFor "0.002"
+
+echo ""
+echo "### final PC"
+cpu PC
+echo "### executed instructions"
+cpu ExecutedInstructions
+
+quit

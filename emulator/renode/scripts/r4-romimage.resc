@@ -1,0 +1,19 @@
+:name: R4 - load Espressif's official ESP32-S2 mask-ROM image
+:description: Include AFTER the base platform. Adds the two ROM address windows
+:description: and fills them from the three flat slices produced by
+:description:     node scripts/fetch-esp32s2-rom.mjs
+:description: (source: github.com/espressif/esp-rom-elfs release 20260528,
+:description: esp32s2_rev0_rom.elf, tarball sha256 caa463d3...54fe46, verified by
+:description: the fetch script against Espressif's published checksum file).
+:description:
+:description: Symbols are loaded too, so Renode's symbol lookup and
+:description: `cpu LogFunctionNames` resolve ROM frames by name.
+
+machine LoadPlatformDescription @emulator/renode/platforms/esp32s2-rom.repl
+
+sysbus LoadBinary @tools/esp-rom-elfs/rom-code.bin   0x40000000
+sysbus LoadBinary @tools/esp-rom-elfs/rom-rodata.bin 0x3FFAC600
+sysbus LoadBinary @tools/esp-rom-elfs/rom-data.bin   0x3FFFEB70
+sysbus LoadSymbolsFrom @tools/esp-rom-elfs/esp32s2_rev0_rom.elf
+
+echo "### ROM image loaded (code 0x40000000, rodata 0x3FFAC600, data 0x3FFFEB70)"

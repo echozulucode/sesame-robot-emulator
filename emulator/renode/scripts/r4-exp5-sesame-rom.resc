@@ -1,0 +1,35 @@
+:name: R4 / Experiment 5 rung C - real Sesame ELF + boot state + real ESP32-S2 ROM
+:description: Adds Espressif's official mask-ROM image (scripts/fetch-esp32s2-rom.mjs).
+:description: Still no peripheral models: the only peripheral in the machine is the
+:description: stock ESP32_UART on uart0/uart1.
+:description:
+:description:   node emulator/renode/tests/r4-run.mjs emulator/renode/scripts/r4-exp5-sesame-rom.resc r4-exp5-sesame-rom 180
+
+using sysbus
+
+mach create "r4-sesame-c"
+machine LoadPlatformDescription @emulator/renode/platforms/esp32s2-sesame.repl
+i @emulator/renode/scripts/r4-romimage.resc
+
+logLevel 1
+sysbus LoadELF @firmware/artifacts/s2mini/sesame-firmware-main.ino.elf
+
+echo ""
+echo "### entry PC"
+cpu PC
+
+$entry = 0x40025738
+i @emulator/renode/scripts/r4-bootstate.resc
+
+emulation CreateServerSocketTerminal 3456 "uartsock" false
+connector Connect uart0 uartsock
+
+emulation RunFor "0.05"
+
+echo ""
+echo "### final PC"
+cpu PC
+echo "### executed instructions"
+cpu ExecutedInstructions
+
+quit

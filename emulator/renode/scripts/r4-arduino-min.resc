@@ -1,0 +1,33 @@
+:name: R4 / Experiment 4 - minimal Arduino-ESP32 sketch on the ESP32-S2 platform
+:description: Loads firmware/probes/build/r4-arduino-min.elf (built by
+:description: firmware/probes/build-r4-arduino.mjs with F3's pinned s2mini profile)
+:description: onto the checked-in esp32s2-sesame platform and runs it.
+:description:
+:description: No boot ROM and no second-stage bootloader: LoadELF places every
+:description: PT_LOAD segment directly and the ELF entry point (call_start_cpu0) is
+:description: used, so execution starts where the bootloader would have jumped.
+:description:
+:description: Run through the timeout guard, never bare:
+:description:   node emulator/renode/tests/r4-run.mjs emulator/renode/scripts/r4-arduino-min.resc r4-exp4-arduino 90
+
+using sysbus
+
+mach create "r4-arduino"
+machine LoadPlatformDescription @emulator/renode/platforms/esp32s2-sesame.repl
+
+logLevel 1
+sysbus LoadELF @firmware/probes/build/r4-arduino-min.elf
+
+echo ""
+echo "### entry PC"
+cpu PC
+
+emulation RunFor "0.05"
+
+echo ""
+echo "### final PC"
+cpu PC
+echo "### executed instructions"
+cpu ExecutedInstructions
+
+quit

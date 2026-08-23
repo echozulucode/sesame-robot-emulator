@@ -95,6 +95,14 @@
   "renodeVersion": "1.16.1.19220",
   "renodePlatformFiles": [
     {
+      "path": "emulator/renode/platforms/esp32s2-mmio-shim.repl",
+      "sha256": "e7c601519fc580ed14fb5eac460b22f83a63f70b04fd562e18f18cb388746067"
+    },
+    {
+      "path": "emulator/renode/platforms/esp32s2-rom.repl",
+      "sha256": "66e12911481271a37182f33971d6c33b2ca5b90663c717e128aca5e893f70350"
+    },
+    {
       "path": "emulator/renode/platforms/esp32s2-sesame.repl",
       "sha256": "302f0b9fb00f19fdfbda14787a143cb27cf460020dbe53b48f30387ab373bce0"
     },
@@ -153,6 +161,70 @@
     {
       "path": "emulator/renode/scripts/r3-uart-hello.resc",
       "sha256": "2ae66a6704e8d5e7da0c5503506f863998188d14b81083b53c0746574e384996"
+    },
+    {
+      "path": "emulator/renode/scripts/r4-arduino-min.resc",
+      "sha256": "78d7f8c1c836ab632a05b3cb944e8f89e96d5b563873ea7cfb7ef4150958156e"
+    },
+    {
+      "path": "emulator/renode/scripts/r4-bootstate.resc",
+      "sha256": "35adb368e6da26b15ec35052f65ce9c9f3f429325558d2422fc5ef5319fa689f"
+    },
+    {
+      "path": "emulator/renode/scripts/r4-exp4-arduino-bootstate.resc",
+      "sha256": "43ca46e77fcc586874044239ca793933b3d0d028bcc6f18b26d78be435836468"
+    },
+    {
+      "path": "emulator/renode/scripts/r4-exp4-arduino-rom.resc",
+      "sha256": "2d35d0a6956bcd625eff8dc09389e3566be55911ca894bd3789738d51d50e896"
+    },
+    {
+      "path": "emulator/renode/scripts/r4-exp4-arduino-shim-access.resc",
+      "sha256": "b1e228cc895d639addd721f6986b1d85eee8d868c4102386524c752505b673c2"
+    },
+    {
+      "path": "emulator/renode/scripts/r4-exp4-arduino-shim.resc",
+      "sha256": "826387c8401ca801cb8c5545da7578827909d2b5f3942e9e7fc6eddcc04c5fd9"
+    },
+    {
+      "path": "emulator/renode/scripts/r4-exp5-sesame-bootstate.resc",
+      "sha256": "33e82cf80891906ab1f0185053da1119972b2821c00b3354093edba888866188"
+    },
+    {
+      "path": "emulator/renode/scripts/r4-exp5-sesame-de233-observe.resc",
+      "sha256": "66c98c8f263fef9ded076f218ea87a245bd0859b1a9e6b05728a67a9553c147c"
+    },
+    {
+      "path": "emulator/renode/scripts/r4-exp5-sesame-de233.resc",
+      "sha256": "88f4a491c67a3d2338a8ba7af667c933723ecaa42c5dcc76f585226008a2e650"
+    },
+    {
+      "path": "emulator/renode/scripts/r4-exp5-sesame-observe.resc",
+      "sha256": "f00146bbe733b8524d9d293c66385915c95209428aab3a3cc6de2696ec1bce47"
+    },
+    {
+      "path": "emulator/renode/scripts/r4-exp5-sesame-rom.resc",
+      "sha256": "ca652444f695c5dab2d9de24b3281afa7cee0b171fe1cac062926c1a284f1557"
+    },
+    {
+      "path": "emulator/renode/scripts/r4-exp5-sesame-shim-trace.resc",
+      "sha256": "8d760c0d85abd4d3eb85a170f4f1d8818cee975e4a353efd30dcdd36b0271674"
+    },
+    {
+      "path": "emulator/renode/scripts/r4-exp5-sesame-shim.resc",
+      "sha256": "88b6488d7b577398ef2aebaf6809c7fcb255ea3230db34f459d87995e7693c7f"
+    },
+    {
+      "path": "emulator/renode/scripts/r4-exp5-sesame-stock.resc",
+      "sha256": "56a82a849012cd6732794524599a572fa6401847860685bdd72a5522589a3f8b"
+    },
+    {
+      "path": "emulator/renode/scripts/r4-romimage.resc",
+      "sha256": "1344c1308d45cd3c03aeadc293fc7f7ba91fe0440c9e2ec146e0fcce9416cafc"
+    },
+    {
+      "path": "emulator/renode/scripts/r4-shim-seeds.resc",
+      "sha256": "f1f32efaa64a5ed35c2b2240c759f2094ef35888345a2d6c8b16b027e7ad7388"
     }
   ],
   "assetSourceVersion": null,

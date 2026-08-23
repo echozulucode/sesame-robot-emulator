@@ -1,0 +1,43 @@
+11:29:04.0912 [INFO] Loaded monitor commands from: C:\Projects\sesame-robot-emulator\tools\renode\scripts/monitor.py
+Renode, version 1.16.1 (d66b0c2a-202602161036)
+
+(monitor) i $CWD/emulator/renode/scripts/r4-exp4-arduino-shim.resc
+11:29:04.2363 [INFO] Including script(s): C:\Projects\sesame-robot-emulator\emulator\renode\scripts\r4-exp4-arduino-shim.resc
+11:29:04.2562 [INFO] System bus created.
+11:29:04.8669 [WARNING] The debug mode now has no effect - connect a debugger, and switch to stepping mode.
+11:29:05.1451 [INFO] sysbus: Loading block of 114384 bytes length at 0x40000000.
+11:29:05.1625 [INFO] sysbus: Loading block of 14636 bytes length at 0x3FFAC600.
+11:29:05.1638 [INFO] sysbus: Loading block of 5160 bytes length at 0x3FFFEB70.
+### ROM image loaded (code 0x40000000, rodata 0x3FFAC600, data 0x3FFFEB70)
+11:29:05.2517 [INFO] sysbus: Loading block of 55500 bytes length at 0x3F000020.
+11:29:05.2520 [INFO] sysbus: Loading block of 40 bytes length at 0x3FF9FFD8.
+11:29:05.2520 [INFO] sysbus: Loading block of 98456 bytes length at 0x3FFB4000.
+11:29:05.2521 [INFO] sysbus: Loading block of 49600 bytes length at 0x40024000.
+11:29:05.2522 [INFO] sysbus: Loading block of 174038 bytes length at 0x40080020.
+11:29:05.2523 [INFO] sysbus: Loading block of 32 bytes length at 0x50000200.
+11:29:05.3472 [INFO] cpu: Setting PC value to 0x40025504.
+
+### entry PC
+0x40025504
+### bootstate applied - PS / WINDOWSTART / SP trampoline at 0x4006FF00
+0x50020
+'esp32s2' is not a recognized processor for this target (ignoring processor)
+'esp32s2' is not a recognized processor for this target (ignoring processor)
+11:29:05.6189 [INFO] Created new disassembler for triple xtensa, cpu esp32s2, with flags 0
+11:29:05.6189 [WARNING] The disassembler for Xtensa is currently an experimental feature in Renode
+0x4006ff00:   11feff 	l32r	a1, . -8
+0x4006ff03:   81feff 	l32r	a8, . -8
+0x4006ff06:   a00800 	jx	a8
+
+11:29:05.7680 [INFO] r4-arduino-d: Machine started.
+11:29:05.9705 [INFO] r4-arduino-d: Machine paused.
+
+### final PC
+0x40025185
+### executed instructions
+0x0000000001312D00
+Renode is quitting
+11:29:05.9901 [WARNING] cpu: Some memory allocated by the translation library was not freed - 128.08KiB left allocated. This might indicate a memory leak. Cleaning up...
+11:29:05.9952 [INFO] r4-arduino-d: Disposed.
+
+### R4-RUNNER: exit code 0

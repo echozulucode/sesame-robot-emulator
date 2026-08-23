@@ -1,0 +1,39 @@
+:name: R4 / Experiment 4 rung D - DIAGNOSTIC: boot state + real ROM + RAM-backed MMIO
+:description: *** NON-AUTHORITATIVE *** Adds esp32s2-mmio-shim.repl, which backs the
+:description: whole ESP32-S2 peripheral window with plain RAM, plus r4-shim-seeds.resc
+:description: which pre-sets the specific status bits that boot code busy-waits on.
+:description: Nothing here models a peripheral; the only purpose is to enumerate, in
+:description: order, what a boot touches and where it eventually wedges.
+:description:
+:description:   node emulator/renode/tests/r4-run.mjs emulator/renode/scripts/r4-exp4-arduino-shim.resc r4-exp4-arduino-shim 180
+
+using sysbus
+
+mach create "r4-arduino-d"
+machine LoadPlatformDescription @emulator/renode/platforms/esp32s2-sesame.repl
+i @emulator/renode/scripts/r4-romimage.resc
+machine LoadPlatformDescription @emulator/renode/platforms/esp32s2-mmio-shim.repl
+
+logLevel 1
+sysbus LoadELF @firmware/probes/build/r4-arduino-min.elf
+
+echo ""
+echo "### entry PC"
+cpu PC
+
+$entry = 0x40025504
+i @emulator/renode/scripts/r4-bootstate.resc
+i @emulator/renode/scripts/r4-shim-seeds.resc
+
+emulation CreateServerSocketTerminal 3456 "uartsock" false
+connector Connect uart0 uartsock
+
+emulation RunFor "0.2"
+
+echo ""
+echo "### final PC"
+cpu PC
+echo "### executed instructions"
+cpu ExecutedInstructions
+
+quit

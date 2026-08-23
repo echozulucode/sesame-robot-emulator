@@ -1,0 +1,48 @@
+11:38:08.0990 [INFO] Loaded monitor commands from: C:\Projects\sesame-robot-emulator\tools\renode\scripts/monitor.py
+Renode, version 1.16.1 (d66b0c2a-202602161036)
+
+(monitor) i $CWD/emulator/renode/scripts/r4-exp4-arduino-shim-access.resc
+11:38:08.2649 [INFO] Including script(s): C:\Projects\sesame-robot-emulator\emulator\renode\scripts\r4-exp4-arduino-shim-access.resc
+11:38:08.2871 [INFO] System bus created.
+11:38:08.9540 [WARNING] The debug mode now has no effect - connect a debugger, and switch to stepping mode.
+11:38:09.2723 [INFO] sysbus: Loading block of 114384 bytes length at 0x40000000.
+11:38:09.3005 [INFO] sysbus: Loading block of 14636 bytes length at 0x3FFAC600.
+11:38:09.3017 [INFO] sysbus: Loading block of 5160 bytes length at 0x3FFFEB70.
+### ROM image loaded (code 0x40000000, rodata 0x3FFAC600, data 0x3FFFEB70)
+11:38:09.4146 [DEBUG] sysbus: Loading ELF file C:\Projects\sesame-robot-emulator\firmware\probes\build\r4-arduino-min.elf.
+11:38:09.4244 [INFO] sysbus: Loading block of 55500 bytes length at 0x3F000020.
+11:38:09.4249 [INFO] sysbus: Loading block of 40 bytes length at 0x3FF9FFD8.
+11:38:09.4250 [INFO] sysbus: Loading block of 98456 bytes length at 0x3FFB4000.
+11:38:09.4252 [INFO] sysbus: Loading block of 49600 bytes length at 0x40024000.
+11:38:09.4253 [INFO] sysbus: Loading block of 174038 bytes length at 0x40080020.
+11:38:09.4256 [INFO] sysbus: Loading block of 32 bytes length at 0x50000200.
+11:38:09.4488 [DEBUG] sysbus: C:\Projects\sesame-robot-emulator\firmware\probes\build\r4-arduino-min.elf File loaded.
+11:38:09.5608 [INFO] cpu: Setting PC value to 0x40025504.
+### bootstate applied - PS / WINDOWSTART / SP trampoline at 0x4006FF00
+0x50020
+'esp32s2' is not a recognized processor for this target (ignoring processor)
+'esp32s2' is not a recognized processor for this target (ignoring processor)
+11:38:09.9009 [INFO] Created new disassembler for triple xtensa, cpu esp32s2, with flags 0
+11:38:09.9010 [WARNING] The disassembler for Xtensa is currently an experimental feature in Renode
+0x4006ff00:   11feff 	l32r	a1, . -8
+0x4006ff03:   81feff 	l32r	a8, . -8
+0x4006ff06:   a00800 	jx	a8
+
+11:38:09.9329 [INFO] rtc_fast_data: Logging is already enabled
+11:38:09.9332 [INFO] rtc_fast_data: Logging is already enabled (2)
+11:38:09.9333 [INFO] rtc_fast_instr: Logging is already enabled
+11:38:09.9335 [INFO] rtc_fast_instr: Logging is already enabled (2)
+11:38:09.9335 [INFO] rtc_slow: Logging is already enabled
+11:38:10.0607 [INFO] rtc_slow: Logging is already enabled (2)
+11:38:10.0608 [INFO] r4-arduino-da: Machine started.
+11:38:10.0816 [INFO] r4-arduino-da: Machine paused.
+
+### final PC
+0x40025185
+### executed instructions
+0x0000000000030D40
+Renode is quitting
+11:38:10.1066 [WARNING] cpu: Some memory allocated by the translation library was not freed - 128.08KiB left allocated. This might indicate a memory leak. Cleaning up...
+11:38:10.1108 [INFO] r4-arduino-da: Disposed.
+
+### R4-RUNNER: exit code 0

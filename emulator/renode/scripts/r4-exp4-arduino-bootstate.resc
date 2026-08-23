@@ -1,0 +1,33 @@
+:name: R4 / Experiment 4 rung B - minimal Arduino sketch + synthesised boot state
+:description: As r4-arduino-min.resc, but the boot-ROM machine state (PS.WOE, the
+:description: window state and the stack pointer) is stood in for by
+:description: r4-bootstate.resc so that `entry` at the ELF entry point is legal.
+:description: Isolates: what stops the Arduino-ESP32 runtime NEXT.
+:description:
+:description:   node emulator/renode/tests/r4-run.mjs emulator/renode/scripts/r4-exp4-arduino-bootstate.resc r4-exp4-arduino-bootstate 90
+
+using sysbus
+
+mach create "r4-arduino-b"
+machine LoadPlatformDescription @emulator/renode/platforms/esp32s2-sesame.repl
+
+logLevel 1
+sysbus LoadELF @firmware/probes/build/r4-arduino-min.elf
+
+echo ""
+echo "### entry PC"
+cpu PC
+
+# r4-arduino-min.elf entry point: call_start_cpu0 (readelf -h).
+$entry = 0x40025504
+i @emulator/renode/scripts/r4-bootstate.resc
+
+emulation RunFor "0.05"
+
+echo ""
+echo "### final PC"
+cpu PC
+echo "### executed instructions"
+cpu ExecutedInstructions
+
+quit

@@ -1,0 +1,62 @@
+:name: R4 - stand in for the machine state the ESP32-S2 boot ROM would have left
+:description:
+:description: The esp32s2-sesame platform has NO boot ROM (see the .repl, note 3), so
+:description: nothing establishes the processor state an ESP32-S2 application entry
+:description: point is entitled to assume. Measured reset state on Renode 1.16.1
+:description: immediately after LoadELF (emulator/renode/tests/logs/r4-resetstate.log):
+:description:
+:description:     PS 0x0000001F  (WOE=0, EXCM=1, INTLEVEL=15)   VECBASE 0x40000000
+:description:     WINDOWBASE 0   WINDOWSTART 0                   a1 (SP) 0x00000000
+:description:
+:description: That is the architectural Xtensa reset state and Renode is right to
+:description: produce it; on silicon the mask ROM sets PS/SP up long before the app
+:description: entry point runs.
+:description:
+:description: `call_start_cpu0` begins with `entry a1, 48`, and tlib's helper_entry
+:description: raises IllegalInstruction unless (PS & (WOE|EXCM)) == WOE, so the very
+:description: first instruction of every Arduino/ESP-IDF image faults without this.
+:description:
+:description: PS is settable from the monitor. The address registers are NOT: on
+:description: Renode 1.16.1 `cpu SetRegister <n>` / `SetRegister "AR1"` silently
+:description: no-op for the Xtensa AR file and `GetRegister` always reads 0x0
+:description: (emulator/renode/tests/logs/r4-setreg.log). So the stack pointer is
+:description: installed by a three-instruction trampoline written into unused IRAM
+:description: at the top of the iram window, which the caller jumps to instead of
+:description: the ELF entry point:
+:description:
+:description:     0x4006FEF8: .word 0x3FFFE70C     SOC_ROM_STACK_START
+:description:     0x4006FEFC: .word <entry>        patched by the caller
+:description:     0x4006FF00: l32r a1, -8          load SP
+:description:     0x4006FF03: l32r a8, -8          load entry
+:description:     0x4006FF06: jx   a8
+:description:
+:description: Encodings verified with `cpu DisassembleBlock`
+:description: (emulator/renode/tests/logs/r4-asm.log).
+:description:
+:description: Values:
+:description:   PS 0x00050020 = WOE(0x40000) | CALLINC=1(0x10000) | UM(0x20),
+:description:                   EXCM=0, INTLEVEL=0 - the value R2 section 3.4 read back
+:description:                   from a live windowed frame on this same core.
+:description:   WINDOWSTART 0x1 - one live frame at WINDOWBASE 0.
+:description:   SP 0x3FFFE70C = SOC_ROM_STACK_START, from esp32s2-libs/3.3.11/
+:description:                   include/soc/esp32s2/include/soc/soc.h:207 - literally
+:description:                   the stack pointer the ROM hands over.
+:description:
+:description: Caller contract: set $entry to the ELF entry point before including.
+:description: This is a HARNESS-SIDE stand-in for a boot ROM, not a model of one.
+
+cpu PS 0x00050020
+cpu WINDOWBASE 0x0
+cpu WINDOWSTART 0x1
+
+sysbus WriteDoubleWord 0x4006FEF8 0x3FFFE70C
+sysbus WriteDoubleWord 0x4006FEFC $entry
+sysbus WriteDoubleWord 0x4006FF00 0x81FFFE11
+sysbus WriteDoubleWord 0x4006FF04 0x08A0FFFE
+sysbus WriteDoubleWord 0x4006FF08 0x00000000
+
+cpu PC 0x4006FF00
+
+echo "### bootstate applied - PS / WINDOWSTART / SP trampoline at 0x4006FF00"
+cpu PS
+cpu DisassembleBlock 0x4006FF00 9

@@ -1,0 +1,40 @@
+11:37:25.8778 [INFO] Loaded monitor commands from: C:\Projects\sesame-robot-emulator\tools\renode\scripts/monitor.py
+Renode, version 1.16.1 (d66b0c2a-202602161036)
+
+(monitor) i $CWD/emulator/renode/scripts/r4-exp5-sesame-de233.resc
+11:37:26.0453 [INFO] Including script(s): C:\Projects\sesame-robot-emulator\emulator\renode\scripts\r4-exp5-sesame-de233.resc
+11:37:26.0679 [INFO] System bus created.
+11:37:26.6924 [WARNING] The debug mode now has no effect - connect a debugger, and switch to stepping mode.
+11:37:26.9714 [INFO] sysbus: Loading block of 114384 bytes length at 0x40000000.
+11:37:26.9961 [INFO] sysbus: Loading block of 14636 bytes length at 0x3FFAC600.
+11:37:26.9976 [INFO] sysbus: Loading block of 5160 bytes length at 0x3FFFEB70.
+### ROM image loaded (code 0x40000000, rodata 0x3FFAC600, data 0x3FFFEB70)
+11:37:27.1064 [INFO] sysbus: Loading block of 253854 bytes length at 0x3F000020.
+11:37:27.1069 [INFO] sysbus: Loading block of 40 bytes length at 0x3FF9FFD8.
+11:37:27.1070 [INFO] sysbus: Loading block of 149488 bytes length at 0x3FFB4000.
+11:37:27.1071 [INFO] sysbus: Loading block of 69844 bytes length at 0x40024000.
+11:37:27.1072 [INFO] sysbus: Loading block of 803934 bytes length at 0x40080020.
+11:37:27.1077 [INFO] sysbus: Loading block of 32 bytes length at 0x50000200.
+11:37:27.3341 [INFO] cpu: Setting PC value to 0x40025738.
+### bootstate applied - PS / WINDOWSTART / SP trampoline at 0x4006FF00
+0x50020
+'de233_fpu' is not a recognized processor for this target (ignoring processor)
+'de233_fpu' is not a recognized processor for this target (ignoring processor)
+11:37:27.6244 [INFO] Created new disassembler for triple xtensa, cpu de233_fpu, with flags 0
+11:37:27.6245 [WARNING] The disassembler for Xtensa is currently an experimental feature in Renode
+0x4006ff00:   11feff 	l32r	a1, . -8
+0x4006ff03:   81feff 	l32r	a8, . -8
+0x4006ff06:   a00800 	jx	a8
+
+11:37:27.7406 [INFO] r4-sesame-de233: Machine started.
+11:37:27.7932 [INFO] r4-sesame-de233: Machine paused.
+
+### final PC
+0x400253b9
+### executed instructions
+0x00000000004C4B40
+Renode is quitting
+11:37:27.8131 [WARNING] cpu: Some memory allocated by the translation library was not freed - 192.12KiB left allocated. This might indicate a memory leak. Cleaning up...
+11:37:27.8193 [INFO] r4-sesame-de233: Disposed.
+
+### R4-RUNNER: exit code 0

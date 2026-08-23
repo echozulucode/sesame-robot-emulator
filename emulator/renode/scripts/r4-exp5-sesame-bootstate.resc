@@ -1,0 +1,31 @@
+:name: R4 / Experiment 5 rung B - real Sesame ELF + synthesised boot state
+:description: Adds only r4-bootstate.resc (PS.WOE, window state, SP trampoline) to
+:description: rung A. Everything else is the stock checked-in platform.
+:description:
+:description:   node emulator/renode/tests/r4-run.mjs emulator/renode/scripts/r4-exp5-sesame-bootstate.resc r4-exp5-sesame-bootstate 150
+
+using sysbus
+
+mach create "r4-sesame-b"
+machine LoadPlatformDescription @emulator/renode/platforms/esp32s2-sesame.repl
+
+logLevel 1
+sysbus LoadELF @firmware/artifacts/s2mini/sesame-firmware-main.ino.elf
+
+echo ""
+echo "### entry PC"
+cpu PC
+
+# sesame-firmware-main.ino.elf entry point: call_start_cpu0 (readelf -h; F3 section 1).
+$entry = 0x40025738
+i @emulator/renode/scripts/r4-bootstate.resc
+
+emulation RunFor "0.05"
+
+echo ""
+echo "### final PC"
+cpu PC
+echo "### executed instructions"
+cpu ExecutedInstructions
+
+quit

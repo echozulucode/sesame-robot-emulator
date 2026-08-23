@@ -1,0 +1,37 @@
+:name: R4 - DIAGNOSTIC seed values for the RAM-backed MMIO shim
+:description: *** NON-AUTHORITATIVE *** Include AFTER esp32s2-mmio-shim.repl.
+:description:
+:description: A RAM-backed register window satisfies "write then read back" but never
+:description: satisfies "poll until the hardware sets a status bit". Each line below
+:description: pre-sets exactly one such status bit so the boot walks past one specific
+:description: busy-wait, and each is annotated with the ROM/IDF function that spins on
+:description: it and the PC where the spin was OBSERVED. Growing this list IS the
+:description: blocker enumeration: every entry is a peripheral that needs real
+:description: behaviour, not just storage.
+
+# EXTMEM_PRO_ICACHE_CTRL1 @ 0x61800040 bit 19.
+#   ROM Cache_Suspend_ICache_Autoload (0x40018498) clears bit 18 and then spins at
+#   0x400184BC..0x400184BE on `bnone a10, 0x80000` waiting for bit 19.
+#   Observed: emulator/renode/tests/logs/r4-exp4-arduino-rom.log
+#   ROM Cache_Suspend_ICache (0x40018CA4) then spins at 0x40018CC0..0x40018CC6 on
+#   `bnone a9, 0x200000` waiting for bit 21 of the same register.
+#   Observed: final PC 0x40018CC6 in emulator/renode/tests/logs/r4-exp4-arduino-shim.log
+#   ROM Cache_Invalidate_ICache_Items (0x40018194) sets bit 8 and spins at
+#   0x400181F5..0x400181FA on `bnone a9, 0x200` waiting for bit 9 (invalidate done).
+#   Observed: final PC 0x400181F5.
+sysbus WriteDoubleWord 0x61800040 0x00280200
+
+# EXTMEM cache state @ 0x6180011C, low 12 bits.
+#   ROM Cache_Suspend_ICache spins at 0x40018CCC..0x40018CD4 on `bnei a3, 1`.
+sysbus WriteDoubleWord 0x6180011C 0x00000001
+
+# EXTMEM_PRO_DCACHE_CTRL @ 0x61800000 - the DCache mirror of 0x61800040.
+#   ROM Cache_Invalidate_DCache_Items (0x40018208) writes the item range to
+#   0x6180001C/0x61800020, sets bit 8 of 0x61800000 and spins at 0x40018245 on
+#   bit 9. Cache_Suspend_DCache / _Autoload use bits 19 and 21 exactly as the
+#   ICache versions do, so the same three bits are seeded.
+#   (0x61800044 was seeded first by symmetry with the ICache register and made no
+#   difference - the DCache control register is 0x61800000, verified in the ROM
+#   disassembly at 0x4001822A. Recorded because a wrong guess costing one run is
+#   cheaper to document than to re-derive.)
+sysbus WriteDoubleWord 0x61800000 0x00280200

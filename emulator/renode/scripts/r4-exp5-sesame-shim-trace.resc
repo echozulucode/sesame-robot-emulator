@@ -1,0 +1,33 @@
+:name: R4 / Experiment 5 rung D + symbol trace - DIAGNOSTIC
+:description: *** NON-AUTHORITATIVE *** Same machine as r4-exp5-sesame-shim.resc but
+:description: with `cpu LogFunctionNames true true` (removeDuplicates), so the log is
+:description: the ordered list of functions the boot actually entered. That list is
+:description: the boot ladder evidence in docs/findings/R4-boot-probe.md.
+:description:
+:description:   node emulator/renode/tests/r4-run.mjs emulator/renode/scripts/r4-exp5-sesame-shim-trace.resc r4-exp5-sesame-shim-trace 300
+
+using sysbus
+
+mach create "r4-sesame-dt"
+machine LoadPlatformDescription @emulator/renode/platforms/esp32s2-sesame.repl
+i @emulator/renode/scripts/r4-romimage.resc
+machine LoadPlatformDescription @emulator/renode/platforms/esp32s2-mmio-shim.repl
+
+logLevel 1
+sysbus LoadELF @firmware/artifacts/s2mini/sesame-firmware-main.ino.elf
+
+$entry = 0x40025738
+i @emulator/renode/scripts/r4-bootstate.resc
+i @emulator/renode/scripts/r4-shim-seeds.resc
+
+cpu LogFunctionNames true true
+
+emulation RunFor "0.05"
+
+echo ""
+echo "### final PC"
+cpu PC
+echo "### executed instructions"
+cpu ExecutedInstructions
+
+quit

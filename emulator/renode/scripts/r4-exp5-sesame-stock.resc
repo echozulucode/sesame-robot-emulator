@@ -1,0 +1,29 @@
+:name: R4 / Experiment 5 rung A - the REAL Sesame S2 ELF on the stock platform
+:description: AUTHORITATIVE run. firmware/artifacts/s2mini/sesame-firmware-main.ino.elf
+:description: (F3, ELF sha256 5436d303...9eedfd) loaded onto the checked-in
+:description: esp32s2-sesame platform exactly as R2/R3 use it. No boot ROM, no
+:description: synthesised processor state, no MMIO shims.
+:description:
+:description:   node emulator/renode/tests/r4-run.mjs emulator/renode/scripts/r4-exp5-sesame-stock.resc r4-exp5-sesame-stock 120
+
+using sysbus
+
+mach create "r4-sesame-a"
+machine LoadPlatformDescription @emulator/renode/platforms/esp32s2-sesame.repl
+
+logLevel 1
+sysbus LoadELF @firmware/artifacts/s2mini/sesame-firmware-main.ino.elf
+
+echo ""
+echo "### entry PC"
+cpu PC
+
+emulation RunFor "0.05"
+
+echo ""
+echo "### final PC"
+cpu PC
+echo "### executed instructions"
+cpu ExecutedInstructions
+
+quit

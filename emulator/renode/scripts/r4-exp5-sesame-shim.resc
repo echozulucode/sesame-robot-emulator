@@ -1,0 +1,37 @@
+:name: R4 / Experiment 5 rung D - DIAGNOSTIC: real Sesame ELF, ROM + RAM-backed MMIO
+:description: *** NON-AUTHORITATIVE *** Rung C plus esp32s2-mmio-shim.repl and
+:description: r4-shim-seeds.resc. Nothing models a peripheral. Purpose: enumerate, in
+:description: order, what the real firmware's boot touches and where it wedges.
+:description:
+:description:   node emulator/renode/tests/r4-run.mjs emulator/renode/scripts/r4-exp5-sesame-shim.resc r4-exp5-sesame-shim 240
+
+using sysbus
+
+mach create "r4-sesame-d"
+machine LoadPlatformDescription @emulator/renode/platforms/esp32s2-sesame.repl
+i @emulator/renode/scripts/r4-romimage.resc
+machine LoadPlatformDescription @emulator/renode/platforms/esp32s2-mmio-shim.repl
+
+logLevel 1
+sysbus LoadELF @firmware/artifacts/s2mini/sesame-firmware-main.ino.elf
+
+echo ""
+echo "### entry PC"
+cpu PC
+
+$entry = 0x40025738
+i @emulator/renode/scripts/r4-bootstate.resc
+i @emulator/renode/scripts/r4-shim-seeds.resc
+
+emulation CreateServerSocketTerminal 3456 "uartsock" false
+connector Connect uart0 uartsock
+
+emulation RunFor "0.2"
+
+echo ""
+echo "### final PC"
+cpu PC
+echo "### executed instructions"
+cpu ExecutedInstructions
+
+quit
