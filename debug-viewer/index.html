@@ -1,0 +1,308 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Sesame telemetry — Phase-0 debug viewer</title>
+<!--
+  ==========================================================================
+  THIS IS A THROWAWAY.
+
+  Phase-0 task R7. Its entire job is to prove that a telemetry stream can get
+  from a UART socket, through the bridge, to a browser, and move something on
+  screen. It is not the product frontend, it is not a design reference, and
+  nothing here should be carried forward: the Phase-1 app is React + R3F with a
+  real robot model, and this page exists so that app can be written against a
+  proven pipeline instead of a hoped-for one.
+
+  Constraints it is built under, on purpose:
+    - raw canvas, no React, no build step, no dependencies, one file
+    - it reads the WebSocket envelope defined in emulator/bridge/src/envelope.ts
+    - it makes no claim the bridge did not make: provenance is displayed, never
+      assumed, because a replayed stream is not an observed one
+
+  Serve it with:  node emulator/bridge/dist/cli.js --replay <fixture> --serve-viewer
+  ==========================================================================
+-->
+<style>
+  :root {
+    color-scheme: dark;
+    --bg: #12141a;
+    --panel: #1b1e26;
+    --line: #2c313d;
+    --ink: #e6e9ef;
+    --dim: #8b93a5;
+    --accent: #6ea8fe;
+    --observed: #4ec9a0;
+    --simulated: #d7a95c;
+    --inferred: #b98adf;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; padding: 18px;
+    background: var(--bg); color: var(--ink);
+    font: 13px/1.5 ui-monospace, "Cascadia Mono", "SF Mono", Menlo, Consolas, monospace;
+  }
+  h1 { font-size: 15px; margin: 0 0 2px; font-weight: 600; letter-spacing: .01em; }
+  .sub { color: var(--dim); margin: 0 0 16px; font-size: 12px; }
+  .grid { display: grid; gap: 14px; grid-template-columns: minmax(340px, 1fr) minmax(300px, 420px); align-items: start; }
+  @media (max-width: 760px) { .grid { grid-template-columns: 1fr; } }
+  .panel { background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 12px 14px; }
+  .panel h2 { font-size: 11px; text-transform: uppercase; letter-spacing: .08em; color: var(--dim); margin: 0 0 10px; font-weight: 600; }
+  canvas { display: block; width: 100%; height: auto; image-rendering: pixelated; }
+  .status { display: flex; flex-wrap: wrap; gap: 8px 16px; align-items: center; margin-bottom: 14px; font-size: 12px; }
+  .dot { width: 8px; height: 8px; border-radius: 50%; background: #6b7280; display: inline-block; margin-right: 6px; }
+  .dot.up { background: var(--observed); }
+  .dot.down { background: #e0645c; }
+  .tag { border: 1px solid var(--line); border-radius: 999px; padding: 1px 9px; color: var(--dim); }
+  .tag.observed { color: var(--observed); border-color: currentColor; }
+  .tag.simulated { color: var(--simulated); border-color: currentColor; }
+  .tag.inferred { color: var(--inferred); border-color: currentColor; }
+  #log { height: 190px; overflow-y: auto; margin: 0; font-size: 11.5px; color: var(--dim); white-space: pre-wrap; word-break: break-word; }
+  #log b { color: var(--ink); font-weight: 500; }
+  .kv { display: flex; justify-content: space-between; gap: 12px; padding: 2px 0; }
+  .kv span:last-child { color: var(--ink); }
+  .kv span:first-child { color: var(--dim); }
+  footer { margin-top: 16px; color: var(--dim); font-size: 11px; }
+</style>
+</head>
+<body>
+
+<h1>Sesame telemetry — debug viewer</h1>
+<p class="sub">Phase-0 throwaway (task R7). Proves the pipeline; it is not the product UI.</p>
+
+<div class="status">
+  <span><i class="dot" id="dot"></i><span id="conn">connecting…</span></span>
+  <span id="counts">0 events</span>
+  <span id="prov"></span>
+</div>
+
+<div class="grid">
+  <div class="panel">
+    <h2>Joints — firmware order, never sorted</h2>
+    <canvas id="joints" width="720" height="330"></canvas>
+  </div>
+  <div>
+    <div class="panel" style="margin-bottom:14px">
+      <h2>OLED 128 × 64</h2>
+      <canvas id="oled" width="512" height="256"></canvas>
+      <div class="kv" style="margin-top:10px"><span>face</span><span id="face">—</span></div>
+      <div class="kv"><span>frames received</span><span id="frames">0</span></div>
+    </div>
+    <div class="panel">
+      <h2>Stream</h2>
+      <pre id="log"></pre>
+    </div>
+  </div>
+</div>
+
+<footer id="foot"></footer>
+
+<script>
+(() => {
+  'use strict';
+
+  // Firmware enum order from firmware/movement-sequences.h:5. R4 really does
+  // come before R3. Do not "fix" this to alphabetical — the index is the servo
+  // channel, and re-sorting silently rewires the robot.
+  const JOINT_ORDER = ['R1', 'R2', 'L1', 'L2', 'R4', 'R3', 'L3', 'L4'];
+
+  const OLED_W = 128, OLED_H = 64;
+
+  const params = new URLSearchParams(location.search);
+  const wsUrl = params.get('ws')
+    || (location.protocol === 'file:'
+        ? 'ws://127.0.0.1:8787/telemetry'
+        : `${location.protocol === 'https:' ? 'wss' : 'ws'}://${location.host}/telemetry`);
+
+  const el = (id) => document.getElementById(id);
+  const dot = el('dot'), conn = el('conn'), counts = el('counts'), provEl = el('prov');
+  const faceEl = el('face'), framesEl = el('frames'), logEl = el('log');
+  el('foot').textContent = `source ${wsUrl} · envelope v1 · append ?ws=… to point elsewhere`;
+
+  // ---------------------------------------------------------------- state --
+  const angles = Object.fromEntries(JOINT_ORDER.map((j) => [j, null]));
+  const lastSeen = Object.fromEntries(JOINT_ORDER.map((j) => [j, 0]));
+  const oledBits = new Uint8Array(OLED_W * OLED_H);
+  let events = 0, frames = 0, provenance = null, faceText = '—';
+
+  // ------------------------------------------------------------- rendering --
+  const jc = el('joints'), jx = jc.getContext('2d');
+  const oc = el('oled'), ox = oc.getContext('2d');
+
+  function drawJoints() {
+    const W = jc.width, H = jc.height;
+    const rowH = H / JOINT_ORDER.length;
+    const labelW = 62, padR = 54;
+    jx.clearRect(0, 0, W, H);
+    jx.font = '600 15px ui-monospace, monospace';
+    jx.textBaseline = 'middle';
+
+    const now = performance.now();
+    JOINT_ORDER.forEach((joint, i) => {
+      const y = i * rowH, mid = y + rowH / 2;
+      const barX = labelW, barW = W - labelW - padR, barH = rowH * 0.44;
+      const barY = mid - barH / 2;
+      const value = angles[joint];
+
+      jx.fillStyle = '#8b93a5';
+      jx.fillText(joint, 6, mid);
+
+      jx.fillStyle = '#22262f';
+      jx.fillRect(barX, barY, barW, barH);
+
+      // 90 deg centre mark: most poses are described relative to it.
+      jx.fillStyle = '#333947';
+      jx.fillRect(barX + barW / 2 - 1, barY - 3, 2, barH + 6);
+
+      if (value !== null) {
+        const frac = Math.max(0, Math.min(1, value / 180));
+        // Fade a bar back to the base colour ~600 ms after it last changed, so
+        // "which joint just moved" is visible without reading numbers.
+        const age = Math.min(1, (now - lastSeen[joint]) / 600);
+        const g = Math.round(168 - 40 * age), b = Math.round(254 - 40 * age);
+        jx.fillStyle = `rgb(110, ${g}, ${b})`;
+        jx.fillRect(barX, barY, Math.max(2, barW * frac), barH);
+
+        jx.fillStyle = '#e6e9ef';
+        jx.textAlign = 'right';
+        jx.fillText(String(value), W - 8, mid);
+        jx.textAlign = 'left';
+      } else {
+        jx.fillStyle = '#5a6273';
+        jx.textAlign = 'right';
+        jx.fillText('—', W - 8, mid);
+        jx.textAlign = 'left';
+      }
+    });
+    requestAnimationFrame(drawJoints);
+  }
+
+  function drawOled() {
+    const sx = oc.width / OLED_W, sy = oc.height / OLED_H;
+    ox.fillStyle = '#0a0c10';
+    ox.fillRect(0, 0, oc.width, oc.height);
+    ox.fillStyle = '#9fd8ff';
+    for (let y = 0; y < OLED_H; y++) {
+      for (let x = 0; x < OLED_W; x++) {
+        if (oledBits[y * OLED_W + x]) ox.fillRect(x * sx, y * sy, sx, sy);
+      }
+    }
+  }
+  drawOled();
+
+  /**
+   * SSD1306 page order, adopted byte-for-byte by the protocol so the firmware
+   * emitter is a base64 of display.getBuffer() and nothing else:
+   *   byte = x + (y >> 3) * 128,  bit = y & 7 counted from the LSB.
+   */
+  function applyOledFrame(b64) {
+    const bin = atob(b64);
+    if (bin.length !== 1024) { note(`oled frame was ${bin.length} bytes, expected 1024`); return; }
+    for (let y = 0; y < OLED_H; y++) {
+      const page = y >> 3, bit = 1 << (y & 7);
+      for (let x = 0; x < OLED_W; x++) {
+        oledBits[y * OLED_W + x] = (bin.charCodeAt(x + page * 128) & bit) ? 1 : 0;
+      }
+    }
+    frames++;
+    framesEl.textContent = String(frames);
+    drawOled();
+  }
+
+  // -------------------------------------------------------------- the log --
+  const LOG_MAX = 220;
+  const lines = [];
+  function note(text, strong) {
+    lines.push(strong ? `<b>${escapeHtml(text)}</b>` : escapeHtml(text));
+    if (lines.length > LOG_MAX) lines.splice(0, lines.length - LOG_MAX);
+    const atBottom = logEl.scrollTop + logEl.clientHeight >= logEl.scrollHeight - 24;
+    logEl.innerHTML = lines.join('\n');
+    if (atBottom) logEl.scrollTop = logEl.scrollHeight;
+  }
+  const escapeHtml = (s) => String(s).replace(/[&<>]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' }[c]));
+
+  // ---------------------------------------------------------- the envelope --
+  function handle(envelope) {
+    const ev = envelope && envelope.event;
+    if (!ev) return;
+    events++;
+    counts.textContent = `${events} events`;
+
+    if (envelope.origin === 'uart' && ev.provenance && ev.provenance !== provenance) {
+      provenance = ev.provenance;
+      provEl.className = `tag ${provenance}`;
+      provEl.textContent = provenance;
+    }
+
+    switch (ev.type) {
+      case 'servo.target':
+        if (Object.prototype.hasOwnProperty.call(angles, ev.joint)) {
+          angles[ev.joint] = ev.angleDeg;
+          lastSeen[ev.joint] = performance.now();
+        }
+        break;
+      case 'face.expression':
+        faceText = ev.frame === undefined ? ev.name : `${ev.name} · frame ${ev.frame}`;
+        faceEl.textContent = faceText;
+        note(`face  ${faceText}`);
+        break;
+      case 'oled.frame':
+        applyOledFrame(ev.pixels);
+        break;
+      case 'log':
+        note(`${ev.channel.padEnd(8)} ${ev.text}`, envelope.origin === 'bridge');
+        break;
+      case 'protocol.hello':
+        note(`hello  protocol v${ev.protocolVersion} from ${ev.emitter}`, true);
+        break;
+      case 'protocol.unknown':
+        note(`unknown (${ev.reason}): ${ev.raw}`);
+        break;
+      default:
+        break;
+    }
+    if (ev.warnings && ev.warnings.length) {
+      for (const w of ev.warnings) note(`  ! ${w.code}: ${w.message}`);
+    }
+  }
+
+  // ------------------------------------------------------------- transport --
+  let backoff = 400;
+  function connect() {
+    conn.textContent = 'connecting…';
+    dot.className = 'dot';
+    let socket;
+    try {
+      socket = new WebSocket(wsUrl);
+    } catch (err) {
+      scheduleReconnect(String(err));
+      return;
+    }
+    socket.onopen = () => {
+      backoff = 400;
+      dot.className = 'dot up';
+      conn.textContent = `connected — ${wsUrl}`;
+      note('viewer connected', true);
+    };
+    socket.onmessage = (msg) => {
+      let parsed;
+      try { parsed = JSON.parse(msg.data); } catch { return; }
+      handle(parsed);
+    };
+    socket.onclose = () => scheduleReconnect('closed');
+    socket.onerror = () => socket.close();
+  }
+  function scheduleReconnect(why) {
+    dot.className = 'dot down';
+    conn.textContent = `disconnected (${why}) — retrying in ${backoff} ms`;
+    setTimeout(connect, backoff);
+    backoff = Math.min(8000, Math.round(backoff * 1.8));
+  }
+
+  requestAnimationFrame(drawJoints);
+  connect();
+})();
+</script>
+</body>
+</html>

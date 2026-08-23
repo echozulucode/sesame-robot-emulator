@@ -1,0 +1,36 @@
+{"header":{"fixture":"runWavePose rendered as an @SESAME UART stream","generatedBy":"scripts/build-replay-fixture.mjs","source":{"file":"hardware/hardware-map.json","movement":"runWavePose"},"firmwareSource":{"from":{"file":"firmware/movement-sequences.h","line":91},"to":{"file":"firmware/movement-sequences.h","line":107}},"protocol":"docs/protocol/sesame-telemetry-v1.md","motorCurrentDelayMs":20,"notModelled":["updateAnimatedFace() inter-frame emissions (wall-clock dependent)","the OLED framebuffer hook (ships disabled)","timing jitter (all durations are the firmware nominal values)"],"lines":35,"durationMs":3680}}
+{"tMs":0,"line":"@SESAME hello 1 sesame-fw-s2mini/0.1.0","note":"R6 boot banner"}
+{"tMs":0,"line":"WAVE","note":"runWavePose: Serial.println"}
+{"tMs":0,"line":"@SESAME face wave 0","note":"runWavePose: setFace -> hook 2, frame 0"}
+{"tMs":0,"line":"STAND","note":"runStandPose: Serial.println"}
+{"tMs":0,"line":"@SESAME servo R1 135","note":"runStandPose: setServoAngle -> hook 1"}
+{"tMs":20,"line":"@SESAME servo R2 45","note":"runStandPose: setServoAngle -> hook 1"}
+{"tMs":40,"line":"@SESAME servo L1 45","note":"runStandPose: setServoAngle -> hook 1"}
+{"tMs":60,"line":"@SESAME servo L2 135","note":"runStandPose: setServoAngle -> hook 1"}
+{"tMs":80,"line":"@SESAME servo R4 0","note":"runStandPose: setServoAngle -> hook 1"}
+{"tMs":100,"line":"@SESAME servo R3 180","note":"runStandPose: setServoAngle -> hook 1"}
+{"tMs":120,"line":"@SESAME servo L3 0","note":"runStandPose: setServoAngle -> hook 1"}
+{"tMs":140,"line":"@SESAME servo L4 180","note":"runStandPose: setServoAngle -> hook 1"}
+{"tMs":360,"line":"@SESAME servo R4 80","note":"runWavePose: setServoAngle -> hook 1"}
+{"tMs":380,"line":"@SESAME servo L3 180","note":"runWavePose: setServoAngle -> hook 1"}
+{"tMs":400,"line":"@SESAME servo L2 90","note":"runWavePose: setServoAngle -> hook 1"}
+{"tMs":420,"line":"@SESAME servo R1 100","note":"runWavePose: setServoAngle -> hook 1"}
+{"tMs":640,"line":"@SESAME servo L3 180","note":"runWavePose: setServoAngle -> hook 1"}
+{"tMs":960,"line":"@SESAME servo L3 180","note":"runWavePose: setServoAngle -> hook 1"}
+{"tMs":1280,"line":"@SESAME servo L3 100","note":"runWavePose: setServoAngle -> hook 1"}
+{"tMs":1600,"line":"@SESAME servo L3 180","note":"runWavePose: setServoAngle -> hook 1"}
+{"tMs":1920,"line":"@SESAME servo L3 100","note":"runWavePose: setServoAngle -> hook 1"}
+{"tMs":2240,"line":"@SESAME servo L3 180","note":"runWavePose: setServoAngle -> hook 1"}
+{"tMs":2560,"line":"@SESAME servo L3 100","note":"runWavePose: setServoAngle -> hook 1"}
+{"tMs":2880,"line":"@SESAME servo L3 180","note":"runWavePose: setServoAngle -> hook 1"}
+{"tMs":3200,"line":"@SESAME servo L3 100","note":"runWavePose: setServoAngle -> hook 1"}
+{"tMs":3520,"line":"STAND","note":"runStandPose: Serial.println"}
+{"tMs":3520,"line":"@SESAME servo R1 135","note":"runStandPose: setServoAngle -> hook 1"}
+{"tMs":3540,"line":"@SESAME servo R2 45","note":"runStandPose: setServoAngle -> hook 1"}
+{"tMs":3560,"line":"@SESAME servo L1 45","note":"runStandPose: setServoAngle -> hook 1"}
+{"tMs":3580,"line":"@SESAME servo L2 135","note":"runStandPose: setServoAngle -> hook 1"}
+{"tMs":3600,"line":"@SESAME servo R4 0","note":"runStandPose: setServoAngle -> hook 1"}
+{"tMs":3620,"line":"@SESAME servo R3 180","note":"runStandPose: setServoAngle -> hook 1"}
+{"tMs":3640,"line":"@SESAME servo L3 0","note":"runStandPose: setServoAngle -> hook 1"}
+{"tMs":3660,"line":"@SESAME servo L4 180","note":"runStandPose: setServoAngle -> hook 1"}
+{"tMs":3680,"line":"@SESAME face idle 0","note":"enterIdle: setFace -> hook 2, frame 0"}

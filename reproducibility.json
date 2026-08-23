@@ -33,6 +33,26 @@
       "builtAt": "2026-08-23T14:54:04.811Z"
     },
     {
+      "profile": "s2mini-instrumented",
+      "fqbn": "esp32:esp32:lolin_s2_mini:CDCOnBoot=default,PartitionScheme=default,DebugLevel=none,EraseFlash=none",
+      "buildFlags": [
+        "build.extra_flags=-DARDUINO_HOST_OS=\"windows\" -DARDUINO_FQBN=\"esp32:esp32:lolin_s2_mini:CDCOnBoot=default,PartitionScheme=default,DebugLevel=none,EraseFlash=none\" -DESP32=ESP32 -DCORE_DEBUG_LEVEL=0   -DBOARD_HAS_PSRAM -DARDUINO_USB_MODE=0 -DARDUINO_USB_CDC_ON_BOOT=1 -DARDUINO_USB_MSC_ON_BOOT=0 -DARDUINO_USB_DFU_ON_BOOT=0 ",
+        "build.defines=-DBOARD_HAS_PSRAM",
+        "compiler.c.flags=-MMD -c \"@C:\\Projects\\sesame-robot-emulator\\tools\\arduino-data\\data\\internal\\esp32_esp32s2-libs_3.3.11_7e8ee1fb2020ede4/flags/c_flags\" -w -Os -Werror=return-type",
+        "compiler.cpp.flags=-MMD -c \"@C:\\Projects\\sesame-robot-emulator\\tools\\arduino-data\\data\\internal\\esp32_esp32s2-libs_3.3.11_7e8ee1fb2020ede4/flags/cpp_flags\" -w -Os -Werror=return-type",
+        "compiler.c.elf.flags=\"-Wl,--Map=C:\\Projects\\sesame-robot-emulator\\tools\\arduino-data\\scratch\\s2mini-instrumented\\build/sesame-firmware-main.ino.map\" \"-LC:\\Projects\\sesame-robot-emulator\\tools\\arduino-data\\data\\internal\\esp32_esp32s2-libs_3.3.11_7e8ee1fb2020ede4/lib\" \"-LC:\\Projects\\sesame-robot-emulator\\tools\\arduino-data\\data\\internal\\esp32_esp32s2-libs_3.3.11_7e8ee1fb2020ede4/ld\" \"-LC:\\Projects\\sesame-robot-emulator\\tools\\arduino-data\\data\\internal\\esp32_esp32s2-libs_3.3.11_7e8ee1fb2020ede4/qio_qspi\" \"-Wl,--wrap=esp_panic_handler\" \"-Wl,--wrap=esp_bt_mem_release\" \"-Wl,--wrap=esp_bt_controller_mem_release\" \"@C:\\Projects\\sesame-robot-emulator\\tools\\arduino-data\\data\\internal\\esp32_esp32s2-libs_3.3.11_7e8ee1fb2020ede4/flags/ld_flags\" \"@C:\\Projects\\sesame-robot-emulator\\tools\\arduino-data\\data\\internal\\esp32_esp32s2-libs_3.3.11_7e8ee1fb2020ede4/flags/ld_scripts\"",
+        "build.partitions=default",
+        "build.flash_mode=dio",
+        "build.flash_freq=80m",
+        "build.flash_size=4MB",
+        "build.cdc_on_boot=1"
+      ],
+      "elfSha256": "b14a916134ac4bf711ba80ca34932ed2b04ea5af95e2e575648c78de88f0005f",
+      "binSha256": "25b0290561485e6e81c1b4ec667e8f1073301d94ad8a9ed06ef7b65c26860073",
+      "mapSha256": "0f83d614778dc3501a97cc2918933d65cd7bd5ffff064dca2988b78f6f1e608d",
+      "builtAt": "2026-08-23T15:17:45.529Z"
+    },
+    {
       "profile": "distro-v3-s3",
       "fqbn": "esp32:esp32:esp32s3:CDCOnBoot=cdc,FlashMode=qio,FlashSize=4M,PartitionScheme=default,UploadSpeed=921600,CPUFreq=240,PSRAM=disabled,DebugLevel=none,LoopCore=1,EventsCore=1,USBMode=hwcdc,EraseFlash=none",
       "buildFlags": [

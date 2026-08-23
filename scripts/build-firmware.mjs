@@ -11,7 +11,7 @@
  * firmware/upstream/ is NEVER modified. The scratch copy is disposable.
  *
  * Usage: node scripts/build-firmware.mjs <profile> [--clean]
- *   <profile>  s2mini | distro-v3-s3 | distro-v1-esp32
+ *   <profile>  s2mini | s2mini-instrumented | distro-v3-s3 | distro-v1-esp32
  *   --clean    wipe the scratch sketch AND the arduino-cli build cache first
  *              (this is what the determinism check uses)
  */
@@ -34,6 +34,9 @@ const UPSTREAM = path.join(REPO, 'firmware', 'upstream', 'firmware');
  */
 const PROFILES = {
   's2mini': { patch: null, boardId: 's2-mini' },
+  // R6. Same board configuration as s2mini; the only difference is the patch,
+  // which is what makes the flash/RAM delta between the two attributable.
+  's2mini-instrumented': { patch: 'telemetry-instrumentation.patch', boardId: 's2-mini', telemetry: true },
   'distro-v3-s3': { patch: 'board-distro-v3-s3.patch', boardId: 'distro-v3' },
   'distro-v1-esp32': { patch: 'board-distro-v1-esp32.patch', boardId: 'distro-v1' },
 };
@@ -168,6 +171,68 @@ if (!eq(pins, board.servoPins) || sda !== board.i2c.sda || scl !== board.i2c.scl
 }
 log(`[verify] OK  board=${board.id} servoPins=${JSON.stringify(pins)} SDA=${sda} SCL=${scl}`);
 
+// ------------------------------------------- verify the R6 telemetry hooks
+// Same reasoning as the pin assertion above, and the same trap: `git apply`
+// can print "Skipped patch" and exit 0. Never trust the exit status - assert
+// on the GENERATED SOURCE. Here that means the two hook calls must exist, in
+// the right order relative to the statements they must sit between, and the
+// wire literals must be present verbatim.
+let telemetry = null;
+if (spec.telemetry) {
+  const fail = (m) => { console.error(`[telemetry] ${m}`); process.exit(1); };
+  const at = (needle) => {
+    const i = src.indexOf(needle);
+    if (i < 0) fail(`missing in patched source: ${needle}`);
+    if (src.indexOf(needle, i + 1) >= 0) fail(`not unique in patched source: ${needle}`);
+    return i;
+  };
+
+  // Hook 1: after the clamp + write, before delayWithFace().
+  const clamp = at('int adjustedAngle = constrain(angle + servoSubtrim[channel], 0, 180);');
+  const write = at('servos[channel].write(adjustedAngle);');
+  const emitServo = at('sesameEmitServo(channel, adjustedAngle);');
+  const motorDelay = at('delayWithFace(motorCurrentDelay);');
+  if (!(clamp < write && write < emitServo && emitServo < motorDelay)) {
+    fail('hook 1 is not between the 0-180 clamp and delayWithFace()');
+  }
+
+  // Hook 2: after the bitmap is drawn, before the frame is pushed to the panel.
+  const draw = at('display.drawBitmap(0, 0, bitmap, 128, 64, SSD1306_WHITE);');
+  const emitFace = at('sesameEmitFace(currentFaceName, currentFaceFrameIndex);');
+  const push = at('  display.display();\r\n}');
+  if (!(draw < emitFace && emitFace < push)) {
+    fail('hook 2 is not between drawBitmap() and display.display()');
+  }
+
+  // The OLED hook is a 1385-byte line, ~120 ms at 115200 baud. It ships OFF.
+  if (!/^#define SESAME_TELEMETRY_OLED 0$/m.test(src)) {
+    fail('the OLED framebuffer hook must default to disabled (#define SESAME_TELEMETRY_OLED 0)');
+  }
+
+  // Wire literals, extracted from the patched source rather than typed here.
+  const literals = [...src.matchAll(/"(@SESAME[^"\\]*(?:\\.[^"\\]*)*)"/g)].map((m) => m[1]);
+  const wanted = ['servo', 'face', 'hello'];
+  for (const verb of wanted) {
+    if (!literals.some((l) => l.startsWith(`@SESAME ${verb} `))) fail(`no @SESAME ${verb} literal`);
+  }
+  for (const l of literals) {
+    // A tag (key=value) is only legal between the verb and the positional
+    // args; anywhere else it is just a positional arg and corrupts the frame.
+    const body = l.replace(/\\n$/, '');
+    if (/^@SESAME \S+ \S+=\S+/.test(body)) fail(`literal emits a tag in an arg slot: ${l}`);
+    if (/^@SESAME log /.test(body)) fail(`firmware must not emit the log verb: ${l}`);
+    if (!body.startsWith('@SESAME ')) fail(`bad sentinel: ${l}`);
+    if (l.endsWith('\\n') === false && !/^@SESAME hello/.test(l)) fail(`literal is not newline-terminated: ${l}`);
+  }
+  telemetry = {
+    protocolVersion: Number(src.match(/#define SESAME_TELEMETRY_VERSION (\d+)/)?.[1] ?? 0),
+    emitter: src.match(/#define SESAME_TELEMETRY_EMITTER "([^"]*)"/)?.[1] ?? null,
+    oledHookEnabledByDefault: false,
+    formatLiterals: literals,
+  };
+  log(`[telemetry] OK  ${literals.length} @SESAME literals, hooks in place, OLED hook disabled`);
+}
+
 // --------------------------------------------------------------------- build
 fs.rmSync(OUT_DIR, { recursive: true, force: true });
 fs.mkdirSync(OUT_DIR, { recursive: true });
@@ -258,6 +323,7 @@ const manifest = {
   ),
   hardwareMapBoardId: board.id,
   verifiedConfig: { servoPins: pins, i2cSda: sda, i2cScl: scl },
+  telemetry,
   upstreamCommit: JSON.parse(fs.readFileSync(path.join(REPO, 'firmware', 'upstream.pin.json'), 'utf8')).commit ?? null,
   patch: spec.patch ? { file: `firmware/patches/${spec.patch}`, sha256: patchSha } : null,
   arduinoCliVersion: cliVersion,

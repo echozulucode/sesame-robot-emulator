@@ -14,7 +14,7 @@
     tools/ and are addressed through tools/arduino-cli/arduino-cli.yaml.
 
 .PARAMETER Profile
-    s2mini | distro-v3-s3 | distro-v1-esp32
+    s2mini | s2mini-instrumented | distro-v3-s3 | distro-v1-esp32
 
 .PARAMETER Clean
     Wipe the scratch sketch and the arduino-cli build cache before building.
@@ -28,7 +28,7 @@
 [CmdletBinding()]
 param(
     [Parameter(Mandatory = $true, Position = 0)]
-    [ValidateSet('s2mini', 'distro-v3-s3', 'distro-v1-esp32')]
+    [ValidateSet('s2mini', 's2mini-instrumented', 'distro-v3-s3', 'distro-v1-esp32')]
     [string]$Profile,
 
     [switch]$Clean

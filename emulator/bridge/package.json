@@ -1,0 +1,43 @@
+{
+  "name": "@sesame-lab/sesame-bridge",
+  "version": "0.1.0",
+  "private": true,
+  "description": "UART TCP socket -> @SESAME parser -> typed telemetry -> WebSocket. The seam that makes Renode and a host-side model interchangeable backends.",
+  "license": "Apache-2.0",
+  "type": "module",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "bin": {
+    "sesame-bridge": "./dist/cli.js"
+  },
+  "files": [
+    "dist",
+    "fixtures"
+  ],
+  "scripts": {
+    "build": "tsc -p tsconfig.build.json",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "start": "node dist/cli.js",
+    "demo": "node dist/cli.js --replay fixtures/wave-pose.replay.jsonl --loop --serve-viewer",
+    "clean": "node -e \"import('node:fs').then(fs => fs.rmSync('dist', { recursive: true, force: true }))\""
+  },
+  "dependencies": {
+    "@sesame-lab/sesame-model": "workspace:*",
+    "@sesame-lab/sesame-protocol": "workspace:*",
+    "ws": "^8.18.3"
+  },
+  "devDependencies": {
+    "@types/node": "^24.10.1",
+    "@types/ws": "^8.18.1",
+    "typescript": "^5.9.3",
+    "vitest": "^3.2.4"
+  }
+}

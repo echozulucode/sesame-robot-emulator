@@ -1,0 +1,158 @@
+diff --git a/sesame-firmware-main.ino b/sesame-firmware-main.ino
+index 92a1584..8a83ad4 100644
+--- a/sesame-firmware-main.ino
++++ b/sesame-firmware-main.ino
+@@ -10,6 +10,111 @@
+ #include "movement-sequences.h"
+ #include "captive-portal.h"
+ 
++// ===========================================================================
++// SESAME LAB TELEMETRY INSTRUMENTATION  (R6, Phase 0)
++//
++// NOT upstream. Applied at build time by scripts/build-firmware.mjs for the
++// `s2mini-instrumented` profile only; firmware/upstream/ stays pristine and
++// this whole block is designed to be deleted wholesale once Renode has real
++// LEDC / I2C peripheral models.
++//
++// Wire format: docs/protocol/sesame-telemetry-v1.md  (@SESAME v1)
++// Rationale + verification: docs/findings/R6-R7-telemetry-bridge.md
++//
++// Two hook sites, deliberately, plus one boot banner:
++//   1. setServoAngle()    - after the 0..180 clamp, before delayWithFace().
++//   2. updateFaceBitmap() - the single convergence point every face frame
++//                           passes through, before display.display().
++//   +  end of setup()     - one `hello` line (protocol section 5.5).
++//
++// Instrumenting the 21 movement functions individually would be 223 hook
++// sites that could drift out of agreement with what actually reached
++// Servo::write(). These two cannot.
++// ===========================================================================
++#define SESAME_TELEMETRY_VERSION 1
++#define SESAME_TELEMETRY_EMITTER "sesame-fw-s2mini/0.1.0"
++
++// The OLED framebuffer hook is OFF by default and must stay that way unless a
++// human asks for it: one frame is 1385 bytes on the wire, ~120 ms at 115200
++// baud, which is six times the 20 ms motorCurrentDelay budget it would be
++// emitted inside. Enable with -DSESAME_TELEMETRY_OLED=1 for single-frame
++// inspection only, never for animation.
++#ifndef SESAME_TELEMETRY_OLED
++#define SESAME_TELEMETRY_OLED 0
++#endif
++#ifndef SESAME_TELEMETRY_OLED_MIN_MS
++#define SESAME_TELEMETRY_OLED_MIN_MS 500
++#endif
++
++// Face names reach hook 2 straight from user input: POST /api/command carries
++// a "face" field (sesame-firmware-main.ino:366) and the serial console accepts
++// `face <name>` (:818), and setFace() stores whatever it was given in
++// currentFaceName even when the lookup misses (:906). An unfiltered name could
++// therefore contain a space (breaking the token split) or the literal sentinel
++// (splitting the line into a forged second segment - protocol section 3.2).
++// Reduce it to a safe token: [A-Za-z0-9_.-], never empty, always terminated.
++// No String, no allocation - this runs inside the servo delay budget.
++static void sesameSafeToken(const char *in, char *out, size_t cap) {
++  if (cap == 0) return;
++  size_t n = 0;
++  for (; in != nullptr && *in != '\0' && n + 1 < cap; ++in) {
++    const char c = *in;
++    const bool ok = (c >= 'A' && c <= 'Z') || (c >= 'a' && c <= 'z') ||
++                    (c >= '0' && c <= '9') || c == '_' || c == '-' || c == '.';
++    out[n++] = ok ? c : '_';
++  }
++  if (n == 0) out[n++] = '_';
++  out[n] = '\0';
++}
++
++// Hook 1 payload. `angleDeg` is the POST-subtrim, POST-clamp value - what
++// actually reached Servo::write(). No tags are emitted: tags are legal only
++// between the verb and the positional args, so a stray `t=` here would make
++// the line parse as bad-angle. And micros() is wall-clock on real silicon,
++// not emulator virtual time, so t= would be a lie even in the right slot.
++static void sesameEmitServo(uint8_t channel, int angleDeg) {
++  Serial.printf("@SESAME servo %s %d\n", ServoNames[channel].c_str(), angleDeg);
++}
++
++// Hook 2 payload.
++static void sesameEmitFace(const String &name, uint8_t frameIndex) {
++  char safe[24];
++  sesameSafeToken(name.c_str(), safe, sizeof(safe));
++  Serial.printf("@SESAME face %s %u\n", safe, (unsigned)frameIndex);
++}
++
++#if SESAME_TELEMETRY_OLED
++// display.getBuffer() is 1024 bytes in SSD1306 page order; the protocol adopts
++// that layout byte-for-byte so this is a base64 and nothing else.
++static void sesameEmitOled(const uint8_t *buf) {
++  static const char B64[] = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
++  static char line[1369];   // 1024 bytes -> 1368 base64 chars + NUL
++  static unsigned long lastMs = 0;
++  if (buf == nullptr) return;
++  const unsigned long now = millis();
++  if (lastMs != 0 && now - lastMs < (unsigned long)SESAME_TELEMETRY_OLED_MIN_MS) return;
++  lastMs = now;
++  size_t o = 0;
++  size_t i = 0;
++  // 1024 = 3*341 + 1, so 341 whole groups then a one-byte tail. Running the
++  // main loop to i < 1024 would read two bytes past the framebuffer.
++  for (; i + 3 <= 1024; i += 3) {
++    const uint32_t w = ((uint32_t)buf[i] << 16) | ((uint32_t)buf[i + 1] << 8) | (uint32_t)buf[i + 2];
++    line[o++] = B64[(w >> 18) & 0x3F];
++    line[o++] = B64[(w >> 12) & 0x3F];
++    line[o++] = B64[(w >> 6) & 0x3F];
++    line[o++] = B64[w & 0x3F];
++  }
++  const uint32_t tail = (uint32_t)buf[i] << 16;   // exactly one byte left
++  line[o++] = B64[(tail >> 18) & 0x3F];
++  line[o++] = B64[(tail >> 12) & 0x3F];
++  line[o++] = '=';
++  line[o++] = '=';
++  line[o] = '\0';   // 341*4 + 4 = 1368 characters
++  Serial.printf("@SESAME oled b64 %s\n", line);
++}
++#endif
++
+ // --- Access Point Configuration ---
+ // This is the network the Robot will create
+ #define AP_SSID  "Sesame-Controller"
+@@ -747,6 +852,11 @@ void setup() {
+   setFace("rest");
+   
+   Serial.println(F("HTTP server & Captive Portal started."));
++  // --- R6 boot banner (protocol section 5.5) ----------------------------
++  // End of setup(), as the protocol document specifies. Note for real
++  // silicon: on the S2 Mini Serial is USB-CDC, so anything printed before
++  // the host enumerates is lost. Under emulation there is no such window.
++  Serial.printf("@SESAME hello %d %s\n", SESAME_TELEMETRY_VERSION, SESAME_TELEMETRY_EMITTER);
+ }
+ 
+ void loop() {
+@@ -887,6 +997,16 @@ void loop() {
+ void updateFaceBitmap(const unsigned char* bitmap) {
+   display.clearDisplay();
+   display.drawBitmap(0, 0, bitmap, 128, 64, SSD1306_WHITE);
++  // --- R6 telemetry hook 2 of 2 -----------------------------------------
++  // updateFaceBitmap() is the single point every rendered face frame passes
++  // through: setFace() frame 0, updateAnimatedFace() every animation step,
++  // and both updateWifiInfoScroll() restores. currentFaceName and
++  // currentFaceFrameIndex are already updated at every one of those call
++  // sites, so this reports the frame that is about to reach the glass.
++  sesameEmitFace(currentFaceName, currentFaceFrameIndex);
++#if SESAME_TELEMETRY_OLED
++  sesameEmitOled(display.getBuffer());
++#endif
+   display.display();
+ }
+ 
+@@ -1052,6 +1172,12 @@ void setServoAngle(uint8_t channel, int angle) {
+   if (channel < 8) {
+     int adjustedAngle = constrain(angle + servoSubtrim[channel], 0, 180);
+     servos[channel].write(adjustedAngle);
++    // --- R6 telemetry hook 1 of 2 ---------------------------------------
++    // AFTER the clamp so the reported angle is the one Servo::write() got,
++    // and BEFORE delayWithFace(), which is not dead time: it pumps
++    // updateAnimatedFace(), server.handleClient() and the DNS server, so it
++    // can re-enter this file and emit further telemetry of its own.
++    sesameEmitServo(channel, adjustedAngle);
+     delayWithFace(motorCurrentDelay);
+   }
+ }

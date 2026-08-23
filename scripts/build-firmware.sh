@@ -6,7 +6,7 @@
 # compile -> artifacts + build-manifest.json). Keeping the logic in Node stops
 # the PowerShell and POSIX entry points from drifting apart.
 #
-# Usage: scripts/build-firmware.sh <s2mini|distro-v3-s3|distro-v1-esp32> [--clean]
+# Usage: scripts/build-firmware.sh <s2mini|s2mini-instrumented|distro-v3-s3|distro-v1-esp32> [--clean]
 set -euo pipefail
 
 here="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"

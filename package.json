@@ -17,7 +17,12 @@
     "validate:reproducibility": "node scripts/validate-reproducibility.mjs",
     "validate:hardware-map": "node scripts/validate-hardware-map.mjs --check-lines",
     "validate:joint-map": "node scripts/validate-joint-map.mjs",
-    "build:joint-map": "node scripts/build-joint-map.mjs"
+    "build:joint-map": "node scripts/build-joint-map.mjs",
+    "build:replay-fixture": "node scripts/build-replay-fixture.mjs",
+    "validate:replay-fixture": "node scripts/build-replay-fixture.mjs --check",
+    "extract:telemetry-literals": "node scripts/extract-telemetry-literals.mjs",
+    "validate:telemetry-literals": "node scripts/extract-telemetry-literals.mjs --check",
+    "demo:telemetry": "node emulator/bridge/dist/cli.js --replay emulator/bridge/fixtures/wave-pose.replay.jsonl --loop --serve-viewer"
   },
   "devDependencies": {
     "ajv": "^8.17.1",
