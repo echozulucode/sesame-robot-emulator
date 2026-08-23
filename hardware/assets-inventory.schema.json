@@ -1,0 +1,304 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://sesame-lab.local/schemas/assets-inventory.schema.json",
+  "title": "Sesame Lab mechanical asset inventory (Phase 0, task F5)",
+  "description": "Measured geometry of the Sesame printed part set, plus explicitly-graded inferences about joint pivots. Anything not directly measured carries a method and a confidence; nothing here is physically verified.",
+  "type": "object",
+  "required": ["meta", "units", "coordinateFrame", "servo", "expectedPartSet", "parts", "cad", "unresolved"],
+  "additionalProperties": false,
+  "properties": {
+    "$schema": { "type": "string" },
+
+    "meta": {
+      "type": "object",
+      "required": ["schemaVersion", "task", "generatedAt", "generator", "toolVersions", "sourceTree"],
+      "additionalProperties": false,
+      "properties": {
+        "schemaVersion": { "type": "string", "pattern": "^\\d+\\.\\d+\\.\\d+$" },
+        "task": { "const": "F5" },
+        "generatedAt": { "type": "string", "format": "date-time" },
+        "generator": { "type": "string" },
+        "toolVersions": {
+          "type": "object",
+          "required": ["python", "trimesh", "numpy"],
+          "additionalProperties": { "type": "string" }
+        },
+        "detectorThresholds": { "type": "object" },
+        "sourceTree": { "type": "string" },
+        "determinism": { "type": "string" },
+        "verificationStatus": { "type": "string" }
+      }
+    },
+
+    "units": {
+      "type": "object",
+      "description": "STL files carry no unit. This block records the conclusion, how it was reached, and what would make it authoritative.",
+      "required": ["value", "confidence", "method", "reasoning"],
+      "properties": {
+        "value": { "enum": ["millimetre", "centimetre", "metre", "inch", "undetermined"] },
+        "confidence": { "$ref": "#/$defs/confidence" },
+        "method": { "type": "string" },
+        "cadDeclaredLengthUnit": { "type": ["string", "null"] },
+        "cadConversionBasedUnits": { "type": "array", "items": { "type": "string" } },
+        "reasoning": { "type": "array", "items": { "type": "string" }, "minItems": 1 },
+        "caveat": { "type": "string" },
+        "observation": { "type": "object" }
+      }
+    },
+
+    "coordinateFrame": {
+      "type": "object",
+      "description": "Whether the STL exports share one frame, which way is up, and where the joint parts actually sit.",
+      "properties": {
+        "sharedFrame": { "$ref": "#/$defs/gradedClaim" },
+        "upAxis": { "$ref": "#/$defs/gradedClaim" },
+        "jointStations": { "type": "object" },
+        "lateralAxis": { "$ref": "#/$defs/gradedClaim" }
+      }
+    },
+
+    "servo": {
+      "type": "object",
+      "description": "Servo facts. Only values sourced from this repository are recorded as facts; datasheet figures are deliberately null and labelled where used.",
+      "required": ["model", "quantity", "source", "verified"],
+      "properties": {
+        "model": { "type": "string" },
+        "quantity": { "type": "integer", "minimum": 0 },
+        "source": { "type": "string" },
+        "quotedFromBom": { "type": "array", "items": { "type": "string" } },
+        "travelDegFromBom": { "type": ["number", "null"] },
+        "hornStyle": { "type": "object" },
+        "mounting": { "type": "object" },
+        "bodyDimensionsMm": { "type": "object" },
+        "measuredFromGeometry": { "type": "object" },
+        "verified": { "const": false }
+      }
+    },
+
+    "expectedPartSet": {
+      "type": "object",
+      "required": ["count", "source", "stlFilesPresent", "missingJoints"],
+      "properties": {
+        "count": { "type": "integer" },
+        "source": { "type": "string" },
+        "composition": { "type": "string" },
+        "stlFilesPresent": { "type": "integer" },
+        "missingJoints": { "type": "array", "items": { "$ref": "#/$defs/jointName" } },
+        "note": { "type": "string" }
+      }
+    },
+
+    "partShapeGroups": {
+      "type": "array",
+      "description": "Measured shape-identity / mirror relationships between joint parts.",
+      "items": {
+        "type": "object",
+        "required": ["a", "b", "relation", "fractionWithin0p05", "method"],
+        "properties": {
+          "a": { "$ref": "#/$defs/jointName" },
+          "b": { "$ref": "#/$defs/jointName" },
+          "relation": { "enum": ["identical", "mirrored"] },
+          "mirrorPlaneZ": { "type": ["number", "null"] },
+          "fractionWithin0p05": { "type": "number", "minimum": 0, "maximum": 1 },
+          "p99Distance": { "type": "number" },
+          "method": { "type": "string" },
+          "notes": { "type": "string" }
+        }
+      }
+    },
+
+    "parts": {
+      "type": "array",
+      "minItems": 1,
+      "items": { "$ref": "#/$defs/part" }
+    },
+
+    "cad": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["file", "path", "sha256", "bytes", "parsed"],
+        "properties": {
+          "file": { "type": "string" },
+          "path": { "type": "string" },
+          "sha256": { "$ref": "#/$defs/sha256" },
+          "bytes": { "type": "integer" },
+          "parsed": { "type": "boolean" },
+          "findings": { "type": "object" },
+          "notes": { "type": "string" }
+        }
+      }
+    },
+
+    "unresolved": {
+      "type": "array",
+      "description": "Everything F5 could not determine. Each entry names what would resolve it.",
+      "items": {
+        "type": "object",
+        "required": ["item", "reason", "resolvedBy"],
+        "properties": {
+          "item": { "type": "string" },
+          "reason": { "type": "string" },
+          "resolvedBy": { "type": "string" }
+        }
+      }
+    }
+  },
+
+  "$defs": {
+    "confidence": { "enum": ["high", "medium", "low", "none"] },
+    "jointName": { "enum": ["R1", "R2", "R3", "R4", "L1", "L2", "L3", "L4"] },
+    "sha256": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+    "vec3": {
+      "type": "array",
+      "items": { "type": "number" },
+      "minItems": 3,
+      "maxItems": 3
+    },
+
+    "gradedClaim": {
+      "type": "object",
+      "description": "A derived statement that must never be read without its confidence.",
+      "required": ["value", "confidence"],
+      "properties": {
+        "value": {},
+        "confidence": { "$ref": "#/$defs/confidence" },
+        "method": { "type": "string" },
+        "evidence": {},
+        "notes": { "type": "string" }
+      }
+    },
+
+    "cylindricalFeature": {
+      "type": "object",
+      "required": ["kind", "radius", "axis", "center"],
+      "properties": {
+        "kind": { "enum": ["hole", "boss"] },
+        "radius": { "type": "number", "exclusiveMinimum": 0 },
+        "diameter": { "type": "number" },
+        "axis": { "$ref": "#/$defs/vec3" },
+        "center": { "$ref": "#/$defs/vec3" },
+        "axialExtent": {
+          "type": "array", "items": { "type": "number" },
+          "minItems": 2, "maxItems": 2
+        },
+        "length": { "type": "number", "minimum": 0 },
+        "arcCoverageDeg": { "type": "number", "minimum": 0, "maximum": 360 },
+        "votes": { "type": "integer" },
+        "faces": { "type": "integer" },
+        "fitResidualRatio": { "type": "number", "minimum": 0 }
+      }
+    },
+
+    "pivotCandidate": {
+      "type": "object",
+      "description": "A candidate joint axis. `origin` and `axis` are meaningless without `confidence`; confidence \"none\" with a null axis is a valid, honest result.",
+      "required": ["origin", "axis", "method", "confidence", "notes"],
+      "properties": {
+        "origin": { "oneOf": [{ "$ref": "#/$defs/vec3" }, { "type": "null" }] },
+        "axis": { "oneOf": [{ "$ref": "#/$defs/vec3" }, { "type": "null" }] },
+        "method": { "type": "string" },
+        "confidence": { "$ref": "#/$defs/confidence" },
+        "axisConfidence": { "$ref": "#/$defs/confidence" },
+        "originConfidence": { "$ref": "#/$defs/confidence" },
+        "verticalAlignment": { "type": "number" },
+        "notes": { "type": "string" },
+        "components": { "type": "object" },
+        "mateAmbiguity": { "type": ["string", "null"] },
+        "boreMidpointForReference": { "$ref": "#/$defs/vec3" }
+      },
+      "allOf": [
+        {
+          "if": { "properties": { "confidence": { "const": "none" } }, "required": ["confidence"] },
+          "then": { "properties": { "origin": { "type": "null" } } }
+        }
+      ]
+    },
+
+    "part": {
+      "type": "object",
+      "required": ["file", "path", "sha256", "bytes", "role", "firmwareJointName",
+                   "mesh", "integrity", "bbox", "surfaceArea", "areaCentroid",
+                   "cylindricalFeatures", "pivotCandidate", "verified"],
+      "properties": {
+        "file": { "type": "string" },
+        "path": { "type": "string" },
+        "sha256": { "$ref": "#/$defs/sha256" },
+        "bytes": { "type": "integer", "minimum": 0 },
+        "role": { "enum": ["frame", "cover", "joint", "accessory", "unknown"] },
+        "firmwareJointName": {
+          "oneOf": [{ "$ref": "#/$defs/jointName" }, { "type": "null" }]
+        },
+        "mesh": {
+          "type": "object",
+          "required": ["triangles", "verticesAfterWeld", "bodies", "eulerNumber"],
+          "properties": {
+            "trianglesRawStlHeader": { "type": ["integer", "null"] },
+            "triangles": { "type": "integer", "minimum": 0 },
+            "verticesAfterWeld": { "type": "integer", "minimum": 0 },
+            "bodies": { "type": "integer" },
+            "eulerNumber": { "type": "integer" }
+          }
+        },
+        "integrity": {
+          "type": "object",
+          "required": ["watertight", "windingConsistent"],
+          "properties": {
+            "watertight": { "type": "boolean" },
+            "windingConsistent": { "type": "boolean" },
+            "volumeSignPositive": { "type": "boolean" },
+            "degenerateFaces": { "type": "integer", "minimum": 0 }
+          }
+        },
+        "bbox": {
+          "type": "object",
+          "required": ["min", "max", "size", "centroid"],
+          "properties": {
+            "min": { "$ref": "#/$defs/vec3" },
+            "max": { "$ref": "#/$defs/vec3" },
+            "size": { "$ref": "#/$defs/vec3" },
+            "centroid": { "$ref": "#/$defs/vec3" },
+            "diagonal": { "type": "number" }
+          }
+        },
+        "surfaceArea": { "type": "number", "minimum": 0 },
+        "volume": { "type": ["number", "null"] },
+        "centerOfMass": { "oneOf": [{ "$ref": "#/$defs/vec3" }, { "type": "null" }] },
+        "areaCentroid": { "$ref": "#/$defs/vec3" },
+        "principalAxes": { "type": ["object", "null"] },
+        "inertiaTensor": {
+          "oneOf": [
+            { "type": "array", "items": { "$ref": "#/$defs/vec3" }, "minItems": 3, "maxItems": 3 },
+            { "type": "null" }
+          ]
+        },
+        "cylindricalFeatures": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/cylindricalFeature" }
+        },
+        "axisGroups": { "type": "array", "items": { "type": "object" } },
+        "pivotCandidate": {
+          "oneOf": [{ "$ref": "#/$defs/pivotCandidate" }, { "type": "null" }]
+        },
+        "distalInterface": { "type": ["object", "null"] },
+        "linkGeometry": { "type": "object" },
+        "servoMountBores": { "type": ["object", "null"] },
+        "frameConsistentHipMatches": { "type": "array" },
+        "cadIdentity": { "type": ["object", "null"] },
+        "verified": {
+          "const": false,
+          "description": "Nothing in F5 has been checked against physical hardware. This stays false until someone measures a built robot."
+        }
+      },
+      "allOf": [
+        {
+          "if": { "properties": { "role": { "const": "joint" } }, "required": ["role"] },
+          "then": {
+            "properties": { "firmwareJointName": { "$ref": "#/$defs/jointName" } },
+            "required": ["firmwareJointName"]
+          }
+        }
+      ]
+    }
+  }
+}

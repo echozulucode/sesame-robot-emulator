@@ -1,0 +1,51 @@
+:name: R1 Xtensa smoke test
+:description: Instantiate the stock xtensa-sample-controller platform, hand-assemble a
+:description: known instruction sequence into RAM and single-step it, proving that the
+:description: Renode 1.16.1 Xtensa translation core actually executes target instructions.
+
+using sysbus
+mach create "xtensa-smoke"
+machine LoadPlatformDescription @platforms/cpus/xtensa-sample-controller.repl
+machine LoadPlatformDescriptionFromString 'opmem: Memory.MappedMemory @ sysbus 0x0 { size: 0x30000 }'
+
+cpu PC 0x0
+
+# MOVI a1, 0x400
+sysbus WriteDoubleWord 0x00 0x0000A402
+# L32I a2, a1, 0x0
+sysbus WriteDoubleWord 0x03 0x00002012
+# L32I a3, a1, 0x4
+sysbus WriteDoubleWord 0x06 0x00012022
+# BEQZ a3, +...
+sysbus WriteDoubleWord 0x09 0x00005216
+# QUOU a4, a2, a3
+sysbus WriteDoubleWord 0x0c 0x00C23120
+# J
+sysbus WriteDoubleWord 0x0f 0x00000086
+# MOVI a4, 0x0
+sysbus WriteDoubleWord 0x12 0x0000A032
+# J self
+sysbus WriteDoubleWord 0x15 0xFFFFFF06
+
+sysbus WriteDoubleWord 0x400 0x10
+sysbus WriteDoubleWord 0x404 0x02
+
+echo "--- before step ---"
+cpu PC
+cpu Step
+echo "--- after step 1 (expect PC 0x3) ---"
+cpu PC
+cpu Step
+echo "--- after step 2 (expect PC 0x6) ---"
+cpu PC
+cpu Step 4
+echo "--- after step 6 (expect PC 0x15) ---"
+cpu PC
+echo "--- registers a1..a4 ---"
+cpu GetRegister 1
+cpu GetRegister 2
+cpu GetRegister 3
+cpu GetRegister 4
+echo "--- ExecutedInstructions ---"
+cpu ExecutedInstructions
+quit

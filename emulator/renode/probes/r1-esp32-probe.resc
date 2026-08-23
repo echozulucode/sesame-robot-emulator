@@ -1,0 +1,15 @@
+:name: R1 ESP32 capability probe
+using sysbus
+mach create "esp32s2-probe"
+machine LoadPlatformDescriptionFromString 'cpu: CPU.Xtensa @ sysbus { cpuType: "esp32s2"; frequency: 240000000 }'
+echo "=== CPU esp32s2 instantiated ==="
+peripherals
+machine LoadPlatformDescriptionFromString 'iram: Memory.MappedMemory @ sysbus 0x40020000 { size: 0x50000 }'
+machine LoadPlatformDescriptionFromString 'dram: Memory.MappedMemory @ sysbus 0x3FFB0000 { size: 0x50000 }'
+echo "=== trying UART.ESP32_UART at 0x3F400000 (ESP32-S2 UART0) ==="
+machine LoadPlatformDescriptionFromString 'uart0: UART.ESP32_UART @ sysbus 0x3F400000'
+echo "=== peripherals after UART ==="
+peripherals
+echo "=== cpu model/regs ==="
+cpu PC
+quit

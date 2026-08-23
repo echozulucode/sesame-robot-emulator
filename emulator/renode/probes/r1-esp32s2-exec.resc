@@ -1,0 +1,44 @@
+:name: R1 ESP32-S2 Xtensa core execution probe
+:description: Proves that Renode 1.16.1's Xtensa translation core accepts the
+:description: cpuType string "esp32s2" and actually executes target instructions.
+:description: Hand-assembled sequence: MOVI / L32I / L32I / BEQZ / QUOU / J.
+
+using sysbus
+mach create "esp32s2-exec"
+machine LoadPlatformDescriptionFromString 'cpu: CPU.Xtensa @ sysbus { cpuType: "esp32s2"; frequency: 240000000 }'
+machine LoadPlatformDescriptionFromString 'iram: Memory.MappedMemory @ sysbus 0x40020000 { size: 0x50000 }'
+machine LoadPlatformDescriptionFromString 'lowmem: Memory.MappedMemory @ sysbus 0x0 { size: 0x1000 }'
+
+echo "=== default reset PC for cpuType esp32s2 ==="
+cpu PC
+
+sysbus WriteDoubleWord 0x40020000 0x0000A402
+sysbus WriteDoubleWord 0x40020003 0x00002012
+sysbus WriteDoubleWord 0x40020006 0x00012022
+sysbus WriteDoubleWord 0x40020009 0x00005216
+sysbus WriteDoubleWord 0x4002000c 0x00C23120
+sysbus WriteDoubleWord 0x4002000f 0x00000086
+sysbus WriteDoubleWord 0x40020012 0x0000A032
+sysbus WriteDoubleWord 0x40020015 0xFFFFFF06
+sysbus WriteDoubleWord 0x400 0x10
+sysbus WriteDoubleWord 0x404 0x02
+
+cpu PC 0x40020000
+cpu Step 6
+echo "=== PC after 6 steps (expect 0x40020015) ==="
+cpu PC
+echo "=== a1(0x400) a2(0x10) a3(0x2) a4(quotient, expect 0x8) ==="
+cpu GetRegister 1
+cpu GetRegister 2
+cpu GetRegister 3
+cpu GetRegister 4
+echo "=== executed instructions ==="
+cpu ExecutedInstructions
+echo "=== other ESP32 cpuTypes ==="
+mach create "esp32-var"
+machine LoadPlatformDescriptionFromString 'cpu: CPU.Xtensa @ sysbus { cpuType: "esp32"; frequency: 240000000 }'
+peripherals
+mach create "esp32s3-var"
+machine LoadPlatformDescriptionFromString 'cpu: CPU.Xtensa @ sysbus { cpuType: "esp32s3"; frequency: 240000000 }'
+peripherals
+quit

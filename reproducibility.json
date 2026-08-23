@@ -1,0 +1,33 @@
+{
+  "$schema": "./reproducibility.schema.json",
+
+  "sesameUpstreamCommit": "401730514cefed738710d22303e84b0dcd6b76d0",
+  "sesameUpstreamResolvedDate": "2026-08-23T11:36:56Z",
+  "sesameLabCommit": null,
+
+  "arduinoCliVersion": null,
+  "arduinoEsp32CoreVersion": null,
+  "libraries": {
+    "ESP32Servo": null,
+    "Adafruit_SSD1306": null,
+    "Adafruit_GFX": null
+  },
+
+  "builds": [],
+
+  "renodeVersion": null,
+  "renodePlatformFiles": [],
+
+  "assetSourceVersion": null,
+  "jointMapVersion": null,
+  "lessonContentVersion": null,
+
+  "generatedAt": "2026-08-23T12:09:33Z",
+  "hostPlatform": {
+    "os": "Windows 11 Pro 10.0.26200",
+    "arch": "x64",
+    "node": "24.13.0",
+    "pnpm": "10.34.1",
+    "python": "3.13.13"
+  }
+}

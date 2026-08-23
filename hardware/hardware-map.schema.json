@@ -1,0 +1,986 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://sesame-lab.invalid/schemas/hardware-map.schema.json",
+  "title": "Sesame hardware map (F4 boundary inventory)",
+  "description": "Machine-readable inventory of every hardware and I/O boundary in the Sesame robot firmware, extracted from pinned source with file:line provenance. Strict throughout: additionalProperties is false on every object, so a typo'd or undocumented key is a hard failure rather than a silent gap. Every fact-bearing object carries a `source` (or `<fact>Source`) pointer; a fact without provenance is a bug.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["meta", "boards", "servos", "display", "network", "movements", "faces", "bootOrder", "commands", "unresolved"],
+
+  "properties": {
+    "meta": { "$ref": "#/$defs/meta" },
+    "boards": {
+      "type": "array",
+      "minItems": 1,
+      "items": { "$ref": "#/$defs/board" },
+      "description": "Every pin configuration present in source, active and commented-out alike.",
+      "$comment": "Exactly one board must be active; enforced below."
+    },
+    "servos": { "$ref": "#/$defs/servos" },
+    "display": { "$ref": "#/$defs/display" },
+    "network": { "$ref": "#/$defs/network" },
+    "movements": { "type": "array", "minItems": 1, "items": { "$ref": "#/$defs/movement" } },
+    "faces": { "$ref": "#/$defs/faces" },
+    "bootOrder": { "type": "array", "minItems": 1, "items": { "$ref": "#/$defs/bootStep" } },
+    "commands": { "$ref": "#/$defs/commands" },
+    "unresolved": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/unresolvedEntry" },
+      "description": "Every fact that could not be established from source. Missing/ambiguous data is null in place AND listed here with a reason. Never invented."
+    }
+  },
+
+  "$defs": {
+    "source": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["file", "line"],
+      "description": "Provenance pointer. `file` is relative to the UPSTREAM repository root (e.g. \"firmware/sesame-firmware-main.ino\"), not to this repository.",
+      "properties": {
+        "file": { "type": "string", "pattern": "^firmware/" },
+        "line": { "type": "integer", "minimum": 1 }
+      }
+    },
+    "sourceRange": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["from", "to"],
+      "properties": { "from": { "$ref": "#/$defs/source" }, "to": { "$ref": "#/$defs/source" } }
+    },
+    "sourceList": { "type": "array", "minItems": 1, "items": { "$ref": "#/$defs/source" } },
+    "nullableSource": { "oneOf": [{ "$ref": "#/$defs/source" }, { "type": "null" }] },
+    "nullableString": { "type": ["string", "null"] },
+    "nullableInteger": { "type": ["integer", "null"] },
+    "jointName": { "enum": ["R1", "R2", "L1", "L2", "R4", "R3", "L3", "L4"] },
+    "jointIndex": { "type": "integer", "minimum": 0, "maximum": 7 },
+    "angleDeg": { "type": "integer", "minimum": 0, "maximum": 180 },
+    "boardId": { "enum": ["s2-mini", "distro-v3", "distro-v2", "distro-v1"] },
+    "gpioPin": { "type": "integer", "minimum": 0, "maximum": 48 },
+
+    "meta": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["schemaVersion", "task", "generatedAt", "generatedBy", "sourceTree", "verifiedFlagPolicy", "provenanceContract", "consumers"],
+      "properties": {
+        "schemaVersion": { "type": "string", "pattern": "^\\d+\\.\\d+\\.\\d+$" },
+        "schema": { "type": "string" },
+        "task": { "type": "string" },
+        "generatedAt": { "type": "string", "pattern": "^\\d{4}-\\d{2}-\\d{2}" },
+        "generatedBy": { "type": "string" },
+        "verifiedFlagPolicy": { "type": "string", "minLength": 40 },
+        "provenanceContract": { "type": "string", "minLength": 40 },
+        "consumers": { "type": "array", "items": { "type": "string" } },
+        "sourceTree": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["description", "pathsRelativeTo", "upstreamCommit", "filesRead"],
+          "properties": {
+            "description": { "type": "string" },
+            "pathsRelativeTo": { "type": "string" },
+            "upstreamCommit": { "$ref": "#/$defs/nullableString" },
+            "upstreamCommitNote": { "type": "string" },
+            "filesRead": {
+              "type": "array",
+              "minItems": 1,
+              "items": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": ["file", "lines"],
+                "properties": {
+                  "file": { "type": "string", "pattern": "^firmware/" },
+                  "lines": { "$ref": "#/$defs/nullableInteger" },
+                  "note": { "type": "string" }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+
+    "board": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "displayName", "mcuFamily", "mcuFamilyVerified", "mcuFamilySource", "active", "servoPins", "servoPinsSource", "servoPinsCommentedOut", "i2c"],
+      "properties": {
+        "id": { "$ref": "#/$defs/boardId" },
+        "displayName": { "type": "string" },
+        "mcuFamily": { "enum": ["esp32", "esp32s2", "esp32s3", null] },
+        "mcuFamilyVerified": { "type": "boolean" },
+        "mcuFamilySource": { "$ref": "#/$defs/nullableSource" },
+        "mcuFamilyNote": { "type": "string" },
+        "active": { "type": "boolean", "description": "True for the configuration that is uncommented in the checked-in source." },
+        "servoPins": {
+          "type": "array",
+          "minItems": 8,
+          "maxItems": 8,
+          "items": { "$ref": "#/$defs/gpioPin" },
+          "description": "ORDERED by firmware servo index (R1,R2,L1,L2,R4,R3,L3,L4), not by GPIO number."
+        },
+        "servoPinsSource": { "$ref": "#/$defs/source" },
+        "servoPinsCommentedOut": { "type": "boolean" },
+        "arduinoFqbnHint": { "$ref": "#/$defs/nullableString" },
+        "arduinoFqbnHintVerified": { "type": "boolean" },
+        "arduinoFqbnHintSource": { "$ref": "#/$defs/nullableSource" },
+        "i2c": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["sda", "scl", "sdaSource", "sclSource", "commentedOut"],
+          "properties": {
+            "sda": { "$ref": "#/$defs/gpioPin" },
+            "scl": { "$ref": "#/$defs/gpioPin" },
+            "sdaSource": { "$ref": "#/$defs/source" },
+            "sclSource": { "$ref": "#/$defs/source" },
+            "commentedOut": { "type": "boolean" }
+          }
+        }
+      },
+      "allOf": [
+        {
+          "if": { "properties": { "mcuFamilyVerified": { "const": false } }, "required": ["mcuFamilyVerified"] },
+          "then": { "required": ["mcuFamilyNote"], "properties": { "mcuFamilyNote": { "type": "string" } }, "$comment": "An unverified claim must say where it came from." }
+        }
+      ]
+    },
+
+    "servos": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["order", "orderSource", "orderNote", "count", "joints", "nameLookup", "servoConfig"],
+      "properties": {
+        "order": {
+          "type": "array",
+          "minItems": 8,
+          "maxItems": 8,
+          "items": { "$ref": "#/$defs/jointName" },
+          "const": ["R1", "R2", "L1", "L2", "R4", "R3", "L3", "L4"],
+          "description": "The firmware enum order, pinned as a const so it can never be silently re-sorted. It is deliberately NOT geometric and NOT alphabetical."
+        },
+        "orderSource": { "$ref": "#/$defs/source" },
+        "orderNote": { "type": "string" },
+        "count": { "const": 8 },
+        "joints": {
+          "type": "array",
+          "minItems": 8,
+          "maxItems": 8,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["firmwareName", "index", "source", "pinsByBoard", "pinSourceByBoard"],
+            "properties": {
+              "firmwareName": { "$ref": "#/$defs/jointName" },
+              "index": { "$ref": "#/$defs/jointIndex" },
+              "source": { "$ref": "#/$defs/source" },
+              "pinsByBoard": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": ["s2-mini", "distro-v3", "distro-v2", "distro-v1"],
+                "properties": {
+                  "s2-mini": { "$ref": "#/$defs/gpioPin" },
+                  "distro-v3": { "$ref": "#/$defs/gpioPin" },
+                  "distro-v2": { "$ref": "#/$defs/gpioPin" },
+                  "distro-v1": { "$ref": "#/$defs/gpioPin" }
+                }
+              },
+              "pinSourceByBoard": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": ["s2-mini", "distro-v3", "distro-v2", "distro-v1"],
+                "properties": {
+                  "s2-mini": { "$ref": "#/$defs/source" },
+                  "distro-v3": { "$ref": "#/$defs/source" },
+                  "distro-v2": { "$ref": "#/$defs/source" },
+                  "distro-v1": { "$ref": "#/$defs/source" }
+                }
+              }
+            }
+          }
+        },
+        "nameLookup": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["table", "tableSource", "tableSymbol", "functionSymbol", "functionSource", "unknownNameReturns"],
+          "properties": {
+            "table": { "type": "array", "minItems": 8, "maxItems": 8, "items": { "$ref": "#/$defs/jointName" } },
+            "tableSource": { "$ref": "#/$defs/source" },
+            "tableSymbol": { "type": "string" },
+            "functionSymbol": { "type": "string" },
+            "functionSource": { "$ref": "#/$defs/source" },
+            "unknownNameReturns": { "type": "integer" }
+          }
+        },
+        "servoConfig": { "$ref": "#/$defs/servoConfig" }
+      }
+    },
+
+    "servoConfig": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["library", "pwmFrequencyHz", "pwmFrequencySource", "pwmTimersAllocated", "attachMinPulseUs", "attachMaxPulseUs", "attachSource", "angleClamp", "motorCurrentDelay", "subtrim", "setServoAngle", "convergencePoint"],
+      "properties": {
+        "library": { "type": "string" },
+        "libraryVersionPinned": { "$ref": "#/$defs/nullableString" },
+        "libraryVersionSource": { "$ref": "#/$defs/nullableSource" },
+        "libraryVersionVerified": { "type": "boolean" },
+        "libraryVersionNote": { "type": "string" },
+        "includeSource": { "$ref": "#/$defs/source" },
+        "declarationSymbol": { "type": "string" },
+        "declarationSource": { "$ref": "#/$defs/source" },
+        "pwmFrequencyHz": { "type": "integer", "minimum": 1 },
+        "pwmFrequencySource": { "$ref": "#/$defs/source" },
+        "pwmFrequencyCall": { "type": "string" },
+        "pwmTimersAllocated": { "type": "array", "items": { "type": "integer", "minimum": 0, "maximum": 3 }, "uniqueItems": true },
+        "pwmTimerAllocationSource": { "$ref": "#/$defs/sourceList" },
+        "pwmTimerAllocationCall": { "type": "string" },
+        "attachMinPulseUs": { "type": "integer", "minimum": 1 },
+        "attachMaxPulseUs": { "type": "integer", "minimum": 1 },
+        "attachSource": { "$ref": "#/$defs/source" },
+        "attachCall": { "type": "string" },
+        "attachLoopSource": { "$ref": "#/$defs/sourceRange" },
+        "angleClamp": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["min", "max", "source"],
+          "properties": { "min": { "type": "integer" }, "max": { "type": "integer" }, "source": { "$ref": "#/$defs/source" }, "call": { "type": "string" } }
+        },
+        "motorCurrentDelay": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["defaultMs", "source", "runtimeSettable", "appliedVia", "appliedSource"],
+          "properties": {
+            "defaultMs": { "type": "integer", "minimum": 0 },
+            "source": { "$ref": "#/$defs/source" },
+            "declaration": { "type": "string" },
+            "runtimeSettable": { "type": "boolean" },
+            "runtimeSettableVia": { "$ref": "#/$defs/nullableString" },
+            "runtimeSettableSource": { "$ref": "#/$defs/nullableSource" },
+            "purposeComment": { "type": "string" },
+            "appliedVia": { "type": "string" },
+            "appliedSource": { "$ref": "#/$defs/source" },
+            "appliedNote": { "type": "string" }
+          }
+        },
+        "subtrim": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["mechanism", "symbol", "source", "defaults", "persisted", "settableRange", "httpSettable"],
+          "properties": {
+            "mechanism": { "type": "string" },
+            "symbol": { "type": "string" },
+            "declaration": { "type": "string" },
+            "source": { "$ref": "#/$defs/source" },
+            "defaults": { "type": "array", "minItems": 8, "maxItems": 8, "items": { "type": "integer", "minimum": -128, "maximum": 127 } },
+            "persisted": { "type": "boolean" },
+            "persistedNote": { "type": "string" },
+            "persistedSource": { "$ref": "#/$defs/source" },
+            "settableVia": { "type": "array", "items": { "type": "string" } },
+            "settableSource": { "$ref": "#/$defs/source" },
+            "settableRange": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["min", "max", "source"],
+              "properties": { "min": { "type": "integer" }, "max": { "type": "integer" }, "source": { "$ref": "#/$defs/source" } }
+            },
+            "resetCommandSource": { "$ref": "#/$defs/source" },
+            "httpSettable": { "type": "boolean" }
+          }
+        },
+        "setServoAngle": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["symbol", "signature", "source", "steps", "positionFeedback"],
+          "properties": {
+            "symbol": { "type": "string" },
+            "signature": { "type": "string" },
+            "source": { "$ref": "#/$defs/source" },
+            "sourceRange": { "$ref": "#/$defs/sourceRange" },
+            "steps": {
+              "type": "array",
+              "minItems": 1,
+              "items": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": ["order", "description", "source"],
+                "properties": { "order": { "type": "integer", "minimum": 1 }, "description": { "type": "string" }, "source": { "$ref": "#/$defs/source" } }
+              }
+            },
+            "positionFeedback": { "type": "null", "description": "Structurally pinned to null: the stock robot has no joint-position feedback. If this ever becomes non-null the schema must change deliberately." },
+            "positionFeedbackNote": { "type": "string" }
+          }
+        },
+        "convergencePoint": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["symbol", "source", "note"],
+          "properties": { "symbol": { "type": "string" }, "source": { "$ref": "#/$defs/source" }, "note": { "type": "string" } }
+        }
+      }
+    },
+
+    "display": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["driverLibrary", "widthPx", "widthSource", "heightPx", "heightSource", "i2cAddress", "i2cAddressSource", "resetPin", "resetPinSource", "busClockHz", "initCall", "initSource", "bootBlocker", "bootFailureBehaviour", "bootFailureCode", "bootFailureSource", "renderPath"],
+      "properties": {
+        "driverLibrary": { "type": "string" },
+        "driverLibraryIncludeSource": { "$ref": "#/$defs/source" },
+        "graphicsLibrary": { "type": "string" },
+        "graphicsLibraryIncludeSource": { "$ref": "#/$defs/source" },
+        "widthPx": { "type": "integer", "minimum": 1 },
+        "widthSource": { "$ref": "#/$defs/source" },
+        "heightPx": { "type": "integer", "minimum": 1 },
+        "heightSource": { "$ref": "#/$defs/source" },
+        "i2cAddress": { "type": "string", "pattern": "^0x[0-9A-Fa-f]{2}$" },
+        "i2cAddressSource": { "$ref": "#/$defs/source" },
+        "resetPin": { "type": "integer" },
+        "resetPinSource": { "$ref": "#/$defs/source" },
+        "resetPinNote": { "type": "string" },
+        "instanceDeclaration": { "type": "string" },
+        "instanceSource": { "$ref": "#/$defs/source" },
+        "busClockHz": { "$ref": "#/$defs/nullableInteger" },
+        "busClockNote": { "type": "string" },
+        "initCall": { "type": "string" },
+        "initSource": { "$ref": "#/$defs/source" },
+        "bootBlocker": { "type": "boolean", "description": "True when a failure at this boundary prevents setup() from completing." },
+        "bootFailureBehaviour": { "type": "string" },
+        "bootFailureCode": { "type": "string", "description": "Verbatim quote of the failure path from source." },
+        "bootFailureSource": { "$ref": "#/$defs/sourceRange" },
+        "bootFailureImplication": { "type": "string" },
+        "renderPath": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["symbol", "source", "steps", "stepSources"],
+          "properties": {
+            "symbol": { "type": "string" },
+            "source": { "$ref": "#/$defs/source" },
+            "steps": { "type": "array", "items": { "type": "string" } },
+            "stepSources": { "$ref": "#/$defs/sourceList" }
+          }
+        },
+        "bootSplash": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["text", "source"],
+          "properties": { "text": { "type": "string" }, "source": { "$ref": "#/$defs/source" }, "sequenceSource": { "$ref": "#/$defs/sourceRange" } }
+        },
+        "wifiInfoOverlay": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["symbol", "source", "triggerAfterMsWithoutInput", "triggerSource"],
+          "properties": {
+            "symbol": { "type": "string" },
+            "source": { "$ref": "#/$defs/source" },
+            "triggerAfterMsWithoutInput": { "type": "integer", "minimum": 0 },
+            "triggerSource": { "$ref": "#/$defs/source" },
+            "scrollIntervalMs": { "type": "integer", "minimum": 0 },
+            "scrollIntervalSource": { "$ref": "#/$defs/source" },
+            "scrollStepPx": { "type": "integer" },
+            "scrollStepSource": { "$ref": "#/$defs/source" },
+            "suppressedAfterFirstInput": { "type": "boolean" },
+            "suppressedSource": { "$ref": "#/$defs/source" },
+            "barRect": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["x", "y", "w", "h", "source"],
+              "properties": { "x": { "type": "integer" }, "y": { "type": "integer" }, "w": { "type": "integer" }, "h": { "type": "integer" }, "source": { "$ref": "#/$defs/source" } }
+            }
+          }
+        }
+      }
+    },
+
+    "network": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["ap", "station", "hostname", "hostnameSource", "mdns", "dns", "http", "serial"],
+      "properties": {
+        "hostname": { "type": "string" },
+        "hostnameSource": { "$ref": "#/$defs/source" },
+        "ap": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["ssid", "ssidSource", "password", "passwordSource", "startCall", "startSource", "defaultIp", "defaultIpVerified", "channel", "maxConnections"],
+          "properties": {
+            "ssid": { "type": "string" },
+            "ssidSource": { "$ref": "#/$defs/source" },
+            "password": { "type": "string" },
+            "passwordSource": { "$ref": "#/$defs/source" },
+            "startCall": { "type": "string" },
+            "startSource": { "$ref": "#/$defs/source" },
+            "returnValueChecked": { "type": "boolean" },
+            "defaultIp": { "$ref": "#/$defs/nullableString" },
+            "defaultIpVerified": { "type": "boolean" },
+            "defaultIpSource": { "$ref": "#/$defs/nullableSource" },
+            "defaultIpNote": { "type": "string" },
+            "channel": { "$ref": "#/$defs/nullableInteger" },
+            "maxConnections": { "$ref": "#/$defs/nullableInteger" },
+            "channelNote": { "type": "string" }
+          }
+        },
+        "station": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["enabledAtCompileTime", "enableFlag", "enableFlagSource", "ssid", "ssidSource", "password", "passwordSource", "credentialsPersisted", "runtimeProvisioning"],
+          "properties": {
+            "enabledAtCompileTime": { "type": "boolean" },
+            "enableFlag": { "type": "string" },
+            "enableFlagSource": { "$ref": "#/$defs/source" },
+            "ssid": { "type": "string" },
+            "ssidSource": { "$ref": "#/$defs/source" },
+            "password": { "type": "string" },
+            "passwordSource": { "$ref": "#/$defs/source" },
+            "bootConnectGuard": { "type": "string" },
+            "bootConnectGuardSource": { "$ref": "#/$defs/source" },
+            "bootConnectSymbol": { "type": "string" },
+            "bootConnectSource": { "$ref": "#/$defs/source" },
+            "bootConnectTimeoutMsDefault": { "type": "integer" },
+            "bootConnectTimeoutSource": { "$ref": "#/$defs/source" },
+            "bootConnectPollIntervalMs": { "type": "integer" },
+            "bootConnectPollSource": { "$ref": "#/$defs/source" },
+            "bootConnectBlocking": { "type": "boolean" },
+            "fallbackOnFailure": { "type": "string" },
+            "fallbackSource": { "$ref": "#/$defs/source" },
+            "modeWhenStationActive": { "type": "string" },
+            "modeWhenStationActiveSource": { "$ref": "#/$defs/source" },
+            "modeWhenApOnly": { "type": "string" },
+            "modeWhenApOnlySource": { "$ref": "#/$defs/source" },
+            "credentialsPersisted": { "type": "boolean" },
+            "credentialsPersistedCall": { "type": "string" },
+            "credentialsPersistedSource": { "$ref": "#/$defs/source" },
+            "runtimeProvisioning": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["supported", "stateMachineSymbol", "stateMachineSource", "states", "persistsAcrossReboot"],
+              "properties": {
+                "supported": { "type": "boolean" },
+                "stateMachineSymbol": { "type": "string" },
+                "stateMachineSource": { "$ref": "#/$defs/source" },
+                "states": { "type": "array", "items": { "type": "string" } },
+                "statesSource": { "$ref": "#/$defs/source" },
+                "connectTimeoutMs": { "type": "integer" },
+                "connectTimeoutSource": { "$ref": "#/$defs/source" },
+                "startDelayMs": { "type": "integer" },
+                "startDelaySource": { "$ref": "#/$defs/source" },
+                "linkWatchdogIntervalMs": { "type": "integer" },
+                "linkWatchdogSource": { "$ref": "#/$defs/source" },
+                "persistsAcrossReboot": { "type": "boolean" }
+              }
+            }
+          }
+        },
+        "mdns": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["enabled", "library", "name", "startSymbol", "startSource"],
+          "properties": {
+            "enabled": { "type": "boolean" },
+            "library": { "type": "string" },
+            "includeSource": { "$ref": "#/$defs/source" },
+            "name": { "$ref": "#/$defs/nullableString" },
+            "startSymbol": { "type": "string" },
+            "startSource": { "$ref": "#/$defs/source" },
+            "beginCall": { "type": "string" },
+            "beginSource": { "$ref": "#/$defs/source" },
+            "advertisedService": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["protocol", "transport", "port", "source"],
+              "properties": { "protocol": { "type": "string" }, "transport": { "type": "string" }, "port": { "type": "integer" }, "source": { "$ref": "#/$defs/source" } }
+            },
+            "resultTracked": { "type": "string" },
+            "resultTrackedSource": { "$ref": "#/$defs/source" },
+            "restartedOnStationJoin": { "type": "boolean" },
+            "restartSource": { "$ref": "#/$defs/source" }
+          }
+        },
+        "dns": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["library", "port", "portSource", "startCall", "startSource"],
+          "properties": {
+            "library": { "type": "string" },
+            "includeSource": { "$ref": "#/$defs/source" },
+            "port": { "type": "integer" },
+            "portSource": { "$ref": "#/$defs/source" },
+            "wildcardDomain": { "type": "string" },
+            "startCall": { "type": "string" },
+            "startSource": { "$ref": "#/$defs/source" },
+            "purpose": { "type": "string" },
+            "pumpedFrom": { "type": "array", "items": { "type": "string" } },
+            "pumpedFromSource": { "$ref": "#/$defs/sourceList" }
+          }
+        },
+        "http": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["library", "port", "portSource", "beginSource", "tls", "authentication", "routes", "routeRegistrationNote"],
+          "properties": {
+            "library": { "type": "string" },
+            "includeSource": { "$ref": "#/$defs/source" },
+            "port": { "type": "integer" },
+            "portSource": { "$ref": "#/$defs/source" },
+            "instanceDeclaration": { "type": "string" },
+            "beginSource": { "$ref": "#/$defs/source" },
+            "tls": { "type": "boolean" },
+            "authentication": { "type": "boolean" },
+            "routeRegistrationNote": { "type": "string" },
+            "clientPumpedFrom": { "type": "array", "items": { "type": "string" } },
+            "clientPumpedFromSource": { "$ref": "#/$defs/sourceList" },
+            "routes": { "type": "array", "minItems": 1, "items": { "$ref": "#/$defs/route" } }
+          }
+        },
+        "serial": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["baud", "baudSource"],
+          "properties": {
+            "baud": { "type": "integer" },
+            "baudSource": { "$ref": "#/$defs/source" },
+            "cliSource": { "$ref": "#/$defs/sourceRange" },
+            "cliBufferBytes": { "type": "integer" },
+            "cliBufferSource": { "$ref": "#/$defs/source" },
+            "lineTerminators": { "type": "array", "items": { "type": "string" } },
+            "lineTerminatorSource": { "$ref": "#/$defs/source" }
+          }
+        }
+      }
+    },
+
+    "route": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["method", "path", "handlerSymbol", "handlerSource", "registrationSource", "description"],
+      "properties": {
+        "method": {
+          "enum": ["ANY", "GET", "POST", "PUT", "DELETE", "PATCH"],
+          "description": "The method the route is REGISTERED for. WebServer::on(uri, handler) binds HTTP_ANY; per-handler restrictions are recorded in methodEnforcedInHandler."
+        },
+        "path": { "type": "string" },
+        "handlerSymbol": { "type": "string" },
+        "handlerSource": { "$ref": "#/$defs/source" },
+        "registrationSource": { "$ref": "#/$defs/source" },
+        "description": { "type": "string" },
+        "contentType": { "type": "string" },
+        "bodySource": { "type": "object", "additionalProperties": false, "required": ["file", "line"], "properties": { "file": { "type": "string" }, "line": { "type": "integer", "minimum": 1 } } },
+        "args": { "type": "array", "items": { "type": "string" } },
+        "methodEnforcedInHandler": { "enum": ["GET", "POST", "PUT", "DELETE", "PATCH"] },
+        "methodEnforcementSource": { "$ref": "#/$defs/source" },
+        "isCatchAll": { "type": "boolean" }
+      }
+    },
+
+    "movement": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["function", "kind", "signature", "source", "sourceRange", "triggeredByCommand", "loops", "interruptible", "steps"],
+      "properties": {
+        "function": { "type": "string" },
+        "kind": { "enum": ["pose", "movement", "idle-routine"] },
+        "signature": { "type": "string" },
+        "source": { "$ref": "#/$defs/source" },
+        "sourceRange": { "$ref": "#/$defs/sourceRange" },
+        "triggeredByCommand": { "type": "array", "items": { "type": "string" } },
+        "loops": { "type": "boolean", "description": "True when loop() will re-invoke the function because it does not clear currentCommand." },
+        "interruptible": { "type": "boolean", "description": "True when the function contains pressingCheck() interrupt points." },
+        "defaultArgs": { "type": "object", "additionalProperties": { "type": ["integer", "string", "boolean", "null"] } },
+        "defaultArgsSource": { "$ref": "#/$defs/source" },
+        "note": { "type": "string" },
+        "steps": { "$ref": "#/$defs/stepList" }
+      }
+    },
+
+    "stepList": { "type": "array", "items": { "$ref": "#/$defs/step" } },
+
+    "step": {
+      "type": "object",
+      "required": ["type", "source"],
+      "description": "One statement of choreography. Control flow is represented structurally (repeat/conditional carry nested step lists) rather than flattened, except where a literal-bound loop expands exactly — those steps carry `expandedFrom`.",
+      "properties": { "type": { "enum": ["servo", "delay", "call", "face", "log", "repeat", "conditional", "interruptCheck", "clearCommandIf", "state", "unmodeled"] }, "source": { "$ref": "#/$defs/source" } },
+      "allOf": [
+        {
+          "if": { "properties": { "type": { "const": "servo" } }, "required": ["type"] },
+          "then": {
+            "additionalProperties": false,
+            "required": ["type", "joint", "index", "angleDeg", "source"],
+            "properties": {
+              "type": { "const": "servo" },
+              "joint": { "$ref": "#/$defs/jointName" },
+              "index": { "$ref": "#/$defs/jointIndex" },
+              "angleDeg": { "$ref": "#/$defs/angleDeg" },
+              "expandedFrom": { "type": "string", "description": "Present when this step came from exactly expanding a literal-bound loop." },
+              "expansionNote": { "type": "string" },
+              "source": { "$ref": "#/$defs/source" }
+            }
+          }
+        },
+        {
+          "if": { "properties": { "type": { "const": "delay" } }, "required": ["type"] },
+          "then": {
+            "additionalProperties": false,
+            "required": ["type", "ms", "source"],
+            "properties": { "type": { "const": "delay" }, "ms": { "type": "integer", "minimum": 0 }, "via": { "type": "string" }, "source": { "$ref": "#/$defs/source" } }
+          }
+        },
+        {
+          "if": { "properties": { "type": { "const": "call" } }, "required": ["type"] },
+          "then": {
+            "additionalProperties": false,
+            "required": ["type", "function", "source"],
+            "properties": {
+              "type": { "const": "call" },
+              "function": { "type": "string" },
+              "args": { "oneOf": [{ "type": "object", "additionalProperties": { "type": ["integer", "string", "boolean", "null"] } }, { "type": "null" }] },
+              "source": { "$ref": "#/$defs/source" }
+            }
+          }
+        },
+        {
+          "if": { "properties": { "type": { "const": "face" } }, "required": ["type"] },
+          "then": {
+            "additionalProperties": false,
+            "required": ["type", "name", "mode", "source"],
+            "properties": { "type": { "const": "face" }, "name": { "type": "string" }, "mode": { "enum": ["loop", "once", "boomerang", "inherited"] }, "source": { "$ref": "#/$defs/source" } }
+          }
+        },
+        {
+          "if": { "properties": { "type": { "const": "log" } }, "required": ["type"] },
+          "then": {
+            "additionalProperties": false,
+            "required": ["type", "text", "source"],
+            "properties": { "type": { "const": "log" }, "text": { "type": "string" }, "source": { "$ref": "#/$defs/source" } }
+          }
+        },
+        {
+          "if": { "properties": { "type": { "const": "repeat" } }, "required": ["type"] },
+          "then": {
+            "additionalProperties": false,
+            "required": ["type", "count", "countRef", "steps", "source"],
+            "properties": {
+              "type": { "const": "repeat" },
+              "count": { "type": ["integer", "null"], "minimum": 1, "description": "Literal iteration count, or null when the bound is a runtime variable named by countRef." },
+              "countRef": { "$ref": "#/$defs/nullableString" },
+              "countDefault": { "$ref": "#/$defs/nullableInteger" },
+              "countDefaultSource": { "$ref": "#/$defs/nullableSource" },
+              "steps": { "$ref": "#/$defs/stepList" },
+              "source": { "$ref": "#/$defs/source" }
+            },
+            "anyOf": [
+              { "properties": { "count": { "type": "integer" } }, "required": ["count"] },
+              { "properties": { "countRef": { "type": "string" } }, "required": ["countRef"] }
+            ],
+            "$comment": "A repeat must be bounded by either a literal count or a named runtime variable — never neither."
+          }
+        },
+        {
+          "if": { "properties": { "type": { "const": "conditional" } }, "required": ["type"] },
+          "then": {
+            "additionalProperties": false,
+            "required": ["type", "condition", "steps", "source"],
+            "properties": {
+              "type": { "const": "conditional" },
+              "condition": { "type": "string" },
+              "steps": { "$ref": "#/$defs/stepList" },
+              "elseSteps": { "$ref": "#/$defs/stepList" },
+              "source": { "$ref": "#/$defs/source" }
+            }
+          }
+        },
+        {
+          "if": { "properties": { "type": { "const": "interruptCheck" } }, "required": ["type"] },
+          "then": {
+            "additionalProperties": false,
+            "required": ["type", "command", "onInterrupt", "code", "source"],
+            "properties": {
+              "type": { "const": "interruptCheck" },
+              "command": { "type": "string" },
+              "durationMsRef": { "type": "string" },
+              "durationMsDefault": { "type": "integer" },
+              "durationMsDefaultSource": { "$ref": "#/$defs/source" },
+              "onInterrupt": { "type": "string" },
+              "onInterruptSource": { "$ref": "#/$defs/source" },
+              "code": { "type": "string" },
+              "source": { "$ref": "#/$defs/source" }
+            }
+          }
+        },
+        {
+          "if": { "properties": { "type": { "const": "clearCommandIf" } }, "required": ["type"] },
+          "then": {
+            "additionalProperties": false,
+            "required": ["type", "command", "code", "source"],
+            "properties": { "type": { "const": "clearCommandIf" }, "command": { "type": "string" }, "code": { "type": "string" }, "source": { "$ref": "#/$defs/source" } }
+          }
+        },
+        {
+          "if": { "properties": { "type": { "const": "state" } }, "required": ["type"] },
+          "then": {
+            "additionalProperties": false,
+            "required": ["type", "variable", "value", "source"],
+            "properties": { "type": { "const": "state" }, "variable": { "type": "string" }, "value": { "type": ["integer", "string", "boolean", "null"] }, "source": { "$ref": "#/$defs/source" } }
+          }
+        },
+        {
+          "if": { "properties": { "type": { "const": "unmodeled" } }, "required": ["type"] },
+          "then": {
+            "additionalProperties": false,
+            "required": ["type", "code", "reason", "source"],
+            "properties": { "type": { "const": "unmodeled" }, "code": { "type": "string" }, "reason": { "type": "string" }, "source": { "$ref": "#/$defs/source" } }
+          }
+        }
+      ]
+    },
+
+    "faces": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["count", "registrySymbol", "registrySource", "maxFramesPerFace", "bitmapDimensions", "bitmapDataLocation", "playbackModes", "playbackModeOwnership", "defaultFps", "defaultFpsSource", "idle", "faces"],
+      "properties": {
+        "count": { "type": "integer", "minimum": 1 },
+        "registrySymbol": { "type": "string" },
+        "registrySource": { "$ref": "#/$defs/source" },
+        "faceListMacroSource": { "$ref": "#/$defs/source" },
+        "faceListEntryCount": { "type": "integer", "minimum": 1 },
+        "maxFramesPerFace": { "type": "integer", "minimum": 1 },
+        "maxFramesPerFaceSource": { "$ref": "#/$defs/source" },
+        "bitmapDimensions": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["widthPx", "heightPx", "bytesPerFrame"],
+          "properties": { "widthPx": { "type": "integer" }, "heightPx": { "type": "integer" }, "bytesPerFrame": { "type": "integer" } }
+        },
+        "bitmapDimensionsSource": { "$ref": "#/$defs/source" },
+        "bitmapDataLocation": { "type": "string" },
+        "bitmapDataNote": { "type": "string" },
+        "lookupSymbol": { "type": "string" },
+        "lookupSource": { "$ref": "#/$defs/source" },
+        "lookupCaseInsensitive": { "type": "boolean" },
+        "lookupCaseInsensitiveSource": { "$ref": "#/$defs/source" },
+        "animationDriver": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["symbol", "source"],
+          "properties": {
+            "symbol": { "type": "string" },
+            "source": { "$ref": "#/$defs/source" },
+            "calledFrom": { "type": "array", "items": { "type": "string" } },
+            "calledFromSource": { "$ref": "#/$defs/sourceList" }
+          }
+        },
+        "playbackModes": {
+          "type": "array",
+          "minItems": 3,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["mode", "enumerator", "value", "source", "behaviour", "behaviourSource"],
+            "properties": {
+              "mode": { "enum": ["loop", "once", "boomerang"] },
+              "enumerator": { "type": "string" },
+              "value": { "type": "integer" },
+              "source": { "$ref": "#/$defs/source" },
+              "behaviour": { "type": "string" },
+              "behaviourSource": { "$ref": "#/$defs/source" }
+            }
+          }
+        },
+        "playbackModeOwnership": { "type": "string" },
+        "defaultFps": { "type": "integer", "minimum": 1 },
+        "defaultFpsSource": { "$ref": "#/$defs/source" },
+        "fpsTableSymbol": { "type": "string" },
+        "fpsTableSource": { "$ref": "#/$defs/source" },
+        "fpsRuntimeSettable": { "$ref": "#/$defs/nullableString" },
+        "fpsRuntimeSettableSource": { "$ref": "#/$defs/nullableSource" },
+        "idle": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["entryCondition", "entryConditionSource", "exitCondition", "exitConditionSource", "blinkIntervalMs", "doubleBlinkChancePercent", "driverSymbol", "driverSource"],
+          "properties": {
+            "entryCondition": { "type": "string" },
+            "entryConditionSource": { "$ref": "#/$defs/source" },
+            "entryConditionNote": { "type": "string" },
+            "exitCondition": { "type": "string" },
+            "exitConditionSource": { "$ref": "#/$defs/sourceList" },
+            "blinkIntervalMs": { "$ref": "#/$defs/msRange" },
+            "doubleBlinkChancePercent": { "type": "integer", "minimum": 0, "maximum": 100 },
+            "doubleBlinkChanceSource": { "$ref": "#/$defs/source" },
+            "doubleBlinkGapMs": { "$ref": "#/$defs/msRange" },
+            "driverSymbol": { "type": "string" },
+            "driverSource": { "$ref": "#/$defs/source" }
+          }
+        },
+        "faces": { "type": "array", "minItems": 1, "items": { "$ref": "#/$defs/face" } }
+      }
+    },
+
+    "msRange": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["min", "max", "source"],
+      "properties": { "min": { "type": "integer", "minimum": 0 }, "max": { "type": "integer", "minimum": 0 }, "source": { "$ref": "#/$defs/source" } }
+    },
+
+    "face": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["name", "listedInFaceList", "frameArraySymbol", "frameCount", "frameCountRule", "animated", "frames", "orphanFrameSymbols", "baseBitmapDefined", "fps", "fpsSource", "frameDurationMs", "playbackModes", "category", "widthPx", "heightPx", "bytesPerFrame", "storage", "bitmapFile"],
+      "properties": {
+        "name": { "type": "string" },
+        "listedInFaceList": { "type": "boolean" },
+        "faceListSource": { "$ref": "#/$defs/nullableSource" },
+        "frameArraySymbol": { "type": "string" },
+        "frameArrayGeneratedBy": { "type": "string" },
+        "frameArrayGeneratedBySource": { "$ref": "#/$defs/source" },
+        "frameArraySlots": { "type": "integer" },
+        "frameArraySlotsSource": { "$ref": "#/$defs/source" },
+        "frameCount": { "type": "integer", "minimum": 0, "maximum": 6, "description": "Frames countFrames() will actually find at runtime — 0 when the base bitmap symbol is an unresolved weak reference." },
+        "frameCountRule": { "type": "string" },
+        "frameCountRuleSource": { "$ref": "#/$defs/source" },
+        "animated": { "type": "boolean" },
+        "animatedNote": { "$ref": "#/$defs/nullableString" },
+        "animatedNoteSource": { "$ref": "#/$defs/nullableSource" },
+        "frames": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["index", "symbol", "defined", "source"],
+            "properties": { "index": { "type": "integer", "minimum": 0 }, "symbol": { "type": "string" }, "defined": { "type": "boolean" }, "source": { "$ref": "#/$defs/source" } }
+          }
+        },
+        "orphanFrameSymbols": {
+          "type": "array",
+          "description": "Frame bitmaps that are defined in source but unreachable, because an earlier frame index is missing and countFrames() stops at the first null.",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["index", "symbol", "source"],
+            "properties": { "index": { "type": "integer", "minimum": 1 }, "symbol": { "type": "string" }, "source": { "$ref": "#/$defs/source" } }
+          }
+        },
+        "baseBitmapDefined": { "type": "boolean" },
+        "fps": { "$ref": "#/$defs/nullableInteger" },
+        "fpsSource": { "$ref": "#/$defs/nullableSource" },
+        "fpsFallback": { "$ref": "#/$defs/nullableString" },
+        "fpsFallbackSource": { "$ref": "#/$defs/nullableSource" },
+        "frameDurationMs": { "$ref": "#/$defs/nullableInteger" },
+        "frameDurationFormula": { "type": "string" },
+        "frameDurationFormulaSource": { "$ref": "#/$defs/source" },
+        "playbackModes": {
+          "type": "array",
+          "description": "Modes actually observed at setFaceWithMode() call sites. Empty means the face has no intrinsic mode — see faces.playbackModeOwnership.",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["mode", "callSites"],
+            "properties": { "mode": { "enum": ["loop", "once", "boomerang", "inherited"] }, "callSites": { "$ref": "#/$defs/sourceList" } }
+          }
+        },
+        "playbackModeNote": { "$ref": "#/$defs/nullableString" },
+        "category": { "enum": ["movement", "conversational", "special"] },
+        "widthPx": { "type": "integer" },
+        "heightPx": { "type": "integer" },
+        "bytesPerFrame": { "type": "integer" },
+        "storage": { "type": "string" },
+        "bitmapFile": { "type": "string" },
+        "brokenReason": { "type": "string" },
+        "brokenReasonSource": { "$ref": "#/$defs/source" },
+        "spellingNote": { "type": "string" },
+        "orphanFrameNote": { "type": "string" },
+        "aliasOf": { "type": "string" },
+        "aliasSource": { "$ref": "#/$defs/source" }
+      },
+      "allOf": [
+        {
+          "if": { "properties": { "frameCount": { "const": 0 } }, "required": ["frameCount"] },
+          "then": { "required": ["brokenReason", "brokenReasonSource"], "properties": { "brokenReason": { "type": "string" }, "brokenReasonSource": { "$ref": "#/$defs/source" } }, "$comment": "A zero-frame face must explain itself; silence would look like a transcription error." }
+        }
+      ]
+    },
+
+    "bootStep": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["order", "operation", "subsystem", "source", "bootBlocker", "note"],
+      "description": "One ordered operation in setup(). This array IS the R4 milestone ladder, so its order must match the source exactly.",
+      "properties": {
+        "order": { "type": "integer", "minimum": 1 },
+        "operation": { "type": "string" },
+        "subsystem": { "enum": ["serial", "rng", "i2c", "display", "wifi", "mdns", "dns", "http", "pwm", "servo", "timing", "state"] },
+        "source": { "$ref": "#/$defs/source" },
+        "sourceRange": { "$ref": "#/$defs/sourceRange" },
+        "bootBlocker": { "type": "boolean", "description": "True only when source demonstrably prevents setup() from completing on failure (e.g. an infinite loop), not merely when failure is likely." },
+        "note": { "$ref": "#/$defs/nullableString" }
+      }
+    },
+
+    "commands": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["dispatchSymbol", "dispatchSource", "stateVariable", "stateVariableSource", "dispatchNote", "setBy", "vocabulary", "serialCli"],
+      "properties": {
+        "dispatchSymbol": { "type": "string" },
+        "dispatchSource": { "$ref": "#/$defs/sourceRange" },
+        "stateVariable": { "type": "string" },
+        "stateVariableSource": { "$ref": "#/$defs/source" },
+        "dispatchNote": { "type": "string" },
+        "serialCliDispatchNote": { "type": "string" },
+        "setBy": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["source", "via"],
+            "properties": { "source": { "$ref": "#/$defs/source" }, "via": { "type": "string" } }
+          }
+        },
+        "vocabulary": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["command", "movementFunction", "source", "continuous", "clearsSelf"],
+            "properties": {
+              "command": { "type": "string" },
+              "movementFunction": { "$ref": "#/$defs/nullableString" },
+              "args": { "type": "object", "additionalProperties": { "type": ["integer", "string", "boolean", "null"] } },
+              "source": { "$ref": "#/$defs/source" },
+              "continuous": { "type": "boolean" },
+              "clearsSelf": { "type": "boolean" },
+              "clearsSelfNote": { "type": "string" },
+              "note": { "type": "string" }
+            }
+          }
+        },
+        "serialCli": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["input", "action", "movementFunction", "source"],
+            "properties": {
+              "input": { "type": "array", "minItems": 1, "items": { "type": "string" } },
+              "action": { "type": "string" },
+              "movementFunction": { "$ref": "#/$defs/nullableString" },
+              "source": { "$ref": "#/$defs/source" }
+            }
+          }
+        }
+      }
+    },
+
+    "unresolvedEntry": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "subject", "value", "reason", "source", "blocking"],
+      "properties": {
+        "id": { "type": "string", "pattern": "^[a-z0-9-]+$" },
+        "subject": { "type": "string", "description": "Dotted path into this document that the entry qualifies." },
+        "value": { "description": "The value recorded in the document — null when nothing could be established, or the best-known value when it is recorded but unverified." },
+        "reason": { "type": "string", "minLength": 20 },
+        "source": { "type": "object", "required": ["file", "line"], "additionalProperties": false, "properties": { "file": { "type": "string" }, "line": { "type": "integer", "minimum": 1 } } },
+        "blocking": { "type": "boolean" }
+      }
+    }
+  }
+}

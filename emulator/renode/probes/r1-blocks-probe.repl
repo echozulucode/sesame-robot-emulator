@@ -1,0 +1,36 @@
+// R1 building-block probe: which stock Renode models can be mapped at
+// ESP32-S2 addresses without writing any new C#.
+// Addresses are ESP32-S2 TRM peripheral bases; the MODELS are generic stand-ins,
+// not accurate ESP32 peripherals. This file proves instantiability only.
+
+cpu: CPU.Xtensa @ sysbus
+    cpuType: "esp32s2"
+    frequency: 240000000
+
+dram: Memory.MappedMemory @ sysbus 0x3FFB0000
+    size: 0x50000
+
+iram: Memory.MappedMemory @ sysbus 0x40020000
+    size: 0x50000
+
+arr: Memory.ArrayMemory @ sysbus 0x60000000
+    size: 0x1000
+
+// ESP32-S2 UART0 base
+uart0: UART.ESP32_UART @ sysbus 0x3F400000
+
+// ESP32-S2 LEDC base, stubbed with a scriptable Python peripheral
+stub_ledc: Python.PythonPeripheral @ sysbus 0x3F419000
+    size: 0x400
+    initable: true
+    script: '''
+if request.IsInit: regs = [0] * (size / 4)
+if request.IsRead: request.Value = regs[request.Offset >> 2]
+if request.IsWrite: regs[request.Offset >> 2] = request.Value
+'''
+
+// generic I2C controller (NOT the ESP32 I2C block)
+i2c0: I2C.OpenCoresI2C @ sysbus 0x3F413000
+
+led0: Miscellaneous.LED
+btn0: Miscellaneous.Button

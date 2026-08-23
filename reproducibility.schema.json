@@ -1,0 +1,165 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://sesame-lab.local/schemas/reproducibility.schema.json",
+  "title": "Sesame Lab reproducibility ledger",
+  "description": "Everything needed to reproduce a Sesame Lab build/run, per the research report's reproducibility checklist. Every field is REQUIRED to be present; a field whose value is not yet known MUST be null, never absent.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "$schema",
+    "sesameUpstreamCommit",
+    "sesameUpstreamResolvedDate",
+    "sesameLabCommit",
+    "arduinoCliVersion",
+    "arduinoEsp32CoreVersion",
+    "libraries",
+    "builds",
+    "renodeVersion",
+    "renodePlatformFiles",
+    "assetSourceVersion",
+    "jointMapVersion",
+    "lessonContentVersion",
+    "generatedAt",
+    "hostPlatform"
+  ],
+  "$defs": {
+    "sha256": {
+      "type": ["string", "null"],
+      "pattern": "^[0-9a-f]{64}$",
+      "description": "Lowercase hex SHA-256 digest."
+    },
+    "gitSha": {
+      "type": ["string", "null"],
+      "pattern": "^[0-9a-f]{40}$",
+      "description": "Full 40-character lowercase git commit SHA."
+    },
+    "isoDate": {
+      "type": ["string", "null"],
+      "format": "date-time",
+      "description": "ISO 8601 / RFC 3339 timestamp."
+    },
+    "version": {
+      "type": ["string", "null"],
+      "minLength": 1,
+      "description": "An exact version string. Never 'latest'."
+    }
+  },
+  "properties": {
+    "$schema": {
+      "type": "string",
+      "description": "Relative path to this schema."
+    },
+    "sesameUpstreamCommit": {
+      "$ref": "#/$defs/gitSha",
+      "description": "Pinned commit of the upstream Sesame robot repository checked out into firmware/upstream/. null means the checkout is a vendored snapshot of unknown provenance — a tracked risk, since lessons must cite a pinned commit."
+    },
+    "sesameUpstreamResolvedDate": {
+      "$ref": "#/$defs/isoDate",
+      "description": "When sesameUpstreamCommit was resolved from the remote."
+    },
+    "sesameLabCommit": {
+      "$ref": "#/$defs/gitSha",
+      "description": "Commit of this repository that produced the recorded artifacts."
+    },
+    "arduinoCliVersion": {
+      "$ref": "#/$defs/version",
+      "description": "Version of the portable arduino-cli under tools/."
+    },
+    "arduinoEsp32CoreVersion": {
+      "$ref": "#/$defs/version",
+      "description": "Exact pinned esp32:esp32 core version. Never 'latest'."
+    },
+    "libraries": {
+      "type": "object",
+      "description": "Exact pinned Arduino library versions.",
+      "additionalProperties": { "$ref": "#/$defs/version" },
+      "required": ["ESP32Servo", "Adafruit_SSD1306", "Adafruit_GFX"],
+      "properties": {
+        "ESP32Servo": {
+          "$ref": "#/$defs/version",
+          "description": "Pinned to 3.0.9 by upstream firmware docs; later releases have a known multi-servo command leak."
+        },
+        "Adafruit_SSD1306": { "$ref": "#/$defs/version" },
+        "Adafruit_GFX": { "$ref": "#/$defs/version" }
+      }
+    },
+    "builds": {
+      "type": "array",
+      "description": "One entry per firmware build profile produced. Empty until F3 runs.",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["profile", "fqbn", "buildFlags", "elfSha256", "binSha256", "mapSha256", "builtAt"],
+        "properties": {
+          "profile": {
+            "type": "string",
+            "minLength": 1,
+            "description": "Sketch profile name, e.g. s2mini, distro-v3-s3, distro-v1-esp32, s2mini-instrumented."
+          },
+          "fqbn": {
+            "type": ["string", "null"],
+            "description": "Fully qualified board name, e.g. esp32:esp32:lolin_s2_mini."
+          },
+          "buildFlags": {
+            "type": ["array", "null"],
+            "items": { "type": "string" },
+            "description": "Exact compiler/build flags used."
+          },
+          "elfSha256": { "$ref": "#/$defs/sha256" },
+          "binSha256": { "$ref": "#/$defs/sha256" },
+          "mapSha256": { "$ref": "#/$defs/sha256" },
+          "builtAt": { "$ref": "#/$defs/isoDate" }
+        }
+      }
+    },
+    "renodeVersion": {
+      "$ref": "#/$defs/version",
+      "description": "Version of the PORTABLE Renode sidecar under tools/renode/ (ADR-0002). Never the system install at C:/Program Files/Renode."
+    },
+    "renodePlatformFiles": {
+      "type": "array",
+      "description": "Hashes of the .repl/.resc files under emulator/renode/ used for a run. Empty until R1/R2 author them.",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["path", "sha256"],
+        "properties": {
+          "path": {
+            "type": "string",
+            "minLength": 1,
+            "description": "Repo-relative path, e.g. emulator/renode/platforms/esp32s2.repl."
+          },
+          "sha256": { "$ref": "#/$defs/sha256" }
+        }
+      }
+    },
+    "assetSourceVersion": {
+      "type": ["string", "null"],
+      "description": "Version/provenance of the 3D asset source (STL/CAD) the visualization is built from."
+    },
+    "jointMapVersion": {
+      "type": ["string", "null"],
+      "description": "Version of hardware/joint-map.json (F6)."
+    },
+    "lessonContentVersion": {
+      "type": ["string", "null"],
+      "description": "Version of the lesson content bundle. null through Phase 0 — lessons are out of scope."
+    },
+    "generatedAt": {
+      "$ref": "#/$defs/isoDate",
+      "description": "When this ledger instance was last written."
+    },
+    "hostPlatform": {
+      "type": ["object", "null"],
+      "description": "The host that produced the artifacts.",
+      "additionalProperties": true,
+      "properties": {
+        "os": { "type": ["string", "null"] },
+        "arch": { "type": ["string", "null"] },
+        "node": { "type": ["string", "null"] },
+        "pnpm": { "type": ["string", "null"] },
+        "python": { "type": ["string", "null"] }
+      }
+    }
+  }
+}

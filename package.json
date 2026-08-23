@@ -1,0 +1,25 @@
+{
+  "name": "sesame-lab",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Sesame Lab — emulator, virtual robot, and interactive engineering learning platform",
+  "license": "Apache-2.0",
+  "packageManager": "pnpm@10.34.1",
+  "engines": {
+    "node": ">=24.0.0"
+  },
+  "type": "module",
+  "scripts": {
+    "build": "pnpm -r --if-present run build",
+    "test": "pnpm -r --if-present run test",
+    "lint": "pnpm -r --if-present run lint",
+    "typecheck": "pnpm -r --if-present run typecheck",
+    "validate:reproducibility": "node scripts/validate-reproducibility.mjs",
+    "validate:hardware-map": "node scripts/validate-hardware-map.mjs --check-lines"
+  },
+  "devDependencies": {
+    "ajv": "^8.17.1",
+    "ajv-formats": "^3.0.1",
+    "typescript": "^5.9.3"
+  }
+}

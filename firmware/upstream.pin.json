@@ -1,0 +1,8 @@
+{
+  "$comment": "Pinned upstream Sesame robot source. Resolved from git ls-remote; NEVER hand-edited to a guessed SHA. scripts/fetch-upstream.{ps1,sh} materialise exactly this commit into firmware/upstream/ (gitignored).",
+  "repoUrl": "https://github.com/dorianborian/sesame-robot.git",
+  "commit": "401730514cefed738710d22303e84b0dcd6b76d0",
+  "resolvedAt": "2026-08-23T11:36:56Z",
+  "resolvedFrom": "refs/heads/main (default branch HEAD)",
+  "provenance": "Upstream identified from reference/sesame-robot-main/README.md shields.io badges (github/stars/dorianborian/sesame-robot) and the sibling-repo link https://github.com/dorianborian/sesame-companion-app. Confirmed reachable via git ls-remote on 2026-08-23."
+}

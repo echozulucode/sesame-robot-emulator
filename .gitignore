@@ -1,0 +1,34 @@
+# ---- dependencies -------------------------------------------------------
+node_modules/
+.pnpm-store/
+
+# ---- portable toolchains (never machine-wide, never committed) ----------
+tools/
+
+# ---- pinned upstream checkout + build outputs ---------------------------
+firmware/upstream/
+firmware/artifacts/
+
+# ---- build output -------------------------------------------------------
+**/dist/
+*.tsbuildinfo
+
+# ---- firmware binaries --------------------------------------------------
+*.elf
+*.bin
+*.map
+
+# ---- python -------------------------------------------------------------
+.venv/
+__pycache__/
+*.pyc
+
+# ---- vendored reference copy of upstream (read-only source of truth) ----
+/reference/
+
+# ---- editor / OS --------------------------------------------------------
+.DS_Store
+Thumbs.db
+
+# NOTE: *.log is deliberately NOT ignored. Workstream R findings attach Renode
+# logs as evidence; ignoring them would silently drop the proof.

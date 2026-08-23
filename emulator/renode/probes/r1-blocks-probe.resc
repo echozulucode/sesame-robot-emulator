@@ -1,0 +1,16 @@
+:name: R1 reusable building-block probe
+:description: Instantiates every stock Renode model this project might map at ESP32-S2
+:description: addresses, and exercises the scriptable Python MMIO stub.
+
+using sysbus
+mach create "blocks"
+machine LoadPlatformDescription @C:/Projects/sesame-robot-emulator/emulator/renode/probes/r1-blocks-probe.repl
+echo "=== peripherals ==="
+peripherals
+echo "=== python stub write/read 0x3F419008 (expect 0xDEADBEEF) ==="
+sysbus WriteDoubleWord 0x3F419008 0xDEADBEEF
+sysbus ReadDoubleWord 0x3F419008
+echo "=== ArrayMemory write/read 0x60000010 (expect 0x12345678) ==="
+sysbus WriteDoubleWord 0x60000010 0x12345678
+sysbus ReadDoubleWord 0x60000010
+quit
