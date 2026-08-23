@@ -15,7 +15,9 @@
     "lint": "pnpm -r --if-present run lint",
     "typecheck": "pnpm -r --if-present run typecheck",
     "validate:reproducibility": "node scripts/validate-reproducibility.mjs",
-    "validate:hardware-map": "node scripts/validate-hardware-map.mjs --check-lines"
+    "validate:hardware-map": "node scripts/validate-hardware-map.mjs --check-lines",
+    "validate:joint-map": "node scripts/validate-joint-map.mjs",
+    "build:joint-map": "node scripts/build-joint-map.mjs"
   },
   "devDependencies": {
     "ajv": "^8.17.1",

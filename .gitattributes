@@ -12,3 +12,8 @@
 *.zip  binary
 *.elf  binary
 *.bin  binary
+
+# Firmware board-config patches are byte-exact unified diffs against upstream
+# sources that use CRLF. EOL normalization would rewrite the ^M inside their
+# context lines and `git apply` would then refuse them. Store verbatim.
+*.patch -text

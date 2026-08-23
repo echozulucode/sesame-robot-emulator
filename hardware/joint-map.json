@@ -1,0 +1,1850 @@
+{
+  "$schema": "./joint-map.schema.json",
+  "meta": {
+    "schemaVersion": "1.0.0",
+    "jointMapVersion": "1.0.0",
+    "task": "F6 — joint map + sesame-model package",
+    "generatedAt": "2026-08-23T14:05:43Z",
+    "generatedBy": "scripts/build-joint-map.mjs (asset-pipeline agent, Sesame Lab Phase 0)",
+    "regenerateWith": "node scripts/build-joint-map.mjs",
+    "validateWith": "pnpm validate:joint-map",
+    "epistemicContract": "Every fact-bearing field carries a `status` of exactly one of: \"authoritative\" (read out of firmware source or the STEP file), \"inferred\" (derived, always with a `method` and a confidence), or \"guessed\" (carries `verified: false` and a `basis`). Nothing in this file has been checked against a physical robot. The ONLY authoritative identity of a joint is `firmwareName` plus `firmwareIndex`; `semanticName` is a guess and is structurally non-authoritative in @sesame-lab/sesame-model.",
+    "verificationStatus": "NOT PHYSICALLY VERIFIED. No built Sesame robot was available. Every semanticName carries verified:false.",
+    "sources": [
+      {
+        "id": "hardware-map",
+        "path": "hardware/hardware-map.json",
+        "sha256": "2074342d7a8c05d6160624c47c51e66be544a52796b8275df0d0008e45f8a7fc",
+        "role": "F4 boundary inventory — firmware order, per-board GPIO, servo clamp/subtrim, 21 movement functions",
+        "producedBy": "F4"
+      },
+      {
+        "id": "assets-inventory",
+        "path": "hardware/assets-inventory.json",
+        "sha256": "db0e18f485f54c042c6a325b89b6829cf6bcf5ed9c12bf88199e01895a685efa",
+        "role": "F5 STL/STEP geometry — pivot axes, pivot origins, shape equivalence classes, CAD part names",
+        "producedBy": "F5"
+      },
+      {
+        "id": "sesame-topdown",
+        "path": "reference/sesame-robot-main/software/sesame-studio/sesame-topdown.png",
+        "sha256": "2ad2916eb6724f7bad866921719c745680a57c566968366d3211a0922f6b63d4",
+        "role": "Labelled top-down drawing carrying explicit FRONT and BACK markers; the only artefact in the repository that resolves fore/aft",
+        "producedBy": "upstream (read by F6)"
+      },
+      {
+        "id": "reference-configuration",
+        "path": "reference/sesame-robot-main/docs/build-guide/assets/reference-configuration.png",
+        "sha256": "ebb22c3adb879e753b7d78abc35b88a6f83976a43c27d65b4db8a9b8bfbbbef6",
+        "role": "Assembled top view labelling all eight joint parts; used for the hip-to-foot pairing",
+        "producedBy": "upstream (read by F6)"
+      },
+      {
+        "id": "sesame-angle-guide",
+        "path": "reference/sesame-robot-main/docs/build-guide/assets/sesame-angle-guide.png",
+        "sha256": "8360600e5e626ec3d5322b3884468785fa16c218545311e5f803721823cffe98",
+        "role": "Per-joint angle convention diagram with motor indices 00-07; used for zeroReferenceDeg and directionSign",
+        "producedBy": "upstream (read by F6)"
+      },
+      {
+        "id": "build-guide",
+        "path": "reference/sesame-robot-main/docs/build-guide/README.md",
+        "sha256": "6553ee463eb2352e9b85225fdefd8a564e8428e7fa5664f891aaeaa392321add",
+        "role": "Calibration procedure (all motors to 90 deg), joint fitting at Stand, \"Notch = front. USB port = back.\"",
+        "producedBy": "upstream (read by F6)"
+      }
+    ],
+    "consumers": [
+      "packages/sesame-model — JointName, JOINT_ORDER, RobotState, joint-map loader",
+      "R5 — packages/sesame-protocol telemetry union",
+      "Phase 1 — SimulatedSesameRobot behaviour model and the R3F viewer"
+    ]
+  },
+  "conventions": {
+    "angleUnit": "degree",
+    "lengthUnit": "millimetre",
+    "lengthUnitStatus": "authoritative",
+    "lengthUnitSource": "hardware/cad/Sesame-ESP32-v122.step declares LENGTH_UNIT() NAMED_UNIT(*) SI_UNIT(.MILLI.,.METRE.); read by scripts/extract-step-assembly.py in F5.",
+    "coordinateFrame": {
+      "id": "stl-assembly",
+      "status": "inferred",
+      "upAxis": "+Y",
+      "upAxisConfidence": "high",
+      "lateralAxis": "+Z is the 'R' side, -Z the 'L' side",
+      "lateralAxisConfidence": "medium",
+      "foreAftAxis": null,
+      "foreAftAxisNote": "The fore/aft SIGN of the X axis in the STL frame is still unknown. sesame-topdown.png resolves which END of the robot is the front as a matter of labelling, but it is a drawing, not a coordinate frame, and F5 never established the STL-frame-to-CAD-frame mapping. Do not assume +X is forward.",
+      "caveat": "Positions in this frame are NOT per-instance assembly positions. F5 found that the four femur STLs occupy only two bounding-box stations and the four foot STLs likewise, because the exporter wrote one file per unique SHAPE at a representative station and then re-labelled. Orientations are frame-correct; placements are not."
+    },
+    "commandedAngle": {
+      "domain": {
+        "min": 0,
+        "max": 180
+      },
+      "status": "authoritative",
+      "source": {
+        "file": "firmware/sesame-firmware-main.ino",
+        "line": 1053
+      },
+      "call": "constrain(angle + servoSubtrim[channel], 0, 180)",
+      "note": "setServoAngle() applies constrain(angle + servoSubtrim[channel], 0, 180) at a single convergence point, so this domain is inescapable from firmware."
+    },
+    "bodyRelativeAngle": {
+      "formula": "bodyRelativeDeg = (commandedDeg - zeroReferenceDeg) * directionSign",
+      "status": "inferred",
+      "purpose": "A single convention in which the same number means the same physical thing on all four legs, so a behaviour model or a viewer does not need eight special cases. Validated against the shipped choreography: runRestPose becomes all-zero, runStandPose becomes +45 on every hip and +90 on every foot, runShrugPose becomes -90 on every foot, runDeadPose becomes 0 on every foot.",
+      "caveat": "Both inputs are inferred. Neither the zero nor the sign has been measured on hardware, and the absolute sense of the sign is not established at all — see each joint's directionSign.caveat."
+    }
+  },
+  "shapeEquivalenceClasses": [
+    {
+      "id": "femur-A",
+      "kind": "femur",
+      "members": [
+        "R1",
+        "L2"
+      ],
+      "relation": "identical solids",
+      "mirrorOf": "femur-B",
+      "status": "inferred",
+      "evidence": "F5 partShapeGroups: R1 vs L2 agree within 0.05 mm over 96.7 % of 20 000 sampled surface points, p99 distance 0.254 mm = the engraved label depth."
+    },
+    {
+      "id": "femur-B",
+      "kind": "femur",
+      "members": [
+        "R2",
+        "L1"
+      ],
+      "relation": "identical solids",
+      "mirrorOf": "femur-A",
+      "status": "inferred",
+      "evidence": "F5 partShapeGroups: L1 vs R2 agree within 0.05 mm over 95.1 % of 20 000 sampled surface points, p99 distance 0.381 mm."
+    },
+    {
+      "id": "foot-A",
+      "kind": "foot",
+      "members": [
+        "R3",
+        "L4"
+      ],
+      "relation": "identical solids",
+      "mirrorOf": "foot-B",
+      "status": "inferred",
+      "evidence": "F5 partShapeGroups: L4 vs R3 agree within 0.05 mm over 95.9 % of 20 000 sampled surface points, p99 distance 0.254 mm."
+    },
+    {
+      "id": "foot-B",
+      "kind": "foot",
+      "members": [
+        "R4",
+        "L3"
+      ],
+      "relation": "identical solids",
+      "mirrorOf": "foot-A",
+      "status": "inferred",
+      "evidence": "F5 partShapeGroups: L3 vs R4 agree within 0.05 mm over 95.3 % of 20 000 sampled surface points, p99 distance 0.393 mm."
+    }
+  ],
+  "shapeEquivalenceNote": "Only FOUR distinct printed solids exist for eight joints, and the pairs are DIAGONAL (R1 with L2, R2 with L1, R3 with L4, R4 with L3), not left/right. The robot therefore has two-fold rotational symmetry about its vertical axis, not merely bilateral symmetry. Two consequences: any front/rear assignment must be consistent with diagonal symmetry, and a model that stores eight independent link descriptions will drift where one storing four shapes plus eight placements will not.",
+  "choreographyAnalysis": {
+    "status": "inferred",
+    "corpus": {
+      "source": "hardware/hardware-map.json",
+      "functions": 21,
+      "totalSteps": 395,
+      "servoSteps": 223,
+      "note": "Step counts are recursive: `repeat` and `conditional` blocks carry nested `steps` arrays and are counted through. Every servo step in the corpus carries a literal integer angle; none are computed at runtime, which is why this analysis is exact rather than a sample."
+    },
+    "method": "Every literal setServoAngle() call was bucketed by joint. No weighting was applied for `repeat` counts, because a repeat re-issues the same literal angles and would only inflate frequencies, not widen ranges.",
+    "findings": [
+      "The hips never use the full clamp. R1 and L2 are only ever commanded in [90, 180]; L1 in [0, 90]; R2 in [0, 100]. In body-relative terms every hip lives in [-10, +90] and is at or above 0 in 88 of 90 steps (97.8 %), i.e. the shipped choreography sweeps legs outward from lateral and essentially never inward — the two exceptions are a single R2=100 deg used twice in runPointPose.",
+      "The feet use the whole clamp: all four are commanded at both 0 and 180.",
+      "runRestPose is the only pose that commands all eight joints to one raw value (90). Under the inferred sign convention, five more poses become uniform: runStandPose (+45 hips, +90 feet), runSwimPose and runCrabPose (0 hips), runShrugPose (-90 feet), runDeadPose (0 feet).",
+      "Hips are grouped by trailing digit in the expressive poses (runShakePose, runCutePose move {R1,L1} together and {R2,L2} together) and by leading letter in the gaits (runWalkPose and runWalkBackward move {R1,R2} against {L1,L2}). Those are the two body axes, and they line up with the front/rear and left/right split the labelled drawings show.",
+      "Only 15 distinct commanded angles appear across all eight joints and all 223 steps: 0, 10, 20, 25, 45, 65, 80, 90, 100, 115, 135, 145, 160, 170, 180. The five multiples of 45 account for 198 of the 223 steps (88.8 %), so the choreography is written on a 45-degree grid with ten one-off exceptions."
+    ],
+    "caveat": "This is evidence about intent, not about mechanism. It says what the firmware authors were willing to command; it says nothing about what the printed linkage can physically reach, and nothing about where the joints actually end up."
+  },
+  "joints": [
+    {
+      "firmwareName": "R1",
+      "firmwareIndex": 0,
+      "firmwareIndexStatus": "authoritative",
+      "firmwareIndexSource": {
+        "file": "firmware/movement-sequences.h",
+        "line": 6
+      },
+      "firmwareIndexNote": "enum ServoName { R1=0, R2=1, L1=2, L2=3, R4=4, R3=5, L3=6, L4=7 }. The index, not the name and not the position in any table, is the joint's identity. Never re-sort.",
+      "kind": "femur",
+      "kindStatus": "authoritative",
+      "kindSource": {
+        "file": "hardware/cad/Sesame-ESP32-v122.step",
+        "symbol": "PRODUCT 'femur-joint-R1'",
+        "note": "hardware/cad/Sesame-ESP32-v122.step PRODUCT name"
+      },
+      "pinsByBoard": {
+        "s2-mini": 1,
+        "distro-v3": 4,
+        "distro-v2": 4,
+        "distro-v1": 15
+      },
+      "pinsStatus": "authoritative",
+      "pinSourceByBoard": {
+        "s2-mini": {
+          "file": "firmware/sesame-firmware-main.ino",
+          "line": 110
+        },
+        "distro-v3": {
+          "file": "firmware/sesame-firmware-main.ino",
+          "line": 101
+        },
+        "distro-v2": {
+          "file": "firmware/sesame-firmware-main.ino",
+          "line": 104
+        },
+        "distro-v1": {
+          "file": "firmware/sesame-firmware-main.ino",
+          "line": 107
+        }
+      },
+      "pinsNote": "GPIO number per board configuration, from the servoPins[] arrays in firmware. Exactly one board is active (s2-mini); the others are commented-out alternates that F3 enables with build-time patches.",
+      "stlFile": "R1-v117.stl",
+      "stlPath": "reference/sesame-robot-main/hardware/printing/stl/R1-v117.stl",
+      "stlSha256": "443f956016ad416699d8d5e56ab2fb0e36b10d42f02ff47ea02ae5986180e871",
+      "shapeEquivalenceClass": "femur-A",
+      "shapeEquivalenceStatus": "inferred",
+      "shapeEquivalenceMethod": "F5 partShapeGroups: 20 000 surface samples of one part, unsigned distance to another. Members of a class agree to within 0.05 mm over 95-97 % of the sampled surface; the residual is the engraved part label, whose p99 distance matches its 0.254 mm engraving depth.",
+      "rotationAxis": {
+        "value": [
+          0,
+          1,
+          0
+        ],
+        "frame": "stl-assembly",
+        "status": "inferred",
+        "axisConfidence": "high",
+        "method": "coaxial-servo-horn-signature: an M2.5 through-bore, an ~8 mm horn-hub counterbore and a 12.7 mm rounded plate end sharing one axis; selected as proximal because its axis is the one aligned with the assembly's vertical",
+        "note": "Vertical (yaw). Measured as the common axis of three concentric turned features on the proximal horn plate: an M2.5 through-bore, an ~8 mm horn-hub counterbore and a 12.70 mm rounded plate end. Corroborated by install-frame-motors.png, which shows all four hip servos screwed to the internal frame with shafts pointing up."
+      },
+      "pivotOrigin": {
+        "value": [
+          1.5233,
+          36.8178,
+          23.0168
+        ],
+        "frame": "stl-assembly",
+        "status": "inferred",
+        "originConfidence": "medium",
+        "caveat": "THIS IS A POINT ON THE CORRECT LINE, NOT THE JOINT CENTRE. The axis direction and its position in the plane perpendicular to itself are measured; the position ALONG the axis is not, because nothing in the printed plastic marks the servo's datum plane. Do not use this as a kinematic frame origin without pinning the along-axis placement first.",
+        "method": "coaxial-servo-horn-signature: an M2.5 through-bore, an ~8 mm horn-hub counterbore and a 12.7 mm rounded plate end sharing one axis; selected as proximal because its axis is the one aligned with the assembly's vertical"
+      },
+      "linkGeometry": {
+        "status": "inferred",
+        "axisAngleDeg": 90,
+        "commonNormalDistanceMm": 36.83,
+        "distalAxis": [
+          1,
+          0,
+          0
+        ],
+        "distalOrigin": [
+          -9.9067,
+          15.2278,
+          59.8468
+        ],
+        "note": "Measured axis-to-axis offset and twist of the femur link. The distal interface is the pivot of the foot link that hangs off this femur, not of this part."
+      },
+      "parentLink": {
+        "value": "internal-frame",
+        "status": "authoritative",
+        "basis": "The STEP assembly places all four hip servos on the internal frame, on an exact 1.500 x 2.000 inch (38.10 x 50.80 mm) rectangle; the build guide step \"Install Frame Motors\" and assets/install-frame-motors.png show the same four servos screwed to the internal frame. The femur link is bolted to that servo's output horn.",
+        "childLink": "R3"
+      },
+      "zeroReferenceDeg": {
+        "value": 90,
+        "status": "inferred",
+        "basis": [
+          "runRestPose commands all eight servos to 90 deg with a single loop (`for (int i = 0; i < 8; i++) setServoAngle(i, 90);`, firmware/movement-sequences.h:74). 90 deg is the one pose the firmware treats as uniform across all joints.",
+          "The calibration procedure commands every motor to 90 deg with no horn attached before any joint is fitted (docs/build-guide/README.md, \"Calibrating & Running the Testing Firmware\" step 4), which makes 90 deg the mechanical assembly datum.",
+          "servoSubtrim[] defaults to all zeros (firmware/sesame-firmware-main.ino:113), so the commanded value IS the datum value on an untrimmed robot.",
+          "sesame-angle-guide.png draws 90 deg as the common hinge value of both hip conventions and as \"foot horizontal\" for both foot conventions."
+        ],
+        "caveat": "INFERRED FROM CHOREOGRAPHY AND DOCUMENTATION, NOT MEASURED. This is the commanded degree value the model treats as zero body-relative angle. It is not a claim about where the servo actually sits: horn spline resolution is 360/20 = 18 deg on an MG90S, so a physical robot can be up to +/-9 deg off this datum before subtrim.",
+        "restPoseDeg": 90,
+        "standPoseDeg": 135
+      },
+      "directionSign": {
+        "value": 1,
+        "status": "inferred",
+        "convention": "bodyRelativeDeg = (commandedDeg - zeroReferenceDeg) * directionSign. Positive body-relative angle means: for a femur/hip, the leg swings AWAY from lateral in its own outboard fore/aft direction (front legs forward, rear legs rearward); for a foot/knee, the foot swings from horizontal toward straight down.",
+        "basis": [
+          "The sign classes are exactly F5's shape-mirror classes: femur-A = {R1, L2}. Members of a class are the SAME printed solid (not mirrors), so they are installed 180 deg apart about the body's vertical axis and must therefore take opposite signs from their mirror counterparts.",
+          "Applying these signs makes runRestPose read 0 deg on all eight joints and runStandPose read +45 deg on all four hips and +90 deg on all four feet. Without them runStandPose reads 135/45/45/135 and 0/180/0/180, which is the same pose written twice in two conventions.",
+          "sesame-angle-guide.png draws the two conventions explicitly: R1 and L2 sweep 90->135->180, R2 and L1 sweep 90->45->0, and the caption \"VERTICAL ANGLES REPRESENT STRAIGHT DOWN\" marks 180 deg as down for R3/L4 and 0 deg as down for R4/L3.",
+          "Over the whole 223-step corpus the transformed histograms of the two members of each class coincide in shape, and 12 of the 16 functions that command hips command all four hips to a single body-relative value."
+        ],
+        "caveat": "The sign is RELATIVE, not absolute. What is evidenced is that the two classes are opposite; which of the two is counter-clockwise about the stated rotationAxis in a right-handed sense is NOT established. Flipping all eight signs at once would be equally consistent with everything measured here."
+      },
+      "angleLimitsDeg": {
+        "value": {
+          "min": 0,
+          "max": 180
+        },
+        "status": "authoritative",
+        "source": {
+          "file": "firmware/sesame-firmware-main.ino",
+          "line": 1053
+        },
+        "call": "constrain(angle + servoSubtrim[channel], 0, 180)",
+        "note": "This is the FIRMWARE clamp, applied after subtrim, not a mechanical travel limit. The BOM calls for 180-degree MG90S servos, so the clamp and the actuator range coincide by design, but nothing in the repository says the printed linkage can actually reach both ends without collision at every pose.",
+        "mechanicalLimitsDeg": null,
+        "mechanicalLimitsNote": "Unknown. Determining the real per-joint travel needs either a collision study on repaired meshes or a physical robot."
+      },
+      "observedRangeDeg": {
+        "status": "inferred",
+        "method": "Statistical analysis of every literal setServoAngle() call in hardware-map.json `movements`, recursing into `repeat` and `conditional` blocks. This is what the shipped choreography actually asks of this joint — strong evidence about the range the designers believe is safe, and no evidence at all about the range the mechanism can reach.",
+        "corpus": {
+          "functions": 21,
+          "totalSteps": 395,
+          "servoSteps": 223
+        },
+        "sampleCount": 23,
+        "functionsCommandingThisJoint": 17,
+        "minDeg": 90,
+        "maxDeg": 180,
+        "medianDeg": 135,
+        "distinctCommandedDeg": [
+          {
+            "deg": 90,
+            "count": 8
+          },
+          {
+            "deg": 100,
+            "count": 1
+          },
+          {
+            "deg": 135,
+            "count": 6
+          },
+          {
+            "deg": 180,
+            "count": 8
+          }
+        ],
+        "bodyRelativeMinDeg": 0,
+        "bodyRelativeMaxDeg": 90,
+        "note": "Hips use only about half of the 0-180 clamp, and always the same half for a given sign class. In body-relative terms all four hips live in roughly [0, +90] deg: the choreography sweeps the leg outward from lateral and essentially never inward."
+      },
+      "semanticName": {
+        "value": "right_front_hip",
+        "verified": false,
+        "basis": "Front/rear: reference/sesame-robot-main/software/sesame-studio/sesame-topdown.png is a labelled top-down line drawing of the assembled robot carrying the words \"FRONT\" at the top edge and \"BACK\" at the bottom. In that drawing L3/L1 sit at the front-left, R3/R1 at the front-right, L2/L4 at the back-left and R2/R4 at the back-right. R1 is therefore at the front. Left/right: the same drawing places every L-named part on the image's left half and every R-named part on the image's right half. Read as a view from ABOVE with the robot facing away from the viewer, image-left is the robot's own left, so L = the robot's left and R = the robot's right, and R1 is on the right. Joint kind is not a guess: the STEP file names this part \"femur-joint-R1\", so \"hip (femur)\" is authoritative even though the spatial qualifier is not. Corroboration from firmware choreography (223 setServoAngle steps in hardware-map.json): movements group the four hips as {R1,L1} versus {R2,L2} (runShakePose commands R1=L1=45 deg and R2=L2=0 deg; runCutePose commands R1=L1=90 deg and R2=L2=70 deg) — i.e. by the trailing digit, which is exactly the front-pair/rear-pair split the image shows. The walk gaits instead group {R1,R2} against {L1,L2} — i.e. by side. Two orthogonal groupings that match the image's two axes. Corroboration from reference/sesame-robot-main/docs/build-guide/assets/reference-configuration.png: the assembled top view in the build guide shows the same eight labels in the same eight positions, and shows R1 paired with R3.",
+        "basisPoints": [
+          "Front/rear: reference/sesame-robot-main/software/sesame-studio/sesame-topdown.png is a labelled top-down line drawing of the assembled robot carrying the words \"FRONT\" at the top edge and \"BACK\" at the bottom. In that drawing L3/L1 sit at the front-left, R3/R1 at the front-right, L2/L4 at the back-left and R2/R4 at the back-right. R1 is therefore at the front.",
+          "Left/right: the same drawing places every L-named part on the image's left half and every R-named part on the image's right half. Read as a view from ABOVE with the robot facing away from the viewer, image-left is the robot's own left, so L = the robot's left and R = the robot's right, and R1 is on the right.",
+          "Joint kind is not a guess: the STEP file names this part \"femur-joint-R1\", so \"hip (femur)\" is authoritative even though the spatial qualifier is not.",
+          "Corroboration from firmware choreography (223 setServoAngle steps in hardware-map.json): movements group the four hips as {R1,L1} versus {R2,L2} (runShakePose commands R1=L1=45 deg and R2=L2=0 deg; runCutePose commands R1=L1=90 deg and R2=L2=70 deg) — i.e. by the trailing digit, which is exactly the front-pair/rear-pair split the image shows. The walk gaits instead group {R1,R2} against {L1,L2} — i.e. by side. Two orthogonal groupings that match the image's two axes.",
+          "Corroboration from reference/sesame-robot-main/docs/build-guide/assets/reference-configuration.png: the assembled top view in the build guide shows the same eight labels in the same eight positions, and shows R1 paired with R3."
+        ],
+        "wouldBeConfirmedBy": [
+          "Physically inspecting a built robot: confirm that the part engraved with this name is installed in the position the drawings show. A builder can physically swap two identical parts (F5 measured R1 and L2 to be the same solid, and R2 and L1, and R3/L4, and R4/L3), and nothing in the firmware would notice.",
+          "Confirming that sesame-topdown.png is a view from ABOVE and not from below. If it is a bottom view, every left/right assignment in this file inverts. Nothing in the repository states the camera direction.",
+          "Confirming that the drawing's \"FRONT\" is the direction the robot walks forward in when the `walk` command runs, not merely the end the OLED faces. The build guide gives the physical cue \"Notch = front. USB port = back.\" (docs/build-guide/README.md:168) but never ties it to gait direction.",
+          "Confirming that \"R\"/\"L\" in the part names denote the robot's own left and right rather than a viewer's. No repository text states this."
+        ],
+        "alternativesConsidered": [
+          "right_front_yaw",
+          "right_front_shoulder"
+        ],
+        "alternativesNote": "The STEP file calls the foot parts \"foot-joint-*\" and the build guide calls them \"Leg Joints\", but the actuated degree of freedom sits between the femur and the foot link, so \"knee\" is the kinematically accurate word. Recorded because the naming, not just the mapping, is a choice."
+      },
+      "unresolved": [
+        "semanticName is a guess read off two drawings; see semanticName.wouldBeConfirmedBy.",
+        "The build guide says that at Rest (90 deg) \"the hip joint should move perfectly parallel to the body\" (docs/build-guide/README.md:209), while sesame-angle-guide.png draws the 90 deg ray pointing laterally outward. Both readings cannot be right about the same feature; which one describes the femur arm and which the horn plate is unresolved without a physical robot.",
+        "pivotOrigin is a point on the correct axis line, not the joint centre. Where the servo datum plane falls along that line is not present in the plastic."
+      ]
+    },
+    {
+      "firmwareName": "R2",
+      "firmwareIndex": 1,
+      "firmwareIndexStatus": "authoritative",
+      "firmwareIndexSource": {
+        "file": "firmware/movement-sequences.h",
+        "line": 7
+      },
+      "firmwareIndexNote": "enum ServoName { R1=0, R2=1, L1=2, L2=3, R4=4, R3=5, L3=6, L4=7 }. The index, not the name and not the position in any table, is the joint's identity. Never re-sort.",
+      "kind": "femur",
+      "kindStatus": "authoritative",
+      "kindSource": {
+        "file": "hardware/cad/Sesame-ESP32-v122.step",
+        "symbol": "PRODUCT 'femurjoint-R2'",
+        "note": "hardware/cad/Sesame-ESP32-v122.step PRODUCT name"
+      },
+      "pinsByBoard": {
+        "s2-mini": 2,
+        "distro-v3": 5,
+        "distro-v2": 5,
+        "distro-v1": 2
+      },
+      "pinsStatus": "authoritative",
+      "pinSourceByBoard": {
+        "s2-mini": {
+          "file": "firmware/sesame-firmware-main.ino",
+          "line": 110
+        },
+        "distro-v3": {
+          "file": "firmware/sesame-firmware-main.ino",
+          "line": 101
+        },
+        "distro-v2": {
+          "file": "firmware/sesame-firmware-main.ino",
+          "line": 104
+        },
+        "distro-v1": {
+          "file": "firmware/sesame-firmware-main.ino",
+          "line": 107
+        }
+      },
+      "pinsNote": "GPIO number per board configuration, from the servoPins[] arrays in firmware. Exactly one board is active (s2-mini); the others are commented-out alternates that F3 enables with build-time patches.",
+      "stlFile": "R2-v117.stl",
+      "stlPath": "reference/sesame-robot-main/hardware/printing/stl/R2-v117.stl",
+      "stlSha256": "fab2770d0d7f1384c4888e2b3a25cd7a6729c2b4230894b4771a177b73c6452c",
+      "shapeEquivalenceClass": "femur-B",
+      "shapeEquivalenceStatus": "inferred",
+      "shapeEquivalenceMethod": "F5 partShapeGroups: 20 000 surface samples of one part, unsigned distance to another. Members of a class agree to within 0.05 mm over 95-97 % of the sampled surface; the residual is the engraved part label, whose p99 distance matches its 0.254 mm engraving depth.",
+      "rotationAxis": {
+        "value": [
+          0,
+          1,
+          0
+        ],
+        "frame": "stl-assembly",
+        "status": "inferred",
+        "axisConfidence": "high",
+        "method": "coaxial-servo-horn-signature: an M2.5 through-bore, an ~8 mm horn-hub counterbore and a 12.7 mm rounded plate end sharing one axis; selected as proximal because its axis is the one aligned with the assembly's vertical",
+        "note": "Vertical (yaw). Measured as the common axis of three concentric turned features on the proximal horn plate: an M2.5 through-bore, an ~8 mm horn-hub counterbore and a 12.70 mm rounded plate end. Corroborated by install-frame-motors.png, which shows all four hip servos screwed to the internal frame with shafts pointing up."
+      },
+      "pivotOrigin": {
+        "value": [
+          1.5233,
+          36.8178,
+          -23.0168
+        ],
+        "frame": "stl-assembly",
+        "status": "inferred",
+        "originConfidence": "medium",
+        "caveat": "THIS IS A POINT ON THE CORRECT LINE, NOT THE JOINT CENTRE. The axis direction and its position in the plane perpendicular to itself are measured; the position ALONG the axis is not, because nothing in the printed plastic marks the servo's datum plane. Do not use this as a kinematic frame origin without pinning the along-axis placement first.",
+        "method": "coaxial-servo-horn-signature: an M2.5 through-bore, an ~8 mm horn-hub counterbore and a 12.7 mm rounded plate end sharing one axis; selected as proximal because its axis is the one aligned with the assembly's vertical"
+      },
+      "linkGeometry": {
+        "status": "inferred",
+        "axisAngleDeg": 90,
+        "commonNormalDistanceMm": 36.83,
+        "distalAxis": [
+          1,
+          0,
+          0
+        ],
+        "distalOrigin": [
+          -9.9067,
+          15.2278,
+          -59.8468
+        ],
+        "note": "Measured axis-to-axis offset and twist of the femur link. The distal interface is the pivot of the foot link that hangs off this femur, not of this part."
+      },
+      "parentLink": {
+        "value": "internal-frame",
+        "status": "authoritative",
+        "basis": "The STEP assembly places all four hip servos on the internal frame, on an exact 1.500 x 2.000 inch (38.10 x 50.80 mm) rectangle; the build guide step \"Install Frame Motors\" and assets/install-frame-motors.png show the same four servos screwed to the internal frame. The femur link is bolted to that servo's output horn.",
+        "childLink": "R4"
+      },
+      "zeroReferenceDeg": {
+        "value": 90,
+        "status": "inferred",
+        "basis": [
+          "runRestPose commands all eight servos to 90 deg with a single loop (`for (int i = 0; i < 8; i++) setServoAngle(i, 90);`, firmware/movement-sequences.h:74). 90 deg is the one pose the firmware treats as uniform across all joints.",
+          "The calibration procedure commands every motor to 90 deg with no horn attached before any joint is fitted (docs/build-guide/README.md, \"Calibrating & Running the Testing Firmware\" step 4), which makes 90 deg the mechanical assembly datum.",
+          "servoSubtrim[] defaults to all zeros (firmware/sesame-firmware-main.ino:113), so the commanded value IS the datum value on an untrimmed robot.",
+          "sesame-angle-guide.png draws 90 deg as the common hinge value of both hip conventions and as \"foot horizontal\" for both foot conventions."
+        ],
+        "caveat": "INFERRED FROM CHOREOGRAPHY AND DOCUMENTATION, NOT MEASURED. This is the commanded degree value the model treats as zero body-relative angle. It is not a claim about where the servo actually sits: horn spline resolution is 360/20 = 18 deg on an MG90S, so a physical robot can be up to +/-9 deg off this datum before subtrim.",
+        "restPoseDeg": 90,
+        "standPoseDeg": 45
+      },
+      "directionSign": {
+        "value": -1,
+        "status": "inferred",
+        "convention": "bodyRelativeDeg = (commandedDeg - zeroReferenceDeg) * directionSign. Positive body-relative angle means: for a femur/hip, the leg swings AWAY from lateral in its own outboard fore/aft direction (front legs forward, rear legs rearward); for a foot/knee, the foot swings from horizontal toward straight down.",
+        "basis": [
+          "The sign classes are exactly F5's shape-mirror classes: femur-B = {R2, L1}. Members of a class are the SAME printed solid (not mirrors), so they are installed 180 deg apart about the body's vertical axis and must therefore take opposite signs from their mirror counterparts.",
+          "Applying these signs makes runRestPose read 0 deg on all eight joints and runStandPose read +45 deg on all four hips and +90 deg on all four feet. Without them runStandPose reads 135/45/45/135 and 0/180/0/180, which is the same pose written twice in two conventions.",
+          "sesame-angle-guide.png draws the two conventions explicitly: R1 and L2 sweep 90->135->180, R2 and L1 sweep 90->45->0, and the caption \"VERTICAL ANGLES REPRESENT STRAIGHT DOWN\" marks 180 deg as down for R3/L4 and 0 deg as down for R4/L3.",
+          "Over the whole 223-step corpus the transformed histograms of the two members of each class coincide in shape, and 12 of the 16 functions that command hips command all four hips to a single body-relative value."
+        ],
+        "caveat": "The sign is RELATIVE, not absolute. What is evidenced is that the two classes are opposite; which of the two is counter-clockwise about the stated rotationAxis in a right-handed sense is NOT established. Flipping all eight signs at once would be equally consistent with everything measured here."
+      },
+      "angleLimitsDeg": {
+        "value": {
+          "min": 0,
+          "max": 180
+        },
+        "status": "authoritative",
+        "source": {
+          "file": "firmware/sesame-firmware-main.ino",
+          "line": 1053
+        },
+        "call": "constrain(angle + servoSubtrim[channel], 0, 180)",
+        "note": "This is the FIRMWARE clamp, applied after subtrim, not a mechanical travel limit. The BOM calls for 180-degree MG90S servos, so the clamp and the actuator range coincide by design, but nothing in the repository says the printed linkage can actually reach both ends without collision at every pose.",
+        "mechanicalLimitsDeg": null,
+        "mechanicalLimitsNote": "Unknown. Determining the real per-joint travel needs either a collision study on repaired meshes or a physical robot."
+      },
+      "observedRangeDeg": {
+        "status": "inferred",
+        "method": "Statistical analysis of every literal setServoAngle() call in hardware-map.json `movements`, recursing into `repeat` and `conditional` blocks. This is what the shipped choreography actually asks of this joint — strong evidence about the range the designers believe is safe, and no evidence at all about the range the mechanism can reach.",
+        "corpus": {
+          "functions": 21,
+          "totalSteps": 395,
+          "servoSteps": 223
+        },
+        "sampleCount": 22,
+        "functionsCommandingThisJoint": 15,
+        "minDeg": 0,
+        "maxDeg": 100,
+        "medianDeg": 67.5,
+        "distinctCommandedDeg": [
+          {
+            "deg": 0,
+            "count": 4
+          },
+          {
+            "deg": 20,
+            "count": 1
+          },
+          {
+            "deg": 45,
+            "count": 6
+          },
+          {
+            "deg": 90,
+            "count": 9
+          },
+          {
+            "deg": 100,
+            "count": 2
+          }
+        ],
+        "bodyRelativeMinDeg": -10,
+        "bodyRelativeMaxDeg": 90,
+        "note": "Hips use only about half of the 0-180 clamp, and always the same half for a given sign class. In body-relative terms all four hips live in roughly [0, +90] deg: the choreography sweeps the leg outward from lateral and essentially never inward."
+      },
+      "semanticName": {
+        "value": "right_rear_hip",
+        "verified": false,
+        "basis": "Front/rear: reference/sesame-robot-main/software/sesame-studio/sesame-topdown.png is a labelled top-down line drawing of the assembled robot carrying the words \"FRONT\" at the top edge and \"BACK\" at the bottom. In that drawing L3/L1 sit at the front-left, R3/R1 at the front-right, L2/L4 at the back-left and R2/R4 at the back-right. R2 is therefore at the rear. Left/right: the same drawing places every L-named part on the image's left half and every R-named part on the image's right half. Read as a view from ABOVE with the robot facing away from the viewer, image-left is the robot's own left, so L = the robot's left and R = the robot's right, and R2 is on the right. Joint kind is not a guess: the STEP file names this part \"femur-joint-R2\", so \"hip (femur)\" is authoritative even though the spatial qualifier is not. Corroboration from firmware choreography (223 setServoAngle steps in hardware-map.json): movements group the four hips as {R1,L1} versus {R2,L2} (runShakePose commands R1=L1=45 deg and R2=L2=0 deg; runCutePose commands R1=L1=90 deg and R2=L2=70 deg) — i.e. by the trailing digit, which is exactly the front-pair/rear-pair split the image shows. The walk gaits instead group {R1,R2} against {L1,L2} — i.e. by side. Two orthogonal groupings that match the image's two axes. Corroboration from reference/sesame-robot-main/docs/build-guide/assets/reference-configuration.png: the assembled top view in the build guide shows the same eight labels in the same eight positions, and shows R2 paired with R4.",
+        "basisPoints": [
+          "Front/rear: reference/sesame-robot-main/software/sesame-studio/sesame-topdown.png is a labelled top-down line drawing of the assembled robot carrying the words \"FRONT\" at the top edge and \"BACK\" at the bottom. In that drawing L3/L1 sit at the front-left, R3/R1 at the front-right, L2/L4 at the back-left and R2/R4 at the back-right. R2 is therefore at the rear.",
+          "Left/right: the same drawing places every L-named part on the image's left half and every R-named part on the image's right half. Read as a view from ABOVE with the robot facing away from the viewer, image-left is the robot's own left, so L = the robot's left and R = the robot's right, and R2 is on the right.",
+          "Joint kind is not a guess: the STEP file names this part \"femur-joint-R2\", so \"hip (femur)\" is authoritative even though the spatial qualifier is not.",
+          "Corroboration from firmware choreography (223 setServoAngle steps in hardware-map.json): movements group the four hips as {R1,L1} versus {R2,L2} (runShakePose commands R1=L1=45 deg and R2=L2=0 deg; runCutePose commands R1=L1=90 deg and R2=L2=70 deg) — i.e. by the trailing digit, which is exactly the front-pair/rear-pair split the image shows. The walk gaits instead group {R1,R2} against {L1,L2} — i.e. by side. Two orthogonal groupings that match the image's two axes.",
+          "Corroboration from reference/sesame-robot-main/docs/build-guide/assets/reference-configuration.png: the assembled top view in the build guide shows the same eight labels in the same eight positions, and shows R2 paired with R4."
+        ],
+        "wouldBeConfirmedBy": [
+          "Physically inspecting a built robot: confirm that the part engraved with this name is installed in the position the drawings show. A builder can physically swap two identical parts (F5 measured R1 and L2 to be the same solid, and R2 and L1, and R3/L4, and R4/L3), and nothing in the firmware would notice.",
+          "Confirming that sesame-topdown.png is a view from ABOVE and not from below. If it is a bottom view, every left/right assignment in this file inverts. Nothing in the repository states the camera direction.",
+          "Confirming that the drawing's \"FRONT\" is the direction the robot walks forward in when the `walk` command runs, not merely the end the OLED faces. The build guide gives the physical cue \"Notch = front. USB port = back.\" (docs/build-guide/README.md:168) but never ties it to gait direction.",
+          "Confirming that \"R\"/\"L\" in the part names denote the robot's own left and right rather than a viewer's. No repository text states this."
+        ],
+        "alternativesConsidered": [
+          "right_rear_yaw",
+          "right_rear_shoulder"
+        ],
+        "alternativesNote": "The STEP file calls the foot parts \"foot-joint-*\" and the build guide calls them \"Leg Joints\", but the actuated degree of freedom sits between the femur and the foot link, so \"knee\" is the kinematically accurate word. Recorded because the naming, not just the mapping, is a choice."
+      },
+      "unresolved": [
+        "semanticName is a guess read off two drawings; see semanticName.wouldBeConfirmedBy.",
+        "The build guide says that at Rest (90 deg) \"the hip joint should move perfectly parallel to the body\" (docs/build-guide/README.md:209), while sesame-angle-guide.png draws the 90 deg ray pointing laterally outward. Both readings cannot be right about the same feature; which one describes the femur arm and which the horn plate is unresolved without a physical robot.",
+        "pivotOrigin is a point on the correct axis line, not the joint centre. Where the servo datum plane falls along that line is not present in the plastic."
+      ]
+    },
+    {
+      "firmwareName": "L1",
+      "firmwareIndex": 2,
+      "firmwareIndexStatus": "authoritative",
+      "firmwareIndexSource": {
+        "file": "firmware/movement-sequences.h",
+        "line": 8
+      },
+      "firmwareIndexNote": "enum ServoName { R1=0, R2=1, L1=2, L2=3, R4=4, R3=5, L3=6, L4=7 }. The index, not the name and not the position in any table, is the joint's identity. Never re-sort.",
+      "kind": "femur",
+      "kindStatus": "authoritative",
+      "kindSource": {
+        "file": "hardware/cad/Sesame-ESP32-v122.step",
+        "symbol": "PRODUCT 'femur-joint-L1'",
+        "note": "hardware/cad/Sesame-ESP32-v122.step PRODUCT name"
+      },
+      "pinsByBoard": {
+        "s2-mini": 4,
+        "distro-v3": 6,
+        "distro-v2": 6,
+        "distro-v1": 23
+      },
+      "pinsStatus": "authoritative",
+      "pinSourceByBoard": {
+        "s2-mini": {
+          "file": "firmware/sesame-firmware-main.ino",
+          "line": 110
+        },
+        "distro-v3": {
+          "file": "firmware/sesame-firmware-main.ino",
+          "line": 101
+        },
+        "distro-v2": {
+          "file": "firmware/sesame-firmware-main.ino",
+          "line": 104
+        },
+        "distro-v1": {
+          "file": "firmware/sesame-firmware-main.ino",
+          "line": 107
+        }
+      },
+      "pinsNote": "GPIO number per board configuration, from the servoPins[] arrays in firmware. Exactly one board is active (s2-mini); the others are commented-out alternates that F3 enables with build-time patches.",
+      "stlFile": "L1-v117.stl",
+      "stlPath": "reference/sesame-robot-main/hardware/printing/stl/L1-v117.stl",
+      "stlSha256": "081896568cc9776393c038d05ecc8caf01090c6971efebe799d064def4c92558",
+      "shapeEquivalenceClass": "femur-B",
+      "shapeEquivalenceStatus": "inferred",
+      "shapeEquivalenceMethod": "F5 partShapeGroups: 20 000 surface samples of one part, unsigned distance to another. Members of a class agree to within 0.05 mm over 95-97 % of the sampled surface; the residual is the engraved part label, whose p99 distance matches its 0.254 mm engraving depth.",
+      "rotationAxis": {
+        "value": [
+          0,
+          1,
+          0
+        ],
+        "frame": "stl-assembly",
+        "status": "inferred",
+        "axisConfidence": "high",
+        "method": "coaxial-servo-horn-signature: an M2.5 through-bore, an ~8 mm horn-hub counterbore and a 12.7 mm rounded plate end sharing one axis; selected as proximal because its axis is the one aligned with the assembly's vertical",
+        "note": "Vertical (yaw). Measured as the common axis of three concentric turned features on the proximal horn plate: an M2.5 through-bore, an ~8 mm horn-hub counterbore and a 12.70 mm rounded plate end. Corroborated by install-frame-motors.png, which shows all four hip servos screwed to the internal frame with shafts pointing up."
+      },
+      "pivotOrigin": {
+        "value": [
+          1.5233,
+          36.8178,
+          -23.0168
+        ],
+        "frame": "stl-assembly",
+        "status": "inferred",
+        "originConfidence": "medium",
+        "caveat": "THIS IS A POINT ON THE CORRECT LINE, NOT THE JOINT CENTRE. The axis direction and its position in the plane perpendicular to itself are measured; the position ALONG the axis is not, because nothing in the printed plastic marks the servo's datum plane. Do not use this as a kinematic frame origin without pinning the along-axis placement first.",
+        "method": "coaxial-servo-horn-signature: an M2.5 through-bore, an ~8 mm horn-hub counterbore and a 12.7 mm rounded plate end sharing one axis; selected as proximal because its axis is the one aligned with the assembly's vertical"
+      },
+      "linkGeometry": {
+        "status": "inferred",
+        "axisAngleDeg": 90,
+        "commonNormalDistanceMm": 36.83,
+        "distalAxis": [
+          1,
+          0,
+          0
+        ],
+        "distalOrigin": [
+          -9.9067,
+          15.2278,
+          -59.8468
+        ],
+        "note": "Measured axis-to-axis offset and twist of the femur link. The distal interface is the pivot of the foot link that hangs off this femur, not of this part."
+      },
+      "parentLink": {
+        "value": "internal-frame",
+        "status": "authoritative",
+        "basis": "The STEP assembly places all four hip servos on the internal frame, on an exact 1.500 x 2.000 inch (38.10 x 50.80 mm) rectangle; the build guide step \"Install Frame Motors\" and assets/install-frame-motors.png show the same four servos screwed to the internal frame. The femur link is bolted to that servo's output horn.",
+        "childLink": "L3"
+      },
+      "zeroReferenceDeg": {
+        "value": 90,
+        "status": "inferred",
+        "basis": [
+          "runRestPose commands all eight servos to 90 deg with a single loop (`for (int i = 0; i < 8; i++) setServoAngle(i, 90);`, firmware/movement-sequences.h:74). 90 deg is the one pose the firmware treats as uniform across all joints.",
+          "The calibration procedure commands every motor to 90 deg with no horn attached before any joint is fitted (docs/build-guide/README.md, \"Calibrating & Running the Testing Firmware\" step 4), which makes 90 deg the mechanical assembly datum.",
+          "servoSubtrim[] defaults to all zeros (firmware/sesame-firmware-main.ino:113), so the commanded value IS the datum value on an untrimmed robot.",
+          "sesame-angle-guide.png draws 90 deg as the common hinge value of both hip conventions and as \"foot horizontal\" for both foot conventions."
+        ],
+        "caveat": "INFERRED FROM CHOREOGRAPHY AND DOCUMENTATION, NOT MEASURED. This is the commanded degree value the model treats as zero body-relative angle. It is not a claim about where the servo actually sits: horn spline resolution is 360/20 = 18 deg on an MG90S, so a physical robot can be up to +/-9 deg off this datum before subtrim.",
+        "restPoseDeg": 90,
+        "standPoseDeg": 45
+      },
+      "directionSign": {
+        "value": -1,
+        "status": "inferred",
+        "convention": "bodyRelativeDeg = (commandedDeg - zeroReferenceDeg) * directionSign. Positive body-relative angle means: for a femur/hip, the leg swings AWAY from lateral in its own outboard fore/aft direction (front legs forward, rear legs rearward); for a foot/knee, the foot swings from horizontal toward straight down.",
+        "basis": [
+          "The sign classes are exactly F5's shape-mirror classes: femur-B = {R2, L1}. Members of a class are the SAME printed solid (not mirrors), so they are installed 180 deg apart about the body's vertical axis and must therefore take opposite signs from their mirror counterparts.",
+          "Applying these signs makes runRestPose read 0 deg on all eight joints and runStandPose read +45 deg on all four hips and +90 deg on all four feet. Without them runStandPose reads 135/45/45/135 and 0/180/0/180, which is the same pose written twice in two conventions.",
+          "sesame-angle-guide.png draws the two conventions explicitly: R1 and L2 sweep 90->135->180, R2 and L1 sweep 90->45->0, and the caption \"VERTICAL ANGLES REPRESENT STRAIGHT DOWN\" marks 180 deg as down for R3/L4 and 0 deg as down for R4/L3.",
+          "Over the whole 223-step corpus the transformed histograms of the two members of each class coincide in shape, and 12 of the 16 functions that command hips command all four hips to a single body-relative value."
+        ],
+        "caveat": "The sign is RELATIVE, not absolute. What is evidenced is that the two classes are opposite; which of the two is counter-clockwise about the stated rotationAxis in a right-handed sense is NOT established. Flipping all eight signs at once would be equally consistent with everything measured here."
+      },
+      "angleLimitsDeg": {
+        "value": {
+          "min": 0,
+          "max": 180
+        },
+        "status": "authoritative",
+        "source": {
+          "file": "firmware/sesame-firmware-main.ino",
+          "line": 1053
+        },
+        "call": "constrain(angle + servoSubtrim[channel], 0, 180)",
+        "note": "This is the FIRMWARE clamp, applied after subtrim, not a mechanical travel limit. The BOM calls for 180-degree MG90S servos, so the clamp and the actuator range coincide by design, but nothing in the repository says the printed linkage can actually reach both ends without collision at every pose.",
+        "mechanicalLimitsDeg": null,
+        "mechanicalLimitsNote": "Unknown. Determining the real per-joint travel needs either a collision study on repaired meshes or a physical robot."
+      },
+      "observedRangeDeg": {
+        "status": "inferred",
+        "method": "Statistical analysis of every literal setServoAngle() call in hardware-map.json `movements`, recursing into `repeat` and `conditional` blocks. This is what the shipped choreography actually asks of this joint — strong evidence about the range the designers believe is safe, and no evidence at all about the range the mechanism can reach.",
+        "corpus": {
+          "functions": 21,
+          "totalSteps": 395,
+          "servoSteps": 223
+        },
+        "sampleCount": 23,
+        "functionsCommandingThisJoint": 16,
+        "minDeg": 0,
+        "maxDeg": 90,
+        "medianDeg": 45,
+        "distinctCommandedDeg": [
+          {
+            "deg": 0,
+            "count": 8
+          },
+          {
+            "deg": 25,
+            "count": 2
+          },
+          {
+            "deg": 45,
+            "count": 5
+          },
+          {
+            "deg": 90,
+            "count": 8
+          }
+        ],
+        "bodyRelativeMinDeg": 0,
+        "bodyRelativeMaxDeg": 90,
+        "note": "Hips use only about half of the 0-180 clamp, and always the same half for a given sign class. In body-relative terms all four hips live in roughly [0, +90] deg: the choreography sweeps the leg outward from lateral and essentially never inward."
+      },
+      "semanticName": {
+        "value": "left_front_hip",
+        "verified": false,
+        "basis": "Front/rear: reference/sesame-robot-main/software/sesame-studio/sesame-topdown.png is a labelled top-down line drawing of the assembled robot carrying the words \"FRONT\" at the top edge and \"BACK\" at the bottom. In that drawing L3/L1 sit at the front-left, R3/R1 at the front-right, L2/L4 at the back-left and R2/R4 at the back-right. L1 is therefore at the front. Left/right: the same drawing places every L-named part on the image's left half and every R-named part on the image's right half. Read as a view from ABOVE with the robot facing away from the viewer, image-left is the robot's own left, so L = the robot's left and R = the robot's right, and L1 is on the left. Joint kind is not a guess: the STEP file names this part \"femur-joint-L1\", so \"hip (femur)\" is authoritative even though the spatial qualifier is not. Corroboration from firmware choreography (223 setServoAngle steps in hardware-map.json): movements group the four hips as {R1,L1} versus {R2,L2} (runShakePose commands R1=L1=45 deg and R2=L2=0 deg; runCutePose commands R1=L1=90 deg and R2=L2=70 deg) — i.e. by the trailing digit, which is exactly the front-pair/rear-pair split the image shows. The walk gaits instead group {R1,R2} against {L1,L2} — i.e. by side. Two orthogonal groupings that match the image's two axes. Corroboration from reference/sesame-robot-main/docs/build-guide/assets/reference-configuration.png: the assembled top view in the build guide shows the same eight labels in the same eight positions, and shows L1 paired with L3.",
+        "basisPoints": [
+          "Front/rear: reference/sesame-robot-main/software/sesame-studio/sesame-topdown.png is a labelled top-down line drawing of the assembled robot carrying the words \"FRONT\" at the top edge and \"BACK\" at the bottom. In that drawing L3/L1 sit at the front-left, R3/R1 at the front-right, L2/L4 at the back-left and R2/R4 at the back-right. L1 is therefore at the front.",
+          "Left/right: the same drawing places every L-named part on the image's left half and every R-named part on the image's right half. Read as a view from ABOVE with the robot facing away from the viewer, image-left is the robot's own left, so L = the robot's left and R = the robot's right, and L1 is on the left.",
+          "Joint kind is not a guess: the STEP file names this part \"femur-joint-L1\", so \"hip (femur)\" is authoritative even though the spatial qualifier is not.",
+          "Corroboration from firmware choreography (223 setServoAngle steps in hardware-map.json): movements group the four hips as {R1,L1} versus {R2,L2} (runShakePose commands R1=L1=45 deg and R2=L2=0 deg; runCutePose commands R1=L1=90 deg and R2=L2=70 deg) — i.e. by the trailing digit, which is exactly the front-pair/rear-pair split the image shows. The walk gaits instead group {R1,R2} against {L1,L2} — i.e. by side. Two orthogonal groupings that match the image's two axes.",
+          "Corroboration from reference/sesame-robot-main/docs/build-guide/assets/reference-configuration.png: the assembled top view in the build guide shows the same eight labels in the same eight positions, and shows L1 paired with L3."
+        ],
+        "wouldBeConfirmedBy": [
+          "Physically inspecting a built robot: confirm that the part engraved with this name is installed in the position the drawings show. A builder can physically swap two identical parts (F5 measured R1 and L2 to be the same solid, and R2 and L1, and R3/L4, and R4/L3), and nothing in the firmware would notice.",
+          "Confirming that sesame-topdown.png is a view from ABOVE and not from below. If it is a bottom view, every left/right assignment in this file inverts. Nothing in the repository states the camera direction.",
+          "Confirming that the drawing's \"FRONT\" is the direction the robot walks forward in when the `walk` command runs, not merely the end the OLED faces. The build guide gives the physical cue \"Notch = front. USB port = back.\" (docs/build-guide/README.md:168) but never ties it to gait direction.",
+          "Confirming that \"R\"/\"L\" in the part names denote the robot's own left and right rather than a viewer's. No repository text states this."
+        ],
+        "alternativesConsidered": [
+          "left_front_yaw",
+          "left_front_shoulder"
+        ],
+        "alternativesNote": "The STEP file calls the foot parts \"foot-joint-*\" and the build guide calls them \"Leg Joints\", but the actuated degree of freedom sits between the femur and the foot link, so \"knee\" is the kinematically accurate word. Recorded because the naming, not just the mapping, is a choice."
+      },
+      "unresolved": [
+        "semanticName is a guess read off two drawings; see semanticName.wouldBeConfirmedBy.",
+        "The build guide says that at Rest (90 deg) \"the hip joint should move perfectly parallel to the body\" (docs/build-guide/README.md:209), while sesame-angle-guide.png draws the 90 deg ray pointing laterally outward. Both readings cannot be right about the same feature; which one describes the femur arm and which the horn plate is unresolved without a physical robot.",
+        "pivotOrigin is a point on the correct axis line, not the joint centre. Where the servo datum plane falls along that line is not present in the plastic."
+      ]
+    },
+    {
+      "firmwareName": "L2",
+      "firmwareIndex": 3,
+      "firmwareIndexStatus": "authoritative",
+      "firmwareIndexSource": {
+        "file": "firmware/movement-sequences.h",
+        "line": 9
+      },
+      "firmwareIndexNote": "enum ServoName { R1=0, R2=1, L1=2, L2=3, R4=4, R3=5, L3=6, L4=7 }. The index, not the name and not the position in any table, is the joint's identity. Never re-sort.",
+      "kind": "femur",
+      "kindStatus": "authoritative",
+      "kindSource": {
+        "file": "hardware/cad/Sesame-ESP32-v122.step",
+        "symbol": "PRODUCT 'femur-joint-L2'",
+        "note": "hardware/cad/Sesame-ESP32-v122.step PRODUCT name"
+      },
+      "pinsByBoard": {
+        "s2-mini": 6,
+        "distro-v3": 7,
+        "distro-v2": 7,
+        "distro-v1": 19
+      },
+      "pinsStatus": "authoritative",
+      "pinSourceByBoard": {
+        "s2-mini": {
+          "file": "firmware/sesame-firmware-main.ino",
+          "line": 110
+        },
+        "distro-v3": {
+          "file": "firmware/sesame-firmware-main.ino",
+          "line": 101
+        },
+        "distro-v2": {
+          "file": "firmware/sesame-firmware-main.ino",
+          "line": 104
+        },
+        "distro-v1": {
+          "file": "firmware/sesame-firmware-main.ino",
+          "line": 107
+        }
+      },
+      "pinsNote": "GPIO number per board configuration, from the servoPins[] arrays in firmware. Exactly one board is active (s2-mini); the others are commented-out alternates that F3 enables with build-time patches.",
+      "stlFile": "L2-v117.stl",
+      "stlPath": "reference/sesame-robot-main/hardware/printing/stl/L2-v117.stl",
+      "stlSha256": "4e47eef40bf523aa0d7b0ac285f3086b3e6c5ccd347525f5c93bbf0c5bcd1fbf",
+      "shapeEquivalenceClass": "femur-A",
+      "shapeEquivalenceStatus": "inferred",
+      "shapeEquivalenceMethod": "F5 partShapeGroups: 20 000 surface samples of one part, unsigned distance to another. Members of a class agree to within 0.05 mm over 95-97 % of the sampled surface; the residual is the engraved part label, whose p99 distance matches its 0.254 mm engraving depth.",
+      "rotationAxis": {
+        "value": [
+          0,
+          1,
+          0
+        ],
+        "frame": "stl-assembly",
+        "status": "inferred",
+        "axisConfidence": "high",
+        "method": "coaxial-servo-horn-signature: an M2.5 through-bore, an ~8 mm horn-hub counterbore and a 12.7 mm rounded plate end sharing one axis; selected as proximal because its axis is the one aligned with the assembly's vertical",
+        "note": "Vertical (yaw). Measured as the common axis of three concentric turned features on the proximal horn plate: an M2.5 through-bore, an ~8 mm horn-hub counterbore and a 12.70 mm rounded plate end. Corroborated by install-frame-motors.png, which shows all four hip servos screwed to the internal frame with shafts pointing up."
+      },
+      "pivotOrigin": {
+        "value": [
+          1.5233,
+          36.8178,
+          23.0168
+        ],
+        "frame": "stl-assembly",
+        "status": "inferred",
+        "originConfidence": "medium",
+        "caveat": "THIS IS A POINT ON THE CORRECT LINE, NOT THE JOINT CENTRE. The axis direction and its position in the plane perpendicular to itself are measured; the position ALONG the axis is not, because nothing in the printed plastic marks the servo's datum plane. Do not use this as a kinematic frame origin without pinning the along-axis placement first.",
+        "method": "coaxial-servo-horn-signature: an M2.5 through-bore, an ~8 mm horn-hub counterbore and a 12.7 mm rounded plate end sharing one axis; selected as proximal because its axis is the one aligned with the assembly's vertical"
+      },
+      "linkGeometry": {
+        "status": "inferred",
+        "axisAngleDeg": 90,
+        "commonNormalDistanceMm": 36.83,
+        "distalAxis": [
+          1,
+          0,
+          0
+        ],
+        "distalOrigin": [
+          -9.9067,
+          15.2278,
+          59.8468
+        ],
+        "note": "Measured axis-to-axis offset and twist of the femur link. The distal interface is the pivot of the foot link that hangs off this femur, not of this part."
+      },
+      "parentLink": {
+        "value": "internal-frame",
+        "status": "authoritative",
+        "basis": "The STEP assembly places all four hip servos on the internal frame, on an exact 1.500 x 2.000 inch (38.10 x 50.80 mm) rectangle; the build guide step \"Install Frame Motors\" and assets/install-frame-motors.png show the same four servos screwed to the internal frame. The femur link is bolted to that servo's output horn.",
+        "childLink": "L4"
+      },
+      "zeroReferenceDeg": {
+        "value": 90,
+        "status": "inferred",
+        "basis": [
+          "runRestPose commands all eight servos to 90 deg with a single loop (`for (int i = 0; i < 8; i++) setServoAngle(i, 90);`, firmware/movement-sequences.h:74). 90 deg is the one pose the firmware treats as uniform across all joints.",
+          "The calibration procedure commands every motor to 90 deg with no horn attached before any joint is fitted (docs/build-guide/README.md, \"Calibrating & Running the Testing Firmware\" step 4), which makes 90 deg the mechanical assembly datum.",
+          "servoSubtrim[] defaults to all zeros (firmware/sesame-firmware-main.ino:113), so the commanded value IS the datum value on an untrimmed robot.",
+          "sesame-angle-guide.png draws 90 deg as the common hinge value of both hip conventions and as \"foot horizontal\" for both foot conventions."
+        ],
+        "caveat": "INFERRED FROM CHOREOGRAPHY AND DOCUMENTATION, NOT MEASURED. This is the commanded degree value the model treats as zero body-relative angle. It is not a claim about where the servo actually sits: horn spline resolution is 360/20 = 18 deg on an MG90S, so a physical robot can be up to +/-9 deg off this datum before subtrim.",
+        "restPoseDeg": 90,
+        "standPoseDeg": 135
+      },
+      "directionSign": {
+        "value": 1,
+        "status": "inferred",
+        "convention": "bodyRelativeDeg = (commandedDeg - zeroReferenceDeg) * directionSign. Positive body-relative angle means: for a femur/hip, the leg swings AWAY from lateral in its own outboard fore/aft direction (front legs forward, rear legs rearward); for a foot/knee, the foot swings from horizontal toward straight down.",
+        "basis": [
+          "The sign classes are exactly F5's shape-mirror classes: femur-A = {R1, L2}. Members of a class are the SAME printed solid (not mirrors), so they are installed 180 deg apart about the body's vertical axis and must therefore take opposite signs from their mirror counterparts.",
+          "Applying these signs makes runRestPose read 0 deg on all eight joints and runStandPose read +45 deg on all four hips and +90 deg on all four feet. Without them runStandPose reads 135/45/45/135 and 0/180/0/180, which is the same pose written twice in two conventions.",
+          "sesame-angle-guide.png draws the two conventions explicitly: R1 and L2 sweep 90->135->180, R2 and L1 sweep 90->45->0, and the caption \"VERTICAL ANGLES REPRESENT STRAIGHT DOWN\" marks 180 deg as down for R3/L4 and 0 deg as down for R4/L3.",
+          "Over the whole 223-step corpus the transformed histograms of the two members of each class coincide in shape, and 12 of the 16 functions that command hips command all four hips to a single body-relative value."
+        ],
+        "caveat": "The sign is RELATIVE, not absolute. What is evidenced is that the two classes are opposite; which of the two is counter-clockwise about the stated rotationAxis in a right-handed sense is NOT established. Flipping all eight signs at once would be equally consistent with everything measured here."
+      },
+      "angleLimitsDeg": {
+        "value": {
+          "min": 0,
+          "max": 180
+        },
+        "status": "authoritative",
+        "source": {
+          "file": "firmware/sesame-firmware-main.ino",
+          "line": 1053
+        },
+        "call": "constrain(angle + servoSubtrim[channel], 0, 180)",
+        "note": "This is the FIRMWARE clamp, applied after subtrim, not a mechanical travel limit. The BOM calls for 180-degree MG90S servos, so the clamp and the actuator range coincide by design, but nothing in the repository says the printed linkage can actually reach both ends without collision at every pose.",
+        "mechanicalLimitsDeg": null,
+        "mechanicalLimitsNote": "Unknown. Determining the real per-joint travel needs either a collision study on repaired meshes or a physical robot."
+      },
+      "observedRangeDeg": {
+        "status": "inferred",
+        "method": "Statistical analysis of every literal setServoAngle() call in hardware-map.json `movements`, recursing into `repeat` and `conditional` blocks. This is what the shipped choreography actually asks of this joint — strong evidence about the range the designers believe is safe, and no evidence at all about the range the mechanism can reach.",
+        "corpus": {
+          "functions": 21,
+          "totalSteps": 395,
+          "servoSteps": 223
+        },
+        "sampleCount": 22,
+        "functionsCommandingThisJoint": 16,
+        "minDeg": 90,
+        "maxDeg": 180,
+        "medianDeg": 112.5,
+        "distinctCommandedDeg": [
+          {
+            "deg": 90,
+            "count": 11
+          },
+          {
+            "deg": 135,
+            "count": 6
+          },
+          {
+            "deg": 160,
+            "count": 1
+          },
+          {
+            "deg": 180,
+            "count": 4
+          }
+        ],
+        "bodyRelativeMinDeg": 0,
+        "bodyRelativeMaxDeg": 90,
+        "note": "Hips use only about half of the 0-180 clamp, and always the same half for a given sign class. In body-relative terms all four hips live in roughly [0, +90] deg: the choreography sweeps the leg outward from lateral and essentially never inward."
+      },
+      "semanticName": {
+        "value": "left_rear_hip",
+        "verified": false,
+        "basis": "Front/rear: reference/sesame-robot-main/software/sesame-studio/sesame-topdown.png is a labelled top-down line drawing of the assembled robot carrying the words \"FRONT\" at the top edge and \"BACK\" at the bottom. In that drawing L3/L1 sit at the front-left, R3/R1 at the front-right, L2/L4 at the back-left and R2/R4 at the back-right. L2 is therefore at the rear. Left/right: the same drawing places every L-named part on the image's left half and every R-named part on the image's right half. Read as a view from ABOVE with the robot facing away from the viewer, image-left is the robot's own left, so L = the robot's left and R = the robot's right, and L2 is on the left. Joint kind is not a guess: the STEP file names this part \"femur-joint-L2\", so \"hip (femur)\" is authoritative even though the spatial qualifier is not. Corroboration from firmware choreography (223 setServoAngle steps in hardware-map.json): movements group the four hips as {R1,L1} versus {R2,L2} (runShakePose commands R1=L1=45 deg and R2=L2=0 deg; runCutePose commands R1=L1=90 deg and R2=L2=70 deg) — i.e. by the trailing digit, which is exactly the front-pair/rear-pair split the image shows. The walk gaits instead group {R1,R2} against {L1,L2} — i.e. by side. Two orthogonal groupings that match the image's two axes. Corroboration from reference/sesame-robot-main/docs/build-guide/assets/reference-configuration.png: the assembled top view in the build guide shows the same eight labels in the same eight positions, and shows L2 paired with L4.",
+        "basisPoints": [
+          "Front/rear: reference/sesame-robot-main/software/sesame-studio/sesame-topdown.png is a labelled top-down line drawing of the assembled robot carrying the words \"FRONT\" at the top edge and \"BACK\" at the bottom. In that drawing L3/L1 sit at the front-left, R3/R1 at the front-right, L2/L4 at the back-left and R2/R4 at the back-right. L2 is therefore at the rear.",
+          "Left/right: the same drawing places every L-named part on the image's left half and every R-named part on the image's right half. Read as a view from ABOVE with the robot facing away from the viewer, image-left is the robot's own left, so L = the robot's left and R = the robot's right, and L2 is on the left.",
+          "Joint kind is not a guess: the STEP file names this part \"femur-joint-L2\", so \"hip (femur)\" is authoritative even though the spatial qualifier is not.",
+          "Corroboration from firmware choreography (223 setServoAngle steps in hardware-map.json): movements group the four hips as {R1,L1} versus {R2,L2} (runShakePose commands R1=L1=45 deg and R2=L2=0 deg; runCutePose commands R1=L1=90 deg and R2=L2=70 deg) — i.e. by the trailing digit, which is exactly the front-pair/rear-pair split the image shows. The walk gaits instead group {R1,R2} against {L1,L2} — i.e. by side. Two orthogonal groupings that match the image's two axes.",
+          "Corroboration from reference/sesame-robot-main/docs/build-guide/assets/reference-configuration.png: the assembled top view in the build guide shows the same eight labels in the same eight positions, and shows L2 paired with L4."
+        ],
+        "wouldBeConfirmedBy": [
+          "Physically inspecting a built robot: confirm that the part engraved with this name is installed in the position the drawings show. A builder can physically swap two identical parts (F5 measured R1 and L2 to be the same solid, and R2 and L1, and R3/L4, and R4/L3), and nothing in the firmware would notice.",
+          "Confirming that sesame-topdown.png is a view from ABOVE and not from below. If it is a bottom view, every left/right assignment in this file inverts. Nothing in the repository states the camera direction.",
+          "Confirming that the drawing's \"FRONT\" is the direction the robot walks forward in when the `walk` command runs, not merely the end the OLED faces. The build guide gives the physical cue \"Notch = front. USB port = back.\" (docs/build-guide/README.md:168) but never ties it to gait direction.",
+          "Confirming that \"R\"/\"L\" in the part names denote the robot's own left and right rather than a viewer's. No repository text states this."
+        ],
+        "alternativesConsidered": [
+          "left_rear_yaw",
+          "left_rear_shoulder"
+        ],
+        "alternativesNote": "The STEP file calls the foot parts \"foot-joint-*\" and the build guide calls them \"Leg Joints\", but the actuated degree of freedom sits between the femur and the foot link, so \"knee\" is the kinematically accurate word. Recorded because the naming, not just the mapping, is a choice."
+      },
+      "unresolved": [
+        "semanticName is a guess read off two drawings; see semanticName.wouldBeConfirmedBy.",
+        "The build guide says that at Rest (90 deg) \"the hip joint should move perfectly parallel to the body\" (docs/build-guide/README.md:209), while sesame-angle-guide.png draws the 90 deg ray pointing laterally outward. Both readings cannot be right about the same feature; which one describes the femur arm and which the horn plate is unresolved without a physical robot.",
+        "pivotOrigin is a point on the correct axis line, not the joint centre. Where the servo datum plane falls along that line is not present in the plastic."
+      ]
+    },
+    {
+      "firmwareName": "R4",
+      "firmwareIndex": 4,
+      "firmwareIndexStatus": "authoritative",
+      "firmwareIndexSource": {
+        "file": "firmware/movement-sequences.h",
+        "line": 10
+      },
+      "firmwareIndexNote": "enum ServoName { R1=0, R2=1, L1=2, L2=3, R4=4, R3=5, L3=6, L4=7 }. The index, not the name and not the position in any table, is the joint's identity. Never re-sort.",
+      "kind": "foot",
+      "kindStatus": "authoritative",
+      "kindSource": {
+        "file": "hardware/cad/Sesame-ESP32-v122.step",
+        "symbol": "PRODUCT 'foot-joint-R4'",
+        "note": "hardware/cad/Sesame-ESP32-v122.step PRODUCT name"
+      },
+      "pinsByBoard": {
+        "s2-mini": 8,
+        "distro-v3": 10,
+        "distro-v2": 15,
+        "distro-v1": 4
+      },
+      "pinsStatus": "authoritative",
+      "pinSourceByBoard": {
+        "s2-mini": {
+          "file": "firmware/sesame-firmware-main.ino",
+          "line": 110
+        },
+        "distro-v3": {
+          "file": "firmware/sesame-firmware-main.ino",
+          "line": 101
+        },
+        "distro-v2": {
+          "file": "firmware/sesame-firmware-main.ino",
+          "line": 104
+        },
+        "distro-v1": {
+          "file": "firmware/sesame-firmware-main.ino",
+          "line": 107
+        }
+      },
+      "pinsNote": "GPIO number per board configuration, from the servoPins[] arrays in firmware. Exactly one board is active (s2-mini); the others are commented-out alternates that F3 enables with build-time patches.",
+      "stlFile": "R4-v117.stl",
+      "stlPath": "reference/sesame-robot-main/hardware/printing/stl/R4-v117.stl",
+      "stlSha256": "131348a19491edad32f29d7a64109fdfadc3a03e01feedbf08dc1769e050938a",
+      "shapeEquivalenceClass": "foot-B",
+      "shapeEquivalenceStatus": "inferred",
+      "shapeEquivalenceMethod": "F5 partShapeGroups: 20 000 surface samples of one part, unsigned distance to another. Members of a class agree to within 0.05 mm over 95-97 % of the sampled surface; the residual is the engraved part label, whose p99 distance matches its 0.254 mm engraving depth.",
+      "rotationAxis": {
+        "value": [
+          1,
+          0,
+          0
+        ],
+        "frame": "stl-assembly",
+        "status": "inferred",
+        "axisConfidence": "high",
+        "method": "cross-part: this shell's own pair of M2 servo-mount bores fixes the servo's position and the pivot direction; the exact axis line is taken from the mating hip link's distal horn interface, which was measured independently and falls on this shell's bore line to within 0.0 units",
+        "note": "Horizontal (pitch). Recovered CROSS-PART: this shell carries the servo rather than following a horn, so it contains no shaft feature at all. Its two M2 mounting bores fix the servo position; the axis LINE is taken from the mating femur's distal horn interface, measured independently, which lands on this shell's bore centre-line at the same y to four decimals."
+      },
+      "pivotOrigin": {
+        "value": [
+          -9.9067,
+          15.2278,
+          -59.8468
+        ],
+        "frame": "stl-assembly",
+        "status": "inferred",
+        "originConfidence": "medium",
+        "caveat": "THIS IS A POINT ON THE CORRECT LINE, NOT THE JOINT CENTRE. The axis direction and its position in the plane perpendicular to itself are measured; the position ALONG the axis is not, because nothing in the printed plastic marks the servo's datum plane. Do not use this as a kinematic frame origin without pinning the along-axis placement first.",
+        "method": "cross-part: this shell's own pair of M2 servo-mount bores fixes the servo's position and the pivot direction; the exact axis line is taken from the mating hip link's distal horn interface, which was measured independently and falls on this shell's bore line to within 0.0 units"
+      },
+      "parentLink": {
+        "value": "R2",
+        "status": "inferred",
+        "basis": "The foot link hangs off the distal horn interface of a femur (F5 measured that interface on every femur and showed the foot shell's servo-mount bore line crosses it 5.15 mm from its midpoint). WHICH femur instance is read from reference/sesame-robot-main/docs/build-guide/assets/reference-configuration.png and reference/sesame-robot-main/software/sesame-studio/sesame-topdown.png, both of which label all eight parts and show R2 adjacent to R4. Independently corroborated by firmware choreography: runStandPose commands R2=45 deg and R4=0 deg, and across the whole corpus the femur and foot of a leg always share the same direction-sign class.",
+        "childLink": null,
+        "caveat": "Read from drawings. Geometry alone cannot pick the instance, because mirror-identical parts were exported at the same station."
+      },
+      "zeroReferenceDeg": {
+        "value": 90,
+        "status": "inferred",
+        "basis": [
+          "runRestPose commands all eight servos to 90 deg with a single loop (`for (int i = 0; i < 8; i++) setServoAngle(i, 90);`, firmware/movement-sequences.h:74). 90 deg is the one pose the firmware treats as uniform across all joints.",
+          "The calibration procedure commands every motor to 90 deg with no horn attached before any joint is fitted (docs/build-guide/README.md, \"Calibrating & Running the Testing Firmware\" step 4), which makes 90 deg the mechanical assembly datum.",
+          "servoSubtrim[] defaults to all zeros (firmware/sesame-firmware-main.ino:113), so the commanded value IS the datum value on an untrimmed robot.",
+          "sesame-angle-guide.png draws 90 deg as the common hinge value of both hip conventions and as \"foot horizontal\" for both foot conventions."
+        ],
+        "caveat": "INFERRED FROM CHOREOGRAPHY AND DOCUMENTATION, NOT MEASURED. This is the commanded degree value the model treats as zero body-relative angle. It is not a claim about where the servo actually sits: horn spline resolution is 360/20 = 18 deg on an MG90S, so a physical robot can be up to +/-9 deg off this datum before subtrim.",
+        "restPoseDeg": 90,
+        "standPoseDeg": 0
+      },
+      "directionSign": {
+        "value": -1,
+        "status": "inferred",
+        "convention": "bodyRelativeDeg = (commandedDeg - zeroReferenceDeg) * directionSign. Positive body-relative angle means: for a femur/hip, the leg swings AWAY from lateral in its own outboard fore/aft direction (front legs forward, rear legs rearward); for a foot/knee, the foot swings from horizontal toward straight down.",
+        "basis": [
+          "The sign classes are exactly F5's shape-mirror classes: foot-B = {R4, L3}. Members of a class are the SAME printed solid (not mirrors), so they are installed 180 deg apart about the body's vertical axis and must therefore take opposite signs from their mirror counterparts.",
+          "Applying these signs makes runRestPose read 0 deg on all eight joints and runStandPose read +45 deg on all four hips and +90 deg on all four feet. Without them runStandPose reads 135/45/45/135 and 0/180/0/180, which is the same pose written twice in two conventions.",
+          "sesame-angle-guide.png draws the two conventions explicitly: R1 and L2 sweep 90->135->180, R2 and L1 sweep 90->45->0, and the caption \"VERTICAL ANGLES REPRESENT STRAIGHT DOWN\" marks 180 deg as down for R3/L4 and 0 deg as down for R4/L3.",
+          "Over the whole 223-step corpus the transformed histograms of the two members of each class coincide in shape, and 12 of the 16 functions that command hips command all four hips to a single body-relative value."
+        ],
+        "caveat": "The sign is RELATIVE, not absolute. What is evidenced is that the two classes are opposite; which of the two is counter-clockwise about the stated rotationAxis in a right-handed sense is NOT established. Flipping all eight signs at once would be equally consistent with everything measured here."
+      },
+      "angleLimitsDeg": {
+        "value": {
+          "min": 0,
+          "max": 180
+        },
+        "status": "authoritative",
+        "source": {
+          "file": "firmware/sesame-firmware-main.ino",
+          "line": 1053
+        },
+        "call": "constrain(angle + servoSubtrim[channel], 0, 180)",
+        "note": "This is the FIRMWARE clamp, applied after subtrim, not a mechanical travel limit. The BOM calls for 180-degree MG90S servos, so the clamp and the actuator range coincide by design, but nothing in the repository says the printed linkage can actually reach both ends without collision at every pose.",
+        "mechanicalLimitsDeg": null,
+        "mechanicalLimitsNote": "Unknown. Determining the real per-joint travel needs either a collision study on repaired meshes or a physical robot."
+      },
+      "observedRangeDeg": {
+        "status": "inferred",
+        "method": "Statistical analysis of every literal setServoAngle() call in hardware-map.json `movements`, recursing into `repeat` and `conditional` blocks. This is what the shipped choreography actually asks of this joint — strong evidence about the range the designers believe is safe, and no evidence at all about the range the mechanism can reach.",
+        "corpus": {
+          "functions": 21,
+          "totalSteps": 395,
+          "servoSteps": 223
+        },
+        "sampleCount": 32,
+        "functionsCommandingThisJoint": 18,
+        "minDeg": 0,
+        "maxDeg": 180,
+        "medianDeg": 62.5,
+        "distinctCommandedDeg": [
+          {
+            "deg": 0,
+            "count": 9
+          },
+          {
+            "deg": 45,
+            "count": 7
+          },
+          {
+            "deg": 80,
+            "count": 2
+          },
+          {
+            "deg": 90,
+            "count": 6
+          },
+          {
+            "deg": 115,
+            "count": 1
+          },
+          {
+            "deg": 135,
+            "count": 2
+          },
+          {
+            "deg": 160,
+            "count": 2
+          },
+          {
+            "deg": 180,
+            "count": 3
+          }
+        ],
+        "bodyRelativeMinDeg": -90,
+        "bodyRelativeMaxDeg": 90,
+        "note": "Feet use the full 0-180 clamp, i.e. body-relative [-90, +90] deg: straight up through horizontal to straight down."
+      },
+      "semanticName": {
+        "value": "right_rear_knee",
+        "verified": false,
+        "basis": "Front/rear: reference/sesame-robot-main/software/sesame-studio/sesame-topdown.png is a labelled top-down line drawing of the assembled robot carrying the words \"FRONT\" at the top edge and \"BACK\" at the bottom. In that drawing L3/L1 sit at the front-left, R3/R1 at the front-right, L2/L4 at the back-left and R2/R4 at the back-right. R4 is therefore at the rear. Left/right: the same drawing places every L-named part on the image's left half and every R-named part on the image's right half. Read as a view from ABOVE with the robot facing away from the viewer, image-left is the robot's own left, so L = the robot's left and R = the robot's right, and R4 is on the right. Joint kind is not a guess: the STEP file names this part \"foot-joint-R4\", so \"knee (foot)\" is authoritative even though the spatial qualifier is not. Corroboration from firmware choreography (223 setServoAngle steps in hardware-map.json): movements group the four hips as {R1,L1} versus {R2,L2} (runShakePose commands R1=L1=45 deg and R2=L2=0 deg; runCutePose commands R1=L1=90 deg and R2=L2=70 deg) — i.e. by the trailing digit, which is exactly the front-pair/rear-pair split the image shows. The walk gaits instead group {R1,R2} against {L1,L2} — i.e. by side. Two orthogonal groupings that match the image's two axes. Corroboration from reference/sesame-robot-main/docs/build-guide/assets/reference-configuration.png: the assembled top view in the build guide shows the same eight labels in the same eight positions, and shows R4 paired with R2.",
+        "basisPoints": [
+          "Front/rear: reference/sesame-robot-main/software/sesame-studio/sesame-topdown.png is a labelled top-down line drawing of the assembled robot carrying the words \"FRONT\" at the top edge and \"BACK\" at the bottom. In that drawing L3/L1 sit at the front-left, R3/R1 at the front-right, L2/L4 at the back-left and R2/R4 at the back-right. R4 is therefore at the rear.",
+          "Left/right: the same drawing places every L-named part on the image's left half and every R-named part on the image's right half. Read as a view from ABOVE with the robot facing away from the viewer, image-left is the robot's own left, so L = the robot's left and R = the robot's right, and R4 is on the right.",
+          "Joint kind is not a guess: the STEP file names this part \"foot-joint-R4\", so \"knee (foot)\" is authoritative even though the spatial qualifier is not.",
+          "Corroboration from firmware choreography (223 setServoAngle steps in hardware-map.json): movements group the four hips as {R1,L1} versus {R2,L2} (runShakePose commands R1=L1=45 deg and R2=L2=0 deg; runCutePose commands R1=L1=90 deg and R2=L2=70 deg) — i.e. by the trailing digit, which is exactly the front-pair/rear-pair split the image shows. The walk gaits instead group {R1,R2} against {L1,L2} — i.e. by side. Two orthogonal groupings that match the image's two axes.",
+          "Corroboration from reference/sesame-robot-main/docs/build-guide/assets/reference-configuration.png: the assembled top view in the build guide shows the same eight labels in the same eight positions, and shows R4 paired with R2."
+        ],
+        "wouldBeConfirmedBy": [
+          "Physically inspecting a built robot: confirm that the part engraved with this name is installed in the position the drawings show. A builder can physically swap two identical parts (F5 measured R1 and L2 to be the same solid, and R2 and L1, and R3/L4, and R4/L3), and nothing in the firmware would notice.",
+          "Confirming that sesame-topdown.png is a view from ABOVE and not from below. If it is a bottom view, every left/right assignment in this file inverts. Nothing in the repository states the camera direction.",
+          "Confirming that the drawing's \"FRONT\" is the direction the robot walks forward in when the `walk` command runs, not merely the end the OLED faces. The build guide gives the physical cue \"Notch = front. USB port = back.\" (docs/build-guide/README.md:168) but never ties it to gait direction.",
+          "Confirming that \"R\"/\"L\" in the part names denote the robot's own left and right rather than a viewer's. No repository text states this."
+        ],
+        "alternativesConsidered": [
+          "right_rear_leg",
+          "right_rear_ankle"
+        ],
+        "alternativesNote": "The STEP file calls the foot parts \"foot-joint-*\" and the build guide calls them \"Leg Joints\", but the actuated degree of freedom sits between the femur and the foot link, so \"knee\" is the kinematically accurate word. Recorded because the naming, not just the mapping, is a choice."
+      },
+      "unresolved": [
+        "semanticName is a guess read off two drawings; see semanticName.wouldBeConfirmedBy.",
+        "parentLink is read from drawings, not measured. F5 proved which femur SHAPE mates with which foot SHAPE but could not name the instance: geometry alone leaves R4 matching both R2 and its shape twin.",
+        "pivotOrigin is a point on the correct axis line, not the joint centre. Where the servo datum plane falls along that line is not present in the plastic."
+      ]
+    },
+    {
+      "firmwareName": "R3",
+      "firmwareIndex": 5,
+      "firmwareIndexStatus": "authoritative",
+      "firmwareIndexSource": {
+        "file": "firmware/movement-sequences.h",
+        "line": 11
+      },
+      "firmwareIndexNote": "enum ServoName { R1=0, R2=1, L1=2, L2=3, R4=4, R3=5, L3=6, L4=7 }. The index, not the name and not the position in any table, is the joint's identity. Never re-sort.",
+      "kind": "foot",
+      "kindStatus": "authoritative",
+      "kindSource": {
+        "file": "hardware/cad/Sesame-ESP32-v122.step",
+        "symbol": "PRODUCT 'foot-joint-R3'",
+        "note": "hardware/cad/Sesame-ESP32-v122.step PRODUCT name"
+      },
+      "pinsByBoard": {
+        "s2-mini": 10,
+        "distro-v3": 11,
+        "distro-v2": 16,
+        "distro-v1": 16
+      },
+      "pinsStatus": "authoritative",
+      "pinSourceByBoard": {
+        "s2-mini": {
+          "file": "firmware/sesame-firmware-main.ino",
+          "line": 110
+        },
+        "distro-v3": {
+          "file": "firmware/sesame-firmware-main.ino",
+          "line": 101
+        },
+        "distro-v2": {
+          "file": "firmware/sesame-firmware-main.ino",
+          "line": 104
+        },
+        "distro-v1": {
+          "file": "firmware/sesame-firmware-main.ino",
+          "line": 107
+        }
+      },
+      "pinsNote": "GPIO number per board configuration, from the servoPins[] arrays in firmware. Exactly one board is active (s2-mini); the others are commented-out alternates that F3 enables with build-time patches.",
+      "stlFile": "R3-v117.stl",
+      "stlPath": "reference/sesame-robot-main/hardware/printing/stl/R3-v117.stl",
+      "stlSha256": "c2c35b4c948849878649d99e512af6702b5fcbbd2b30578bbec87ab15b8ec99e",
+      "shapeEquivalenceClass": "foot-A",
+      "shapeEquivalenceStatus": "inferred",
+      "shapeEquivalenceMethod": "F5 partShapeGroups: 20 000 surface samples of one part, unsigned distance to another. Members of a class agree to within 0.05 mm over 95-97 % of the sampled surface; the residual is the engraved part label, whose p99 distance matches its 0.254 mm engraving depth.",
+      "rotationAxis": {
+        "value": [
+          1,
+          0,
+          0
+        ],
+        "frame": "stl-assembly",
+        "status": "inferred",
+        "axisConfidence": "high",
+        "method": "cross-part: this shell's own pair of M2 servo-mount bores fixes the servo's position and the pivot direction; the exact axis line is taken from the mating hip link's distal horn interface, which was measured independently and falls on this shell's bore line to within 0.0 units",
+        "note": "Horizontal (pitch). Recovered CROSS-PART: this shell carries the servo rather than following a horn, so it contains no shaft feature at all. Its two M2 mounting bores fix the servo position; the axis LINE is taken from the mating femur's distal horn interface, measured independently, which lands on this shell's bore centre-line at the same y to four decimals."
+      },
+      "pivotOrigin": {
+        "value": [
+          -9.9067,
+          15.2278,
+          59.8468
+        ],
+        "frame": "stl-assembly",
+        "status": "inferred",
+        "originConfidence": "medium",
+        "caveat": "THIS IS A POINT ON THE CORRECT LINE, NOT THE JOINT CENTRE. The axis direction and its position in the plane perpendicular to itself are measured; the position ALONG the axis is not, because nothing in the printed plastic marks the servo's datum plane. Do not use this as a kinematic frame origin without pinning the along-axis placement first.",
+        "method": "cross-part: this shell's own pair of M2 servo-mount bores fixes the servo's position and the pivot direction; the exact axis line is taken from the mating hip link's distal horn interface, which was measured independently and falls on this shell's bore line to within 0.0 units"
+      },
+      "parentLink": {
+        "value": "R1",
+        "status": "inferred",
+        "basis": "The foot link hangs off the distal horn interface of a femur (F5 measured that interface on every femur and showed the foot shell's servo-mount bore line crosses it 5.15 mm from its midpoint). WHICH femur instance is read from reference/sesame-robot-main/docs/build-guide/assets/reference-configuration.png and reference/sesame-robot-main/software/sesame-studio/sesame-topdown.png, both of which label all eight parts and show R1 adjacent to R3. Independently corroborated by firmware choreography: runStandPose commands R1=135 deg and R3=180 deg, and across the whole corpus the femur and foot of a leg always share the same direction-sign class.",
+        "childLink": null,
+        "caveat": "Read from drawings. Geometry alone cannot pick the instance, because mirror-identical parts were exported at the same station."
+      },
+      "zeroReferenceDeg": {
+        "value": 90,
+        "status": "inferred",
+        "basis": [
+          "runRestPose commands all eight servos to 90 deg with a single loop (`for (int i = 0; i < 8; i++) setServoAngle(i, 90);`, firmware/movement-sequences.h:74). 90 deg is the one pose the firmware treats as uniform across all joints.",
+          "The calibration procedure commands every motor to 90 deg with no horn attached before any joint is fitted (docs/build-guide/README.md, \"Calibrating & Running the Testing Firmware\" step 4), which makes 90 deg the mechanical assembly datum.",
+          "servoSubtrim[] defaults to all zeros (firmware/sesame-firmware-main.ino:113), so the commanded value IS the datum value on an untrimmed robot.",
+          "sesame-angle-guide.png draws 90 deg as the common hinge value of both hip conventions and as \"foot horizontal\" for both foot conventions."
+        ],
+        "caveat": "INFERRED FROM CHOREOGRAPHY AND DOCUMENTATION, NOT MEASURED. This is the commanded degree value the model treats as zero body-relative angle. It is not a claim about where the servo actually sits: horn spline resolution is 360/20 = 18 deg on an MG90S, so a physical robot can be up to +/-9 deg off this datum before subtrim.",
+        "restPoseDeg": 90,
+        "standPoseDeg": 180
+      },
+      "directionSign": {
+        "value": 1,
+        "status": "inferred",
+        "convention": "bodyRelativeDeg = (commandedDeg - zeroReferenceDeg) * directionSign. Positive body-relative angle means: for a femur/hip, the leg swings AWAY from lateral in its own outboard fore/aft direction (front legs forward, rear legs rearward); for a foot/knee, the foot swings from horizontal toward straight down.",
+        "basis": [
+          "The sign classes are exactly F5's shape-mirror classes: foot-A = {R3, L4}. Members of a class are the SAME printed solid (not mirrors), so they are installed 180 deg apart about the body's vertical axis and must therefore take opposite signs from their mirror counterparts.",
+          "Applying these signs makes runRestPose read 0 deg on all eight joints and runStandPose read +45 deg on all four hips and +90 deg on all four feet. Without them runStandPose reads 135/45/45/135 and 0/180/0/180, which is the same pose written twice in two conventions.",
+          "sesame-angle-guide.png draws the two conventions explicitly: R1 and L2 sweep 90->135->180, R2 and L1 sweep 90->45->0, and the caption \"VERTICAL ANGLES REPRESENT STRAIGHT DOWN\" marks 180 deg as down for R3/L4 and 0 deg as down for R4/L3.",
+          "Over the whole 223-step corpus the transformed histograms of the two members of each class coincide in shape, and 12 of the 16 functions that command hips command all four hips to a single body-relative value."
+        ],
+        "caveat": "The sign is RELATIVE, not absolute. What is evidenced is that the two classes are opposite; which of the two is counter-clockwise about the stated rotationAxis in a right-handed sense is NOT established. Flipping all eight signs at once would be equally consistent with everything measured here."
+      },
+      "angleLimitsDeg": {
+        "value": {
+          "min": 0,
+          "max": 180
+        },
+        "status": "authoritative",
+        "source": {
+          "file": "firmware/sesame-firmware-main.ino",
+          "line": 1053
+        },
+        "call": "constrain(angle + servoSubtrim[channel], 0, 180)",
+        "note": "This is the FIRMWARE clamp, applied after subtrim, not a mechanical travel limit. The BOM calls for 180-degree MG90S servos, so the clamp and the actuator range coincide by design, but nothing in the repository says the printed linkage can actually reach both ends without collision at every pose.",
+        "mechanicalLimitsDeg": null,
+        "mechanicalLimitsNote": "Unknown. Determining the real per-joint travel needs either a collision study on repaired meshes or a physical robot."
+      },
+      "observedRangeDeg": {
+        "status": "inferred",
+        "method": "Statistical analysis of every literal setServoAngle() call in hardware-map.json `movements`, recursing into `repeat` and `conditional` blocks. This is what the shipped choreography actually asks of this joint — strong evidence about the range the designers believe is safe, and no evidence at all about the range the mechanism can reach.",
+        "corpus": {
+          "functions": 21,
+          "totalSteps": 395,
+          "servoSteps": 223
+        },
+        "sampleCount": 35,
+        "functionsCommandingThisJoint": 18,
+        "minDeg": 0,
+        "maxDeg": 180,
+        "medianDeg": 135,
+        "distinctCommandedDeg": [
+          {
+            "deg": 0,
+            "count": 4
+          },
+          {
+            "deg": 25,
+            "count": 1
+          },
+          {
+            "deg": 45,
+            "count": 1
+          },
+          {
+            "deg": 90,
+            "count": 9
+          },
+          {
+            "deg": 115,
+            "count": 1
+          },
+          {
+            "deg": 135,
+            "count": 7
+          },
+          {
+            "deg": 160,
+            "count": 2
+          },
+          {
+            "deg": 170,
+            "count": 1
+          },
+          {
+            "deg": 180,
+            "count": 9
+          }
+        ],
+        "bodyRelativeMinDeg": -90,
+        "bodyRelativeMaxDeg": 90,
+        "note": "Feet use the full 0-180 clamp, i.e. body-relative [-90, +90] deg: straight up through horizontal to straight down."
+      },
+      "semanticName": {
+        "value": "right_front_knee",
+        "verified": false,
+        "basis": "Front/rear: reference/sesame-robot-main/software/sesame-studio/sesame-topdown.png is a labelled top-down line drawing of the assembled robot carrying the words \"FRONT\" at the top edge and \"BACK\" at the bottom. In that drawing L3/L1 sit at the front-left, R3/R1 at the front-right, L2/L4 at the back-left and R2/R4 at the back-right. R3 is therefore at the front. Left/right: the same drawing places every L-named part on the image's left half and every R-named part on the image's right half. Read as a view from ABOVE with the robot facing away from the viewer, image-left is the robot's own left, so L = the robot's left and R = the robot's right, and R3 is on the right. Joint kind is not a guess: the STEP file names this part \"foot-joint-R3\", so \"knee (foot)\" is authoritative even though the spatial qualifier is not. Corroboration from firmware choreography (223 setServoAngle steps in hardware-map.json): movements group the four hips as {R1,L1} versus {R2,L2} (runShakePose commands R1=L1=45 deg and R2=L2=0 deg; runCutePose commands R1=L1=90 deg and R2=L2=70 deg) — i.e. by the trailing digit, which is exactly the front-pair/rear-pair split the image shows. The walk gaits instead group {R1,R2} against {L1,L2} — i.e. by side. Two orthogonal groupings that match the image's two axes. Corroboration from reference/sesame-robot-main/docs/build-guide/assets/reference-configuration.png: the assembled top view in the build guide shows the same eight labels in the same eight positions, and shows R3 paired with R1.",
+        "basisPoints": [
+          "Front/rear: reference/sesame-robot-main/software/sesame-studio/sesame-topdown.png is a labelled top-down line drawing of the assembled robot carrying the words \"FRONT\" at the top edge and \"BACK\" at the bottom. In that drawing L3/L1 sit at the front-left, R3/R1 at the front-right, L2/L4 at the back-left and R2/R4 at the back-right. R3 is therefore at the front.",
+          "Left/right: the same drawing places every L-named part on the image's left half and every R-named part on the image's right half. Read as a view from ABOVE with the robot facing away from the viewer, image-left is the robot's own left, so L = the robot's left and R = the robot's right, and R3 is on the right.",
+          "Joint kind is not a guess: the STEP file names this part \"foot-joint-R3\", so \"knee (foot)\" is authoritative even though the spatial qualifier is not.",
+          "Corroboration from firmware choreography (223 setServoAngle steps in hardware-map.json): movements group the four hips as {R1,L1} versus {R2,L2} (runShakePose commands R1=L1=45 deg and R2=L2=0 deg; runCutePose commands R1=L1=90 deg and R2=L2=70 deg) — i.e. by the trailing digit, which is exactly the front-pair/rear-pair split the image shows. The walk gaits instead group {R1,R2} against {L1,L2} — i.e. by side. Two orthogonal groupings that match the image's two axes.",
+          "Corroboration from reference/sesame-robot-main/docs/build-guide/assets/reference-configuration.png: the assembled top view in the build guide shows the same eight labels in the same eight positions, and shows R3 paired with R1."
+        ],
+        "wouldBeConfirmedBy": [
+          "Physically inspecting a built robot: confirm that the part engraved with this name is installed in the position the drawings show. A builder can physically swap two identical parts (F5 measured R1 and L2 to be the same solid, and R2 and L1, and R3/L4, and R4/L3), and nothing in the firmware would notice.",
+          "Confirming that sesame-topdown.png is a view from ABOVE and not from below. If it is a bottom view, every left/right assignment in this file inverts. Nothing in the repository states the camera direction.",
+          "Confirming that the drawing's \"FRONT\" is the direction the robot walks forward in when the `walk` command runs, not merely the end the OLED faces. The build guide gives the physical cue \"Notch = front. USB port = back.\" (docs/build-guide/README.md:168) but never ties it to gait direction.",
+          "Confirming that \"R\"/\"L\" in the part names denote the robot's own left and right rather than a viewer's. No repository text states this."
+        ],
+        "alternativesConsidered": [
+          "right_front_leg",
+          "right_front_ankle"
+        ],
+        "alternativesNote": "The STEP file calls the foot parts \"foot-joint-*\" and the build guide calls them \"Leg Joints\", but the actuated degree of freedom sits between the femur and the foot link, so \"knee\" is the kinematically accurate word. Recorded because the naming, not just the mapping, is a choice."
+      },
+      "unresolved": [
+        "semanticName is a guess read off two drawings; see semanticName.wouldBeConfirmedBy.",
+        "parentLink is read from drawings, not measured. F5 proved which femur SHAPE mates with which foot SHAPE but could not name the instance: geometry alone leaves R3 matching both R1 and its shape twin.",
+        "pivotOrigin is a point on the correct axis line, not the joint centre. Where the servo datum plane falls along that line is not present in the plastic."
+      ]
+    },
+    {
+      "firmwareName": "L3",
+      "firmwareIndex": 6,
+      "firmwareIndexStatus": "authoritative",
+      "firmwareIndexSource": {
+        "file": "firmware/movement-sequences.h",
+        "line": 12
+      },
+      "firmwareIndexNote": "enum ServoName { R1=0, R2=1, L1=2, L2=3, R4=4, R3=5, L3=6, L4=7 }. The index, not the name and not the position in any table, is the joint's identity. Never re-sort.",
+      "kind": "foot",
+      "kindStatus": "authoritative",
+      "kindSource": {
+        "file": "hardware/cad/Sesame-ESP32-v122.step",
+        "symbol": "PRODUCT 'foot-joint-L3'",
+        "note": "hardware/cad/Sesame-ESP32-v122.step PRODUCT name"
+      },
+      "pinsByBoard": {
+        "s2-mini": 13,
+        "distro-v3": 12,
+        "distro-v2": 17,
+        "distro-v1": 17
+      },
+      "pinsStatus": "authoritative",
+      "pinSourceByBoard": {
+        "s2-mini": {
+          "file": "firmware/sesame-firmware-main.ino",
+          "line": 110
+        },
+        "distro-v3": {
+          "file": "firmware/sesame-firmware-main.ino",
+          "line": 101
+        },
+        "distro-v2": {
+          "file": "firmware/sesame-firmware-main.ino",
+          "line": 104
+        },
+        "distro-v1": {
+          "file": "firmware/sesame-firmware-main.ino",
+          "line": 107
+        }
+      },
+      "pinsNote": "GPIO number per board configuration, from the servoPins[] arrays in firmware. Exactly one board is active (s2-mini); the others are commented-out alternates that F3 enables with build-time patches.",
+      "stlFile": "L3-v117.stl",
+      "stlPath": "reference/sesame-robot-main/hardware/printing/stl/L3-v117.stl",
+      "stlSha256": "136b0f28814629c654a45da1ebed93f496399c0d97007c6c02e1df4422be56a3",
+      "shapeEquivalenceClass": "foot-B",
+      "shapeEquivalenceStatus": "inferred",
+      "shapeEquivalenceMethod": "F5 partShapeGroups: 20 000 surface samples of one part, unsigned distance to another. Members of a class agree to within 0.05 mm over 95-97 % of the sampled surface; the residual is the engraved part label, whose p99 distance matches its 0.254 mm engraving depth.",
+      "rotationAxis": {
+        "value": [
+          1,
+          0,
+          0
+        ],
+        "frame": "stl-assembly",
+        "status": "inferred",
+        "axisConfidence": "high",
+        "method": "cross-part: this shell's own pair of M2 servo-mount bores fixes the servo's position and the pivot direction; the exact axis line is taken from the mating hip link's distal horn interface, which was measured independently and falls on this shell's bore line to within 0.0 units",
+        "note": "Horizontal (pitch). Recovered CROSS-PART: this shell carries the servo rather than following a horn, so it contains no shaft feature at all. Its two M2 mounting bores fix the servo position; the axis LINE is taken from the mating femur's distal horn interface, measured independently, which lands on this shell's bore centre-line at the same y to four decimals."
+      },
+      "pivotOrigin": {
+        "value": [
+          -9.9067,
+          15.2278,
+          -59.8468
+        ],
+        "frame": "stl-assembly",
+        "status": "inferred",
+        "originConfidence": "medium",
+        "caveat": "THIS IS A POINT ON THE CORRECT LINE, NOT THE JOINT CENTRE. The axis direction and its position in the plane perpendicular to itself are measured; the position ALONG the axis is not, because nothing in the printed plastic marks the servo's datum plane. Do not use this as a kinematic frame origin without pinning the along-axis placement first.",
+        "method": "cross-part: this shell's own pair of M2 servo-mount bores fixes the servo's position and the pivot direction; the exact axis line is taken from the mating hip link's distal horn interface, which was measured independently and falls on this shell's bore line to within 0.0 units"
+      },
+      "parentLink": {
+        "value": "L1",
+        "status": "inferred",
+        "basis": "The foot link hangs off the distal horn interface of a femur (F5 measured that interface on every femur and showed the foot shell's servo-mount bore line crosses it 5.15 mm from its midpoint). WHICH femur instance is read from reference/sesame-robot-main/docs/build-guide/assets/reference-configuration.png and reference/sesame-robot-main/software/sesame-studio/sesame-topdown.png, both of which label all eight parts and show L1 adjacent to L3. Independently corroborated by firmware choreography: runStandPose commands L1=45 deg and L3=0 deg, and across the whole corpus the femur and foot of a leg always share the same direction-sign class.",
+        "childLink": null,
+        "caveat": "Read from drawings. Geometry alone cannot pick the instance, because mirror-identical parts were exported at the same station."
+      },
+      "zeroReferenceDeg": {
+        "value": 90,
+        "status": "inferred",
+        "basis": [
+          "runRestPose commands all eight servos to 90 deg with a single loop (`for (int i = 0; i < 8; i++) setServoAngle(i, 90);`, firmware/movement-sequences.h:74). 90 deg is the one pose the firmware treats as uniform across all joints.",
+          "The calibration procedure commands every motor to 90 deg with no horn attached before any joint is fitted (docs/build-guide/README.md, \"Calibrating & Running the Testing Firmware\" step 4), which makes 90 deg the mechanical assembly datum.",
+          "servoSubtrim[] defaults to all zeros (firmware/sesame-firmware-main.ino:113), so the commanded value IS the datum value on an untrimmed robot.",
+          "sesame-angle-guide.png draws 90 deg as the common hinge value of both hip conventions and as \"foot horizontal\" for both foot conventions."
+        ],
+        "caveat": "INFERRED FROM CHOREOGRAPHY AND DOCUMENTATION, NOT MEASURED. This is the commanded degree value the model treats as zero body-relative angle. It is not a claim about where the servo actually sits: horn spline resolution is 360/20 = 18 deg on an MG90S, so a physical robot can be up to +/-9 deg off this datum before subtrim.",
+        "restPoseDeg": 90,
+        "standPoseDeg": 0
+      },
+      "directionSign": {
+        "value": -1,
+        "status": "inferred",
+        "convention": "bodyRelativeDeg = (commandedDeg - zeroReferenceDeg) * directionSign. Positive body-relative angle means: for a femur/hip, the leg swings AWAY from lateral in its own outboard fore/aft direction (front legs forward, rear legs rearward); for a foot/knee, the foot swings from horizontal toward straight down.",
+        "basis": [
+          "The sign classes are exactly F5's shape-mirror classes: foot-B = {R4, L3}. Members of a class are the SAME printed solid (not mirrors), so they are installed 180 deg apart about the body's vertical axis and must therefore take opposite signs from their mirror counterparts.",
+          "Applying these signs makes runRestPose read 0 deg on all eight joints and runStandPose read +45 deg on all four hips and +90 deg on all four feet. Without them runStandPose reads 135/45/45/135 and 0/180/0/180, which is the same pose written twice in two conventions.",
+          "sesame-angle-guide.png draws the two conventions explicitly: R1 and L2 sweep 90->135->180, R2 and L1 sweep 90->45->0, and the caption \"VERTICAL ANGLES REPRESENT STRAIGHT DOWN\" marks 180 deg as down for R3/L4 and 0 deg as down for R4/L3.",
+          "Over the whole 223-step corpus the transformed histograms of the two members of each class coincide in shape, and 12 of the 16 functions that command hips command all four hips to a single body-relative value."
+        ],
+        "caveat": "The sign is RELATIVE, not absolute. What is evidenced is that the two classes are opposite; which of the two is counter-clockwise about the stated rotationAxis in a right-handed sense is NOT established. Flipping all eight signs at once would be equally consistent with everything measured here."
+      },
+      "angleLimitsDeg": {
+        "value": {
+          "min": 0,
+          "max": 180
+        },
+        "status": "authoritative",
+        "source": {
+          "file": "firmware/sesame-firmware-main.ino",
+          "line": 1053
+        },
+        "call": "constrain(angle + servoSubtrim[channel], 0, 180)",
+        "note": "This is the FIRMWARE clamp, applied after subtrim, not a mechanical travel limit. The BOM calls for 180-degree MG90S servos, so the clamp and the actuator range coincide by design, but nothing in the repository says the printed linkage can actually reach both ends without collision at every pose.",
+        "mechanicalLimitsDeg": null,
+        "mechanicalLimitsNote": "Unknown. Determining the real per-joint travel needs either a collision study on repaired meshes or a physical robot."
+      },
+      "observedRangeDeg": {
+        "status": "inferred",
+        "method": "Statistical analysis of every literal setServoAngle() call in hardware-map.json `movements`, recursing into `repeat` and `conditional` blocks. This is what the shipped choreography actually asks of this joint — strong evidence about the range the designers believe is safe, and no evidence at all about the range the mechanism can reach.",
+        "corpus": {
+          "functions": 21,
+          "totalSteps": 395,
+          "servoSteps": 223
+        },
+        "sampleCount": 36,
+        "functionsCommandingThisJoint": 18,
+        "minDeg": 0,
+        "maxDeg": 180,
+        "medianDeg": 55,
+        "distinctCommandedDeg": [
+          {
+            "deg": 0,
+            "count": 8
+          },
+          {
+            "deg": 10,
+            "count": 2
+          },
+          {
+            "deg": 45,
+            "count": 8
+          },
+          {
+            "deg": 65,
+            "count": 1
+          },
+          {
+            "deg": 90,
+            "count": 9
+          },
+          {
+            "deg": 100,
+            "count": 1
+          },
+          {
+            "deg": 135,
+            "count": 1
+          },
+          {
+            "deg": 145,
+            "count": 1
+          },
+          {
+            "deg": 180,
+            "count": 5
+          }
+        ],
+        "bodyRelativeMinDeg": -90,
+        "bodyRelativeMaxDeg": 90,
+        "note": "Feet use the full 0-180 clamp, i.e. body-relative [-90, +90] deg: straight up through horizontal to straight down."
+      },
+      "semanticName": {
+        "value": "left_front_knee",
+        "verified": false,
+        "basis": "Front/rear: reference/sesame-robot-main/software/sesame-studio/sesame-topdown.png is a labelled top-down line drawing of the assembled robot carrying the words \"FRONT\" at the top edge and \"BACK\" at the bottom. In that drawing L3/L1 sit at the front-left, R3/R1 at the front-right, L2/L4 at the back-left and R2/R4 at the back-right. L3 is therefore at the front. Left/right: the same drawing places every L-named part on the image's left half and every R-named part on the image's right half. Read as a view from ABOVE with the robot facing away from the viewer, image-left is the robot's own left, so L = the robot's left and R = the robot's right, and L3 is on the left. Joint kind is not a guess: the STEP file names this part \"foot-joint-L3\", so \"knee (foot)\" is authoritative even though the spatial qualifier is not. Corroboration from firmware choreography (223 setServoAngle steps in hardware-map.json): movements group the four hips as {R1,L1} versus {R2,L2} (runShakePose commands R1=L1=45 deg and R2=L2=0 deg; runCutePose commands R1=L1=90 deg and R2=L2=70 deg) — i.e. by the trailing digit, which is exactly the front-pair/rear-pair split the image shows. The walk gaits instead group {R1,R2} against {L1,L2} — i.e. by side. Two orthogonal groupings that match the image's two axes. Corroboration from reference/sesame-robot-main/docs/build-guide/assets/reference-configuration.png: the assembled top view in the build guide shows the same eight labels in the same eight positions, and shows L3 paired with L1.",
+        "basisPoints": [
+          "Front/rear: reference/sesame-robot-main/software/sesame-studio/sesame-topdown.png is a labelled top-down line drawing of the assembled robot carrying the words \"FRONT\" at the top edge and \"BACK\" at the bottom. In that drawing L3/L1 sit at the front-left, R3/R1 at the front-right, L2/L4 at the back-left and R2/R4 at the back-right. L3 is therefore at the front.",
+          "Left/right: the same drawing places every L-named part on the image's left half and every R-named part on the image's right half. Read as a view from ABOVE with the robot facing away from the viewer, image-left is the robot's own left, so L = the robot's left and R = the robot's right, and L3 is on the left.",
+          "Joint kind is not a guess: the STEP file names this part \"foot-joint-L3\", so \"knee (foot)\" is authoritative even though the spatial qualifier is not.",
+          "Corroboration from firmware choreography (223 setServoAngle steps in hardware-map.json): movements group the four hips as {R1,L1} versus {R2,L2} (runShakePose commands R1=L1=45 deg and R2=L2=0 deg; runCutePose commands R1=L1=90 deg and R2=L2=70 deg) — i.e. by the trailing digit, which is exactly the front-pair/rear-pair split the image shows. The walk gaits instead group {R1,R2} against {L1,L2} — i.e. by side. Two orthogonal groupings that match the image's two axes.",
+          "Corroboration from reference/sesame-robot-main/docs/build-guide/assets/reference-configuration.png: the assembled top view in the build guide shows the same eight labels in the same eight positions, and shows L3 paired with L1."
+        ],
+        "wouldBeConfirmedBy": [
+          "Physically inspecting a built robot: confirm that the part engraved with this name is installed in the position the drawings show. A builder can physically swap two identical parts (F5 measured R1 and L2 to be the same solid, and R2 and L1, and R3/L4, and R4/L3), and nothing in the firmware would notice.",
+          "Confirming that sesame-topdown.png is a view from ABOVE and not from below. If it is a bottom view, every left/right assignment in this file inverts. Nothing in the repository states the camera direction.",
+          "Confirming that the drawing's \"FRONT\" is the direction the robot walks forward in when the `walk` command runs, not merely the end the OLED faces. The build guide gives the physical cue \"Notch = front. USB port = back.\" (docs/build-guide/README.md:168) but never ties it to gait direction.",
+          "Confirming that \"R\"/\"L\" in the part names denote the robot's own left and right rather than a viewer's. No repository text states this."
+        ],
+        "alternativesConsidered": [
+          "left_front_leg",
+          "left_front_ankle"
+        ],
+        "alternativesNote": "The STEP file calls the foot parts \"foot-joint-*\" and the build guide calls them \"Leg Joints\", but the actuated degree of freedom sits between the femur and the foot link, so \"knee\" is the kinematically accurate word. Recorded because the naming, not just the mapping, is a choice."
+      },
+      "unresolved": [
+        "semanticName is a guess read off two drawings; see semanticName.wouldBeConfirmedBy.",
+        "parentLink is read from drawings, not measured. F5 proved which femur SHAPE mates with which foot SHAPE but could not name the instance: geometry alone leaves L3 matching both L1 and its shape twin.",
+        "pivotOrigin is a point on the correct axis line, not the joint centre. Where the servo datum plane falls along that line is not present in the plastic."
+      ]
+    },
+    {
+      "firmwareName": "L4",
+      "firmwareIndex": 7,
+      "firmwareIndexStatus": "authoritative",
+      "firmwareIndexSource": {
+        "file": "firmware/movement-sequences.h",
+        "line": 13
+      },
+      "firmwareIndexNote": "enum ServoName { R1=0, R2=1, L1=2, L2=3, R4=4, R3=5, L3=6, L4=7 }. The index, not the name and not the position in any table, is the joint's identity. Never re-sort.",
+      "kind": "foot",
+      "kindStatus": "authoritative",
+      "kindSource": {
+        "file": "hardware/cad/Sesame-ESP32-v122.step",
+        "symbol": "PRODUCT 'foot-joint-L4'",
+        "note": "hardware/cad/Sesame-ESP32-v122.step PRODUCT name"
+      },
+      "pinsByBoard": {
+        "s2-mini": 14,
+        "distro-v3": 13,
+        "distro-v2": 18,
+        "distro-v1": 18
+      },
+      "pinsStatus": "authoritative",
+      "pinSourceByBoard": {
+        "s2-mini": {
+          "file": "firmware/sesame-firmware-main.ino",
+          "line": 110
+        },
+        "distro-v3": {
+          "file": "firmware/sesame-firmware-main.ino",
+          "line": 101
+        },
+        "distro-v2": {
+          "file": "firmware/sesame-firmware-main.ino",
+          "line": 104
+        },
+        "distro-v1": {
+          "file": "firmware/sesame-firmware-main.ino",
+          "line": 107
+        }
+      },
+      "pinsNote": "GPIO number per board configuration, from the servoPins[] arrays in firmware. Exactly one board is active (s2-mini); the others are commented-out alternates that F3 enables with build-time patches.",
+      "stlFile": "L4-v117.stl",
+      "stlPath": "reference/sesame-robot-main/hardware/printing/stl/L4-v117.stl",
+      "stlSha256": "731819f13cd34efb4ab1b9121e9fae835a463ae11f6689670f7800113ec7b470",
+      "shapeEquivalenceClass": "foot-A",
+      "shapeEquivalenceStatus": "inferred",
+      "shapeEquivalenceMethod": "F5 partShapeGroups: 20 000 surface samples of one part, unsigned distance to another. Members of a class agree to within 0.05 mm over 95-97 % of the sampled surface; the residual is the engraved part label, whose p99 distance matches its 0.254 mm engraving depth.",
+      "rotationAxis": {
+        "value": [
+          1,
+          0,
+          0
+        ],
+        "frame": "stl-assembly",
+        "status": "inferred",
+        "axisConfidence": "high",
+        "method": "cross-part: this shell's own pair of M2 servo-mount bores fixes the servo's position and the pivot direction; the exact axis line is taken from the mating hip link's distal horn interface, which was measured independently and falls on this shell's bore line to within 0.0 units",
+        "note": "Horizontal (pitch). Recovered CROSS-PART: this shell carries the servo rather than following a horn, so it contains no shaft feature at all. Its two M2 mounting bores fix the servo position; the axis LINE is taken from the mating femur's distal horn interface, measured independently, which lands on this shell's bore centre-line at the same y to four decimals."
+      },
+      "pivotOrigin": {
+        "value": [
+          -9.9067,
+          15.2278,
+          59.8468
+        ],
+        "frame": "stl-assembly",
+        "status": "inferred",
+        "originConfidence": "medium",
+        "caveat": "THIS IS A POINT ON THE CORRECT LINE, NOT THE JOINT CENTRE. The axis direction and its position in the plane perpendicular to itself are measured; the position ALONG the axis is not, because nothing in the printed plastic marks the servo's datum plane. Do not use this as a kinematic frame origin without pinning the along-axis placement first.",
+        "method": "cross-part: this shell's own pair of M2 servo-mount bores fixes the servo's position and the pivot direction; the exact axis line is taken from the mating hip link's distal horn interface, which was measured independently and falls on this shell's bore line to within 0.0 units"
+      },
+      "parentLink": {
+        "value": "L2",
+        "status": "inferred",
+        "basis": "The foot link hangs off the distal horn interface of a femur (F5 measured that interface on every femur and showed the foot shell's servo-mount bore line crosses it 5.15 mm from its midpoint). WHICH femur instance is read from reference/sesame-robot-main/docs/build-guide/assets/reference-configuration.png and reference/sesame-robot-main/software/sesame-studio/sesame-topdown.png, both of which label all eight parts and show L2 adjacent to L4. Independently corroborated by firmware choreography: runStandPose commands L2=135 deg and L4=180 deg, and across the whole corpus the femur and foot of a leg always share the same direction-sign class.",
+        "childLink": null,
+        "caveat": "Read from drawings. Geometry alone cannot pick the instance, because mirror-identical parts were exported at the same station."
+      },
+      "zeroReferenceDeg": {
+        "value": 90,
+        "status": "inferred",
+        "basis": [
+          "runRestPose commands all eight servos to 90 deg with a single loop (`for (int i = 0; i < 8; i++) setServoAngle(i, 90);`, firmware/movement-sequences.h:74). 90 deg is the one pose the firmware treats as uniform across all joints.",
+          "The calibration procedure commands every motor to 90 deg with no horn attached before any joint is fitted (docs/build-guide/README.md, \"Calibrating & Running the Testing Firmware\" step 4), which makes 90 deg the mechanical assembly datum.",
+          "servoSubtrim[] defaults to all zeros (firmware/sesame-firmware-main.ino:113), so the commanded value IS the datum value on an untrimmed robot.",
+          "sesame-angle-guide.png draws 90 deg as the common hinge value of both hip conventions and as \"foot horizontal\" for both foot conventions."
+        ],
+        "caveat": "INFERRED FROM CHOREOGRAPHY AND DOCUMENTATION, NOT MEASURED. This is the commanded degree value the model treats as zero body-relative angle. It is not a claim about where the servo actually sits: horn spline resolution is 360/20 = 18 deg on an MG90S, so a physical robot can be up to +/-9 deg off this datum before subtrim.",
+        "restPoseDeg": 90,
+        "standPoseDeg": 180
+      },
+      "directionSign": {
+        "value": 1,
+        "status": "inferred",
+        "convention": "bodyRelativeDeg = (commandedDeg - zeroReferenceDeg) * directionSign. Positive body-relative angle means: for a femur/hip, the leg swings AWAY from lateral in its own outboard fore/aft direction (front legs forward, rear legs rearward); for a foot/knee, the foot swings from horizontal toward straight down.",
+        "basis": [
+          "The sign classes are exactly F5's shape-mirror classes: foot-A = {R3, L4}. Members of a class are the SAME printed solid (not mirrors), so they are installed 180 deg apart about the body's vertical axis and must therefore take opposite signs from their mirror counterparts.",
+          "Applying these signs makes runRestPose read 0 deg on all eight joints and runStandPose read +45 deg on all four hips and +90 deg on all four feet. Without them runStandPose reads 135/45/45/135 and 0/180/0/180, which is the same pose written twice in two conventions.",
+          "sesame-angle-guide.png draws the two conventions explicitly: R1 and L2 sweep 90->135->180, R2 and L1 sweep 90->45->0, and the caption \"VERTICAL ANGLES REPRESENT STRAIGHT DOWN\" marks 180 deg as down for R3/L4 and 0 deg as down for R4/L3.",
+          "Over the whole 223-step corpus the transformed histograms of the two members of each class coincide in shape, and 12 of the 16 functions that command hips command all four hips to a single body-relative value."
+        ],
+        "caveat": "The sign is RELATIVE, not absolute. What is evidenced is that the two classes are opposite; which of the two is counter-clockwise about the stated rotationAxis in a right-handed sense is NOT established. Flipping all eight signs at once would be equally consistent with everything measured here."
+      },
+      "angleLimitsDeg": {
+        "value": {
+          "min": 0,
+          "max": 180
+        },
+        "status": "authoritative",
+        "source": {
+          "file": "firmware/sesame-firmware-main.ino",
+          "line": 1053
+        },
+        "call": "constrain(angle + servoSubtrim[channel], 0, 180)",
+        "note": "This is the FIRMWARE clamp, applied after subtrim, not a mechanical travel limit. The BOM calls for 180-degree MG90S servos, so the clamp and the actuator range coincide by design, but nothing in the repository says the printed linkage can actually reach both ends without collision at every pose.",
+        "mechanicalLimitsDeg": null,
+        "mechanicalLimitsNote": "Unknown. Determining the real per-joint travel needs either a collision study on repaired meshes or a physical robot."
+      },
+      "observedRangeDeg": {
+        "status": "inferred",
+        "method": "Statistical analysis of every literal setServoAngle() call in hardware-map.json `movements`, recursing into `repeat` and `conditional` blocks. This is what the shipped choreography actually asks of this joint — strong evidence about the range the designers believe is safe, and no evidence at all about the range the mechanism can reach.",
+        "corpus": {
+          "functions": 21,
+          "totalSteps": 395,
+          "servoSteps": 223
+        },
+        "sampleCount": 30,
+        "functionsCommandingThisJoint": 16,
+        "minDeg": 0,
+        "maxDeg": 180,
+        "medianDeg": 135,
+        "distinctCommandedDeg": [
+          {
+            "deg": 0,
+            "count": 3
+          },
+          {
+            "deg": 10,
+            "count": 2
+          },
+          {
+            "deg": 45,
+            "count": 2
+          },
+          {
+            "deg": 65,
+            "count": 1
+          },
+          {
+            "deg": 90,
+            "count": 5
+          },
+          {
+            "deg": 135,
+            "count": 8
+          },
+          {
+            "deg": 180,
+            "count": 9
+          }
+        ],
+        "bodyRelativeMinDeg": -90,
+        "bodyRelativeMaxDeg": 90,
+        "note": "Feet use the full 0-180 clamp, i.e. body-relative [-90, +90] deg: straight up through horizontal to straight down."
+      },
+      "semanticName": {
+        "value": "left_rear_knee",
+        "verified": false,
+        "basis": "Front/rear: reference/sesame-robot-main/software/sesame-studio/sesame-topdown.png is a labelled top-down line drawing of the assembled robot carrying the words \"FRONT\" at the top edge and \"BACK\" at the bottom. In that drawing L3/L1 sit at the front-left, R3/R1 at the front-right, L2/L4 at the back-left and R2/R4 at the back-right. L4 is therefore at the rear. Left/right: the same drawing places every L-named part on the image's left half and every R-named part on the image's right half. Read as a view from ABOVE with the robot facing away from the viewer, image-left is the robot's own left, so L = the robot's left and R = the robot's right, and L4 is on the left. Joint kind is not a guess: the STEP file names this part \"foot-joint-L4\", so \"knee (foot)\" is authoritative even though the spatial qualifier is not. Corroboration from firmware choreography (223 setServoAngle steps in hardware-map.json): movements group the four hips as {R1,L1} versus {R2,L2} (runShakePose commands R1=L1=45 deg and R2=L2=0 deg; runCutePose commands R1=L1=90 deg and R2=L2=70 deg) — i.e. by the trailing digit, which is exactly the front-pair/rear-pair split the image shows. The walk gaits instead group {R1,R2} against {L1,L2} — i.e. by side. Two orthogonal groupings that match the image's two axes. Corroboration from reference/sesame-robot-main/docs/build-guide/assets/reference-configuration.png: the assembled top view in the build guide shows the same eight labels in the same eight positions, and shows L4 paired with L2.",
+        "basisPoints": [
+          "Front/rear: reference/sesame-robot-main/software/sesame-studio/sesame-topdown.png is a labelled top-down line drawing of the assembled robot carrying the words \"FRONT\" at the top edge and \"BACK\" at the bottom. In that drawing L3/L1 sit at the front-left, R3/R1 at the front-right, L2/L4 at the back-left and R2/R4 at the back-right. L4 is therefore at the rear.",
+          "Left/right: the same drawing places every L-named part on the image's left half and every R-named part on the image's right half. Read as a view from ABOVE with the robot facing away from the viewer, image-left is the robot's own left, so L = the robot's left and R = the robot's right, and L4 is on the left.",
+          "Joint kind is not a guess: the STEP file names this part \"foot-joint-L4\", so \"knee (foot)\" is authoritative even though the spatial qualifier is not.",
+          "Corroboration from firmware choreography (223 setServoAngle steps in hardware-map.json): movements group the four hips as {R1,L1} versus {R2,L2} (runShakePose commands R1=L1=45 deg and R2=L2=0 deg; runCutePose commands R1=L1=90 deg and R2=L2=70 deg) — i.e. by the trailing digit, which is exactly the front-pair/rear-pair split the image shows. The walk gaits instead group {R1,R2} against {L1,L2} — i.e. by side. Two orthogonal groupings that match the image's two axes.",
+          "Corroboration from reference/sesame-robot-main/docs/build-guide/assets/reference-configuration.png: the assembled top view in the build guide shows the same eight labels in the same eight positions, and shows L4 paired with L2."
+        ],
+        "wouldBeConfirmedBy": [
+          "Physically inspecting a built robot: confirm that the part engraved with this name is installed in the position the drawings show. A builder can physically swap two identical parts (F5 measured R1 and L2 to be the same solid, and R2 and L1, and R3/L4, and R4/L3), and nothing in the firmware would notice.",
+          "Confirming that sesame-topdown.png is a view from ABOVE and not from below. If it is a bottom view, every left/right assignment in this file inverts. Nothing in the repository states the camera direction.",
+          "Confirming that the drawing's \"FRONT\" is the direction the robot walks forward in when the `walk` command runs, not merely the end the OLED faces. The build guide gives the physical cue \"Notch = front. USB port = back.\" (docs/build-guide/README.md:168) but never ties it to gait direction.",
+          "Confirming that \"R\"/\"L\" in the part names denote the robot's own left and right rather than a viewer's. No repository text states this."
+        ],
+        "alternativesConsidered": [
+          "left_rear_leg",
+          "left_rear_ankle"
+        ],
+        "alternativesNote": "The STEP file calls the foot parts \"foot-joint-*\" and the build guide calls them \"Leg Joints\", but the actuated degree of freedom sits between the femur and the foot link, so \"knee\" is the kinematically accurate word. Recorded because the naming, not just the mapping, is a choice."
+      },
+      "unresolved": [
+        "semanticName is a guess read off two drawings; see semanticName.wouldBeConfirmedBy.",
+        "parentLink is read from drawings, not measured. F5 proved which femur SHAPE mates with which foot SHAPE but could not name the instance: geometry alone leaves L4 matching both L2 and its shape twin.",
+        "pivotOrigin is a point on the correct axis line, not the joint centre. Where the servo datum plane falls along that line is not present in the plastic."
+      ]
+    }
+  ],
+  "unresolved": [
+    {
+      "id": "servo-datum-plane",
+      "subject": "joints[*].pivotOrigin",
+      "carriedForwardFrom": "F5",
+      "status": "open",
+      "reason": "Every pivot axis LINE is measured, but where the servo's reference plane sits along that line is not recoverable from the plastic alone. Origins are points on the correct line, not joint centres.",
+      "resolvedBy": "an MG90S CAD model, a STEP B-Rep evaluation, or measuring a built robot",
+      "blocking": false
+    },
+    {
+      "id": "per-instance-assembly-poses",
+      "subject": "conventions.coordinateFrame, joints[*].pivotOrigin",
+      "carriedForwardFrom": "F5",
+      "status": "open",
+      "reason": "The STL files are not at per-instance assembly positions: the four femur STLs occupy only two stations 46.03 mm apart in Z while the CAD hip stations are 50.80 mm apart, so at most one member of each mirror pair is where it belongs. The STEP assembly does give all eight joints an exact rigid pose, but in the CAD frame.",
+      "resolvedBy": "reconciling the STL and CAD frames — see stl-to-cad-frame-mapping",
+      "blocking": false
+    },
+    {
+      "id": "stl-to-cad-frame-mapping",
+      "subject": "conventions.coordinateFrame",
+      "carriedForwardFrom": "F5",
+      "status": "open",
+      "reason": "One hip pivot matches a CAD point to six digits after an inch-to-mm conversion, with the Z sign inverted. One sample is not a proof. Until it is, do NOT compose CAD occurrence transforms with STL coordinates.",
+      "resolvedBy": "evaluating the STEP B-Rep with pythonocc/FreeCAD and comparing part bounding boxes instance by instance",
+      "blocking": false
+    },
+    {
+      "id": "joint-zero-sign-and-limits",
+      "subject": "joints[*].zeroReferenceDeg, joints[*].directionSign, joints[*].angleLimitsDeg.mechanicalLimitsDeg",
+      "carriedForwardFrom": "F5",
+      "status": "partially-resolved",
+      "reason": "PARTIALLY RESOLVED by F6. The firmware clamp (0-180) is authoritative. A zero reference of 90 deg and a per-class direction sign are now INFERRED from the shipped choreography, the calibration procedure and sesame-angle-guide.png, and they make every symmetric pose read uniformly — but they remain inferred, the absolute sense of the sign is not established, and the MECHANICAL travel limits are still entirely unknown.",
+      "resolvedBy": "a calibration run on a built robot, plus a collision study on repaired meshes for the mechanical limits",
+      "blocking": false
+    },
+    {
+      "id": "front-rear-orientation",
+      "subject": "joints[*].semanticName",
+      "carriedForwardFrom": "F5",
+      "status": "partially-resolved",
+      "reason": "PARTIALLY RESOLVED by F6. F5 could not distinguish fore from aft. software/sesame-studio/sesame-topdown.png is a labelled top-down drawing carrying the literal words FRONT and BACK, and places R1/L1 at the front and R2/L2 at the rear. The build guide adds the physical cue \"Notch = front. USB port = back.\" (docs/build-guide/README.md:168). This is a reading of a drawing, so it stays verified:false, and the drawing never says the FRONT it marks is the direction the `walk` command travels.",
+      "resolvedBy": "physical inspection of a built robot, plus observing which way it actually walks",
+      "blocking": false
+    },
+    {
+      "id": "hip-to-foot-instance-naming",
+      "subject": "joints[*].parentLink",
+      "carriedForwardFrom": "F5",
+      "status": "partially-resolved",
+      "reason": "PARTIALLY RESOLVED by F6. reference-configuration.png and sesame-topdown.png both label all eight parts and show R1-R3, R2-R4, L1-L3, L2-L4. The firmware choreography independently corroborates it: the femur and foot of a leg always fall in the same direction-sign class. Geometry alone still cannot pick the instance, so this stays a reading of a drawing.",
+      "resolvedBy": "physical confirmation on a built robot",
+      "blocking": false
+    },
+    {
+      "id": "view-direction-of-the-labelled-drawings",
+      "subject": "joints[*].semanticName",
+      "carriedForwardFrom": "F6",
+      "status": "open",
+      "reason": "NEW IN F6. Every left/right assignment rests on sesame-topdown.png being a view from ABOVE. If it is a bottom view, \"R\" and \"L\" swap sides. Nothing in the repository states the camera direction, and no text anywhere says whether \"R\"/\"L\" mean the robot's own left and right or a viewer's.",
+      "resolvedBy": "physical inspection: hold a built robot with the notch facing away and read the engraved labels",
+      "blocking": false
+    },
+    {
+      "id": "rest-pose-hip-orientation-contradiction",
+      "subject": "joints[R1,R2,L1,L2].zeroReferenceDeg",
+      "carriedForwardFrom": "F6",
+      "status": "open",
+      "reason": "NEW IN F6. docs/build-guide/README.md:209 says that at Rest the hip joint \"should move perfectly parallel to the body\", while sesame-angle-guide.png draws each hip's 90-degree ray pointing laterally outward, i.e. perpendicular to the body. Both cannot describe the same feature. The likeliest reconciliation is that the prose describes the horn plate and the diagram the leg direction, but that is a guess and it is not recorded as one anywhere in the data.",
+      "resolvedBy": "a photograph of a robot at Rest, or a physical robot",
+      "blocking": false
+    },
+    {
+      "id": "horn-spline-quantisation",
+      "subject": "joints[*].zeroReferenceDeg",
+      "carriedForwardFrom": "F6",
+      "status": "open",
+      "reason": "NEW IN F6. The horn is pressed onto a splined shaft during assembly, so the mapping from commanded degrees to physical angle is quantised by the spline pitch and differs per built robot. The firmware exposes servoSubtrim[] for exactly this, and it defaults to all zeros and is never persisted (RAM only; `subtrim save` prints a C initialiser for the user to paste into source). Any per-robot calibration therefore lives outside this file.",
+      "resolvedBy": "per-robot calibration captured into a separate calibration artefact, not into joint-map.json",
+      "blocking": false
+    }
+  ]
+}

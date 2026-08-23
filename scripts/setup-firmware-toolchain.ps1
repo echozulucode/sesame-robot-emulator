@@ -1,0 +1,109 @@
+<#
+.SYNOPSIS
+    F3 - install the portable, repo-local Arduino firmware toolchain.
+
+.DESCRIPTION
+    Idempotently installs everything the firmware build needs under tools/:
+
+      tools/arduino-cli/    the arduino-cli binary + its config file
+      tools/arduino-data/   board manager index, ESP32 core, Xtensa toolchains,
+                            libraries, build scratch space
+
+    NOTHING is installed machine-wide. In particular %LOCALAPPDATA%\Arduino15
+    must not exist after this script runs; the script asserts that.
+
+    Caveat that cost us once: arduino-cli falls back to %LOCALAPPDATA%\Arduino15
+    whenever it is invoked WITHOUT --config-file - even for `arduino-cli
+    version`, which writes an installation-id inventory.yaml there. Every
+    invocation in this repo therefore passes --config-file, and the env vars are
+    exported as a second line of defence.
+
+    Versions are pinned exactly. Never 'latest' - see reproducibility.json.
+
+.PARAMETER Force
+    Reinstall the core and libraries even if already present.
+#>
+[CmdletBinding()]
+param([switch]$Force)
+
+$ErrorActionPreference = 'Stop'
+$repo = Split-Path -Parent $PSScriptRoot
+
+# ---- pinned versions ------------------------------------------------------
+$ArduinoCliVersion = '1.5.1'
+$ArduinoCliSha256  = 'FABE42E0EB04D00E776A66178299FF95A46C623DBC260F997E58FD514853DD40'
+$Esp32CoreVersion  = '3.3.11'
+# ESP32Servo is pinned to 3.0.9 by upstream: firmware/README.md:42,47,175 warns
+# that newer releases can leak a write on one servo across multiple channels
+# (madhephaestus/ESP32Servo#103).
+$Libraries = [ordered]@{
+    'ESP32Servo'           = '3.0.9'
+    'Adafruit SSD1306'     = '2.5.17'
+    'Adafruit GFX Library' = '1.12.6'
+    'Adafruit BusIO'       = '1.17.4'   # transitive dependency of SSD1306
+}
+
+$cliDir   = Join-Path $repo 'tools/arduino-cli'
+$dataRoot = Join-Path $repo 'tools/arduino-data'
+$cli      = Join-Path $cliDir 'arduino-cli.exe'
+$cfg      = Join-Path $cliDir 'arduino-cli.yaml'
+
+New-Item -ItemType Directory -Force -Path $cliDir, "$dataRoot/data", "$dataRoot/downloads", "$dataRoot/user" | Out-Null
+
+# ---- 1. arduino-cli -------------------------------------------------------
+if ($Force -or -not (Test-Path $cli)) {
+    $zipName = "arduino-cli_${ArduinoCliVersion}_Windows_64bit.zip"
+    $zip = Join-Path $cliDir $zipName
+    Write-Host "[cli]   downloading $zipName"
+    Invoke-WebRequest -Uri "https://downloads.arduino.cc/arduino-cli/$zipName" -OutFile $zip
+    $actual = (Get-FileHash -Algorithm SHA256 $zip).Hash
+    if ($actual -ne $ArduinoCliSha256) {
+        throw "arduino-cli archive SHA-256 mismatch.`n  expected $ArduinoCliSha256`n  actual   $actual"
+    }
+    Expand-Archive -Path $zip -DestinationPath $cliDir -Force
+    Write-Host "[cli]   verified + extracted"
+}
+if (-not (Test-Path $cfg)) { throw "Missing $cfg - it is checked in and must not be deleted." }
+
+# ---- 2. isolation env (belt and braces alongside arduino-cli.yaml) --------
+$env:ARDUINO_DIRECTORIES_DATA      = (Resolve-Path "$dataRoot/data").Path
+$env:ARDUINO_DIRECTORIES_DOWNLOADS = (Resolve-Path "$dataRoot/downloads").Path
+$env:ARDUINO_DIRECTORIES_USER      = (Resolve-Path "$dataRoot/user").Path
+
+function Invoke-Acli { & $cli --config-file $cfg @args; if ($LASTEXITCODE -ne 0) { throw "arduino-cli $($args -join ' ') failed ($LASTEXITCODE)" } }
+
+# ---- 3. index + core ------------------------------------------------------
+# The additional board-manager URL is set in arduino-cli.yaml. We deliberately
+# use https://espressif.github.io/... rather than the raw.githubusercontent.com
+# URL that firmware/README.md:37 gives, because raw.githubusercontent.com has
+# hit TLS certificate-revocation failures on this host.
+Write-Host '[index] updating board manager index'
+Invoke-Acli core update-index
+
+$installed = (& $cli --config-file $cfg core list --format json | ConvertFrom-Json).platforms |
+    Where-Object { $_.id -eq 'esp32:esp32' }
+if ($Force -or -not $installed -or $installed.installed_version -ne $Esp32CoreVersion) {
+    Write-Host "[core]  installing esp32:esp32@$Esp32CoreVersion (multi-GB, slow first time)"
+    Invoke-Acli core install "esp32:esp32@$Esp32CoreVersion"
+} else {
+    Write-Host "[core]  esp32:esp32@$Esp32CoreVersion already installed"
+}
+
+# ---- 4. libraries ---------------------------------------------------------
+foreach ($name in $Libraries.Keys) {
+    $ver = $Libraries[$name]
+    Write-Host "[lib]   $name@$ver"
+    Invoke-Acli lib install "$name@$ver"
+}
+
+# ---- 5. assert no machine-wide mutation ----------------------------------
+$global15 = Join-Path $env:LOCALAPPDATA 'Arduino15'
+if (Test-Path $global15) {
+    Write-Warning "$global15 exists - something invoked arduino-cli without --config-file."
+    Get-ChildItem -Recurse $global15 | Select-Object -ExpandProperty FullName
+    throw 'Machine-wide Arduino state detected. Delete it and re-run; do not ignore this.'
+}
+Write-Host "[check] $global15 absent - no machine-wide state. OK"
+
+Invoke-Acli core list
+Invoke-Acli lib list
