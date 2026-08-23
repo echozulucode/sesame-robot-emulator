@@ -1,0 +1,25 @@
+10:51:55.7056 [INFO] Loaded monitor commands from: C:\Projects\sesame-robot-emulator\tools\renode\scripts/monitor.py
+Renode, version 1.16.1 (d66b0c2a-202602161036)
+
+(monitor) i $CWD/emulator/renode/scripts/r2-rung5b-rer.resc
+10:51:55.8475 [INFO] Including script(s): C:\Projects\sesame-robot-emulator\emulator\renode\scripts\r2-rung5b-rer.resc
+10:51:55.8696 [INFO] System bus created.
+10:51:56.4903 [WARNING] The debug mode now has no effect - connect a debugger, and switch to stepping mode.
+10:51:56.7659 [INFO] sysbus: Loading block of 24 bytes length at 0x3FFB4000.
+10:51:56.7784 [INFO] sysbus: Loading block of 4728 bytes length at 0x40024000.
+10:51:56.7963 [INFO] cpu: Setting PC value to 0x4002441C.
+
+### entry PC (from the ELF, no boot ROM involved)
+0x4002441c
+10:51:57.1740 [INFO] r2-rung5b-rer: Machine started.
+10:51:57.2035 [ERROR] cpu: unrecognized opcode in slot 0 (pc = 400249a1)
+    
+10:51:57.2040 [ERROR] cpu: unrecognized opcode in slot 0 (pc = 400249d3)
+    
+10:51:57.2047 [ERROR] cpu: unrecognized opcode in slot 0 (pc = 400250e6)
+    
+10:51:57.2048 [ERROR] cpu: unrecognized opcode in slot 0 (pc = 4002511d)
+    
+10:51:57.2048 [ERROR] cpu: unrecognized opcode in slot 0 (pc = 4002514f)
+    
+10:51:57.2055 [ERROR] cpu: CPU abort [PC=0x400251FE]: reading from external register not yet supported.

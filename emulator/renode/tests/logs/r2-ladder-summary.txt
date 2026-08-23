@@ -1,0 +1,170 @@
+==============================================================================
+r2-rung1-arith  --  straight-line arithmetic, call0 ABI
+------------------------------------------------------------------------------
+  startup markers 1..5 : 1, 2, 3, 4, 5  (all five means start.S completed and C returned)
+  rung id written      : 1  (expected 1)
+  done marker          : SET (0xD09EF00D)
+  exceptions taken     : 0
+  Renode [ERROR] lines : 0
+  arithmetic results   : all 14 correct
+==============================================================================
+r2-rung2-call  --  windowed ABI: entry / retw / call8 / callx8
+------------------------------------------------------------------------------
+  startup markers 1..5 : 1, 2, 3, 4, 5  (all five means start.S completed and C returned)
+  rung id written      : 2  (expected 2)
+  done marker          : SET (0xD09EF00D)
+  exceptions taken     : 0
+  Renode [ERROR] lines : 0
+  leaf_add(0x1234,0x56): 0x00001336 (expect 0x00001336)
+  leaf_mix via callx8  : 0x0001231d (expect 0x0001231d)
+==============================================================================
+r2-rung3-window  --  register-window overflow + underflow, all six handlers
+------------------------------------------------------------------------------
+  startup markers 1..5 : 1, 2, 3, 4, 5  (all five means start.S completed and C returned)
+  rung id written      : 3  (expected 3)
+  done marker          : SET (0xD09EF00D)
+  exceptions taken     : 0
+  Renode [ERROR] lines : 0
+  callx8 depth-48 sum  : 0x00303498
+  w4_chain(40)         : 40 (expect 40)
+  w8_chain(40)         : 40 (expect 40)
+  w12_chain(40)        : 40 (expect 40)
+==============================================================================
+r2-rung4-sr  --  memw, sync ops, special/user registers
+------------------------------------------------------------------------------
+  startup markers 1..5 : 1, 2, 3, 4, 5  (all five means start.S completed and C returned)
+  rung id written      : 4  (expected 4)
+  done marker          : SET (0xD09EF00D)
+  exceptions taken     : 2  last EXCCAUSE=0 EPC1=0x400250ec
+  Renode [ERROR] lines : 0
+  memw faults          : 0   (expect 0)
+  value through memw   : 0xc0ffee01 (expect 0xc0ffee01)
+  isync/rsync/esync/dsync faults: 0/0/0/0
+  rsil faults          : 0/0, old PS 0x00050020
+  --- special registers ---
+      0 ps             RWB read 0x00050020  wrote 0x00050020  ok
+      1 epc1           RW  read 0x40024444  wrote 0x40024444  ok
+      2 excsave1       RW  read 0x1111aaaa  wrote 0x1111aaaa  ok
+      3 windowbase     R   read 0x00000001  wrote 0x00000000  ok
+      4 windowstart    R   read 0x00000003  wrote 0x00000000  ok
+      5 intenable      RW  read 0x00000000  wrote 0x00000000  ok
+      6 ccount         R   read 0x0001dc54  wrote 0x00000000  ok
+      7 exccause       RW  read 0x0000001c  wrote 0x0000001c  ok
+      8 prid           R   read 0x00000000  wrote 0x00000000  ok
+      9 interrupt      R   read 0x00000000  wrote 0x00000000  ok
+     10 intclear       W   read 0x00000000  wrote 0xffffffff  wsr ok
+     11 epc2           RW  read 0x40024448  wrote 0x40024448  ok
+     12 epc3           RW  read 0x4002444c  wrote 0x4002444c  ok
+     13 epc4           RW  read 0x40024450  wrote 0x40024450  ok
+     14 epc6           RW  read 0x40024458  wrote 0x40024458  ok
+     15 eps2           RW  read 0x00040023  wrote 0x00040023  ok
+     16 eps3           RW  read 0x00040024  wrote 0x00040024  ok
+     17 excvaddr       R   read 0x00000000  wrote 0x00000000  ok
+     18 excsave2       RW  read 0x2222aaaa  wrote 0x2222aaaa  ok
+     19 excsave3       RW  read 0x3333aaaa  wrote 0x3333aaaa  ok
+     20 excsave4       RW  read 0x4444aaaa  wrote 0x4444aaaa  ok
+     21 excsave5       RW  read 0x5555aaaa  wrote 0x5555aaaa  ok
+     22 excsave6       RW  read 0x6666aaaa  wrote 0x6666aaaa  ok
+     23 excsave7       RW  read 0x7777aaaa  wrote 0x7777aaaa  ok
+     24 sar            RW  read 0x00000013  wrote 0x00000013  ok
+     25 vecbase        RWB read 0x40024000  wrote 0x40024000  ok
+     26 ccompare0      RW  read 0x7fffffff  wrote 0x7fffffff  ok
+     27 litbase        R   read 0xbadbad1b  wrote 0x00000000  rsr ILLEGAL
+     28 memctl         RWB read 0x00000000  wrote 0x00000000  ok
+     29 mmid           W   read 0x00000000  wrote 0x000000a5  wsr ILLEGAL
+     30 debugcause     R   read 0x00000000  wrote 0x00000000  ok
+     31 ibreakenable   RW  read 0x00000000  wrote 0x00000000  ok
+     32 ibreaka0       RW  read 0x40024460  wrote 0x40024460  ok
+     33 ibreaka1       RW  read 0x40024464  wrote 0x40024464  ok
+     34 dbreaka0       RW  read 0x3ffd0f00  wrote 0x3ffd0f00  ok
+     35 dbreaka1       RW  read 0x3ffd0f04  wrote 0x3ffd0f04  ok
+     36 dbreakc0       RW  read 0x00000000  wrote 0x00000000  ok
+     37 dbreakc1       RW  read 0x00000000  wrote 0x00000000  ok
+     39 cpenable       RW  read 0x00000000  wrote 0x00000000  ok
+     40 configid0      R   read 0xc2ecfafe  wrote 0x00000000  ok
+     42 misc0          RW  read 0x0c0ffee0  wrote 0x0c0ffee0  ok
+     43 ccompare1      RW  read 0x7ffffff1  wrote 0x7ffffff1  ok
+     44 ccompare2      RW  read 0x7ffffff2  wrote 0x7ffffff2  ok
+    UR  threadptr      RW  read 0x3ffd0e00  wrote 0x3ffd0e00  ok
+  special registers rejected: 2
+==============================================================================
+r2-rung5-mem  --  memory at real S2 addresses + remaining instruction classes
+------------------------------------------------------------------------------
+  startup markers 1..5 : 1, 2, 3, 4, 5  (all five means start.S completed and C returned)
+  rung id written      : 5  (expected 5)
+  done marker          : SET (0xD09EF00D)
+  exceptions taken     : 5  last EXCCAUSE=0 EPC1=0x40025149
+  Renode [ERROR] lines : 5
+      10:51:33.3269 [ERROR] cpu: unrecognized opcode in slot 0 (pc = 4002499d)
+      10:51:33.3271 [ERROR] cpu: unrecognized opcode in slot 0 (pc = 400249cf)
+      10:51:33.3277 [ERROR] cpu: unrecognized opcode in slot 0 (pc = 400250e0)
+      10:51:33.3277 [ERROR] cpu: unrecognized opcode in slot 0 (pc = 40025117)
+      10:51:33.3278 [ERROR] cpu: unrecognized opcode in slot 0 (pc = 40025149)
+  --- instruction / memory probes ---
+      0 drammem    faults=0 value=0xa5a50000  ok
+      1 iramdata   faults=0 value=0xa5a5c000  ok
+      2 rtcdata    faults=0 value=0xa5a5e100  ok
+      3 rtciram    faults=0 value=0xa5a50100  ok
+      4 rtcslow    faults=0 value=0xa5a50200  ok
+      5 s16il16u   faults=0 value=0x0000beef  ok
+      6 s8i l8ui   faults=0 value=0x000000f3  ok
+      7 l16si      faults=0 value=0xfffffffe  ok
+      8 unalig16   faults=0 value=0x00000000  ok
+      9 l32ai      faults=0 value=0x11223344  ok
+     10 s32ri      faults=0 value=0x55667788  ok
+     11 nsau       faults=0 value=0x0000000f  ok
+     12 nsa        faults=0 value=0x0000000e  ok
+     13 clamps     faults=0 value=0x0000007f  ok
+     14 salt       faults=1 value=0x00000000  ILLEGAL / unimplemented
+     15 saltu      faults=1 value=0x00000000  ILLEGAL / unimplemented
+     16 min        faults=0 value=0x00000007  ok
+     17 max        faults=0 value=0x0001f00d  ok
+     18 minu       faults=0 value=0x00000007  ok
+     19 maxu       faults=0 value=0x0001f00d  ok
+     20 sext       faults=0 value=0x0000000d  ok
+     21 abs        faults=0 value=0x0001f00d  ok
+     22 neg        faults=0 value=0xfffe0ff3  ok
+     23 moveqz     faults=0 value=0x0001f00d  ok
+     24 movnez     faults=0 value=0x0001f00d  ok
+     25 movltz     faults=0 value=0x0001f00d  ok
+     26 movgez     faults=0 value=0x0001f00d  ok
+     27 addx4      faults=0 value=0x0007c03b  ok
+     28 subx8      faults=0 value=0x000f8061  ok
+     29 ssaisrc    faults=0 value=0x0d000000  ok
+     30 ssa8lsrc   faults=0 value=0x00000700  ok
+     31 ssa8bsrc   faults=0 value=0x070001f0  ok
+     32 ssl sll    faults=0 value=0x00f80680  ok
+     33 ssr srl    faults=0 value=0x000003e0  ok
+     34 mull       faults=0 value=0x000d905b  ok
+     35 mul16u     faults=0 value=0x0006905b  ok
+     36 mul16s     faults=0 value=0xffff905b  ok
+     37 muluh      faults=0 value=0x00000000  ok
+     38 mulsh      faults=0 value=0x00000000  ok
+     39 quou       faults=0 value=0x000046dd  ok
+     40 quos       faults=0 value=0x000046dd  ok
+     41 remu       faults=0 value=0x00000002  ok
+     42 rems       faults=0 value=0x00000002  ok
+     43 xsr inte   faults=0 value=0x00000000  ok
+     44 pitlb      faults=0 value=0x40000001  ok
+     45 ritlb0     faults=0 value=0x00000000  ok
+     46 ritlb1     faults=0 value=0x00000002  ok
+     47 pdtlb      faults=0 value=0x20000001  ok
+     48 rdtlb0     faults=0 value=0x00000000  ok
+     49 clr bgpo   faults=1 value=0x00000001  ILLEGAL / unimplemented
+     50 set bgpo   faults=1 value=0x00000001  ILLEGAL / unimplemented
+     51 wrmkgpo    faults=1 value=0x00000001  ILLEGAL / unimplemented
+     52 rotwpm1    faults=0 value=0x00000001  ok
+     53 movsp      faults=0 value=0x0001f00d  ok
+  rejected instructions: salt, saltu, clr bgpo, set bgpo, wrmkgpo
+
+==============================================================================
+R2 LADDER SUMMARY
+==============================================================================
+rung                      verdict  guest-exceptions  renode-errors
+r2-rung1-arith            PASS                    0              0
+r2-rung2-call             PASS                    0              0
+r2-rung3-window           PASS                    0              0
+r2-rung4-sr               PASS                    2              0
+r2-rung5-mem              PASS                    5              5
+
+Every rung reached its done marker.

@@ -1,0 +1,31 @@
+:name: R3 - compiled C driving ESP32-S2 UART0 out to a host TCP socket
+:description: Loads firmware/probes/build/r3-uart-hello.elf onto the checked-in
+:description: esp32s2-sesame platform and exposes uart0 on TCP 3456 with
+:description: telnetMode = false (true would splice IAC negotiation bytes into the
+:description: @SESAME line protocol - see R1 section 5.4).
+:description:
+:description: This script deliberately does NOT start the machine. It leaves the
+:description: monitor open so a harness can connect its TCP client FIRST and only
+:description: then run the emulation; a server socket terminal drops bytes written
+:description: before a client attaches. emulator/renode/tests/r3-uart-capture.mjs
+:description: drives it that way. To drive it by hand, run:
+:description:
+:description:   tools/renode/renode.exe --console --disable-xwt --plain \
+:description:       emulator/renode/scripts/r3-uart-hello.resc
+:description:
+:description: then connect (e.g. `ncat 127.0.0.1 3456`) and type at the monitor:
+:description:   emulation RunFor "0.02"
+
+using sysbus
+
+mach create "r3-uart"
+machine LoadPlatformDescription @emulator/renode/platforms/esp32s2-sesame.repl
+
+logLevel 1
+sysbus LoadELF @firmware/probes/build/r3-uart-hello.elf
+
+emulation CreateServerSocketTerminal 3456 "uartsock" false
+connector Connect uart0 uartsock
+
+echo "### R3-READY uart0 on tcp/3456 telnetMode=false"
+cpu PC

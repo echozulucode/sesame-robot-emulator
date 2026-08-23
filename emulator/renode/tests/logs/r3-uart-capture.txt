@@ -1,0 +1,25 @@
+
+--- bytes received on tcp/3456 (199) ---
+"r3-uart-probe: esp32s2 uart0 mmio, no idf\r\n@SESAME hello 1 sesame-lab-r3\n@SESAME servo R4 72\n@SESAME servo L1 15\n@SESAME face wave 0\n@SESAME log firmware renode esp32s2 uart0 up\nr3-uart-probe: done\r\n"
+--- end ---
+
+PASS  UART0 produced bytes on the host TCP socket  -- 199 bytes
+PASS  no telnet IAC (0xFF) bytes in the stream  -- telnetMode=false held
+--- parsed events ---
+    {"type":"log","seq":0,"provenance":"observed","channel":"uart","text":"r3-uart-probe: esp32s2 uart0 mmio, no idf"}
+    {"type":"protocol.hello","seq":1,"provenance":"observed","protocolVersion":1,"emitter":"sesame-lab-r3"}
+    {"type":"servo.target","seq":2,"provenance":"observed","joint":"R4","angleDeg":72}
+    {"type":"servo.target","seq":3,"provenance":"observed","joint":"L1","angleDeg":15}
+    {"type":"face.expression","seq":4,"provenance":"observed","name":"wave","frame":0}
+    {"type":"log","seq":5,"provenance":"observed","channel":"firmware","text":"renode esp32s2 uart0 up"}
+    {"type":"log","seq":6,"provenance":"observed","channel":"uart","text":"r3-uart-probe: done"}
+--- end ---
+
+PASS  real parser produced servo.target { joint: R4, angleDeg: 72 }  -- {"type":"servo.target","seq":2,"provenance":"observed","joint":"R4","angleDeg":72}
+PASS  that event is tagged provenance=observed
+PASS  second servo.target { joint: L1, angleDeg: 15 } parsed
+PASS  face.expression parsed  -- {"type":"face.expression","seq":4,"provenance":"observed","name":"wave","frame":0}
+PASS  non-@SESAME boot chatter surfaced as log events  -- 3 log events
+PASS  no protocol.unknown events
+
+R3: ALL CHECKS PASSED

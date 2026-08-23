@@ -1,0 +1,13 @@
+:name: R2 rung 5b - the `rer` instruction, which hard-aborts Renode 1.16.1
+:description: DELIBERATELY DESTRUCTIVE. Renode's Xtensa core does not implement
+:description: rer (read external register). It does not raise a recoverable
+:description: illegal-instruction exception; tlib issues
+:description:   [ERROR] cpu: CPU abort [PC=0x...]: reading from external register
+:description:   not yet supported.
+:description: and the emulation wedges - `emulation RunFor` never returns and the
+:description: process must be killed. Run this only to reproduce that abort.
+
+$name="r2-rung5b-rer"
+$elf=@firmware/probes/build/r2-rung5b-rer.elf
+
+include @emulator/renode/scripts/r2-common.resc

@@ -1,0 +1,53 @@
+:name: R2 Xtensa execution probe - shared body
+:description: Included by the per-rung r2-rung*.resc scripts. Expects $name and
+:description: $elf to be set by the caller. Boots nothing: the probe ELF is
+:description: loaded directly into internal SRAM and the ELF entry point is used,
+:description: because the platform has no ESP32-S2 boot ROM (see the .repl).
+
+using sysbus
+
+mach create $name
+machine LoadPlatformDescription @emulator/renode/platforms/esp32s2-sesame.repl
+
+logLevel 1
+sysbus LoadELF $elf
+
+echo ""
+echo "### entry PC (from the ELF, no boot ROM involved)"
+cpu PC
+
+# 5 ms of virtual time at 240 MHz is ~1.2M instructions - orders of magnitude
+# more than any rung needs. Every rung ends in a tight `j self` spin, so the
+# run always terminates on the timer rather than on the program.
+emulation RunFor "0.005"
+
+echo ""
+echo "### final PC"
+cpu PC
+echo "### executed instructions"
+cpu ExecutedInstructions
+
+echo ""
+echo "### RESULTS+FAULTS 0x3FFD0000 .. 0x3FFD01FF"
+sysbus ReadBytes 0x3FFD0000 512
+
+echo ""
+echo "### SRTAB 0x3FFD0200 .. 0x3FFD067F"
+sysbus ReadBytes 0x3FFD0200 1152
+
+echo ""
+echo "### INSTAB 0x3FFD0700 .. 0x3FFD0AFF"
+sysbus ReadBytes 0x3FFD0700 1024
+
+echo ""
+echo "### a0..a7"
+cpu GetRegister 0
+cpu GetRegister 1
+cpu GetRegister 2
+cpu GetRegister 3
+cpu GetRegister 4
+cpu GetRegister 5
+cpu GetRegister 6
+cpu GetRegister 7
+
+quit

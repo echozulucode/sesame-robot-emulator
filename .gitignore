@@ -32,3 +32,15 @@ Thumbs.db
 
 # NOTE: *.log is deliberately NOT ignored. Workstream R findings attach Renode
 # logs as evidence; ignoring them would silently drop the proof.
+
+# ---- R2/R3 probe build output (regenerable) -----------------------------
+# Rebuild with: bash firmware/probes/build-probes.sh
+# The reproducible per-image SHA-256s are recorded in
+# docs/findings/R2-xtensa-execution-probe.md instead.
+firmware/probes/build/
+
+# ---- Renode execution traces (multi-MB, regenerable) --------------------
+# The .log/.txt evidence next to them IS committed; only the raw PC traces are
+# too large to be useful in git. Regenerate with:
+#   node emulator/renode/tests/count-window-vectors.mjs
+emulator/renode/tests/logs/*.trace

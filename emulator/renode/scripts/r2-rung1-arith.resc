@@ -1,0 +1,8 @@
+:name: R2 rung 1 - baseline straight-line arithmetic, call0 ABI
+:description: Real compiler output with -mabi=call0: no entry/retw, no register windows.
+:description: Isolates plain instruction execution, l32r literal pools and real ELF sections.
+
+$name="r2-rung1-arith"
+$elf=@firmware/probes/build/r2-rung1-arith.elf
+
+include @emulator/renode/scripts/r2-common.resc

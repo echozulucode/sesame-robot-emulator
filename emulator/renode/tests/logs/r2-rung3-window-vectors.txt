@@ -1,0 +1,14 @@
+traced instructions: 46269
+  WindowOverflow4      entered 26 times
+  WindowUnderflow4     entered 26 times
+  WindowOverflow8      entered 78 times
+  WindowUnderflow8     entered 78 times
+  WindowOverflow12     entered 35 times
+  WindowUnderflow12    entered 35 times
+  KernelException      entered 0 times
+  UserException        entered 0 times
+  DoubleException      entered 0 times
+
+all six window handlers fired : YES
+overflow/underflow balanced   : YES
+no exception escaped to user/kernel/double : YES

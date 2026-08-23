@@ -1,0 +1,8 @@
+:name: R2 rung 2 - windowed ABI, shallow calls
+:description: call8 + entry + retw and one callx8, at a depth that never overflows the
+:description: register file. Differs from rung 1 ONLY in the ABI.
+
+$name="r2-rung2-call"
+$elf=@firmware/probes/build/r2-rung2-call.elf
+
+include @emulator/renode/scripts/r2-common.resc

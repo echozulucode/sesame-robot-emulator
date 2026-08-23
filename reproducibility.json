@@ -92,8 +92,69 @@
       "builtAt": "2026-08-23T14:51:51.719Z"
     }
   ],
-  "renodeVersion": null,
-  "renodePlatformFiles": [],
+  "renodeVersion": "1.16.1.19220",
+  "renodePlatformFiles": [
+    {
+      "path": "emulator/renode/platforms/esp32s2-sesame.repl",
+      "sha256": "302f0b9fb00f19fdfbda14787a143cb27cf460020dbe53b48f30387ab373bce0"
+    },
+    {
+      "path": "emulator/renode/probes/r1-blocks-probe.repl",
+      "sha256": "6ecea36b8c0b93c065b2ba38628acd441744dd445a80279d9491a8c17ef042d9"
+    },
+    {
+      "path": "emulator/renode/probes/r1-blocks-probe.resc",
+      "sha256": "5e26880550ea7deafed9cf3bd658cf9adf75f3f8caef2c933a4b794e51de20a3"
+    },
+    {
+      "path": "emulator/renode/probes/r1-esp32-probe.resc",
+      "sha256": "c39ac63902371a00f10541528f950ed96719e8c822883bea26558a1127d6f3a6"
+    },
+    {
+      "path": "emulator/renode/probes/r1-esp32s2-exec.resc",
+      "sha256": "d1c9d67836f2988adfc4ccd55457e48c9962f5e5fc208c9345f29fc439829327"
+    },
+    {
+      "path": "emulator/renode/probes/r1-xtensa-smoke.resc",
+      "sha256": "7fb7f9b69ec803d27885b3eca2f55d387797cfad05791c6b47b60960597abb9a"
+    },
+    {
+      "path": "emulator/renode/scripts/r2-common.resc",
+      "sha256": "b2a357bd3a8efd05ac0cc25231888ad6703596e4e9460fd1e3f9e11f146cf3e1"
+    },
+    {
+      "path": "emulator/renode/scripts/r2-rung1-arith.resc",
+      "sha256": "52afa0e4003a185cd4e2dcf327706fe9605add36b603734201fbf3e290753d62"
+    },
+    {
+      "path": "emulator/renode/scripts/r2-rung2-call.resc",
+      "sha256": "e24f39a2b11978d7acb1aeeafde462eaa05e07bb03b2f23d706b76f40b73d240"
+    },
+    {
+      "path": "emulator/renode/scripts/r2-rung3-trace.resc",
+      "sha256": "5ed6a0fbe6ce918952542d076f8c4594465504af40fdd6a1036b67b2def17c5d"
+    },
+    {
+      "path": "emulator/renode/scripts/r2-rung3-window.resc",
+      "sha256": "338a037f3bcf32e4361ab0bae1433397aec1192ec7c28c046cc5447572245cd8"
+    },
+    {
+      "path": "emulator/renode/scripts/r2-rung4-sr.resc",
+      "sha256": "f19d740967adcbb2219cc73b4da50371c043c57406780e6605a7174b86331397"
+    },
+    {
+      "path": "emulator/renode/scripts/r2-rung5-mem.resc",
+      "sha256": "31e5c715254e48a631cf16300bff4f731b510dd1434b968881f587bec3179db9"
+    },
+    {
+      "path": "emulator/renode/scripts/r2-rung5b-rer.resc",
+      "sha256": "5b3b4885c87912ec44fbab4ac9a8bb1e8d98d3547f6a4ad66791a0b40bdb7cc9"
+    },
+    {
+      "path": "emulator/renode/scripts/r3-uart-hello.resc",
+      "sha256": "2ae66a6704e8d5e7da0c5503506f863998188d14b81083b53c0746574e384996"
+    }
+  ],
   "assetSourceVersion": null,
   "jointMapVersion": "1.0.0",
   "telemetryProtocolVersion": "1.0.0",

@@ -1,0 +1,8 @@
+:name: R2 rung 5 - memory at real S2 addresses + remaining instruction classes
+:description: IRAM / DRAM / RTC-fast / RTC-slow accesses plus mul, div, shift, TLB-read and
+:description: ESP32-S2 dedicated-GPIO instructions.
+
+$name="r2-rung5-mem"
+$elf=@firmware/probes/build/r2-rung5-mem.elf
+
+include @emulator/renode/scripts/r2-common.resc

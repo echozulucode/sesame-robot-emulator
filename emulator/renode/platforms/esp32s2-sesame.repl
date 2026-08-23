@@ -1,0 +1,122 @@
+// ---------------------------------------------------------------------------
+// ESP32-S2 (Xtensa LX7) SoC platform for Sesame Lab
+//
+// Renode 1.16.1.19220, portable sidecar under tools/renode/ (ADR-0002).
+// Built entirely from stock Renode models - no C# is written or required.
+//
+// ADDRESS PROVENANCE
+// ------------------
+// Every address below is copied from Espressif's OWN generated headers and
+// linker scripts, shipped inside the pinned esp32:esp32 3.3.11 core that F3
+// installed. They are not transcribed from a PDF and they are not guessed.
+// Paths are relative to
+//   tools/arduino-data/data/packages/esp32/tools/esp32s2-libs/3.3.11/
+//
+//   include/soc/esp32s2/include/soc/soc.h        SOC_*_LOW / SOC_*_HIGH
+//   include/soc/esp32s2/register/soc/reg_base.h  DR_REG_*_BASE
+//   ld/esp32s2.peripherals.ld                    PROVIDE(<peripheral> = ...)
+//   ld/memory.ld                                 segment origins and lengths
+//
+// The one address in this file that is NOT sourced that way is the CPU
+// interrupt number on the uart0 IRQ line - see the note there. It is marked
+// UNVERIFIED rather than presented as fact.
+//
+// KNOWN SIMPLIFICATIONS, stated up front
+// --------------------------------------
+//  1. NO ALIASING. On real silicon the 320 KiB of internal SRAM is visible on
+//     both the instruction bus (0x40020000..0x4006FFFF) and the data bus
+//     (0x3FFB0000..0x3FFFFFFF). Here they are two independent MappedMemory
+//     regions, so a write through one view is NOT visible through the other.
+//     Freestanding probes that keep code and data apart do not care. Anything
+//     that writes code through the data bus and then executes it (an OTA path,
+//     a JIT, some of IDF's IRAM-attribute setup) will.
+//  2. NO CACHE, NO MMU, NO XIP. drom/irom below are plain RAM standing in for
+//     the flash-mapped windows. There is no flash controller and no cache MMU,
+//     so an image must be loaded directly by LoadELF; the second-stage
+//     bootloader cannot run.
+//  3. NO BOOT ROM. Renode has no ESP32-S2 ROM blob, so the reset vector at
+//     0x40000400 is unbacked and every symbol in esp32s2.rom*.ld is dangling.
+//     Set the PC explicitly or rely on the ELF entry point.
+//  4. NO INTERRUPT MATRIX. Peripheral-to-CPU interrupt routing on the S2 is
+//     programmable through DR_REG_INTERRUPT_BASE (0x3F4C2000); nothing models
+//     it. The single hard-wired IRQ line below is a stand-in.
+// ---------------------------------------------------------------------------
+
+cpu: CPU.Xtensa @ sysbus
+    cpuType: "esp32s2"
+    // 240 MHz is the S2 maximum; the Arduino s2mini profile does not override
+    // CPUFreq, and the core default for lolin_s2_mini is 240 MHz.
+    frequency: 240000000
+
+// --- internal SRAM, instruction-bus view ------------------------------------
+// soc.h:164-165  SOC_IRAM_LOW 0x40020000 .. SOC_IRAM_HIGH 0x40070000
+iram: Memory.MappedMemory @ sysbus 0x40020000
+    size: 0x50000
+
+// --- internal SRAM, data-bus view -------------------------------------------
+// soc.h:166-167  SOC_DRAM_LOW 0x3FFB0000 .. SOC_DRAM_HIGH 0x40000000
+// Only the first 320 KiB is real SRAM; the rest of that span is unpopulated.
+dram: Memory.MappedMemory @ sysbus 0x3FFB0000
+    size: 0x50000
+
+// --- RTC fast memory, data-bus view -----------------------------------------
+// soc.h:170-171  SOC_RTC_DRAM_LOW 0x3FF9E000 .. SOC_RTC_DRAM_HIGH 0x3FFA0000
+// memory.ld      rtc_data_seg org = 0x3ff9e000
+rtc_fast_data: Memory.MappedMemory @ sysbus 0x3FF9E000
+    size: 0x2000
+
+// --- RTC fast memory, instruction-bus view ----------------------------------
+// soc.h:168-169  SOC_RTC_IRAM_LOW 0x40070000 .. SOC_RTC_IRAM_HIGH 0x40072000
+// memory.ld      rtc_iram_seg org = 0x40070000
+// Same physical 8 KiB as rtc_fast_data on silicon; not aliased here (see note 1).
+rtc_fast_instr: Memory.MappedMemory @ sysbus 0x40070000
+    size: 0x2000
+
+// --- RTC slow memory --------------------------------------------------------
+// soc.h:172-173  SOC_RTC_DATA_LOW 0x50000000 .. SOC_RTC_DATA_HIGH 0x50002000
+// memory.ld      rtc_slow_seg org = 0x50000000 + 512
+// This is also where Renode's Xtensa core happens to reset its PC to, which is
+// why R1 saw a default PC of 0x50000000.
+rtc_slow: Memory.MappedMemory @ sysbus 0x50000000
+    size: 0x2000
+
+// --- flash-mapped constant data (drom0) -------------------------------------
+// memory.ld  drom0_0_seg org = 0x3F000020, len = 0x3f0000-0x20
+// Plain RAM stand-in: no cache, no MMU, no flash. Ends below UART0 at
+// 0x3F400000, so there is no overlap with the peripheral window.
+drom: Memory.MappedMemory @ sysbus 0x3F000000
+    size: 0x3F0000
+
+// --- flash-mapped instructions (irom / iram0_2_seg) -------------------------
+// memory.ld  iram0_2_seg org = 0x40080020, len = 0x780000-0x20
+// soc.h:160  SOC_IROM_LOW 0x40080000
+irom: Memory.MappedMemory @ sysbus 0x40080000
+    size: 0x780000
+
+// --- UART0 ------------------------------------------------------------------
+// esp32s2.peripherals.ld:6   PROVIDE ( UART0 = 0x3f400000 );
+// reg_base.h:23              DR_REG_UART_BASE  0x3f400000
+//
+// UART.ESP32_UART is Renode's only ESP32 peripheral model. R1 section 5.3 found
+// it implements 11 of the 30 registers it enumerates, and that its register map
+// follows the ESP32-S3/C3 layout, not the S2's. Two concrete consequences for
+// S2 code, both verified against
+// include/soc/esp32s2/register/soc/uart_reg.h:
+//   * UART_INT_ST (0x08) is enumerated by the model but never implemented, so
+//     interrupt-driven serial cannot work. Polled / FIFO writes do.
+//   * The S2 has NO CLK_CONF register. Offset 0x78 is UART_ID on the S2
+//     (uart_reg.h:1088) and UART_DATE is at 0x74 (uart_reg.h:1080); the model
+//     decodes 0x78 as CLK_CONF. Anything probing UART_ID will read nonsense.
+uart0: UART.ESP32_UART @ sysbus 0x3F400000
+    // UNVERIFIED. On real silicon UART0 has no fixed CPU interrupt: the
+    // interrupt matrix maps peripheral source ETS_UART0_INTR_SOURCE = 37
+    // (include/soc/esp32s2/include/soc/interrupts.h:56) onto whichever free CPU
+    // interrupt esp_intr_alloc picks at runtime. 5 is a level-1 CPU interrupt
+    // chosen as a placeholder so the wiring exists and parses. Do not treat it
+    // as the real routing; a real interrupt-matrix model is required.
+    IRQ -> cpu@5
+
+// --- UART1 ------------------------------------------------------------------
+// reg_base.h:38   DR_REG_UART1_BASE 0x3f410000
+// esp32s2.peripherals.ld:17   PROVIDE ( UART1 = 0x3f410000 );
+uart1: UART.ESP32_UART @ sysbus 0x3F410000

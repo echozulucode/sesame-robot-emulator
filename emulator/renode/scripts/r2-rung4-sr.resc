@@ -1,0 +1,8 @@
+:name: R2 rung 4 - memw, sync ops and the special-register sweep
+:description: Every rsr/wsr/rur/wur the real Arduino-ESP32 3.3.11 image executes, probed
+:description: individually with a skip-and-continue exception handler.
+
+$name="r2-rung4-sr"
+$elf=@firmware/probes/build/r2-rung4-sr.elf
+
+include @emulator/renode/scripts/r2-common.resc

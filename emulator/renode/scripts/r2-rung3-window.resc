@@ -1,0 +1,8 @@
+:name: R2 rung 3 - register-window overflow / underflow exceptions
+:description: 48-level callx8 recursion plus hand-written call4 / call8 / call12 chains, so
+:description: all six WindowOverflow/WindowUnderflow handlers are exercised.
+
+$name="r2-rung3-window"
+$elf=@firmware/probes/build/r2-rung3-window.elf
+
+include @emulator/renode/scripts/r2-common.resc

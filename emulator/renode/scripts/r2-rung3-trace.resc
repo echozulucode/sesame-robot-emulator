@@ -1,0 +1,23 @@
+:name: R2 rung 3 - execution trace, to PROVE the window handlers really fire
+:description: Without this, rung 3 passing only shows that the call chains
+:description: returned the right numbers - it would not show that the register
+:description: file ever overflowed. This traces every retired PC;
+:description: emulator/renode/tests/count-window-vectors.mjs counts entries to the
+:description: six window vectors at VECBASE+0x000/040/080/0C0/100/140.
+:description:
+:description: The caller MUST set $trace to an ABSOLUTE output path first - Renode
+:description: 1.16.1 will not create a trace file from a repo-relative path:
+:description:   $trace=@C:/path/to/repo/emulator/renode/tests/logs/r2-rung3.trace
+:description: count-window-vectors.mjs does that for you; just run
+:description:   node emulator/renode/tests/count-window-vectors.mjs
+
+using sysbus
+mach create "r2-rung3-trace"
+machine LoadPlatformDescription @emulator/renode/platforms/esp32s2-sesame.repl
+sysbus LoadELF @firmware/probes/build/r2-rung3-window.elf
+cpu CreateExecutionTracing "tracer" $trace "PC"
+emulation RunFor "0.0005"
+cpu DisableExecutionTracing
+echo "### traced"
+sysbus ReadBytes 0x3FFD0000 128
+quit
