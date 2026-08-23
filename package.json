@@ -26,6 +26,7 @@
     "capture:viewer": "node scripts/capture-viewer-screenshots.mjs",
     "validate:assets-inventory": "node scripts/validate-assets-inventory.mjs",
     "validate:assembly-map": "node scripts/validate-assembly-map.mjs",
+    "validate:gltf": "node scripts/validate-gltf.mjs",
     "demo:telemetry": "node emulator/bridge/dist/cli.js --replay emulator/bridge/fixtures/wave-pose.replay.jsonl --loop --serve-viewer"
   },
   "devDependencies": {
