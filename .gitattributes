@@ -1,0 +1,14 @@
+# Normalize to LF in the working tree regardless of core.autocrlf.
+# Rationale: docs/findings/F2-upstream-drift.md - autocrlf=true on this machine
+# rewrote checked-out files and git stat-cache then falsely reported them clean.
+# CRLF drift would also break F3 firmware build determinism.
+* text=auto eol=lf
+
+*.png  binary
+*.jpg  binary
+*.stl  binary
+*.step binary
+*.f3z  binary
+*.zip  binary
+*.elf  binary
+*.bin  binary
