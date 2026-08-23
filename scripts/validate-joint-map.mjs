@@ -30,7 +30,17 @@
  *       - every semanticName carries verified:false and a non-empty basis
  *       - nothing anywhere claims a semantic name is verified
  *       - every "inferred" field carries a method or a basis
- *       - all six F5 unresolved items are carried forward
+ *       - all six F5 unresolved items are carried forward, and any marked
+ *         "resolved" name the artefact that closed them
+ *       - the four items V0 CANNOT close (horn-spline quantisation, mechanical
+ *         travel limits, per-robot subtrim, parts-installed-where-drawn) are
+ *         still open
+ *
+ *  4. Cross-checks against hardware/assembly-map.json (V0). Every cadPose,
+ *     every absoluteSense rule, the canonical frame and the femur/foot mate
+ *     graph must still equal what the CAD reconstruction produced. Promoted
+ *     geometry that has quietly drifted from its source is worse than
+ *     geometry that was never promoted.
  *
  * Usage:
  *   node scripts/validate-joint-map.mjs [map.json] [schema.json]
@@ -270,7 +280,84 @@ if (crossCheck) {
     const carried = new Set((map.unresolved ?? []).filter((u) => u.carriedForwardFrom === 'F5').map((u) => u.id));
     check(carried.size >= (assets.unresolved ?? []).length,
       `only ${carried.size} of F5's ${(assets.unresolved ?? []).length} unresolved items are carried forward`);
+
+    // --- V0: everything geometric must still equal the assembly map --------
+    const asmPath = resolve(repoRoot, 'hardware/assembly-map.json');
+    if (!existsSync(asmPath)) {
+      problems.push('hardware/assembly-map.json is missing; the CAD-derived fields cannot be checked');
+    } else {
+      const asm = JSON.parse(readFileSync(asmPath, 'utf8'));
+      const same = (a, b) => JSON.stringify(a) === JSON.stringify(b);
+
+      check(asm.frameMap.result === 'resolved',
+        'assembly-map.json reports an unresolved frame map, so no geometry may be promoted from it');
+      check(map.meta.sources.some((x) => x.id === 'assembly-map'),
+        'meta.sources does not cite hardware/assembly-map.json');
+
+      const cf = map.conventions.canonicalFrame;
+      for (const k of ['id', 'handedness', 'upAxis', 'forwardAxis', 'rightAxis',
+        'convention', 'originDefinition', 'groundPlaneYMm']) {
+        check(same(cf[k], asm.canonicalFrame[k]),
+          `conventions.canonicalFrame.${k} has drifted from assembly-map.json`);
+      }
+      check(cf.stlToCadFrameMapMarginRatio === asm.frameMap.candidateSearch.marginRatio,
+        'conventions.canonicalFrame.stlToCadFrameMapMarginRatio has drifted from assembly-map.json');
+
+      const mates = asm.assemblyChecks.kneeCoaxiality.matedPairs;
+      for (const j of joints) {
+        const aj = asm.joints.find((x) => x.firmwareJointName === j.firmwareName);
+        const ap = asm.parts.find((x) => x.id === j.firmwareName);
+        if (!aj || !ap) { problems.push(`${j.firmwareName}: absent from assembly-map.json`); continue; }
+        const cp = j.cadPose;
+        check(same(cp.poseFromStlMm, ap.poseFromStlMm), `${j.firmwareName}: cadPose.poseFromStlMm drifted from the CAD reconstruction`);
+        check(same(cp.rotationAxis, aj.axisUnitVector), `${j.firmwareName}: cadPose.rotationAxis drifted`);
+        check(same(cp.pointOnAxisMm, aj.pointOnAxisMm), `${j.firmwareName}: cadPose.pointOnAxisMm drifted`);
+        check(same(cp.servoShaftOriginMm, aj.servoShaftOriginMm), `${j.firmwareName}: cadPose.servoShaftOriginMm drifted`);
+        check(cp.servoShaftStatus === aj.servoShaftStatus, `${j.firmwareName}: cadPose.servoShaftStatus drifted`);
+        check(cp.parentPart === aj.parentPart, `${j.firmwareName}: cadPose.parentPart drifted`);
+        check(j.directionSign.absoluteSense.rule === aj.rotationSense.rule,
+          `${j.firmwareName}: directionSign.absoluteSense.rule drifted from the CAD reconstruction`);
+        check(same(j.directionSign.absoluteSense.axisUnitVector, aj.axisUnitVector),
+          `${j.firmwareName}: directionSign.absoluteSense.axisUnitVector drifted`);
+        if (j.kind === 'foot') {
+          check(mates[j.parentLink.value] === j.firmwareName,
+            `${j.firmwareName}: parentLink ${j.parentLink.value} contradicts the CAD mate graph`);
+          check(j.parentLink.status === 'authoritative',
+            `${j.firmwareName}: the femur/foot pairing is measured from the CAD now; parentLink must say authoritative`);
+        } else {
+          const g = j.zeroReferenceDeg.cadRestGeometry;
+          check(!!g, `${j.firmwareName}: a femur must carry zeroReferenceDeg.cadRestGeometry`);
+          if (g) {
+            check(same(g.legDirectionAtRest,
+              asm.referencePose.restPoseGeometry.perJoint[j.firmwareName].restPoseLegDirection),
+              `${j.firmwareName}: cadRestGeometry.legDirectionAtRest drifted`);
+          }
+        }
+      }
+      check(asm.referencePose.restPoseGeometry.allFourLegsParallelToBodyLongAxis === true,
+        'the rest-pose finding is quoted here but the assembly map no longer supports it');
+    }
   }
+}
+
+// --- V0: unresolved bookkeeping ---------------------------------------------
+{
+  const u = map.unresolved ?? [];
+  for (const e of u.filter((x) => x.status === 'resolved')) {
+    check(/^done\b/.test(e.resolvedBy),
+      `unresolved "${e.id}" is marked resolved but resolvedBy does not name what closed it`);
+    check(/RESOLVED/.test(e.reason),
+      `unresolved "${e.id}" is marked resolved but reason does not say so`);
+  }
+  const MUST_STAY_OPEN = ['horn-spline-quantisation', 'parts-installed-where-drawn'];
+  for (const id of MUST_STAY_OPEN) {
+    const e = u.find((x) => x.id === id);
+    check(!!e && e.status === 'open',
+      `"${id}" must stay open; it is a property of a built robot, not of the design`);
+  }
+  const limits = u.find((x) => x.id === 'joint-zero-sign-and-limits');
+  check(!!limits && limits.status === 'partially-resolved',
+    'joint-zero-sign-and-limits must stay partially-resolved: the mechanical travel limits are still unknown');
 }
 
 // --- kinematic graph --------------------------------------------------------

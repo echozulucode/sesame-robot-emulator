@@ -1,0 +1,2301 @@
+{
+  "$schema": "./assembly-map.schema.json",
+  "meta": {
+    "schemaVersion": "1.0.0",
+    "assemblyMapVersion": "1.0.0",
+    "task": "V0 - CAD assembly reconstruction (Phase 1)",
+    "generatedAt": "2026-08-23T00:00:00Z",
+    "generatedBy": "scripts/reconstruct-assembly.py (cad-reconstruction agent)",
+    "regenerateWith": "tools/py-assets/.venv/Scripts/python.exe scripts/reconstruct-assembly.py --step firmware/upstream/hardware/cad/Sesame-ESP32-v122.step --stl-dir firmware/upstream/hardware/printing/stl --repo-root . --out hardware/assembly-map.json",
+    "validateWith": "node scripts/validate-assembly-map.mjs",
+    "epistemicContract": "Every pose-bearing field carries a `poseStatus` or `status` of exactly one of: \"authoritative\" (read out of the STEP exchange file - if this is wrong, the CAD is wrong), \"inferred\" (derived, with a method), or \"guessed\". NOTHING here has been checked against a physical robot; every part carries verified:false. A CAD-authoritative pose is a statement about the DESIGN, never about a particular built machine.",
+    "verificationStatus": "NOT PHYSICALLY VERIFIED. No built Sesame robot exists for this project. What changed in V0 is that the geometry is now read from the design master instead of from drawings; whether a given robot was ASSEMBLED that way is a separate question and stays open.",
+    "toolVersions": {
+      "python": "3.13.13",
+      "numpy": "2.5.2",
+      "trimesh": "4.12.2"
+    },
+    "sources": [
+      {
+        "id": "step",
+        "path": "firmware/upstream/hardware/cad/Sesame-ESP32-v122.step",
+        "sha256": "b6ae8936df90d85d4d6f6b24ea53bd387bd0508da2090fdbc535227d5feb9be0",
+        "bytes": 30977899,
+        "role": "CAD design master: assembly tree, per-instance transforms, B-Rep vertex clouds, servo models"
+      },
+      {
+        "id": "assets-inventory",
+        "path": "hardware/assets-inventory.json",
+        "sha256": "62afe965b053b7b6e92f7a6dbfda01e1ad2aa29a7e2b3bc30a43833b2ee5a6ed",
+        "role": "F5 STL geometry: pivot axes and distal interfaces per part"
+      },
+      {
+        "id": "hardware-map",
+        "path": "hardware/hardware-map.json",
+        "sha256": "6be27b69cab00e72d074405ac9822823143a8fcf19d8e4f373f57f1beb65d659",
+        "role": "F4 firmware boundary: runStandPose commanded angles, used as the anchor that identifies which pose the CAD is drawn in"
+      }
+    ],
+    "consumers": [
+      "V2 - articulated glTF asset pipeline",
+      "V3 - R3F browser robot and joint inspector",
+      "V6 - calibration layer",
+      "hardware/joint-map.json (regenerated from this file)"
+    ]
+  },
+  "units": {
+    "length": "millimetre",
+    "angle": "degree",
+    "stepFileUnit": {
+      "assignedLengthUnit": "inch",
+      "millimetresPerAssignedUnit": 25.4,
+      "geometricRepresentationContexts": 107,
+      "contextsAssigningThatUnit": 107,
+      "note": "Read verbatim from the STEP unit context. Every geometric representation context in the file assigns the same length unit, so a single scale factor converts the whole file."
+    },
+    "correctionToF5": "F5 reported the CAD length unit as millimetre from the presence of SI_UNIT(.MILLI.,.METRE.). That entity is the BASE of the inch conversion, not the unit assigned to the geometry. Every one of the file's geometric representation contexts assigns CONVERSION_BASED_UNIT('inch') whose LENGTH_MEASURE_WITH_UNIT is 25.4 mm, so all STEP coordinates are inches. This does not change F5's conclusion that the STL files are in millimetres - it is exactly why the STL-to-CAD scale factor comes out at exactly 25.4."
+  },
+  "canonicalFrame": {
+    "id": "sesame-robot",
+    "handedness": "right",
+    "upAxis": "+Y",
+    "forwardAxis": "-Z",
+    "rightAxis": "+X",
+    "convention": "glTF/three.js convention: +Y up, -Z forward, +X to the robot's own right. Right-handed: X x Y = Z.",
+    "originDefinition": "The centroid of the four hip rotation axes, at the height of those axes. Pose-independent, and the natural root of the kinematic tree.",
+    "originInCadRootMm": [
+      25.723271,
+      36.8178,
+      2.383228
+    ],
+    "canonicalFromCadRootMm": [
+      [
+        0.0,
+        0.0,
+        -1.0,
+        2.383228
+      ],
+      [
+        0.0,
+        1.0,
+        0.0,
+        -36.8178
+      ],
+      [
+        1.0,
+        0.0,
+        0.0,
+        -25.723271
+      ],
+      [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ]
+    ],
+    "cadRootFrame": {
+      "upAxis": "+Y",
+      "forwardAxis": "-X",
+      "rightAxis": "-Z",
+      "note": "The STEP root assembly frame, in millimetres."
+    },
+    "groundPlaneYMm": -68.65,
+    "groundPlaneNote": "Lowest point reached by any foot IN THE POSE THE CAD IS DRAWN IN. Pose-dependent; not a frame definition.",
+    "axisEvidence": {
+      "up": {
+        "status": "authoritative",
+        "basis": "The three body shells stack along the CAD +Y axis in build order and the four feet hang to -Y, reaching 68.65 mm below the hip plane while the chassis occupies only 22.97 mm above the bottom cover."
+      },
+      "forward": {
+        "status": "authoritative",
+        "basis": "The build guide's physical cue is \"Notch = front. USB port = back.\" The STEP assembly places USB_type_C_smd_12p at the +X_cad end of the chassis and the OLED screen border at the -X_cad end, so -X_cad is the front. Canonical -Z is -X_cad.",
+        "usbPortBbox": {
+          "product": "USB_type_C_smd_12p",
+          "path": "Sesame-ESP32/S2 Mini Board_no_hdr v1:2/Board:1/USB_type_C_smd_12p v1:1",
+          "minMm": [
+            -5.198669,
+            -13.73221,
+            30.575826
+          ],
+          "maxMm": [
+            4.001331,
+            -9.511502,
+            38.525826
+          ]
+        },
+        "oledScreenBbox": {
+          "product": "Body - Screen Border",
+          "path": "Sesame-ESP32/Display_OLED_0.96_128x64 v5:1/Body - Screen Border:1",
+          "minMm": [
+            -12.330619,
+            -0.274594,
+            -34.235275
+          ],
+          "maxMm": [
+            12.369381,
+            13.542308,
+            -29.198182
+          ]
+        }
+      },
+      "right": {
+        "status": "inferred",
+        "basis": "Right = forward x up for a right-handed frame, which makes -Z_cad the robot's right. All four R-named parts sit at negative Z_cad and all four L-named parts at positive Z_cad, so \"R\" and \"L\" in the part names denote the ROBOT'S OWN right and left. That in turn means the labelled top-down drawing is a view from ABOVE: it puts FRONT at the top and the R parts on the image's right, which is where a robot's right side appears when you look down on it from above."
+      }
+    }
+  },
+  "frameMap": {
+    "result": "resolved",
+    "statement": "stlPointMillimetres = 25.4 * cadPartLocalPointInches. Identity rotation, zero translation, scale exactly 25.4. Every one of the eight joint STLs and both body-shell STLs is the part's CAD LOCAL geometry with no repositioning at all.",
+    "map": {
+      "scale": 25.4,
+      "rotation": [
+        [
+          1,
+          0,
+          0
+        ],
+        [
+          0,
+          1,
+          0
+        ],
+        [
+          0,
+          0,
+          1
+        ]
+      ],
+      "translationMm": [
+        9e-06,
+        -0.0,
+        -0.000305
+      ]
+    },
+    "status": "authoritative",
+    "method": "Registration of each product's STEP B-Rep VERTEX_POINT cloud against that part's STL vertex cloud. A tessellator emits every B-Rep vertex into the mesh, so under the correct map the nearest-neighbour distance is float32 noise rather than a fit.",
+    "whyF5CouldNotSeeThis": "F5 compared STL positions against the ASSEMBLY-frame CAD transforms and found one hip pivot matching with the Z sign inverted. That was a real match, but of the wrong pair of things. The eight joint STLs are not exported at assembly positions and are not exported at a \"representative station\" either: each is the CAD body's own LOCAL geometry, and the eight CAD bodies happen to be modelled at only two mirrored stations. The Z-sign inversion F5 saw is the mirror between those two modelling stations, not a frame flip.",
+    "candidateSearch": {
+      "candidateSpace": "48 signed axis permutations (all 24 proper rotations and all 24 improper reflections between coordinate axes) x 2 scale hypotheses (25.4 = inch->millimetre, and 1.0 = the STEP already being in millimetres) x a translation fitted per candidate. 96 candidates in total.",
+      "scoring": "For each candidate and each of the ten parts present in BOTH the STEP and the STL tree, the translation is fitted by multi-start translation-only ICP against that part's real STL vertex cloud. score = mean over parts of the mean distance from each B-Rep vertex to the nearest STL vertex, PLUS the spread of the fitted translations across the ten parts. The second term is what makes the test a test: a frame map is one global map, so a candidate that needs a different translation for each part is not one.",
+      "candidateCount": 96,
+      "winner": {
+        "scale": 25.4,
+        "axisPermutation": [
+          0,
+          1,
+          2
+        ],
+        "axisSigns": [
+          1,
+          1,
+          1
+        ],
+        "meanResidualMm": 0.0008684743033318751,
+        "translationSpreadMm": 0.00265059681751632,
+        "score": 0.003519071120848195,
+        "fittedTranslationMm": [
+          9e-06,
+          -0.0,
+          -0.000305
+        ]
+      },
+      "runnerUp": {
+        "scale": 25.4,
+        "axisPermutation": [
+          0,
+          1,
+          2
+        ],
+        "axisSigns": [
+          1,
+          -1,
+          1
+        ],
+        "meanResidualMm": 4.979602955710261,
+        "translationSpreadMm": 26.255174593402785,
+        "score": 31.234777549113048,
+        "fittedTranslationMm": [
+          -1.499001,
+          34.933094,
+          0.17559
+        ]
+      },
+      "marginRatio": 8875.9,
+      "decisive": true,
+      "topCandidates": [
+        {
+          "scale": 25.4,
+          "axisPermutation": [
+            0,
+            1,
+            2
+          ],
+          "axisSigns": [
+            1,
+            1,
+            1
+          ],
+          "meanResidualMm": 0.0008684743033318751,
+          "translationSpreadMm": 0.00265059681751632,
+          "score": 0.003519071120848195,
+          "fittedTranslationMm": [
+            9e-06,
+            -0.0,
+            -0.000305
+          ]
+        },
+        {
+          "scale": 25.4,
+          "axisPermutation": [
+            0,
+            1,
+            2
+          ],
+          "axisSigns": [
+            1,
+            -1,
+            1
+          ],
+          "meanResidualMm": 4.979602955710261,
+          "translationSpreadMm": 26.255174593402785,
+          "score": 31.234777549113048,
+          "fittedTranslationMm": [
+            -1.499001,
+            34.933094,
+            0.17559
+          ]
+        },
+        {
+          "scale": 25.4,
+          "axisPermutation": [
+            1,
+            0,
+            2
+          ],
+          "axisSigns": [
+            1,
+            -1,
+            1
+          ],
+          "meanResidualMm": 7.616002535737303,
+          "translationSpreadMm": 29.33613875773188,
+          "score": 36.95214129346918,
+          "fittedTranslationMm": [
+            -15.966116,
+            30.60152,
+            -0.00039
+          ]
+        },
+        {
+          "scale": 25.4,
+          "axisPermutation": [
+            1,
+            0,
+            2
+          ],
+          "axisSigns": [
+            -1,
+            -1,
+            1
+          ],
+          "meanResidualMm": 7.794481245870102,
+          "translationSpreadMm": 31.361440497587658,
+          "score": 39.15592174345776,
+          "fittedTranslationMm": [
+            30.882621,
+            30.662957,
+            0.126695
+          ]
+        },
+        {
+          "scale": 25.4,
+          "axisPermutation": [
+            0,
+            1,
+            2
+          ],
+          "axisSigns": [
+            -1,
+            1,
+            1
+          ],
+          "meanResidualMm": 1.427740762729862,
+          "translationSpreadMm": 38.977591668269326,
+          "score": 40.40533243099919,
+          "fittedTranslationMm": [
+            12.680673,
+            0.06821,
+            -0.032705
+          ]
+        },
+        {
+          "scale": 25.4,
+          "axisPermutation": [
+            1,
+            0,
+            2
+          ],
+          "axisSigns": [
+            1,
+            1,
+            1
+          ],
+          "meanResidualMm": 7.5128477965169935,
+          "translationSpreadMm": 39.05343465525687,
+          "score": 46.566282451773866,
+          "fittedTranslationMm": [
+            -15.96797,
+            17.058233,
+            0.18081
+          ]
+        }
+      ],
+      "perPartResiduals": [
+        {
+          "partId": "bottom-cover",
+          "cadProduct": "Bottom-Cover",
+          "brepVertices": 118,
+          "stlVertices": 5106,
+          "meanResidualMm": 0.003255774,
+          "maxResidualMm": 0.348490256
+        },
+        {
+          "partId": "internal-frame",
+          "cadProduct": "Internal-Frame",
+          "brepVertices": 444,
+          "stlVertices": 23340,
+          "meanResidualMm": 0.000473404,
+          "maxResidualMm": 0.043146772
+        },
+        {
+          "partId": "L1",
+          "cadProduct": "femur-joint-L1",
+          "brepVertices": 211,
+          "stlVertices": 21558,
+          "meanResidualMm": 0.000660061,
+          "maxResidualMm": 0.075204851
+        },
+        {
+          "partId": "L2",
+          "cadProduct": "femur-joint-L2",
+          "brepVertices": 237,
+          "stlVertices": 22998,
+          "meanResidualMm": 0.000623763,
+          "maxResidualMm": 0.07581457
+        },
+        {
+          "partId": "R1",
+          "cadProduct": "femur-joint-R1",
+          "brepVertices": 237,
+          "stlVertices": 22782,
+          "meanResidualMm": 0.000623816,
+          "maxResidualMm": 0.07581457
+        },
+        {
+          "partId": "R2",
+          "cadProduct": "femurjoint-R2",
+          "brepVertices": 263,
+          "stlVertices": 22734,
+          "meanResidualMm": 0.000589862,
+          "maxResidualMm": 0.075204851
+        },
+        {
+          "partId": "L3",
+          "cadProduct": "foot-joint-L3",
+          "brepVertices": 208,
+          "stlVertices": 6156,
+          "meanResidualMm": 0.000305036,
+          "maxResidualMm": 0.000308695
+        },
+        {
+          "partId": "L4",
+          "cadProduct": "foot-joint-L4",
+          "brepVertices": 190,
+          "stlVertices": 5478,
+          "meanResidualMm": 0.00030493,
+          "maxResidualMm": 0.000308657
+        },
+        {
+          "partId": "R3",
+          "cadProduct": "foot-joint-R3",
+          "brepVertices": 230,
+          "stlVertices": 6348,
+          "meanResidualMm": 0.000305017,
+          "maxResidualMm": 0.000308657
+        },
+        {
+          "partId": "R4",
+          "cadProduct": "foot-joint-R4",
+          "brepVertices": 212,
+          "stlVertices": 5670,
+          "meanResidualMm": 0.000305466,
+          "maxResidualMm": 0.000308882
+        }
+      ]
+    },
+    "identityIsTheWinner": true
+  },
+  "referencePose": {
+    "identifiedAs": "runStandPose",
+    "status": "inferred",
+    "commandedDeg": {
+      "R1": 135,
+      "R2": 45,
+      "L1": 45,
+      "L2": 135,
+      "R3": 180,
+      "R4": 0,
+      "L3": 0,
+      "L4": 180
+    },
+    "evidence": [
+      "All four hip servo horns are rotated exactly +/-45.000 deg about the vertical from their case's as-modelled neutral, and all four feet are exactly vertical (each foot's 58.420 mm long dimension lies along the canonical Y axis to machine precision).",
+      "In F6's body-relative convention that is +45 deg on every hip and +90 deg on every foot, which is runStandPose and nothing else in the 395-step corpus.",
+      "Solving alpha = s*(commandedDeg - 90) + d over the servos whose horn occurrence exists gives a unique exact solution with d = 0, which is a test of the anchor rather than an assumption: any other pose assignment leaves a non-zero offset."
+    ],
+    "hipRuleFit": {
+      "samples": 4,
+      "slope": -1.0,
+      "offsetDeg": 0.0,
+      "maxResidualDeg": 0.0,
+      "determined": true
+    },
+    "kneeRuleFit": {
+      "samples": 2,
+      "slope": 1.0,
+      "offsetDeg": 0.0,
+      "maxResidualDeg": 0.0,
+      "determined": true
+    },
+    "restPoseGeometry": {
+      "status": "inferred",
+      "allFourLegsParallelToBodyLongAxis": true,
+      "perJoint": {
+        "R1": {
+          "standPoseKneeAxis": [
+            -0.707107,
+            0.0,
+            -0.707107
+          ],
+          "standPoseLegDirection": [
+            0.707107,
+            0.0,
+            -0.707107
+          ],
+          "restPoseKneeAxis": [
+            -1.0,
+            0.0,
+            0.0
+          ],
+          "restPoseLegDirection": [
+            0.0,
+            0.0,
+            -1.0
+          ],
+          "restLegAngleFromBodyLongAxisDeg": 0.0,
+          "restLegPointsToward": "front",
+          "hipIsAt": "front"
+        },
+        "R2": {
+          "standPoseKneeAxis": [
+            -0.707107,
+            0.0,
+            0.707107
+          ],
+          "standPoseLegDirection": [
+            0.707107,
+            0.0,
+            0.707107
+          ],
+          "restPoseKneeAxis": [
+            -1.0,
+            0.0,
+            0.0
+          ],
+          "restPoseLegDirection": [
+            0.0,
+            0.0,
+            1.0
+          ],
+          "restLegAngleFromBodyLongAxisDeg": 0.0,
+          "restLegPointsToward": "rear",
+          "hipIsAt": "rear"
+        },
+        "L1": {
+          "standPoseKneeAxis": [
+            0.707107,
+            0.0,
+            -0.707107
+          ],
+          "standPoseLegDirection": [
+            -0.707107,
+            0.0,
+            -0.707107
+          ],
+          "restPoseKneeAxis": [
+            1.0,
+            0.0,
+            0.0
+          ],
+          "restPoseLegDirection": [
+            0.0,
+            0.0,
+            -1.0
+          ],
+          "restLegAngleFromBodyLongAxisDeg": 0.0,
+          "restLegPointsToward": "front",
+          "hipIsAt": "front"
+        },
+        "L2": {
+          "standPoseKneeAxis": [
+            0.707107,
+            0.0,
+            0.707107
+          ],
+          "standPoseLegDirection": [
+            -0.707107,
+            0.0,
+            0.707107
+          ],
+          "restPoseKneeAxis": [
+            1.0,
+            0.0,
+            0.0
+          ],
+          "restPoseLegDirection": [
+            0.0,
+            0.0,
+            1.0
+          ],
+          "restLegAngleFromBodyLongAxisDeg": 0.0,
+          "restLegPointsToward": "rear",
+          "hipIsAt": "rear"
+        }
+      },
+      "finding": "At the commanded 90 deg datum every hip horn returns to its case neutral, and all four legs then point exactly along the body's long axis - front legs forward, rear legs rearward, 0.000 deg from the fore/aft axis. This settles the contradiction F6 recorded: the build guide's prose (\"at Rest the hip joint should move perfectly parallel to the body\") describes the leg correctly, and the lateral 90 deg rays in sesame-angle-guide.png are not the leg direction.",
+      "dependsOn": "Two things, both stated rather than hidden: that the CAD pose is runStandPose (evidenced above), and that a 180-degree servo moves 1 degree of shaft per commanded degree over 0-180 (the BOM specifies 180-degree MG90S units and the firmware clamps to 0-180). The horn-at-neutral offset is NOT assumed - it is solved for, and comes out at exactly zero."
+    }
+  },
+  "parts": [
+    {
+      "id": "R1",
+      "role": "femur",
+      "firmwareJointName": "R1",
+      "stlFile": "R1-v117.stl",
+      "stlPath": "firmware/upstream/hardware/printing/stl/R1-v117.stl",
+      "stlSha256": "443f956016ad416699d8d5e56ab2fb0e36b10d42f02ff47ea02ae5986180e871",
+      "cadProduct": "femur-joint-R1",
+      "cadOccurrencePath": "Sesame-ESP32/femur-joint-R1:1",
+      "poseStatus": "authoritative",
+      "poseMethod": "STEP NEXT_ASSEMBLY_USAGE_OCCURRENCE / CONTEXT_DEPENDENT_SHAPE_REPRESENTATION / ITEM_DEFINED_TRANSFORMATION chain, composed into the root frame, converted inch->mm, then mapped into the canonical frame. The STL vertices are the same points as the STEP B-Rep vertices under the identity frame map, so this pose applies to the STL mesh unchanged.",
+      "poseFromStlMm": [
+        [
+          -0.707107,
+          0.0,
+          0.707107,
+          10.201799
+        ],
+        [
+          0.0,
+          1.0,
+          0.0,
+          -36.8178
+        ],
+        [
+          -0.707107,
+          0.0,
+          -0.707107,
+          -6.847569
+        ],
+        [
+          0.0,
+          0.0,
+          0.0,
+          1.0
+        ]
+      ],
+      "originMm": [
+        10.201799,
+        -36.8178,
+        -6.847569
+      ],
+      "xAxis": [
+        -0.707107,
+        0.0,
+        -0.707107
+      ],
+      "yAxis": [
+        0.0,
+        1.0,
+        0.0
+      ],
+      "zAxis": [
+        0.707107,
+        0.0,
+        -0.707107
+      ],
+      "placedBoundingBoxMm": {
+        "min": [
+          19.058702,
+          -27.940043,
+          -47.901287
+        ],
+        "max": [
+          65.265748,
+          2.539958,
+          -11.154809
+        ]
+      },
+      "verified": false
+    },
+    {
+      "id": "R2",
+      "role": "femur",
+      "firmwareJointName": "R2",
+      "stlFile": "R2-v117.stl",
+      "stlPath": "firmware/upstream/hardware/printing/stl/R2-v117.stl",
+      "stlSha256": "fab2770d0d7f1384c4888e2b3a25cd7a6729c2b4230894b4771a177b73c6452c",
+      "cadProduct": "femurjoint-R2",
+      "cadOccurrencePath": "Sesame-ESP32/femurjoint-R2:2",
+      "poseStatus": "authoritative",
+      "poseMethod": "STEP NEXT_ASSEMBLY_USAGE_OCCURRENCE / CONTEXT_DEPENDENT_SHAPE_REPRESENTATION / ITEM_DEFINED_TRANSFORMATION chain, composed into the root frame, converted inch->mm, then mapped into the canonical frame. The STL vertices are the same points as the STEP B-Rep vertices under the identity frame map, so this pose applies to the STL mesh unchanged.",
+      "poseFromStlMm": [
+        [
+          -0.707107,
+          0.0,
+          -0.707107,
+          10.201799
+        ],
+        [
+          0.0,
+          1.0,
+          0.0,
+          -36.8178
+        ],
+        [
+          0.707107,
+          0.0,
+          -0.707107,
+          6.847569
+        ],
+        [
+          0.0,
+          0.0,
+          0.0,
+          1.0
+        ]
+      ],
+      "originMm": [
+        10.201799,
+        -36.8178,
+        6.847569
+      ],
+      "xAxis": [
+        -0.707107,
+        0.0,
+        0.707107
+      ],
+      "yAxis": [
+        0.0,
+        1.0,
+        0.0
+      ],
+      "zAxis": [
+        -0.707107,
+        0.0,
+        -0.707107
+      ],
+      "placedBoundingBoxMm": {
+        "min": [
+          19.058702,
+          -27.940043,
+          11.154809
+        ],
+        "max": [
+          65.265748,
+          2.539958,
+          47.901287
+        ]
+      },
+      "verified": false
+    },
+    {
+      "id": "L1",
+      "role": "femur",
+      "firmwareJointName": "L1",
+      "stlFile": "L1-v117.stl",
+      "stlPath": "firmware/upstream/hardware/printing/stl/L1-v117.stl",
+      "stlSha256": "081896568cc9776393c038d05ecc8caf01090c6971efebe799d064def4c92558",
+      "cadProduct": "femur-joint-L1",
+      "cadOccurrencePath": "Sesame-ESP32/femur-joint-L1:1",
+      "poseStatus": "authoritative",
+      "poseMethod": "STEP NEXT_ASSEMBLY_USAGE_OCCURRENCE / CONTEXT_DEPENDENT_SHAPE_REPRESENTATION / ITEM_DEFINED_TRANSFORMATION chain, composed into the root frame, converted inch->mm, then mapped into the canonical frame. The STL vertices are the same points as the STEP B-Rep vertices under the identity frame map, so this pose applies to the STL mesh unchanged.",
+      "poseFromStlMm": [
+        [
+          0.707107,
+          0.0,
+          0.707107,
+          -10.201799
+        ],
+        [
+          0.0,
+          1.0,
+          0.0,
+          -36.8178
+        ],
+        [
+          -0.707107,
+          0.0,
+          0.707107,
+          -6.847569
+        ],
+        [
+          0.0,
+          0.0,
+          0.0,
+          1.0
+        ]
+      ],
+      "originMm": [
+        -10.201799,
+        -36.8178,
+        -6.847569
+      ],
+      "xAxis": [
+        0.707107,
+        0.0,
+        -0.707107
+      ],
+      "yAxis": [
+        0.0,
+        1.0,
+        0.0
+      ],
+      "zAxis": [
+        0.707107,
+        0.0,
+        0.707107
+      ],
+      "placedBoundingBoxMm": {
+        "min": [
+          -65.265748,
+          -27.940043,
+          -47.901287
+        ],
+        "max": [
+          -19.058702,
+          2.539958,
+          -11.154809
+        ]
+      },
+      "verified": false
+    },
+    {
+      "id": "L2",
+      "role": "femur",
+      "firmwareJointName": "L2",
+      "stlFile": "L2-v117.stl",
+      "stlPath": "firmware/upstream/hardware/printing/stl/L2-v117.stl",
+      "stlSha256": "4e47eef40bf523aa0d7b0ac285f3086b3e6c5ccd347525f5c93bbf0c5bcd1fbf",
+      "cadProduct": "femur-joint-L2",
+      "cadOccurrencePath": "Sesame-ESP32/femur-joint-L2:2",
+      "poseStatus": "authoritative",
+      "poseMethod": "STEP NEXT_ASSEMBLY_USAGE_OCCURRENCE / CONTEXT_DEPENDENT_SHAPE_REPRESENTATION / ITEM_DEFINED_TRANSFORMATION chain, composed into the root frame, converted inch->mm, then mapped into the canonical frame. The STL vertices are the same points as the STEP B-Rep vertices under the identity frame map, so this pose applies to the STL mesh unchanged.",
+      "poseFromStlMm": [
+        [
+          0.707107,
+          0.0,
+          -0.707107,
+          -10.201799
+        ],
+        [
+          0.0,
+          1.0,
+          0.0,
+          -36.8178
+        ],
+        [
+          0.707107,
+          0.0,
+          0.707107,
+          6.847569
+        ],
+        [
+          0.0,
+          0.0,
+          0.0,
+          1.0
+        ]
+      ],
+      "originMm": [
+        -10.201799,
+        -36.8178,
+        6.847569
+      ],
+      "xAxis": [
+        0.707107,
+        0.0,
+        0.707107
+      ],
+      "yAxis": [
+        0.0,
+        1.0,
+        0.0
+      ],
+      "zAxis": [
+        -0.707107,
+        0.0,
+        0.707107
+      ],
+      "placedBoundingBoxMm": {
+        "min": [
+          -65.265748,
+          -27.940043,
+          11.154809
+        ],
+        "max": [
+          -19.058702,
+          2.539958,
+          47.901287
+        ]
+      },
+      "verified": false
+    },
+    {
+      "id": "R3",
+      "role": "foot",
+      "firmwareJointName": "R3",
+      "stlFile": "R3-v117.stl",
+      "stlPath": "firmware/upstream/hardware/printing/stl/R3-v117.stl",
+      "stlSha256": "c2c35b4c948849878649d99e512af6702b5fcbbd2b30578bbec87ab15b8ec99e",
+      "cadProduct": "foot-joint-R3",
+      "cadOccurrencePath": "Sesame-ESP32/foot-joint-R3:1",
+      "poseStatus": "authoritative",
+      "poseMethod": "STEP NEXT_ASSEMBLY_USAGE_OCCURRENCE / CONTEXT_DEPENDENT_SHAPE_REPRESENTATION / ITEM_DEFINED_TRANSFORMATION chain, composed into the root frame, converted inch->mm, then mapped into the canonical frame. The STL vertices are the same points as the STEP B-Rep vertices under the identity frame map, so this pose applies to the STL mesh unchanged.",
+      "poseFromStlMm": [
+        [
+          -0.707107,
+          0.707107,
+          0.0,
+          41.408013
+        ],
+        [
+          0.0,
+          0.0,
+          -1.0,
+          38.444473
+        ],
+        [
+          -0.707107,
+          -0.707107,
+          0.0,
+          -38.742163
+        ],
+        [
+          0.0,
+          0.0,
+          0.0,
+          1.0
+        ]
+      ],
+      "originMm": [
+        41.408013,
+        38.444473,
+        -38.742163
+      ],
+      "xAxis": [
+        -0.707107,
+        0.0,
+        -0.707107
+      ],
+      "yAxis": [
+        0.707107,
+        0.0,
+        -0.707107
+      ],
+      "zAxis": [
+        0.0,
+        -1.0,
+        0.0
+      ],
+      "placedBoundingBoxMm": {
+        "min": [
+          36.583299,
+          -68.462296,
+          -65.102177
+        ],
+        "max": [
+          55.711245,
+          -10.042294,
+          -45.974231
+        ]
+      },
+      "verified": false
+    },
+    {
+      "id": "R4",
+      "role": "foot",
+      "firmwareJointName": "R4",
+      "stlFile": "R4-v117.stl",
+      "stlPath": "firmware/upstream/hardware/printing/stl/R4-v117.stl",
+      "stlSha256": "131348a19491edad32f29d7a64109fdfadc3a03e01feedbf08dc1769e050938a",
+      "cadProduct": "foot-joint-R4",
+      "cadOccurrencePath": "Sesame-ESP32/foot-joint-R4:2",
+      "poseStatus": "authoritative",
+      "poseMethod": "STEP NEXT_ASSEMBLY_USAGE_OCCURRENCE / CONTEXT_DEPENDENT_SHAPE_REPRESENTATION / ITEM_DEFINED_TRANSFORMATION chain, composed into the root frame, converted inch->mm, then mapped into the canonical frame. The STL vertices are the same points as the STEP B-Rep vertices under the identity frame map, so this pose applies to the STL mesh unchanged.",
+      "poseFromStlMm": [
+        [
+          -0.707107,
+          0.707107,
+          0.0,
+          41.752742
+        ],
+        [
+          0.0,
+          0.0,
+          1.0,
+          38.256723
+        ],
+        [
+          0.707107,
+          0.707107,
+          0.0,
+          38.397434
+        ],
+        [
+          0.0,
+          0.0,
+          0.0,
+          1.0
+        ]
+      ],
+      "originMm": [
+        41.752742,
+        38.256723,
+        38.397434
+      ],
+      "xAxis": [
+        -0.707107,
+        0.0,
+        0.707107
+      ],
+      "yAxis": [
+        0.707107,
+        0.0,
+        0.707107
+      ],
+      "zAxis": [
+        0.0,
+        1.0,
+        0.0
+      ],
+      "placedBoundingBoxMm": {
+        "min": [
+          36.928028,
+          -68.650046,
+          45.629503
+        ],
+        "max": [
+          56.055974,
+          -10.230044,
+          64.757449
+        ]
+      },
+      "verified": false
+    },
+    {
+      "id": "L3",
+      "role": "foot",
+      "firmwareJointName": "L3",
+      "stlFile": "L3-v117.stl",
+      "stlPath": "firmware/upstream/hardware/printing/stl/L3-v117.stl",
+      "stlSha256": "136b0f28814629c654a45da1ebed93f496399c0d97007c6c02e1df4422be56a3",
+      "cadProduct": "foot-joint-L3",
+      "cadOccurrencePath": "Sesame-ESP32/foot-joint-L3:1",
+      "poseStatus": "authoritative",
+      "poseMethod": "STEP NEXT_ASSEMBLY_USAGE_OCCURRENCE / CONTEXT_DEPENDENT_SHAPE_REPRESENTATION / ITEM_DEFINED_TRANSFORMATION chain, composed into the root frame, converted inch->mm, then mapped into the canonical frame. The STL vertices are the same points as the STEP B-Rep vertices under the identity frame map, so this pose applies to the STL mesh unchanged.",
+      "poseFromStlMm": [
+        [
+          0.707107,
+          -0.707107,
+          0.0,
+          -41.53081
+        ],
+        [
+          0.0,
+          0.0,
+          1.0,
+          38.444473
+        ],
+        [
+          -0.707107,
+          -0.707107,
+          0.0,
+          -38.619366
+        ],
+        [
+          0.0,
+          0.0,
+          0.0,
+          1.0
+        ]
+      ],
+      "originMm": [
+        -41.53081,
+        38.444473,
+        -38.619366
+      ],
+      "xAxis": [
+        0.707107,
+        0.0,
+        -0.707107
+      ],
+      "yAxis": [
+        -0.707107,
+        0.0,
+        -0.707107
+      ],
+      "zAxis": [
+        0.0,
+        1.0,
+        0.0
+      ],
+      "placedBoundingBoxMm": {
+        "min": [
+          -55.834041,
+          -68.462296,
+          -64.979381
+        ],
+        "max": [
+          -36.706095,
+          -10.042294,
+          -45.851435
+        ]
+      },
+      "verified": false
+    },
+    {
+      "id": "L4",
+      "role": "foot",
+      "firmwareJointName": "L4",
+      "stlFile": "L4-v117.stl",
+      "stlPath": "firmware/upstream/hardware/printing/stl/L4-v117.stl",
+      "stlSha256": "731819f13cd34efb4ab1b9121e9fae835a463ae11f6689670f7800113ec7b470",
+      "cadProduct": "foot-joint-L4",
+      "cadOccurrencePath": "Sesame-ESP32/foot-joint-L4:2",
+      "poseStatus": "authoritative",
+      "poseMethod": "STEP NEXT_ASSEMBLY_USAGE_OCCURRENCE / CONTEXT_DEPENDENT_SHAPE_REPRESENTATION / ITEM_DEFINED_TRANSFORMATION chain, composed into the root frame, converted inch->mm, then mapped into the canonical frame. The STL vertices are the same points as the STEP B-Rep vertices under the identity frame map, so this pose applies to the STL mesh unchanged.",
+      "poseFromStlMm": [
+        [
+          0.707107,
+          -0.707107,
+          0.0,
+          -41.752742
+        ],
+        [
+          0.0,
+          0.0,
+          -1.0,
+          38.256723
+        ],
+        [
+          0.707107,
+          0.707107,
+          0.0,
+          38.397434
+        ],
+        [
+          0.0,
+          0.0,
+          0.0,
+          1.0
+        ]
+      ],
+      "originMm": [
+        -41.752742,
+        38.256723,
+        38.397434
+      ],
+      "xAxis": [
+        0.707107,
+        0.0,
+        0.707107
+      ],
+      "yAxis": [
+        -0.707107,
+        0.0,
+        0.707107
+      ],
+      "zAxis": [
+        0.0,
+        -1.0,
+        0.0
+      ],
+      "placedBoundingBoxMm": {
+        "min": [
+          -56.055974,
+          -68.650046,
+          45.629503
+        ],
+        "max": [
+          -36.928028,
+          -10.230044,
+          64.757449
+        ]
+      },
+      "verified": false
+    },
+    {
+      "id": "internal-frame",
+      "role": "frame",
+      "firmwareJointName": null,
+      "stlFile": "Internal-Frame-v121.stl",
+      "stlPath": "firmware/upstream/hardware/printing/stl/Internal-Frame-v121.stl",
+      "stlSha256": "6df1f1f0fc60da4498de36412be317fc953dc52c33a9933733e2c967c200c916",
+      "cadProduct": "Internal-Frame",
+      "cadOccurrencePath": "Sesame-ESP32/Internal-Frame:1",
+      "poseStatus": "authoritative",
+      "poseMethod": "STEP NEXT_ASSEMBLY_USAGE_OCCURRENCE / CONTEXT_DEPENDENT_SHAPE_REPRESENTATION / ITEM_DEFINED_TRANSFORMATION chain, composed into the root frame, converted inch->mm, then mapped into the canonical frame. The STL vertices are the same points as the STEP B-Rep vertices under the identity frame map, so this pose applies to the STL mesh unchanged.",
+      "poseFromStlMm": [
+        [
+          0.0,
+          0.0,
+          -1.0,
+          2.383228
+        ],
+        [
+          0.0,
+          1.0,
+          0.0,
+          -36.8178
+        ],
+        [
+          1.0,
+          0.0,
+          0.0,
+          -25.723271
+        ],
+        [
+          0.0,
+          0.0,
+          0.0,
+          1.0
+        ]
+      ],
+      "originMm": [
+        2.383228,
+        -36.8178,
+        -25.723271
+      ],
+      "xAxis": [
+        0.0,
+        0.0,
+        1.0
+      ],
+      "yAxis": [
+        0.0,
+        1.0,
+        0.0
+      ],
+      "zAxis": [
+        -1.0,
+        0.0,
+        0.0
+      ],
+      "placedBoundingBoxMm": {
+        "min": [
+          -34.040002,
+          -30.549783,
+          -39.316104
+        ],
+        "max": [
+          34.04,
+          -14.850044,
+          39.909282
+        ]
+      },
+      "verified": false
+    },
+    {
+      "id": "bottom-cover",
+      "role": "cover",
+      "firmwareJointName": null,
+      "stlFile": "Bottom-Cover-v121.stl",
+      "stlPath": "firmware/upstream/hardware/printing/stl/Bottom-Cover-v121.stl",
+      "stlSha256": "6c2cce125cea714c0e710ee904b82a9e51f02c815f523cc73b0b3b949d96f0c7",
+      "cadProduct": "Bottom-Cover",
+      "cadOccurrencePath": "Sesame-ESP32/Bottom-Cover:1",
+      "poseStatus": "authoritative",
+      "poseMethod": "STEP NEXT_ASSEMBLY_USAGE_OCCURRENCE / CONTEXT_DEPENDENT_SHAPE_REPRESENTATION / ITEM_DEFINED_TRANSFORMATION chain, composed into the root frame, converted inch->mm, then mapped into the canonical frame. The STL vertices are the same points as the STEP B-Rep vertices under the identity frame map, so this pose applies to the STL mesh unchanged.",
+      "poseFromStlMm": [
+        [
+          0.0,
+          0.0,
+          -1.0,
+          2.383228
+        ],
+        [
+          0.0,
+          1.0,
+          0.0,
+          -36.8178
+        ],
+        [
+          1.0,
+          0.0,
+          0.0,
+          -25.723271
+        ],
+        [
+          0.0,
+          0.0,
+          0.0,
+          1.0
+        ]
+      ],
+      "originMm": [
+        2.383228,
+        -36.8178,
+        -25.723271
+      ],
+      "xAxis": [
+        0.0,
+        0.0,
+        1.0
+      ],
+      "yAxis": [
+        0.0,
+        1.0,
+        0.0
+      ],
+      "zAxis": [
+        -1.0,
+        0.0,
+        0.0
+      ],
+      "placedBoundingBoxMm": {
+        "min": [
+          -27.121575,
+          -37.819783,
+          -39.316104
+        ],
+        "max": [
+          27.121576,
+          -30.549783,
+          39.909282
+        ]
+      },
+      "verified": false
+    },
+    {
+      "id": "top-cover-cat",
+      "role": "cover",
+      "firmwareJointName": null,
+      "stlFile": "Top-Cover-Cat-v100.stl",
+      "stlPath": "firmware/upstream/hardware/printing/stl/top-covers/Top-Cover-Cat-v100.stl",
+      "stlSha256": "a39dd37f19252db9206afe08d3284c33a3f2fdeea7cfc4ebb1731aae4a231296",
+      "cadProduct": null,
+      "cadOccurrencePath": null,
+      "poseStatus": "inferred",
+      "poseMethod": "NOT IN THE CAD ASSEMBLY. The STEP file contains no top cover. The pose is taken as the identity, because (a) the two body shells that ARE in the CAD, Internal-Frame and Bottom-Cover, both carry the identity transform, and (b) F5's stacking test showed the top covers meet the internal frame edge-to-edge in the same export frame with zero gap and zero overlap. Verified here: see assemblyChecks.bodyShellStack.",
+      "poseFromStlMm": [
+        [
+          0.0,
+          0.0,
+          -1.0,
+          2.383228
+        ],
+        [
+          0.0,
+          1.0,
+          0.0,
+          -36.8178
+        ],
+        [
+          1.0,
+          0.0,
+          0.0,
+          -25.723271
+        ],
+        [
+          0.0,
+          0.0,
+          0.0,
+          1.0
+        ]
+      ],
+      "originMm": [
+        2.383228,
+        -36.8178,
+        -25.723271
+      ],
+      "xAxis": [
+        0.0,
+        0.0,
+        1.0
+      ],
+      "yAxis": [
+        0.0,
+        1.0,
+        0.0
+      ],
+      "zAxis": [
+        -1.0,
+        0.0,
+        0.0
+      ],
+      "placedBoundingBoxMm": {
+        "min": [
+          -18.799649,
+          -14.850044,
+          -39.316104
+        ],
+        "max": [
+          18.799648,
+          28.247485,
+          39.909282
+        ]
+      },
+      "verified": false
+    },
+    {
+      "id": "top-cover-enclosed",
+      "role": "cover",
+      "firmwareJointName": null,
+      "stlFile": "Top-Cover-Enclosed-v117.stl",
+      "stlPath": "firmware/upstream/hardware/printing/stl/top-covers/Top-Cover-Enclosed-v117.stl",
+      "stlSha256": "07bf63aefab29fdde65b706b0b5fd62e283c62c8381022089598e00f32870a26",
+      "cadProduct": null,
+      "cadOccurrencePath": null,
+      "poseStatus": "inferred",
+      "poseMethod": "NOT IN THE CAD ASSEMBLY. The STEP file contains no top cover. The pose is taken as the identity, because (a) the two body shells that ARE in the CAD, Internal-Frame and Bottom-Cover, both carry the identity transform, and (b) F5's stacking test showed the top covers meet the internal frame edge-to-edge in the same export frame with zero gap and zero overlap. Verified here: see assemblyChecks.bodyShellStack.",
+      "poseFromStlMm": [
+        [
+          0.0,
+          0.0,
+          -1.0,
+          2.383228
+        ],
+        [
+          0.0,
+          1.0,
+          0.0,
+          -36.8178
+        ],
+        [
+          1.0,
+          0.0,
+          0.0,
+          -25.723271
+        ],
+        [
+          0.0,
+          0.0,
+          0.0,
+          1.0
+        ]
+      ],
+      "originMm": [
+        2.383228,
+        -36.8178,
+        -25.723271
+      ],
+      "xAxis": [
+        0.0,
+        0.0,
+        1.0
+      ],
+      "yAxis": [
+        0.0,
+        1.0,
+        0.0
+      ],
+      "zAxis": [
+        -1.0,
+        0.0,
+        0.0
+      ],
+      "placedBoundingBoxMm": {
+        "min": [
+          -18.692,
+          -14.850044,
+          -39.316104
+        ],
+        "max": [
+          18.692001,
+          23.337809,
+          39.909282
+        ]
+      },
+      "verified": false
+    },
+    {
+      "id": "top-cover-no-ears",
+      "role": "cover",
+      "firmwareJointName": null,
+      "stlFile": "Top-Cover-No-Ears-v100.stl",
+      "stlPath": "firmware/upstream/hardware/printing/stl/top-covers/Top-Cover-No-Ears-v100.stl",
+      "stlSha256": "70a7235d26dc84995b86ff701ae40cdaa83eedf0592de8027239995f595c7f16",
+      "cadProduct": null,
+      "cadOccurrencePath": null,
+      "poseStatus": "inferred",
+      "poseMethod": "NOT IN THE CAD ASSEMBLY. The STEP file contains no top cover. The pose is taken as the identity, because (a) the two body shells that ARE in the CAD, Internal-Frame and Bottom-Cover, both carry the identity transform, and (b) F5's stacking test showed the top covers meet the internal frame edge-to-edge in the same export frame with zero gap and zero overlap. Verified here: see assemblyChecks.bodyShellStack.",
+      "poseFromStlMm": [
+        [
+          0.0,
+          0.0,
+          -1.0,
+          2.383228
+        ],
+        [
+          0.0,
+          1.0,
+          0.0,
+          -36.8178
+        ],
+        [
+          1.0,
+          0.0,
+          0.0,
+          -25.723271
+        ],
+        [
+          0.0,
+          0.0,
+          0.0,
+          1.0
+        ]
+      ],
+      "originMm": [
+        2.383228,
+        -36.8178,
+        -25.723271
+      ],
+      "xAxis": [
+        0.0,
+        0.0,
+        1.0
+      ],
+      "yAxis": [
+        0.0,
+        1.0,
+        0.0
+      ],
+      "zAxis": [
+        -1.0,
+        0.0,
+        0.0
+      ],
+      "placedBoundingBoxMm": {
+        "min": [
+          -18.692,
+          -14.850044,
+          -39.316104
+        ],
+        "max": [
+          18.692001,
+          18.804957,
+          39.909282
+        ]
+      },
+      "verified": false
+    }
+  ],
+  "servos": [
+    {
+      "occurrencePath": "Sesame-ESP32/SG90 - Micro Servo 9g - Tower Pro v4:1",
+      "drivesJoint": "L1",
+      "axisToJointAxisDistanceMm": 4e-05,
+      "shaftOriginMm": [
+        -25.4,
+        -4.3e-05,
+        -24.2
+      ],
+      "shaftAxis": [
+        0.0,
+        1.0,
+        0.0
+      ],
+      "caseOriginMm": [
+        -25.4,
+        -20.000043,
+        -19.05
+      ],
+      "hornAngleFromCaseNeutralDeg": 45.0,
+      "commandedDegAtThisPose": 45
+    },
+    {
+      "occurrencePath": "Sesame-ESP32/SG90 - Micro Servo 9g - Tower Pro v4:2",
+      "drivesJoint": "R1",
+      "axisToJointAxisDistanceMm": 4e-05,
+      "shaftOriginMm": [
+        25.4,
+        -4.3e-05,
+        -24.2
+      ],
+      "shaftAxis": [
+        0.0,
+        1.0,
+        0.0
+      ],
+      "caseOriginMm": [
+        25.4,
+        -20.000043,
+        -19.05
+      ],
+      "hornAngleFromCaseNeutralDeg": -45.0,
+      "commandedDegAtThisPose": 135
+    },
+    {
+      "occurrencePath": "Sesame-ESP32/SG90 - Micro Servo 9g - Tower Pro v4:3",
+      "drivesJoint": "R2",
+      "axisToJointAxisDistanceMm": 4e-05,
+      "shaftOriginMm": [
+        25.4,
+        -4.3e-05,
+        24.2
+      ],
+      "shaftAxis": [
+        0.0,
+        1.0,
+        0.0
+      ],
+      "caseOriginMm": [
+        25.4,
+        -20.000043,
+        19.05
+      ],
+      "hornAngleFromCaseNeutralDeg": 45.0,
+      "commandedDegAtThisPose": 45
+    },
+    {
+      "occurrencePath": "Sesame-ESP32/SG90 - Micro Servo 9g - Tower Pro v4:4",
+      "drivesJoint": "L2",
+      "axisToJointAxisDistanceMm": 4e-05,
+      "shaftOriginMm": [
+        -25.4,
+        -4.3e-05,
+        24.2
+      ],
+      "shaftAxis": [
+        0.0,
+        1.0,
+        0.0
+      ],
+      "caseOriginMm": [
+        -25.4,
+        -20.000043,
+        19.05
+      ],
+      "hornAngleFromCaseNeutralDeg": -45.0,
+      "commandedDegAtThisPose": 135
+    },
+    {
+      "occurrencePath": "Sesame-ESP32/SG90 - Micro Servo 9g - Tower Pro v4:6",
+      "drivesJoint": "R4",
+      "axisToJointAxisDistanceMm": 5.5e-05,
+      "shaftOriginMm": [
+        60.360133,
+        -21.590043,
+        41.325344
+      ],
+      "shaftAxis": [
+        0.707107,
+        0.0,
+        -0.707107
+      ],
+      "caseOriginMm": [
+        46.217997,
+        -26.740043,
+        55.467479
+      ],
+      "hornAngleFromCaseNeutralDeg": -90.0,
+      "commandedDegAtThisPose": 0
+    },
+    {
+      "occurrencePath": "Sesame-ESP32/SG90 - Micro Servo 9g - Tower Pro v4:7",
+      "drivesJoint": "L4",
+      "axisToJointAxisDistanceMm": 5.5e-05,
+      "shaftOriginMm": [
+        -60.360133,
+        -21.590043,
+        41.325344
+      ],
+      "shaftAxis": [
+        -0.707107,
+        0.0,
+        -0.707107
+      ],
+      "caseOriginMm": [
+        -46.217997,
+        -26.740043,
+        55.467479
+      ],
+      "hornAngleFromCaseNeutralDeg": 90.0,
+      "commandedDegAtThisPose": 180
+    }
+  ],
+  "joints": [
+    {
+      "firmwareJointName": "R1",
+      "kind": "femur",
+      "parentPart": "internal-frame",
+      "childPart": "R1",
+      "axisStatus": "inferred",
+      "axisMethod": "F5's measured pivot axis for this part, carried through the part's CAD instance transform into the canonical frame. One method for all eight joints, so the eight are comparable. The direction is a measurement; the point is a point ON the line, and V0 does not need more than that - the along-axis position of a revolute joint's origin has no effect on its kinematics.",
+      "axisUnitVector": [
+        0.0,
+        1.0,
+        0.0
+      ],
+      "pointOnAxisMm": [
+        25.399999,
+        0.0,
+        -24.20004
+      ],
+      "servoShaftOriginMm": [
+        25.4,
+        -4.3e-05,
+        -24.2
+      ],
+      "servoShaftAxis": [
+        0.0,
+        1.0,
+        0.0
+      ],
+      "servoShaftStatus": "authoritative",
+      "servoShaftNote": "The CAD servo model's output-horn occurrence has an explicit origin ON the shaft axis, so this IS the along-axis datum F5 could not find. It agrees with the independently measured axis above to 4e-05 mm.",
+      "cadServoAgreementMm": 4e-05,
+      "rotationSense": {
+        "status": "inferred",
+        "rule": "childRotationDeg = -1 * (commandedDeg - 90), applied about axisUnitVector, right-hand rule.",
+        "childRotatesRelativeTo": "internal-frame",
+        "basis": "Fitted, not assumed. The CAD models each servo's horn as a separate occurrence, so the horn's rotation about the shaft axis relative to its own case is directly measurable. Across the servos whose horn occurrence exists, alpha = s*(cmd-90)+d solves uniquely, and the fit is exact."
+      },
+      "verified": false
+    },
+    {
+      "firmwareJointName": "R2",
+      "kind": "femur",
+      "parentPart": "internal-frame",
+      "childPart": "R2",
+      "axisStatus": "inferred",
+      "axisMethod": "F5's measured pivot axis for this part, carried through the part's CAD instance transform into the canonical frame. One method for all eight joints, so the eight are comparable. The direction is a measurement; the point is a point ON the line, and V0 does not need more than that - the along-axis position of a revolute joint's origin has no effect on its kinematics.",
+      "axisUnitVector": [
+        0.0,
+        1.0,
+        0.0
+      ],
+      "pointOnAxisMm": [
+        25.399999,
+        0.0,
+        24.20004
+      ],
+      "servoShaftOriginMm": [
+        25.4,
+        -4.3e-05,
+        24.2
+      ],
+      "servoShaftAxis": [
+        0.0,
+        1.0,
+        0.0
+      ],
+      "servoShaftStatus": "authoritative",
+      "servoShaftNote": "The CAD servo model's output-horn occurrence has an explicit origin ON the shaft axis, so this IS the along-axis datum F5 could not find. It agrees with the independently measured axis above to 4e-05 mm.",
+      "cadServoAgreementMm": 4e-05,
+      "rotationSense": {
+        "status": "inferred",
+        "rule": "childRotationDeg = -1 * (commandedDeg - 90), applied about axisUnitVector, right-hand rule.",
+        "childRotatesRelativeTo": "internal-frame",
+        "basis": "Fitted, not assumed. The CAD models each servo's horn as a separate occurrence, so the horn's rotation about the shaft axis relative to its own case is directly measurable. Across the servos whose horn occurrence exists, alpha = s*(cmd-90)+d solves uniquely, and the fit is exact."
+      },
+      "verified": false
+    },
+    {
+      "firmwareJointName": "L1",
+      "kind": "femur",
+      "parentPart": "internal-frame",
+      "childPart": "L1",
+      "axisStatus": "inferred",
+      "axisMethod": "F5's measured pivot axis for this part, carried through the part's CAD instance transform into the canonical frame. One method for all eight joints, so the eight are comparable. The direction is a measurement; the point is a point ON the line, and V0 does not need more than that - the along-axis position of a revolute joint's origin has no effect on its kinematics.",
+      "axisUnitVector": [
+        0.0,
+        1.0,
+        0.0
+      ],
+      "pointOnAxisMm": [
+        -25.399999,
+        0.0,
+        -24.20004
+      ],
+      "servoShaftOriginMm": [
+        -25.4,
+        -4.3e-05,
+        -24.2
+      ],
+      "servoShaftAxis": [
+        0.0,
+        1.0,
+        0.0
+      ],
+      "servoShaftStatus": "authoritative",
+      "servoShaftNote": "The CAD servo model's output-horn occurrence has an explicit origin ON the shaft axis, so this IS the along-axis datum F5 could not find. It agrees with the independently measured axis above to 4e-05 mm.",
+      "cadServoAgreementMm": 4e-05,
+      "rotationSense": {
+        "status": "inferred",
+        "rule": "childRotationDeg = -1 * (commandedDeg - 90), applied about axisUnitVector, right-hand rule.",
+        "childRotatesRelativeTo": "internal-frame",
+        "basis": "Fitted, not assumed. The CAD models each servo's horn as a separate occurrence, so the horn's rotation about the shaft axis relative to its own case is directly measurable. Across the servos whose horn occurrence exists, alpha = s*(cmd-90)+d solves uniquely, and the fit is exact."
+      },
+      "verified": false
+    },
+    {
+      "firmwareJointName": "L2",
+      "kind": "femur",
+      "parentPart": "internal-frame",
+      "childPart": "L2",
+      "axisStatus": "inferred",
+      "axisMethod": "F5's measured pivot axis for this part, carried through the part's CAD instance transform into the canonical frame. One method for all eight joints, so the eight are comparable. The direction is a measurement; the point is a point ON the line, and V0 does not need more than that - the along-axis position of a revolute joint's origin has no effect on its kinematics.",
+      "axisUnitVector": [
+        0.0,
+        1.0,
+        0.0
+      ],
+      "pointOnAxisMm": [
+        -25.399999,
+        0.0,
+        24.20004
+      ],
+      "servoShaftOriginMm": [
+        -25.4,
+        -4.3e-05,
+        24.2
+      ],
+      "servoShaftAxis": [
+        0.0,
+        1.0,
+        0.0
+      ],
+      "servoShaftStatus": "authoritative",
+      "servoShaftNote": "The CAD servo model's output-horn occurrence has an explicit origin ON the shaft axis, so this IS the along-axis datum F5 could not find. It agrees with the independently measured axis above to 4e-05 mm.",
+      "cadServoAgreementMm": 4e-05,
+      "rotationSense": {
+        "status": "inferred",
+        "rule": "childRotationDeg = -1 * (commandedDeg - 90), applied about axisUnitVector, right-hand rule.",
+        "childRotatesRelativeTo": "internal-frame",
+        "basis": "Fitted, not assumed. The CAD models each servo's horn as a separate occurrence, so the horn's rotation about the shaft axis relative to its own case is directly measurable. Across the servos whose horn occurrence exists, alpha = s*(cmd-90)+d solves uniquely, and the fit is exact."
+      },
+      "verified": false
+    },
+    {
+      "firmwareJointName": "R3",
+      "kind": "foot",
+      "parentPart": "R1",
+      "childPart": "R3",
+      "axisStatus": "inferred",
+      "axisMethod": "F5's measured pivot axis for this part, carried through the part's CAD instance transform into the canonical frame. One method for all eight joints, so the eight are comparable. The direction is a measurement; the point is a point ON the line, and V0 does not need more than that - the along-axis position of a revolute joint's origin has no effect on its kinematics.",
+      "axisUnitVector": [
+        -0.707107,
+        0.0,
+        -0.707107
+      ],
+      "pointOnAxisMm": [
+        59.180789,
+        -21.402327,
+        -42.504749
+      ],
+      "servoShaftOriginMm": null,
+      "servoShaftAxis": null,
+      "servoShaftStatus": "absent-from-cad",
+      "servoShaftNote": "The STEP file carries this leg servo only as a mirrored CASE body with no horn occurrence, so no shaft datum is recoverable for this joint. Use its mirror twin's, or leave the along-axis origin free - it does not affect the kinematics.",
+      "cadServoAgreementMm": null,
+      "rotationSense": {
+        "status": "inferred",
+        "rule": "childRotationDeg = +1 * (commandedDeg - 90), applied about axisUnitVector, right-hand rule.",
+        "childRotatesRelativeTo": "R1",
+        "basis": "Fitted, not assumed. The CAD models each servo's horn as a separate occurrence, so the horn's rotation about the shaft axis relative to its own case is directly measurable. Across the servos whose horn occurrence exists, alpha = s*(cmd-90)+d solves uniquely, and the fit is exact."
+      },
+      "verified": false
+    },
+    {
+      "firmwareJointName": "R4",
+      "kind": "foot",
+      "parentPart": "R2",
+      "childPart": "R4",
+      "axisStatus": "inferred",
+      "axisMethod": "F5's measured pivot axis for this part, carried through the part's CAD instance transform into the canonical frame. One method for all eight joints, so the eight are comparable. The direction is a measurement; the point is a point ON the line, and V0 does not need more than that - the along-axis position of a revolute joint's origin has no effect on its kinematics.",
+      "axisUnitVector": [
+        -0.707107,
+        0.0,
+        0.707107
+      ],
+      "pointOnAxisMm": [
+        59.525518,
+        -21.590077,
+        42.16002
+      ],
+      "servoShaftOriginMm": [
+        60.360133,
+        -21.590043,
+        41.325344
+      ],
+      "servoShaftAxis": [
+        0.707107,
+        0.0,
+        -0.707107
+      ],
+      "servoShaftStatus": "authoritative",
+      "servoShaftNote": "The CAD servo model's output-horn occurrence has an explicit origin ON the shaft axis, so this IS the along-axis datum F5 could not find. It agrees with the independently measured axis above to 5.5e-05 mm.",
+      "cadServoAgreementMm": 5.5e-05,
+      "rotationSense": {
+        "status": "inferred",
+        "rule": "childRotationDeg = +1 * (commandedDeg - 90), applied about axisUnitVector, right-hand rule.",
+        "childRotatesRelativeTo": "R2",
+        "basis": "Fitted, not assumed. The CAD models each servo's horn as a separate occurrence, so the horn's rotation about the shaft axis relative to its own case is directly measurable. Across the servos whose horn occurrence exists, alpha = s*(cmd-90)+d solves uniquely, and the fit is exact."
+      },
+      "verified": false
+    },
+    {
+      "firmwareJointName": "L3",
+      "kind": "foot",
+      "parentPart": "L1",
+      "childPart": "L3",
+      "axisStatus": "inferred",
+      "axisMethod": "F5's measured pivot axis for this part, carried through the part's CAD instance transform into the canonical frame. One method for all eight joints, so the eight are comparable. The direction is a measurement; the point is a point ON the line, and V0 does not need more than that - the along-axis position of a revolute joint's origin has no effect on its kinematics.",
+      "axisUnitVector": [
+        0.707107,
+        0.0,
+        -0.707107
+      ],
+      "pointOnAxisMm": [
+        -59.303585,
+        -21.402327,
+        -42.381952
+      ],
+      "servoShaftOriginMm": null,
+      "servoShaftAxis": null,
+      "servoShaftStatus": "absent-from-cad",
+      "servoShaftNote": "The STEP file carries this leg servo only as a mirrored CASE body with no horn occurrence, so no shaft datum is recoverable for this joint. Use its mirror twin's, or leave the along-axis origin free - it does not affect the kinematics.",
+      "cadServoAgreementMm": null,
+      "rotationSense": {
+        "status": "inferred",
+        "rule": "childRotationDeg = +1 * (commandedDeg - 90), applied about axisUnitVector, right-hand rule.",
+        "childRotatesRelativeTo": "L1",
+        "basis": "Fitted, not assumed. The CAD models each servo's horn as a separate occurrence, so the horn's rotation about the shaft axis relative to its own case is directly measurable. Across the servos whose horn occurrence exists, alpha = s*(cmd-90)+d solves uniquely, and the fit is exact."
+      },
+      "verified": false
+    },
+    {
+      "firmwareJointName": "L4",
+      "kind": "foot",
+      "parentPart": "L2",
+      "childPart": "L4",
+      "axisStatus": "inferred",
+      "axisMethod": "F5's measured pivot axis for this part, carried through the part's CAD instance transform into the canonical frame. One method for all eight joints, so the eight are comparable. The direction is a measurement; the point is a point ON the line, and V0 does not need more than that - the along-axis position of a revolute joint's origin has no effect on its kinematics.",
+      "axisUnitVector": [
+        0.707107,
+        0.0,
+        0.707107
+      ],
+      "pointOnAxisMm": [
+        -59.525518,
+        -21.590077,
+        42.16002
+      ],
+      "servoShaftOriginMm": [
+        -60.360133,
+        -21.590043,
+        41.325344
+      ],
+      "servoShaftAxis": [
+        -0.707107,
+        0.0,
+        -0.707107
+      ],
+      "servoShaftStatus": "authoritative",
+      "servoShaftNote": "The CAD servo model's output-horn occurrence has an explicit origin ON the shaft axis, so this IS the along-axis datum F5 could not find. It agrees with the independently measured axis above to 5.5e-05 mm.",
+      "cadServoAgreementMm": 5.5e-05,
+      "rotationSense": {
+        "status": "inferred",
+        "rule": "childRotationDeg = +1 * (commandedDeg - 90), applied about axisUnitVector, right-hand rule.",
+        "childRotatesRelativeTo": "L2",
+        "basis": "Fitted, not assumed. The CAD models each servo's horn as a separate occurrence, so the horn's rotation about the shaft axis relative to its own case is directly measurable. Across the servos whose horn occurrence exists, alpha = s*(cmd-90)+d solves uniquely, and the fit is exact."
+      },
+      "verified": false
+    }
+  ],
+  "assemblyChecks": {
+    "hipAxisRectangle": {
+      "foreAftSpacingMm": 48.4,
+      "leftRightSpacingMm": 50.8,
+      "distinctHeightsMm": [
+        0.0
+      ],
+      "allAxesVertical": true,
+      "servoGridInch": [
+        1.5,
+        2.0
+      ],
+      "note": "The four hip SERVO placements sit on an exact 1.500 x 2.000 inch (38.100 x 50.800 mm) grid. The four hip AXES are 50.800 mm apart left/right (exactly 2.000 in, both rows facing the same way) and 48.400 mm apart fore/aft: 38.100 + 2 x 5.150, because the front and rear rows face opposite ways and each output shaft sits 5.150 mm off its case centre. 5.15 mm is the offset F5 derived independently from the femur/foot mesh geometry."
+    },
+    "kneeCoaxiality": {
+      "note": "Coaxiality error and axis angle between each femur's distal horn axis and each foot's pivot axis, for all 16 combinations. The mate is the pair whose two axis LINES coincide. Coaxiality error is the larger of the two point-to-line distances, so the four combinations whose perpendicular axes merely cross do not score as coaxial.",
+      "matedPairs": {
+        "R1": "R3",
+        "R2": "R4",
+        "L1": "L3",
+        "L2": "L4"
+      },
+      "worstMatedPairErrorMm": 0.1877,
+      "closestNonMatedPairErrorMm": 59.624,
+      "separationRatio": 317.7,
+      "allCombinations": [
+        {
+          "femur": "R1",
+          "foot": "R3",
+          "coaxialityErrorMm": 0.1877,
+          "axisAngleDeg": 0.0,
+          "selected": true
+        },
+        {
+          "femur": "R1",
+          "foot": "R4",
+          "coaxialityErrorMm": 59.624,
+          "axisAngleDeg": 90.0
+        },
+        {
+          "femur": "R1",
+          "foot": "L3",
+          "coaxialityErrorMm": 84.1812,
+          "axisAngleDeg": 90.0
+        },
+        {
+          "femur": "R1",
+          "foot": "L4",
+          "coaxialityErrorMm": 143.8051,
+          "axisAngleDeg": 0.0
+        },
+        {
+          "femur": "R2",
+          "foot": "R3",
+          "coaxialityErrorMm": 60.1111,
+          "axisAngleDeg": 90.0
+        },
+        {
+          "femur": "R2",
+          "foot": "R4",
+          "coaxialityErrorMm": 0.0001,
+          "axisAngleDeg": 0.0,
+          "selected": true
+        },
+        {
+          "femur": "R2",
+          "foot": "L3",
+          "coaxialityErrorMm": 143.8052,
+          "axisAngleDeg": 0.0
+        },
+        {
+          "femur": "R2",
+          "foot": "L4",
+          "coaxialityErrorMm": 84.1818,
+          "axisAngleDeg": 90.0
+        },
+        {
+          "femur": "L1",
+          "foot": "R3",
+          "coaxialityErrorMm": 84.1812,
+          "axisAngleDeg": 90.0
+        },
+        {
+          "femur": "L1",
+          "foot": "R4",
+          "coaxialityErrorMm": 143.8051,
+          "axisAngleDeg": 0.0
+        },
+        {
+          "femur": "L1",
+          "foot": "L3",
+          "coaxialityErrorMm": 0.1877,
+          "axisAngleDeg": 0.0,
+          "selected": true
+        },
+        {
+          "femur": "L1",
+          "foot": "L4",
+          "coaxialityErrorMm": 59.624,
+          "axisAngleDeg": 90.0
+        },
+        {
+          "femur": "L2",
+          "foot": "R3",
+          "coaxialityErrorMm": 143.8052,
+          "axisAngleDeg": 0.0
+        },
+        {
+          "femur": "L2",
+          "foot": "R4",
+          "coaxialityErrorMm": 84.1818,
+          "axisAngleDeg": 90.0
+        },
+        {
+          "femur": "L2",
+          "foot": "L3",
+          "coaxialityErrorMm": 59.9374,
+          "axisAngleDeg": 90.0
+        },
+        {
+          "femur": "L2",
+          "foot": "L4",
+          "coaxialityErrorMm": 0.0001,
+          "axisAngleDeg": 0.0,
+          "selected": true
+        }
+      ]
+    },
+    "interpenetration": {
+      "note": "Every pair of placed printed parts whose AABBs overlap; for each, the maximum depth to which a sampled vertex of A lies inside B. Top-cover variants are not tested against each other because exactly one is printed.",
+      "maxPenetrationMm": 0.0,
+      "pairsTested": 12,
+      "pairs": [
+        {
+          "a": "L1",
+          "b": "L3",
+          "sampledPointsInOverlap": 0,
+          "maxPenetrationMm": 0.0,
+          "bWatertight": false
+        },
+        {
+          "a": "L1",
+          "b": "internal-frame",
+          "sampledPointsInOverlap": 0,
+          "maxPenetrationMm": 0.0,
+          "bWatertight": false
+        },
+        {
+          "a": "L2",
+          "b": "L4",
+          "sampledPointsInOverlap": 0,
+          "maxPenetrationMm": 0.0,
+          "bWatertight": false
+        },
+        {
+          "a": "L2",
+          "b": "internal-frame",
+          "sampledPointsInOverlap": 0,
+          "maxPenetrationMm": 0.0,
+          "bWatertight": false
+        },
+        {
+          "a": "R1",
+          "b": "R3",
+          "sampledPointsInOverlap": 0,
+          "maxPenetrationMm": 0.0,
+          "bWatertight": false
+        },
+        {
+          "a": "R1",
+          "b": "internal-frame",
+          "sampledPointsInOverlap": 0,
+          "maxPenetrationMm": 0.0,
+          "bWatertight": false
+        },
+        {
+          "a": "R2",
+          "b": "R4",
+          "sampledPointsInOverlap": 0,
+          "maxPenetrationMm": 0.0,
+          "bWatertight": false
+        },
+        {
+          "a": "R2",
+          "b": "internal-frame",
+          "sampledPointsInOverlap": 0,
+          "maxPenetrationMm": 0.0,
+          "bWatertight": false
+        },
+        {
+          "a": "bottom-cover",
+          "b": "internal-frame",
+          "sampledPointsInOverlap": 145,
+          "maxPenetrationMm": 0.0,
+          "bWatertight": false
+        },
+        {
+          "a": "internal-frame",
+          "b": "top-cover-cat",
+          "sampledPointsInOverlap": 31,
+          "maxPenetrationMm": 0.0,
+          "bWatertight": false
+        },
+        {
+          "a": "internal-frame",
+          "b": "top-cover-enclosed",
+          "sampledPointsInOverlap": 31,
+          "maxPenetrationMm": 0.0,
+          "bWatertight": false
+        },
+        {
+          "a": "internal-frame",
+          "b": "top-cover-no-ears",
+          "sampledPointsInOverlap": 31,
+          "maxPenetrationMm": 0.0,
+          "bWatertight": false
+        }
+      ]
+    },
+    "feetVertical": [
+      {
+        "foot": "R3",
+        "extentMm": [
+          19.127946,
+          58.420002,
+          19.127946
+        ],
+        "longAxis": "y",
+        "lowestPointMm": -68.4623
+      },
+      {
+        "foot": "R4",
+        "extentMm": [
+          19.127946,
+          58.420002,
+          19.127946
+        ],
+        "longAxis": "y",
+        "lowestPointMm": -68.65
+      },
+      {
+        "foot": "L3",
+        "extentMm": [
+          19.127946,
+          58.420002,
+          19.127946
+        ],
+        "longAxis": "y",
+        "lowestPointMm": -68.4623
+      },
+      {
+        "foot": "L4",
+        "extentMm": [
+          19.127946,
+          58.420002,
+          19.127946
+        ],
+        "longAxis": "y",
+        "lowestPointMm": -68.65
+      }
+    ],
+    "bodyShellStack": {
+      "bottomCoverY": [
+        -37.819783,
+        -30.549783
+      ],
+      "internalFrameY": [
+        -30.549783,
+        -14.850044
+      ],
+      "topCoverEnclosedY": [
+        -14.850044,
+        23.337809
+      ],
+      "bottomMeetsFrameGapMm": 0.0,
+      "frameMeetsTopGapMm": 0.0
+    }
+  },
+  "resolvedByThisTask": [
+    {
+      "id": "stl-to-cad-frame-mapping",
+      "from": "F5",
+      "resolution": "RESOLVED. Identity rotation, zero translation, scale exactly 25.4. Won the 96-candidate search by a factor of 8875.9 on the combined score."
+    },
+    {
+      "id": "per-instance-assembly-poses",
+      "from": "F5",
+      "resolution": "RESOLVED for all ten parts the CAD contains; the three top covers are placed at the identity by inference."
+    },
+    {
+      "id": "view-direction-of-the-labelled-drawings",
+      "from": "F6",
+      "resolution": "RESOLVED, and made moot. Real 3D positions replace the 2D render. R parts are on the robot's own right; the top-down drawing is therefore a view from above and agrees."
+    },
+    {
+      "id": "front-rear-orientation",
+      "from": "F5",
+      "resolution": "RESOLVED from the CAD: USB-C at the back, OLED at the front, matching the build guide's notch/USB cue. Whether the `walk` command travels that way is a firmware question and stays open."
+    },
+    {
+      "id": "hip-to-foot-instance-naming",
+      "from": "F5",
+      "resolution": "RESOLVED. Coaxiality picks the mate uniquely for all four legs."
+    },
+    {
+      "id": "rest-pose-hip-orientation-contradiction",
+      "from": "F6",
+      "resolution": "RESOLVED in favour of the build-guide prose: at the 90 deg datum all four legs are parallel to the body's long axis."
+    },
+    {
+      "id": "servo-datum-plane",
+      "from": "F5",
+      "resolution": "RESOLVED for the design. The CAD carries a servo model whose output-horn occurrence has an explicit origin on the shaft axis, which fixes the along-axis datum for all eight joints. Caveat: the CAD models an SG90 while the BOM specifies an MG90S. The two share a footprint but this has not been checked."
+    },
+    {
+      "id": "absolute-rotational-sense",
+      "from": "F6",
+      "resolution": "RESOLVED. See joints[*].rotationSense."
+    }
+  ],
+  "unresolved": [
+    {
+      "id": "parts-installed-where-drawn",
+      "status": "open",
+      "reason": "A build-time question, not a design question. F5 measured R1 and L2 to be the same solid, and R2/L1, R3/L4, R4/L3, so a builder can swap two parts and neither the firmware nor the CAD would notice.",
+      "resolvedBy": "physical inspection of a built robot",
+      "blocking": false
+    },
+    {
+      "id": "horn-spline-quantisation",
+      "status": "open",
+      "reason": "The horn is pressed onto a splined shaft at assembly, so the commanded-to-physical mapping is quantised per build (+/-9 deg worst case on a 20-tooth spline). The CAD models the ideal design, which has no spline error.",
+      "resolvedBy": "per-robot calibration (V6)",
+      "blocking": false
+    },
+    {
+      "id": "mechanical-travel-limits",
+      "status": "open",
+      "reason": "This reconstruction gives one pose. Sweeping each joint and looking for collisions would need repaired meshes - Top-Cover-Enclosed-v117.stl is still not watertight - and a swept-volume study that was not in scope for V0.",
+      "resolvedBy": "a collision study on repaired meshes, or a physical sweep",
+      "blocking": false
+    },
+    {
+      "id": "per-robot-subtrim",
+      "status": "open",
+      "reason": "Per-build, not per-design. Belongs to V6, never to a CAD artefact.",
+      "resolvedBy": "per-robot calibration (V6)",
+      "blocking": false
+    },
+    {
+      "id": "walk-direction-vs-drawn-front",
+      "status": "open",
+      "reason": "The CAD fixes which end carries the OLED and which the USB port. It cannot say which way the robot travels when `walk` runs.",
+      "resolvedBy": "running walk on a built robot, or a gait simulation in V1",
+      "blocking": false
+    },
+    {
+      "id": "top-cover-not-in-cad",
+      "status": "open",
+      "reason": "The STEP assembly contains Internal-Frame and Bottom-Cover but no top cover, so the three top-cover poses are inferred from the stacking test rather than read from the assembly.",
+      "resolvedBy": "a CAD revision that includes the top cover",
+      "blocking": false
+    },
+    {
+      "id": "servo-model-is-sg90-not-mg90s",
+      "status": "open",
+      "reason": "The CAD models an SG90 (Tower Pro); hardware/bom/README.md calls for MG90S all-metal servos. They share the 32.2 x 12 x 30 mm footprint and the 27.8 mm ear pitch, so the mounting geometry is interchangeable, but the shaft datum recorded here is the SG90's.",
+      "resolvedBy": "an MG90S CAD model, or calliper measurement of a built robot",
+      "blocking": false
+    }
+  ]
+}

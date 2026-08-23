@@ -1,0 +1,464 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://sesame-lab.local/schemas/assembly-map.schema.json",
+  "title": "Sesame Lab CAD assembly map (Phase 1, task V0)",
+  "description": "Per-instance rigid pose of every printed Sesame part in one canonical robot frame, reconstructed from the STEP design master. Poses read out of the exchange file are `authoritative`; anything derived carries a method. Nothing here has been checked against a physical robot.",
+  "type": "object",
+  "required": [
+    "meta", "units", "canonicalFrame", "frameMap", "referencePose",
+    "parts", "servos", "joints", "assemblyChecks", "resolvedByThisTask", "unresolved"
+  ],
+  "additionalProperties": false,
+  "$defs": {
+    "vec3": {
+      "type": "array", "minItems": 3, "maxItems": 3, "items": { "type": "number" }
+    },
+    "mat4": {
+      "type": "array", "minItems": 4, "maxItems": 4,
+      "items": { "type": "array", "minItems": 4, "maxItems": 4, "items": { "type": "number" } }
+    },
+    "status": { "enum": ["authoritative", "inferred", "guessed"] },
+    "bbox": {
+      "type": "object", "required": ["min", "max"], "additionalProperties": false,
+      "properties": { "min": { "$ref": "#/$defs/vec3" }, "max": { "$ref": "#/$defs/vec3" } }
+    },
+    "candidate": {
+      "type": "object",
+      "required": ["scale", "axisPermutation", "axisSigns", "meanResidualMm",
+                   "translationSpreadMm", "score", "fittedTranslationMm"],
+      "additionalProperties": false,
+      "properties": {
+        "scale": { "type": "number", "exclusiveMinimum": 0 },
+        "axisPermutation": {
+          "type": "array", "minItems": 3, "maxItems": 3,
+          "items": { "type": "integer", "minimum": 0, "maximum": 2 }
+        },
+        "axisSigns": {
+          "type": "array", "minItems": 3, "maxItems": 3, "items": { "enum": [1, -1] }
+        },
+        "meanResidualMm": { "type": "number", "minimum": 0 },
+        "translationSpreadMm": { "type": "number", "minimum": 0 },
+        "score": { "type": "number", "minimum": 0 },
+        "fittedTranslationMm": { "$ref": "#/$defs/vec3" }
+      }
+    },
+    "openItem": {
+      "type": "object",
+      "required": ["id", "status", "reason", "resolvedBy", "blocking"],
+      "additionalProperties": false,
+      "properties": {
+        "id": { "type": "string", "pattern": "^[a-z0-9-]+$" },
+        "status": { "enum": ["open", "partially-resolved"] },
+        "reason": { "type": "string", "minLength": 20 },
+        "resolvedBy": { "type": "string", "minLength": 5 },
+        "blocking": { "type": "boolean" }
+      }
+    }
+  },
+
+  "properties": {
+    "$schema": { "type": "string" },
+
+    "meta": {
+      "type": "object",
+      "required": ["schemaVersion", "assemblyMapVersion", "task", "generatedAt",
+                   "generatedBy", "regenerateWith", "validateWith",
+                   "epistemicContract", "verificationStatus", "toolVersions",
+                   "sources", "consumers"],
+      "additionalProperties": false,
+      "properties": {
+        "schemaVersion": { "type": "string", "pattern": "^\\d+\\.\\d+\\.\\d+$" },
+        "assemblyMapVersion": { "type": "string", "pattern": "^\\d+\\.\\d+\\.\\d+$" },
+        "task": { "type": "string", "pattern": "^V0" },
+        "generatedAt": { "type": "string", "format": "date-time" },
+        "generatedBy": { "type": "string" },
+        "regenerateWith": { "type": "string" },
+        "validateWith": { "type": "string" },
+        "epistemicContract": { "type": "string", "minLength": 100 },
+        "verificationStatus": { "type": "string", "pattern": "NOT PHYSICALLY VERIFIED" },
+        "toolVersions": { "type": "object", "additionalProperties": { "type": "string" } },
+        "sources": {
+          "type": "array", "minItems": 3,
+          "items": {
+            "type": "object",
+            "required": ["id", "path", "sha256", "role"],
+            "additionalProperties": false,
+            "properties": {
+              "id": { "type": "string" },
+              "path": { "type": "string" },
+              "sha256": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+              "bytes": { "type": "integer", "minimum": 1 },
+              "role": { "type": "string" }
+            }
+          }
+        },
+        "consumers": { "type": "array", "items": { "type": "string" } }
+      }
+    },
+
+    "units": {
+      "type": "object",
+      "required": ["length", "angle", "stepFileUnit", "correctionToF5"],
+      "additionalProperties": false,
+      "properties": {
+        "length": { "const": "millimetre" },
+        "angle": { "const": "degree" },
+        "stepFileUnit": {
+          "type": "object",
+          "required": ["assignedLengthUnit", "millimetresPerAssignedUnit",
+                       "geometricRepresentationContexts", "contextsAssigningThatUnit", "note"],
+          "additionalProperties": false,
+          "properties": {
+            "assignedLengthUnit": { "type": "string" },
+            "millimetresPerAssignedUnit": { "type": "number" },
+            "geometricRepresentationContexts": { "type": "integer", "minimum": 1 },
+            "contextsAssigningThatUnit": { "type": "integer", "minimum": 1 },
+            "note": { "type": "string" }
+          }
+        },
+        "correctionToF5": { "type": "string", "minLength": 50 }
+      }
+    },
+
+    "canonicalFrame": {
+      "type": "object",
+      "required": ["id", "handedness", "upAxis", "forwardAxis", "rightAxis",
+                   "convention", "originDefinition", "originInCadRootMm",
+                   "canonicalFromCadRootMm", "cadRootFrame", "groundPlaneYMm",
+                   "groundPlaneNote", "axisEvidence"],
+      "additionalProperties": false,
+      "properties": {
+        "id": { "const": "sesame-robot" },
+        "handedness": { "const": "right" },
+        "upAxis": { "enum": ["+X", "-X", "+Y", "-Y", "+Z", "-Z"] },
+        "forwardAxis": { "enum": ["+X", "-X", "+Y", "-Y", "+Z", "-Z"] },
+        "rightAxis": { "enum": ["+X", "-X", "+Y", "-Y", "+Z", "-Z"] },
+        "convention": { "type": "string" },
+        "originDefinition": { "type": "string" },
+        "originInCadRootMm": { "$ref": "#/$defs/vec3" },
+        "canonicalFromCadRootMm": { "$ref": "#/$defs/mat4" },
+        "cadRootFrame": {
+          "type": "object",
+          "required": ["upAxis", "forwardAxis", "rightAxis", "note"],
+          "additionalProperties": false,
+          "properties": {
+            "upAxis": { "type": "string" }, "forwardAxis": { "type": "string" },
+            "rightAxis": { "type": "string" }, "note": { "type": "string" }
+          }
+        },
+        "groundPlaneYMm": { "type": "number" },
+        "groundPlaneNote": { "type": "string" },
+        "axisEvidence": {
+          "type": "object",
+          "required": ["up", "forward", "right"],
+          "additionalProperties": false,
+          "properties": {
+            "up": { "type": "object" }, "forward": { "type": "object" }, "right": { "type": "object" }
+          }
+        }
+      }
+    },
+
+    "frameMap": {
+      "type": "object",
+      "required": ["result", "statement", "map", "status", "method",
+                   "whyF5CouldNotSeeThis", "candidateSearch", "identityIsTheWinner"],
+      "additionalProperties": false,
+      "properties": {
+        "result": { "enum": ["resolved", "ambiguous"] },
+        "statement": { "type": "string" },
+        "map": {
+          "type": "object",
+          "required": ["scale", "rotation", "translationMm"],
+          "additionalProperties": false,
+          "properties": {
+            "scale": { "type": "number" },
+            "rotation": {
+              "type": "array", "minItems": 3, "maxItems": 3,
+              "items": { "$ref": "#/$defs/vec3" }
+            },
+            "translationMm": { "$ref": "#/$defs/vec3" }
+          }
+        },
+        "status": { "$ref": "#/$defs/status" },
+        "method": { "type": "string" },
+        "whyF5CouldNotSeeThis": { "type": "string", "minLength": 50 },
+        "identityIsTheWinner": { "type": "boolean" },
+        "candidateSearch": {
+          "type": "object",
+          "required": ["candidateSpace", "scoring", "candidateCount", "winner",
+                       "runnerUp", "marginRatio", "decisive", "topCandidates",
+                       "perPartResiduals"],
+          "additionalProperties": false,
+          "properties": {
+            "candidateSpace": { "type": "string" },
+            "scoring": { "type": "string" },
+            "candidateCount": { "type": "integer", "minimum": 96 },
+            "winner": { "$ref": "#/$defs/candidate" },
+            "runnerUp": { "$ref": "#/$defs/candidate" },
+            "marginRatio": { "type": "number", "minimum": 0 },
+            "decisive": { "type": "boolean" },
+            "topCandidates": { "type": "array", "items": { "$ref": "#/$defs/candidate" } },
+            "perPartResiduals": {
+              "type": "array", "minItems": 10,
+              "items": {
+                "type": "object",
+                "required": ["partId", "cadProduct", "brepVertices", "stlVertices",
+                             "meanResidualMm", "maxResidualMm"],
+                "additionalProperties": false,
+                "properties": {
+                  "partId": { "type": "string" },
+                  "cadProduct": { "type": "string" },
+                  "brepVertices": { "type": "integer", "minimum": 1 },
+                  "stlVertices": { "type": "integer", "minimum": 1 },
+                  "meanResidualMm": { "type": "number", "minimum": 0 },
+                  "maxResidualMm": { "type": "number", "minimum": 0 }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+
+    "referencePose": {
+      "type": "object",
+      "required": ["identifiedAs", "status", "commandedDeg", "evidence",
+                   "hipRuleFit", "kneeRuleFit", "restPoseGeometry"],
+      "additionalProperties": false,
+      "properties": {
+        "identifiedAs": { "type": "string" },
+        "status": { "$ref": "#/$defs/status" },
+        "commandedDeg": {
+          "type": "object",
+          "additionalProperties": { "type": "integer", "minimum": 0, "maximum": 180 },
+          "minProperties": 8, "maxProperties": 8
+        },
+        "evidence": { "type": "array", "minItems": 2, "items": { "type": "string" } },
+        "hipRuleFit": { "type": "object" },
+        "kneeRuleFit": { "type": "object" },
+        "restPoseGeometry": {
+          "type": "object",
+          "required": ["status", "allFourLegsParallelToBodyLongAxis", "perJoint",
+                       "finding", "dependsOn"],
+          "additionalProperties": false,
+          "properties": {
+            "status": { "$ref": "#/$defs/status" },
+            "allFourLegsParallelToBodyLongAxis": { "type": "boolean" },
+            "perJoint": { "type": "object" },
+            "finding": { "type": "string" },
+            "dependsOn": { "type": "string" }
+          }
+        }
+      }
+    },
+
+    "parts": {
+      "type": "array", "minItems": 13,
+      "items": {
+        "type": "object",
+        "required": ["id", "role", "firmwareJointName", "stlFile", "stlPath",
+                     "stlSha256", "cadProduct", "cadOccurrencePath", "poseStatus",
+                     "poseMethod", "poseFromStlMm", "originMm", "xAxis", "yAxis",
+                     "zAxis", "placedBoundingBoxMm", "verified"],
+        "additionalProperties": false,
+        "properties": {
+          "id": { "type": "string" },
+          "role": { "enum": ["femur", "foot", "frame", "cover"] },
+          "firmwareJointName": { "type": ["string", "null"], "pattern": "^[RL][1-4]$" },
+          "stlFile": { "type": "string", "pattern": "\\.stl$" },
+          "stlPath": { "type": "string" },
+          "stlSha256": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+          "cadProduct": { "type": ["string", "null"] },
+          "cadOccurrencePath": { "type": ["string", "null"] },
+          "poseStatus": { "$ref": "#/$defs/status" },
+          "poseMethod": { "type": "string", "minLength": 40 },
+          "poseFromStlMm": { "$ref": "#/$defs/mat4" },
+          "originMm": { "$ref": "#/$defs/vec3" },
+          "xAxis": { "$ref": "#/$defs/vec3" },
+          "yAxis": { "$ref": "#/$defs/vec3" },
+          "zAxis": { "$ref": "#/$defs/vec3" },
+          "placedBoundingBoxMm": { "$ref": "#/$defs/bbox" },
+          "verified": { "const": false }
+        }
+      }
+    },
+
+    "servos": {
+      "type": "array", "minItems": 6,
+      "items": {
+        "type": "object",
+        "required": ["occurrencePath", "drivesJoint", "axisToJointAxisDistanceMm",
+                     "shaftOriginMm", "shaftAxis", "caseOriginMm",
+                     "hornAngleFromCaseNeutralDeg", "commandedDegAtThisPose"],
+        "additionalProperties": false,
+        "properties": {
+          "occurrencePath": { "type": "string" },
+          "drivesJoint": { "type": ["string", "null"], "pattern": "^[RL][1-4]$" },
+          "axisToJointAxisDistanceMm": { "type": "number", "minimum": 0 },
+          "shaftOriginMm": { "$ref": "#/$defs/vec3" },
+          "shaftAxis": { "$ref": "#/$defs/vec3" },
+          "caseOriginMm": { "$ref": "#/$defs/vec3" },
+          "hornAngleFromCaseNeutralDeg": { "type": "number" },
+          "commandedDegAtThisPose": { "type": ["integer", "null"], "minimum": 0, "maximum": 180 }
+        }
+      }
+    },
+
+    "joints": {
+      "type": "array", "minItems": 8, "maxItems": 8,
+      "items": {
+        "type": "object",
+        "required": ["firmwareJointName", "kind", "parentPart", "childPart",
+                     "axisStatus", "axisMethod", "axisUnitVector", "pointOnAxisMm",
+                     "servoShaftOriginMm", "servoShaftAxis", "servoShaftStatus",
+                     "servoShaftNote", "cadServoAgreementMm", "rotationSense", "verified"],
+        "additionalProperties": false,
+        "properties": {
+          "firmwareJointName": { "type": "string", "pattern": "^[RL][1-4]$" },
+          "kind": { "enum": ["femur", "foot"] },
+          "parentPart": { "type": "string" },
+          "childPart": { "type": "string", "pattern": "^[RL][1-4]$" },
+          "axisStatus": { "$ref": "#/$defs/status" },
+          "axisMethod": { "type": "string" },
+          "axisUnitVector": { "$ref": "#/$defs/vec3" },
+          "pointOnAxisMm": { "$ref": "#/$defs/vec3" },
+          "servoShaftOriginMm": { "oneOf": [{ "$ref": "#/$defs/vec3" }, { "type": "null" }] },
+          "servoShaftAxis": { "oneOf": [{ "$ref": "#/$defs/vec3" }, { "type": "null" }] },
+          "servoShaftStatus": { "enum": ["authoritative", "absent-from-cad"] },
+          "servoShaftNote": { "type": "string" },
+          "cadServoAgreementMm": { "type": ["number", "null"], "minimum": 0 },
+          "rotationSense": {
+            "type": "object",
+            "required": ["status", "rule", "childRotatesRelativeTo", "basis"],
+            "additionalProperties": false,
+            "properties": {
+              "status": { "$ref": "#/$defs/status" },
+              "rule": { "type": "string", "pattern": "commandedDeg - 90" },
+              "childRotatesRelativeTo": { "type": "string" },
+              "basis": { "type": "string" }
+            }
+          },
+          "verified": { "const": false }
+        }
+      }
+    },
+
+    "assemblyChecks": {
+      "type": "object",
+      "required": ["hipAxisRectangle", "kneeCoaxiality", "interpenetration",
+                   "feetVertical", "bodyShellStack"],
+      "additionalProperties": false,
+      "properties": {
+        "hipAxisRectangle": {
+          "type": "object",
+          "required": ["foreAftSpacingMm", "leftRightSpacingMm", "distinctHeightsMm",
+                       "allAxesVertical", "servoGridInch", "note"],
+          "additionalProperties": false,
+          "properties": {
+            "foreAftSpacingMm": { "type": "number" },
+            "leftRightSpacingMm": { "type": "number" },
+            "distinctHeightsMm": { "type": "array", "items": { "type": "number" } },
+            "allAxesVertical": { "type": "boolean" },
+            "servoGridInch": { "type": "array", "items": { "type": "number" } },
+            "note": { "type": "string" }
+          }
+        },
+        "kneeCoaxiality": {
+          "type": "object",
+          "required": ["note", "matedPairs", "worstMatedPairErrorMm",
+                       "closestNonMatedPairErrorMm", "separationRatio", "allCombinations"],
+          "additionalProperties": false,
+          "properties": {
+            "note": { "type": "string" },
+            "matedPairs": { "type": "object", "minProperties": 4, "maxProperties": 4 },
+            "worstMatedPairErrorMm": { "type": "number", "minimum": 0 },
+            "closestNonMatedPairErrorMm": { "type": "number", "minimum": 0 },
+            "separationRatio": { "type": ["number", "null"] },
+            "allCombinations": {
+              "type": "array", "minItems": 16, "maxItems": 16,
+              "items": {
+                "type": "object",
+                "required": ["femur", "foot", "coaxialityErrorMm", "axisAngleDeg"],
+                "additionalProperties": false,
+                "properties": {
+                  "femur": { "type": "string" }, "foot": { "type": "string" },
+                  "coaxialityErrorMm": { "type": "number", "minimum": 0 },
+                  "axisAngleDeg": { "type": "number", "minimum": 0 },
+                  "selected": { "type": "boolean" }
+                }
+              }
+            }
+          }
+        },
+        "interpenetration": {
+          "type": "object",
+          "required": ["note", "maxPenetrationMm", "pairsTested", "pairs"],
+          "additionalProperties": false,
+          "properties": {
+            "note": { "type": "string" },
+            "maxPenetrationMm": { "type": "number", "minimum": 0 },
+            "pairsTested": { "type": "integer", "minimum": 1 },
+            "pairs": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "required": ["a", "b", "sampledPointsInOverlap", "maxPenetrationMm", "bWatertight"],
+                "additionalProperties": false,
+                "properties": {
+                  "a": { "type": "string" }, "b": { "type": "string" },
+                  "sampledPointsInOverlap": { "type": "integer", "minimum": 0 },
+                  "maxPenetrationMm": { "type": "number", "minimum": 0 },
+                  "bWatertight": { "type": "boolean" }
+                }
+              }
+            }
+          }
+        },
+        "feetVertical": {
+          "type": "array", "minItems": 4, "maxItems": 4,
+          "items": {
+            "type": "object",
+            "required": ["foot", "extentMm", "longAxis", "lowestPointMm"],
+            "additionalProperties": false,
+            "properties": {
+              "foot": { "type": "string", "pattern": "^[RL][34]$" },
+              "extentMm": { "$ref": "#/$defs/vec3" },
+              "longAxis": { "enum": ["x", "y", "z"] },
+              "lowestPointMm": { "type": "number" }
+            }
+          }
+        },
+        "bodyShellStack": {
+          "type": "object",
+          "required": ["bottomCoverY", "internalFrameY", "topCoverEnclosedY",
+                       "bottomMeetsFrameGapMm", "frameMeetsTopGapMm"],
+          "additionalProperties": false,
+          "properties": {
+            "bottomCoverY": { "type": "array", "minItems": 2, "maxItems": 2, "items": { "type": "number" } },
+            "internalFrameY": { "type": "array", "minItems": 2, "maxItems": 2, "items": { "type": "number" } },
+            "topCoverEnclosedY": { "type": "array", "minItems": 2, "maxItems": 2, "items": { "type": "number" } },
+            "bottomMeetsFrameGapMm": { "type": "number" },
+            "frameMeetsTopGapMm": { "type": "number" }
+          }
+        }
+      }
+    },
+
+    "resolvedByThisTask": {
+      "type": "array", "minItems": 1,
+      "items": {
+        "type": "object",
+        "required": ["id", "from", "resolution"],
+        "additionalProperties": false,
+        "properties": {
+          "id": { "type": "string", "pattern": "^[a-z0-9-]+$" },
+          "from": { "enum": ["F5", "F6"] },
+          "resolution": { "type": "string", "minLength": 20 }
+        }
+      }
+    },
+
+    "unresolved": { "type": "array", "minItems": 1, "items": { "$ref": "#/$defs/openItem" } }
+  }
+}

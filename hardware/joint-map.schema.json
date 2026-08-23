@@ -5,465 +5,1434 @@
   "description": "Per-joint geometry, kinematic structure and naming for the eight Sesame servos. Strict throughout: additionalProperties is false on every object, so a typo'd or undocumented key is a hard failure. The central rule this schema ENFORCES rather than merely documents: `semanticName` is optional, and when present its `verified` property is the literal constant false. There is no way to serialise a verified semantic name through this schema, because no mapping from R1..L4 to spatial names has been physically confirmed.",
   "type": "object",
   "additionalProperties": false,
-  "required": ["meta", "conventions", "shapeEquivalenceClasses", "shapeEquivalenceNote", "choreographyAnalysis", "joints", "unresolved"],
-
+  "required": [
+    "meta",
+    "conventions",
+    "shapeEquivalenceClasses",
+    "shapeEquivalenceNote",
+    "choreographyAnalysis",
+    "joints",
+    "unresolved"
+  ],
   "properties": {
-    "$schema": { "type": "string" },
-    "meta": { "$ref": "#/$defs/meta" },
-    "conventions": { "$ref": "#/$defs/conventions" },
+    "$schema": {
+      "type": "string"
+    },
+    "meta": {
+      "$ref": "#/$defs/meta"
+    },
+    "conventions": {
+      "$ref": "#/$defs/conventions"
+    },
     "shapeEquivalenceClasses": {
       "type": "array",
       "minItems": 4,
       "maxItems": 4,
-      "items": { "$ref": "#/$defs/shapeClass" },
+      "items": {
+        "$ref": "#/$defs/shapeClass"
+      },
       "description": "Only four distinct printed solids exist for eight joints."
     },
-    "shapeEquivalenceNote": { "type": "string", "minLength": 1 },
-    "choreographyAnalysis": { "$ref": "#/$defs/choreographyAnalysis" },
+    "shapeEquivalenceNote": {
+      "type": "string",
+      "minLength": 1
+    },
+    "choreographyAnalysis": {
+      "$ref": "#/$defs/choreographyAnalysis"
+    },
     "joints": {
       "type": "array",
       "minItems": 8,
       "maxItems": 8,
-      "items": { "$ref": "#/$defs/joint" },
+      "items": {
+        "$ref": "#/$defs/joint"
+      },
       "description": "ORDERED ARRAY in firmware enum order R1,R2,L1,L2,R4,R3,L3,L4. Never re-sort; the validator enforces the order and the index."
     },
     "unresolved": {
       "type": "array",
       "minItems": 1,
-      "items": { "$ref": "#/$defs/unresolvedEntry" }
+      "items": {
+        "$ref": "#/$defs/unresolvedEntry"
+      }
     }
   },
-
   "$defs": {
     "status": {
-      "enum": ["authoritative", "inferred", "guessed"],
+      "enum": [
+        "authoritative",
+        "inferred",
+        "guessed"
+      ],
       "description": "The three-way epistemic distinction this file exists to preserve. \"authoritative\" = read out of firmware source or the STEP file. \"inferred\" = derived, always with a method and a confidence. \"guessed\" = carries verified:false and a basis."
     },
-    "confidence": { "enum": ["high", "medium", "low", "none"] },
-    "firmwareName": { "enum": ["R1", "R2", "L1", "L2", "R4", "R3", "L3", "L4"] },
-    "boardId": { "enum": ["s2-mini", "distro-v3", "distro-v2", "distro-v1"] },
-    "gpio": { "type": "integer", "minimum": 0, "maximum": 48 },
+    "confidence": {
+      "enum": [
+        "high",
+        "medium",
+        "low",
+        "none"
+      ]
+    },
+    "firmwareName": {
+      "enum": [
+        "R1",
+        "R2",
+        "L1",
+        "L2",
+        "R4",
+        "R3",
+        "L3",
+        "L4"
+      ]
+    },
+    "boardId": {
+      "enum": [
+        "s2-mini",
+        "distro-v3",
+        "distro-v2",
+        "distro-v1"
+      ]
+    },
+    "gpio": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 48
+    },
     "source": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["file", "line"],
+      "required": [
+        "file",
+        "line"
+      ],
       "description": "Provenance pointer into the upstream firmware tree; `file` is relative to the upstream repository root.",
       "properties": {
-        "file": { "type": "string", "pattern": "^firmware/" },
-        "line": { "type": "integer", "minimum": 1 }
+        "file": {
+          "type": "string",
+          "pattern": "^firmware/"
+        },
+        "line": {
+          "type": "integer",
+          "minimum": 1
+        }
       }
     },
     "cadSource": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["file", "symbol", "note"],
+      "required": [
+        "file",
+        "symbol",
+        "note"
+      ],
       "properties": {
-        "file": { "type": "string", "pattern": "\\.step$" },
-        "symbol": { "type": "string", "minLength": 1 },
-        "note": { "type": "string", "minLength": 1 }
+        "file": {
+          "type": "string",
+          "pattern": "\\.step$"
+        },
+        "symbol": {
+          "type": "string",
+          "minLength": 1
+        },
+        "note": {
+          "type": "string",
+          "minLength": 1
+        }
       }
     },
     "vec3": {
       "type": "array",
       "minItems": 3,
       "maxItems": 3,
-      "items": { "type": "number" }
+      "items": {
+        "type": "number"
+      }
     },
-
     "meta": {
       "type": "object",
       "additionalProperties": false,
       "required": [
-        "schemaVersion", "jointMapVersion", "task", "generatedAt", "generatedBy",
-        "regenerateWith", "validateWith", "epistemicContract", "verificationStatus",
-        "sources", "consumers"
+        "schemaVersion",
+        "jointMapVersion",
+        "task",
+        "generatedAt",
+        "generatedBy",
+        "regenerateWith",
+        "validateWith",
+        "epistemicContract",
+        "verificationStatus",
+        "sources",
+        "consumers"
       ],
       "properties": {
-        "schemaVersion": { "type": "string", "pattern": "^\\d+\\.\\d+\\.\\d+$" },
-        "jointMapVersion": { "type": "string", "pattern": "^\\d+\\.\\d+\\.\\d+$" },
-        "task": { "type": "string" },
-        "generatedAt": { "type": "string", "format": "date-time" },
-        "generatedBy": { "type": "string" },
-        "regenerateWith": { "type": "string" },
-        "validateWith": { "type": "string" },
-        "epistemicContract": { "type": "string", "minLength": 1 },
-        "verificationStatus": { "type": "string", "minLength": 1 },
+        "schemaVersion": {
+          "type": "string",
+          "pattern": "^\\d+\\.\\d+\\.\\d+$"
+        },
+        "jointMapVersion": {
+          "type": "string",
+          "pattern": "^\\d+\\.\\d+\\.\\d+$"
+        },
+        "task": {
+          "type": "string"
+        },
+        "generatedAt": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "generatedBy": {
+          "type": "string"
+        },
+        "regenerateWith": {
+          "type": "string"
+        },
+        "validateWith": {
+          "type": "string"
+        },
+        "epistemicContract": {
+          "type": "string",
+          "minLength": 1
+        },
+        "verificationStatus": {
+          "type": "string",
+          "minLength": 1
+        },
         "sources": {
           "type": "array",
           "minItems": 1,
           "items": {
             "type": "object",
             "additionalProperties": false,
-            "required": ["id", "path", "sha256", "role", "producedBy"],
+            "required": [
+              "id",
+              "path",
+              "sha256",
+              "role",
+              "producedBy"
+            ],
             "properties": {
-              "id": { "type": "string", "minLength": 1 },
-              "path": { "type": "string", "minLength": 1 },
-              "sha256": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
-              "role": { "type": "string", "minLength": 1 },
-              "producedBy": { "type": "string", "minLength": 1 }
+              "id": {
+                "type": "string",
+                "minLength": 1
+              },
+              "path": {
+                "type": "string",
+                "minLength": 1
+              },
+              "sha256": {
+                "type": "string",
+                "pattern": "^[0-9a-f]{64}$"
+              },
+              "role": {
+                "type": "string",
+                "minLength": 1
+              },
+              "producedBy": {
+                "type": "string",
+                "minLength": 1
+              }
             }
           }
         },
-        "consumers": { "type": "array", "items": { "type": "string" } }
+        "consumers": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
       }
     },
-
     "conventions": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["angleUnit", "lengthUnit", "lengthUnitStatus", "lengthUnitSource", "coordinateFrame", "commandedAngle", "bodyRelativeAngle"],
+      "required": [
+        "angleUnit",
+        "lengthUnit",
+        "lengthUnitStatus",
+        "lengthUnitSource",
+        "coordinateFrame",
+        "commandedAngle",
+        "bodyRelativeAngle",
+        "canonicalFrame"
+      ],
       "properties": {
-        "angleUnit": { "const": "degree" },
-        "lengthUnit": { "const": "millimetre" },
-        "lengthUnitStatus": { "$ref": "#/$defs/status" },
-        "lengthUnitSource": { "type": "string", "minLength": 1 },
+        "angleUnit": {
+          "const": "degree"
+        },
+        "lengthUnit": {
+          "const": "millimetre"
+        },
+        "lengthUnitStatus": {
+          "$ref": "#/$defs/status"
+        },
+        "lengthUnitSource": {
+          "type": "string",
+          "minLength": 1
+        },
         "coordinateFrame": {
           "type": "object",
           "additionalProperties": false,
-          "required": ["id", "status", "upAxis", "upAxisConfidence", "lateralAxis", "lateralAxisConfidence", "foreAftAxis", "foreAftAxisNote", "caveat"],
+          "required": [
+            "id",
+            "status",
+            "upAxis",
+            "upAxisConfidence",
+            "lateralAxis",
+            "lateralAxisConfidence",
+            "foreAftAxis",
+            "foreAftAxisNote",
+            "caveat",
+            "supersededBy"
+          ],
           "properties": {
-            "id": { "const": "stl-assembly" },
-            "status": { "$ref": "#/$defs/status" },
-            "upAxis": { "type": "string" },
-            "upAxisConfidence": { "$ref": "#/$defs/confidence" },
-            "lateralAxis": { "type": "string" },
-            "lateralAxisConfidence": { "$ref": "#/$defs/confidence" },
-            "foreAftAxis": { "type": ["string", "null"] },
-            "foreAftAxisNote": { "type": "string", "minLength": 1 },
-            "caveat": { "type": "string", "minLength": 1 }
+            "id": {
+              "const": "stl-assembly"
+            },
+            "status": {
+              "$ref": "#/$defs/status"
+            },
+            "upAxis": {
+              "type": "string"
+            },
+            "upAxisConfidence": {
+              "$ref": "#/$defs/confidence"
+            },
+            "lateralAxis": {
+              "type": "string"
+            },
+            "lateralAxisConfidence": {
+              "$ref": "#/$defs/confidence"
+            },
+            "foreAftAxis": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "foreAftAxisNote": {
+              "type": "string",
+              "minLength": 1
+            },
+            "caveat": {
+              "type": "string",
+              "minLength": 1
+            },
+            "supersededBy": {
+              "const": "conventions.canonicalFrame",
+              "description": "The stl-assembly frame is retained only so F5's raw rotationAxis and pivotOrigin stay auditable. Anything spatial belongs in the canonical frame."
+            }
           }
         },
         "commandedAngle": {
           "type": "object",
           "additionalProperties": false,
-          "required": ["domain", "status", "source", "call", "note"],
+          "required": [
+            "domain",
+            "status",
+            "source",
+            "call",
+            "note"
+          ],
           "properties": {
-            "domain": { "$ref": "#/$defs/degreeRange" },
-            "status": { "const": "authoritative" },
-            "source": { "$ref": "#/$defs/source" },
-            "call": { "type": "string" },
-            "note": { "type": "string" }
+            "domain": {
+              "$ref": "#/$defs/degreeRange"
+            },
+            "status": {
+              "const": "authoritative"
+            },
+            "source": {
+              "$ref": "#/$defs/source"
+            },
+            "call": {
+              "type": "string"
+            },
+            "note": {
+              "type": "string"
+            }
           }
         },
         "bodyRelativeAngle": {
           "type": "object",
           "additionalProperties": false,
-          "required": ["formula", "status", "purpose", "caveat"],
+          "required": [
+            "formula",
+            "status",
+            "purpose",
+            "caveat"
+          ],
           "properties": {
-            "formula": { "const": "bodyRelativeDeg = (commandedDeg - zeroReferenceDeg) * directionSign" },
-            "status": { "const": "inferred" },
-            "purpose": { "type": "string", "minLength": 1 },
-            "caveat": { "type": "string", "minLength": 1 }
+            "formula": {
+              "const": "bodyRelativeDeg = (commandedDeg - zeroReferenceDeg) * directionSign"
+            },
+            "status": {
+              "const": "inferred"
+            },
+            "purpose": {
+              "type": "string",
+              "minLength": 1
+            },
+            "caveat": {
+              "type": "string",
+              "minLength": 1
+            }
+          }
+        },
+        "canonicalFrame": {
+          "type": "object",
+          "description": "The single canonical robot frame established by Phase 1 task V0 from the STEP design master. Every joints[*].cadPose is expressed in it.",
+          "additionalProperties": false,
+          "required": [
+            "id",
+            "status",
+            "source",
+            "handedness",
+            "upAxis",
+            "forwardAxis",
+            "rightAxis",
+            "convention",
+            "originDefinition",
+            "groundPlaneYMm",
+            "stlToCadFrameMap",
+            "stlToCadFrameMapMarginRatio",
+            "note"
+          ],
+          "properties": {
+            "id": {
+              "const": "sesame-robot"
+            },
+            "status": {
+              "$ref": "#/$defs/status"
+            },
+            "source": {
+              "const": "hardware/assembly-map.json"
+            },
+            "handedness": {
+              "const": "right"
+            },
+            "upAxis": {
+              "enum": [
+                "+X",
+                "-X",
+                "+Y",
+                "-Y",
+                "+Z",
+                "-Z"
+              ]
+            },
+            "forwardAxis": {
+              "enum": [
+                "+X",
+                "-X",
+                "+Y",
+                "-Y",
+                "+Z",
+                "-Z"
+              ]
+            },
+            "rightAxis": {
+              "enum": [
+                "+X",
+                "-X",
+                "+Y",
+                "-Y",
+                "+Z",
+                "-Z"
+              ]
+            },
+            "convention": {
+              "type": "string",
+              "minLength": 10
+            },
+            "originDefinition": {
+              "type": "string",
+              "minLength": 10
+            },
+            "groundPlaneYMm": {
+              "type": "number"
+            },
+            "stlToCadFrameMap": {
+              "type": "string",
+              "minLength": 10
+            },
+            "stlToCadFrameMapMarginRatio": {
+              "type": "number",
+              "minimum": 100
+            },
+            "note": {
+              "type": "string",
+              "minLength": 20
+            }
           }
         }
       }
     },
-
     "degreeRange": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["min", "max"],
+      "required": [
+        "min",
+        "max"
+      ],
       "properties": {
-        "min": { "type": "number" },
-        "max": { "type": "number" }
+        "min": {
+          "type": "number"
+        },
+        "max": {
+          "type": "number"
+        }
       }
     },
-
     "shapeClass": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["id", "kind", "members", "relation", "mirrorOf", "status", "evidence"],
+      "required": [
+        "id",
+        "kind",
+        "members",
+        "relation",
+        "mirrorOf",
+        "status",
+        "evidence"
+      ],
       "properties": {
-        "id": { "enum": ["femur-A", "femur-B", "foot-A", "foot-B"] },
-        "kind": { "enum": ["femur", "foot"] },
+        "id": {
+          "enum": [
+            "femur-A",
+            "femur-B",
+            "foot-A",
+            "foot-B"
+          ]
+        },
+        "kind": {
+          "enum": [
+            "femur",
+            "foot"
+          ]
+        },
         "members": {
           "type": "array",
           "minItems": 2,
           "maxItems": 2,
-          "items": { "$ref": "#/$defs/firmwareName" }
+          "items": {
+            "$ref": "#/$defs/firmwareName"
+          }
         },
-        "relation": { "const": "identical solids" },
-        "mirrorOf": { "enum": ["femur-A", "femur-B", "foot-A", "foot-B"] },
-        "status": { "$ref": "#/$defs/status" },
-        "evidence": { "type": "string", "minLength": 1 }
+        "relation": {
+          "const": "identical solids"
+        },
+        "mirrorOf": {
+          "enum": [
+            "femur-A",
+            "femur-B",
+            "foot-A",
+            "foot-B"
+          ]
+        },
+        "status": {
+          "$ref": "#/$defs/status"
+        },
+        "evidence": {
+          "type": "string",
+          "minLength": 1
+        }
       }
     },
-
     "choreographyAnalysis": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["status", "corpus", "method", "findings", "caveat"],
+      "required": [
+        "status",
+        "corpus",
+        "method",
+        "findings",
+        "caveat"
+      ],
       "properties": {
-        "status": { "const": "inferred" },
+        "status": {
+          "const": "inferred"
+        },
         "corpus": {
           "type": "object",
           "additionalProperties": false,
-          "required": ["source", "functions", "totalSteps", "servoSteps", "note"],
+          "required": [
+            "source",
+            "functions",
+            "totalSteps",
+            "servoSteps",
+            "note"
+          ],
           "properties": {
-            "source": { "type": "string" },
-            "functions": { "type": "integer", "minimum": 1 },
-            "totalSteps": { "type": "integer", "minimum": 1 },
-            "servoSteps": { "type": "integer", "minimum": 1 },
-            "note": { "type": "string", "minLength": 1 }
+            "source": {
+              "type": "string"
+            },
+            "functions": {
+              "type": "integer",
+              "minimum": 1
+            },
+            "totalSteps": {
+              "type": "integer",
+              "minimum": 1
+            },
+            "servoSteps": {
+              "type": "integer",
+              "minimum": 1
+            },
+            "note": {
+              "type": "string",
+              "minLength": 1
+            }
           }
         },
-        "method": { "type": "string", "minLength": 1 },
-        "findings": { "type": "array", "minItems": 1, "items": { "type": "string", "minLength": 1 } },
-        "caveat": { "type": "string", "minLength": 1 }
+        "method": {
+          "type": "string",
+          "minLength": 1
+        },
+        "findings": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "caveat": {
+          "type": "string",
+          "minLength": 1
+        }
       }
     },
-
     "joint": {
       "type": "object",
       "additionalProperties": false,
       "required": [
-        "firmwareName", "firmwareIndex", "firmwareIndexStatus", "firmwareIndexSource", "firmwareIndexNote",
-        "kind", "kindStatus", "kindSource",
-        "pinsByBoard", "pinsStatus", "pinSourceByBoard", "pinsNote",
-        "stlFile", "stlPath", "stlSha256",
-        "shapeEquivalenceClass", "shapeEquivalenceStatus", "shapeEquivalenceMethod",
-        "rotationAxis", "pivotOrigin", "parentLink",
-        "zeroReferenceDeg", "directionSign", "angleLimitsDeg", "observedRangeDeg",
-        "semanticName", "unresolved"
+        "firmwareName",
+        "firmwareIndex",
+        "firmwareIndexStatus",
+        "firmwareIndexSource",
+        "firmwareIndexNote",
+        "kind",
+        "kindStatus",
+        "kindSource",
+        "pinsByBoard",
+        "pinsStatus",
+        "pinSourceByBoard",
+        "pinsNote",
+        "stlFile",
+        "stlPath",
+        "stlSha256",
+        "shapeEquivalenceClass",
+        "shapeEquivalenceStatus",
+        "shapeEquivalenceMethod",
+        "rotationAxis",
+        "pivotOrigin",
+        "parentLink",
+        "zeroReferenceDeg",
+        "directionSign",
+        "angleLimitsDeg",
+        "observedRangeDeg",
+        "semanticName",
+        "unresolved",
+        "cadPose"
       ],
       "properties": {
-        "firmwareName": { "$ref": "#/$defs/firmwareName" },
-        "firmwareIndex": { "type": "integer", "minimum": 0, "maximum": 7 },
-        "firmwareIndexStatus": { "const": "authoritative" },
-        "firmwareIndexSource": { "$ref": "#/$defs/source" },
-        "firmwareIndexNote": { "type": "string", "minLength": 1 },
-
-        "kind": { "enum": ["femur", "foot"] },
-        "kindStatus": { "const": "authoritative" },
-        "kindSource": { "$ref": "#/$defs/cadSource" },
-
+        "firmwareName": {
+          "$ref": "#/$defs/firmwareName"
+        },
+        "firmwareIndex": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 7
+        },
+        "firmwareIndexStatus": {
+          "const": "authoritative"
+        },
+        "firmwareIndexSource": {
+          "$ref": "#/$defs/source"
+        },
+        "firmwareIndexNote": {
+          "type": "string",
+          "minLength": 1
+        },
+        "kind": {
+          "enum": [
+            "femur",
+            "foot"
+          ]
+        },
+        "kindStatus": {
+          "const": "authoritative"
+        },
+        "kindSource": {
+          "$ref": "#/$defs/cadSource"
+        },
         "pinsByBoard": {
           "type": "object",
           "additionalProperties": false,
-          "required": ["s2-mini", "distro-v3", "distro-v2", "distro-v1"],
+          "required": [
+            "s2-mini",
+            "distro-v3",
+            "distro-v2",
+            "distro-v1"
+          ],
           "properties": {
-            "s2-mini": { "$ref": "#/$defs/gpio" },
-            "distro-v3": { "$ref": "#/$defs/gpio" },
-            "distro-v2": { "$ref": "#/$defs/gpio" },
-            "distro-v1": { "$ref": "#/$defs/gpio" }
+            "s2-mini": {
+              "$ref": "#/$defs/gpio"
+            },
+            "distro-v3": {
+              "$ref": "#/$defs/gpio"
+            },
+            "distro-v2": {
+              "$ref": "#/$defs/gpio"
+            },
+            "distro-v1": {
+              "$ref": "#/$defs/gpio"
+            }
           }
         },
-        "pinsStatus": { "const": "authoritative" },
+        "pinsStatus": {
+          "const": "authoritative"
+        },
         "pinSourceByBoard": {
           "type": "object",
           "additionalProperties": false,
-          "required": ["s2-mini", "distro-v3", "distro-v2", "distro-v1"],
+          "required": [
+            "s2-mini",
+            "distro-v3",
+            "distro-v2",
+            "distro-v1"
+          ],
           "properties": {
-            "s2-mini": { "$ref": "#/$defs/source" },
-            "distro-v3": { "$ref": "#/$defs/source" },
-            "distro-v2": { "$ref": "#/$defs/source" },
-            "distro-v1": { "$ref": "#/$defs/source" }
+            "s2-mini": {
+              "$ref": "#/$defs/source"
+            },
+            "distro-v3": {
+              "$ref": "#/$defs/source"
+            },
+            "distro-v2": {
+              "$ref": "#/$defs/source"
+            },
+            "distro-v1": {
+              "$ref": "#/$defs/source"
+            }
           }
         },
-        "pinsNote": { "type": "string", "minLength": 1 },
-
-        "stlFile": { "type": "string", "pattern": "\\.stl$" },
-        "stlPath": { "type": "string", "minLength": 1 },
-        "stlSha256": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
-
-        "shapeEquivalenceClass": { "enum": ["femur-A", "femur-B", "foot-A", "foot-B"] },
-        "shapeEquivalenceStatus": { "$ref": "#/$defs/status" },
-        "shapeEquivalenceMethod": { "type": "string", "minLength": 1 },
-
+        "pinsNote": {
+          "type": "string",
+          "minLength": 1
+        },
+        "stlFile": {
+          "type": "string",
+          "pattern": "\\.stl$"
+        },
+        "stlPath": {
+          "type": "string",
+          "minLength": 1
+        },
+        "stlSha256": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$"
+        },
+        "shapeEquivalenceClass": {
+          "enum": [
+            "femur-A",
+            "femur-B",
+            "foot-A",
+            "foot-B"
+          ]
+        },
+        "shapeEquivalenceStatus": {
+          "$ref": "#/$defs/status"
+        },
+        "shapeEquivalenceMethod": {
+          "type": "string",
+          "minLength": 1
+        },
         "rotationAxis": {
           "type": "object",
           "additionalProperties": false,
-          "required": ["value", "frame", "status", "axisConfidence", "method", "note"],
+          "required": [
+            "value",
+            "frame",
+            "status",
+            "axisConfidence",
+            "method",
+            "note"
+          ],
           "properties": {
-            "value": { "$ref": "#/$defs/vec3" },
-            "frame": { "const": "stl-assembly" },
-            "status": { "const": "inferred" },
-            "axisConfidence": { "$ref": "#/$defs/confidence" },
-            "method": { "type": "string", "minLength": 1 },
-            "note": { "type": "string", "minLength": 1 }
+            "value": {
+              "$ref": "#/$defs/vec3"
+            },
+            "frame": {
+              "const": "stl-assembly"
+            },
+            "status": {
+              "const": "inferred"
+            },
+            "axisConfidence": {
+              "$ref": "#/$defs/confidence"
+            },
+            "method": {
+              "type": "string",
+              "minLength": 1
+            },
+            "note": {
+              "type": "string",
+              "minLength": 1
+            }
           }
         },
-
         "pivotOrigin": {
           "type": "object",
           "additionalProperties": false,
-          "required": ["value", "frame", "status", "originConfidence", "caveat", "method"],
+          "required": [
+            "value",
+            "frame",
+            "status",
+            "originConfidence",
+            "caveat",
+            "method"
+          ],
           "properties": {
-            "value": { "$ref": "#/$defs/vec3" },
-            "frame": { "const": "stl-assembly" },
-            "status": { "const": "inferred" },
-            "originConfidence": { "$ref": "#/$defs/confidence" },
+            "value": {
+              "$ref": "#/$defs/vec3"
+            },
+            "frame": {
+              "const": "stl-assembly"
+            },
+            "status": {
+              "const": "inferred"
+            },
+            "originConfidence": {
+              "$ref": "#/$defs/confidence"
+            },
             "caveat": {
               "type": "string",
               "pattern": "NOT THE JOINT CENTRE",
               "description": "The caveat text is REQUIRED to contain the words \"NOT THE JOINT CENTRE\". A pivot origin that loses this warning is a pivot origin that will be used as a kinematic frame origin by someone who did not read the finding."
             },
-            "method": { "type": "string", "minLength": 1 }
+            "method": {
+              "type": "string",
+              "minLength": 1
+            }
           }
         },
-
         "linkGeometry": {
           "type": "object",
           "additionalProperties": false,
-          "required": ["status", "axisAngleDeg", "commonNormalDistanceMm", "distalAxis", "distalOrigin", "note"],
+          "required": [
+            "status",
+            "axisAngleDeg",
+            "commonNormalDistanceMm",
+            "distalAxis",
+            "distalOrigin",
+            "note"
+          ],
           "description": "Present on femurs only: the femur is the two-axis link between the hip servo and the leg servo.",
           "properties": {
-            "status": { "const": "inferred" },
-            "axisAngleDeg": { "type": "number" },
-            "commonNormalDistanceMm": { "type": "number", "exclusiveMinimum": 0 },
-            "distalAxis": { "$ref": "#/$defs/vec3" },
-            "distalOrigin": { "$ref": "#/$defs/vec3" },
-            "note": { "type": "string", "minLength": 1 }
+            "status": {
+              "const": "inferred"
+            },
+            "axisAngleDeg": {
+              "type": "number"
+            },
+            "commonNormalDistanceMm": {
+              "type": "number",
+              "exclusiveMinimum": 0
+            },
+            "distalAxis": {
+              "$ref": "#/$defs/vec3"
+            },
+            "distalOrigin": {
+              "$ref": "#/$defs/vec3"
+            },
+            "note": {
+              "type": "string",
+              "minLength": 1
+            }
           }
         },
-
         "parentLink": {
           "type": "object",
           "additionalProperties": false,
-          "required": ["value", "status", "basis", "childLink"],
+          "required": [
+            "value",
+            "status",
+            "basis",
+            "childLink"
+          ],
           "properties": {
             "value": {
-              "anyOf": [{ "const": "internal-frame" }, { "$ref": "#/$defs/firmwareName" }],
+              "anyOf": [
+                {
+                  "const": "internal-frame"
+                },
+                {
+                  "$ref": "#/$defs/firmwareName"
+                }
+              ],
               "description": "The kinematic parent: the chassis for a femur, the mating femur for a foot."
             },
-            "status": { "$ref": "#/$defs/status" },
-            "basis": { "type": "string", "minLength": 1 },
-            "childLink": {
-              "anyOf": [{ "$ref": "#/$defs/firmwareName" }, { "type": "null" }]
+            "status": {
+              "$ref": "#/$defs/status"
             },
-            "caveat": { "type": "string", "minLength": 1 }
+            "basis": {
+              "type": "string",
+              "minLength": 1
+            },
+            "childLink": {
+              "anyOf": [
+                {
+                  "$ref": "#/$defs/firmwareName"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "caveat": {
+              "type": "string",
+              "minLength": 1
+            }
           }
         },
-
         "zeroReferenceDeg": {
           "type": "object",
           "additionalProperties": false,
-          "required": ["value", "status", "basis", "caveat", "restPoseDeg", "standPoseDeg"],
+          "required": [
+            "value",
+            "status",
+            "basis",
+            "caveat",
+            "restPoseDeg",
+            "standPoseDeg"
+          ],
           "properties": {
-            "value": { "type": "number", "minimum": 0, "maximum": 180 },
-            "status": { "const": "inferred" },
-            "basis": { "type": "array", "minItems": 1, "items": { "type": "string", "minLength": 1 } },
-            "caveat": { "type": "string", "pattern": "NOT MEASURED" },
-            "restPoseDeg": { "type": "number" },
-            "standPoseDeg": { "type": "number" }
+            "value": {
+              "type": "number",
+              "minimum": 0,
+              "maximum": 180
+            },
+            "status": {
+              "const": "inferred"
+            },
+            "basis": {
+              "type": "array",
+              "minItems": 1,
+              "items": {
+                "type": "string",
+                "minLength": 1
+              }
+            },
+            "caveat": {
+              "type": "string",
+              "pattern": "NOT MEASURED"
+            },
+            "restPoseDeg": {
+              "type": "number"
+            },
+            "standPoseDeg": {
+              "type": "number"
+            },
+            "cadRestGeometry": {
+              "type": "object",
+              "description": "Femurs only. What the leg actually points at when the servo is at its 90-degree datum, recovered in V0 by undoing each hip horn's measured rotation. This is what settled the rest-pose contradiction F6 recorded.",
+              "additionalProperties": false,
+              "required": [
+                "status",
+                "source",
+                "legDirectionAtRest",
+                "legDirectionAtStand",
+                "angleFromBodyLongAxisAtRestDeg",
+                "finding"
+              ],
+              "properties": {
+                "status": {
+                  "$ref": "#/$defs/status"
+                },
+                "source": {
+                  "const": "hardware/assembly-map.json"
+                },
+                "legDirectionAtRest": {
+                  "$ref": "#/$defs/vec3"
+                },
+                "legDirectionAtStand": {
+                  "$ref": "#/$defs/vec3"
+                },
+                "angleFromBodyLongAxisAtRestDeg": {
+                  "type": "number",
+                  "minimum": 0,
+                  "maximum": 0.001
+                },
+                "finding": {
+                  "type": "string",
+                  "minLength": 40
+                }
+              }
+            }
           }
         },
-
         "directionSign": {
           "type": "object",
           "additionalProperties": false,
-          "required": ["value", "status", "convention", "basis", "caveat"],
+          "required": [
+            "value",
+            "status",
+            "convention",
+            "basis",
+            "caveat",
+            "absoluteSense"
+          ],
           "properties": {
-            "value": { "enum": [1, -1] },
-            "status": { "const": "inferred" },
-            "convention": { "type": "string", "minLength": 1 },
-            "basis": { "type": "array", "minItems": 1, "items": { "type": "string", "minLength": 1 } },
-            "caveat": { "type": "string", "minLength": 1 }
+            "value": {
+              "enum": [
+                1,
+                -1
+              ]
+            },
+            "status": {
+              "const": "inferred"
+            },
+            "convention": {
+              "type": "string",
+              "minLength": 1
+            },
+            "basis": {
+              "type": "array",
+              "minItems": 1,
+              "items": {
+                "type": "string",
+                "minLength": 1
+              }
+            },
+            "caveat": {
+              "type": "string",
+              "minLength": 1
+            },
+            "absoluteSense": {
+              "type": "object",
+              "description": "The PHYSICAL rotation sense, recovered in V0 from the CAD servo horn occurrences. F6 could not establish this and said so; it is a separate field from directionSign because directionSign is a bookkeeping convention and this is a claim about which way the metal turns.",
+              "additionalProperties": false,
+              "required": [
+                "status",
+                "frame",
+                "rule",
+                "axisUnitVector",
+                "rotatesRelativeTo",
+                "source",
+                "method",
+                "dependsOn",
+                "caveat"
+              ],
+              "properties": {
+                "status": {
+                  "$ref": "#/$defs/status"
+                },
+                "frame": {
+                  "const": "sesame-robot"
+                },
+                "rule": {
+                  "type": "string",
+                  "pattern": "commandedDeg - 90"
+                },
+                "axisUnitVector": {
+                  "$ref": "#/$defs/vec3"
+                },
+                "rotatesRelativeTo": {
+                  "type": "string"
+                },
+                "source": {
+                  "const": "hardware/assembly-map.json"
+                },
+                "method": {
+                  "type": "string",
+                  "minLength": 40
+                },
+                "dependsOn": {
+                  "type": "string",
+                  "minLength": 40
+                },
+                "caveat": {
+                  "type": "string",
+                  "minLength": 20
+                }
+              }
+            }
           }
         },
-
         "angleLimitsDeg": {
           "type": "object",
           "additionalProperties": false,
-          "required": ["value", "status", "source", "call", "note", "mechanicalLimitsDeg", "mechanicalLimitsNote"],
+          "required": [
+            "value",
+            "status",
+            "source",
+            "call",
+            "note",
+            "mechanicalLimitsDeg",
+            "mechanicalLimitsNote"
+          ],
           "properties": {
-            "value": { "$ref": "#/$defs/degreeRange" },
-            "status": { "const": "authoritative" },
-            "source": { "$ref": "#/$defs/source" },
-            "call": { "type": "string" },
-            "note": { "type": "string", "minLength": 1 },
+            "value": {
+              "$ref": "#/$defs/degreeRange"
+            },
+            "status": {
+              "const": "authoritative"
+            },
+            "source": {
+              "$ref": "#/$defs/source"
+            },
+            "call": {
+              "type": "string"
+            },
+            "note": {
+              "type": "string",
+              "minLength": 1
+            },
             "mechanicalLimitsDeg": {
-              "anyOf": [{ "$ref": "#/$defs/degreeRange" }, { "type": "null" }],
+              "anyOf": [
+                {
+                  "$ref": "#/$defs/degreeRange"
+                },
+                {
+                  "type": "null"
+                }
+              ],
               "description": "null until a physical robot or a collision study says otherwise. Never guessed from the firmware clamp."
             },
-            "mechanicalLimitsNote": { "type": "string", "minLength": 1 }
+            "mechanicalLimitsNote": {
+              "type": "string",
+              "minLength": 1
+            }
           }
         },
-
         "observedRangeDeg": {
           "type": "object",
           "additionalProperties": false,
           "required": [
-            "status", "method", "corpus", "sampleCount", "functionsCommandingThisJoint",
-            "minDeg", "maxDeg", "medianDeg", "distinctCommandedDeg",
-            "bodyRelativeMinDeg", "bodyRelativeMaxDeg", "note"
+            "status",
+            "method",
+            "corpus",
+            "sampleCount",
+            "functionsCommandingThisJoint",
+            "minDeg",
+            "maxDeg",
+            "medianDeg",
+            "distinctCommandedDeg",
+            "bodyRelativeMinDeg",
+            "bodyRelativeMaxDeg",
+            "note"
           ],
           "properties": {
-            "status": { "const": "inferred" },
-            "method": { "type": "string", "minLength": 1 },
+            "status": {
+              "const": "inferred"
+            },
+            "method": {
+              "type": "string",
+              "minLength": 1
+            },
             "corpus": {
               "type": "object",
               "additionalProperties": false,
-              "required": ["functions", "totalSteps", "servoSteps"],
+              "required": [
+                "functions",
+                "totalSteps",
+                "servoSteps"
+              ],
               "properties": {
-                "functions": { "type": "integer", "minimum": 1 },
-                "totalSteps": { "type": "integer", "minimum": 1 },
-                "servoSteps": { "type": "integer", "minimum": 1 }
+                "functions": {
+                  "type": "integer",
+                  "minimum": 1
+                },
+                "totalSteps": {
+                  "type": "integer",
+                  "minimum": 1
+                },
+                "servoSteps": {
+                  "type": "integer",
+                  "minimum": 1
+                }
               }
             },
-            "sampleCount": { "type": "integer", "minimum": 1 },
-            "functionsCommandingThisJoint": { "type": "integer", "minimum": 1 },
-            "minDeg": { "type": "number" },
-            "maxDeg": { "type": "number" },
-            "medianDeg": { "type": "number" },
+            "sampleCount": {
+              "type": "integer",
+              "minimum": 1
+            },
+            "functionsCommandingThisJoint": {
+              "type": "integer",
+              "minimum": 1
+            },
+            "minDeg": {
+              "type": "number"
+            },
+            "maxDeg": {
+              "type": "number"
+            },
+            "medianDeg": {
+              "type": "number"
+            },
             "distinctCommandedDeg": {
               "type": "array",
               "minItems": 1,
               "items": {
                 "type": "object",
                 "additionalProperties": false,
-                "required": ["deg", "count"],
+                "required": [
+                  "deg",
+                  "count"
+                ],
                 "properties": {
-                  "deg": { "type": "number", "minimum": 0, "maximum": 180 },
-                  "count": { "type": "integer", "minimum": 1 }
+                  "deg": {
+                    "type": "number",
+                    "minimum": 0,
+                    "maximum": 180
+                  },
+                  "count": {
+                    "type": "integer",
+                    "minimum": 1
+                  }
                 }
               }
             },
-            "bodyRelativeMinDeg": { "type": "number" },
-            "bodyRelativeMaxDeg": { "type": "number" },
-            "note": { "type": "string", "minLength": 1 }
+            "bodyRelativeMinDeg": {
+              "type": "number"
+            },
+            "bodyRelativeMaxDeg": {
+              "type": "number"
+            },
+            "note": {
+              "type": "string",
+              "minLength": 1
+            }
           }
         },
-
         "semanticName": {
           "type": "object",
           "additionalProperties": false,
-          "required": ["value", "verified", "basis", "basisPoints", "wouldBeConfirmedBy", "alternativesConsidered", "alternativesNote"],
+          "required": [
+            "value",
+            "verified",
+            "basis",
+            "basisPoints",
+            "wouldBeConfirmedBy",
+            "alternativesConsidered",
+            "alternativesNote"
+          ],
           "description": "OPTIONAL BY DESIGN, AND NEVER AUTHORITATIVE. `verified` is the literal constant false: this schema cannot express a verified semantic name, because no mapping from firmware names to spatial names has been physically confirmed. Consumers must key on firmwareName/firmwareIndex and treat this object as a display-only hint.",
           "properties": {
-            "value": { "type": "string", "pattern": "^(left|right)_(front|rear)_(hip|knee)$" },
+            "value": {
+              "type": "string",
+              "pattern": "^(left|right)_(front|rear)_(hip|knee)$"
+            },
             "verified": {
               "const": false,
               "description": "Literal false. If a physical verification ever happens, that is a schema-version bump and a deliberate code change, not a data edit."
             },
-            "basis": { "type": "string", "minLength": 1 },
-            "basisPoints": { "type": "array", "minItems": 1, "items": { "type": "string", "minLength": 1 } },
-            "wouldBeConfirmedBy": { "type": "array", "minItems": 1, "items": { "type": "string", "minLength": 1 } },
-            "alternativesConsidered": { "type": "array", "items": { "type": "string" } },
-            "alternativesNote": { "type": "string", "minLength": 1 }
+            "basis": {
+              "type": "string",
+              "minLength": 1
+            },
+            "basisPoints": {
+              "type": "array",
+              "minItems": 1,
+              "items": {
+                "type": "string",
+                "minLength": 1
+              }
+            },
+            "wouldBeConfirmedBy": {
+              "type": "array",
+              "minItems": 1,
+              "items": {
+                "type": "string",
+                "minLength": 1
+              }
+            },
+            "alternativesConsidered": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "alternativesNote": {
+              "type": "string",
+              "minLength": 1
+            }
           }
         },
-
         "unresolved": {
           "type": "array",
-          "items": { "type": "string", "minLength": 1 },
+          "items": {
+            "type": "string",
+            "minLength": 1
+          },
           "description": "Per-joint open items, in prose. The machine-readable list is the top-level `unresolved`."
+        },
+        "cadPose": {
+          "type": "object",
+          "description": "Where this part actually sits in the assembled robot, from Phase 1 task V0. Read out of the STEP assembly, so the POSE is authoritative about the design; the axis DIRECTION is still F5's mesh fit carried through it, hence status inferred.",
+          "additionalProperties": false,
+          "required": [
+            "status",
+            "frame",
+            "source",
+            "poseFromStlMm",
+            "poseStatus",
+            "rotationAxis",
+            "pointOnAxisMm",
+            "servoShaftOriginMm",
+            "servoShaftAxis",
+            "servoShaftStatus",
+            "cadServoAgreementMm",
+            "parentPart",
+            "placedBoundingBoxMm",
+            "method",
+            "caveat"
+          ],
+          "properties": {
+            "status": {
+              "$ref": "#/$defs/status"
+            },
+            "frame": {
+              "const": "sesame-robot"
+            },
+            "source": {
+              "const": "hardware/assembly-map.json"
+            },
+            "poseFromStlMm": {
+              "type": "array",
+              "minItems": 4,
+              "maxItems": 4,
+              "items": {
+                "type": "array",
+                "minItems": 4,
+                "maxItems": 4,
+                "items": {
+                  "type": "number"
+                }
+              }
+            },
+            "poseStatus": {
+              "$ref": "#/$defs/status"
+            },
+            "rotationAxis": {
+              "$ref": "#/$defs/vec3"
+            },
+            "pointOnAxisMm": {
+              "$ref": "#/$defs/vec3"
+            },
+            "servoShaftOriginMm": {
+              "oneOf": [
+                {
+                  "$ref": "#/$defs/vec3"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "servoShaftAxis": {
+              "oneOf": [
+                {
+                  "$ref": "#/$defs/vec3"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "servoShaftStatus": {
+              "enum": [
+                "authoritative",
+                "absent-from-cad"
+              ]
+            },
+            "cadServoAgreementMm": {
+              "type": [
+                "number",
+                "null"
+              ],
+              "minimum": 0,
+              "maximum": 0.01
+            },
+            "parentPart": {
+              "type": "string"
+            },
+            "placedBoundingBoxMm": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "min",
+                "max"
+              ],
+              "properties": {
+                "min": {
+                  "$ref": "#/$defs/vec3"
+                },
+                "max": {
+                  "$ref": "#/$defs/vec3"
+                }
+              }
+            },
+            "method": {
+              "type": "string",
+              "minLength": 40
+            },
+            "caveat": {
+              "type": "string",
+              "minLength": 20
+            }
+          }
         }
       }
     },
-
     "unresolvedEntry": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["id", "subject", "carriedForwardFrom", "status", "reason", "resolvedBy", "blocking"],
+      "required": [
+        "id",
+        "subject",
+        "carriedForwardFrom",
+        "status",
+        "reason",
+        "resolvedBy",
+        "blocking"
+      ],
       "properties": {
-        "id": { "type": "string", "pattern": "^[a-z0-9-]+$" },
-        "subject": { "type": "string", "minLength": 1 },
-        "carriedForwardFrom": { "enum": ["F4", "F5", "F6"] },
-        "status": { "enum": ["open", "partially-resolved"] },
-        "reason": { "type": "string", "minLength": 1 },
-        "resolvedBy": { "type": "string", "minLength": 1 },
-        "blocking": { "type": "boolean" }
+        "id": {
+          "type": "string",
+          "pattern": "^[a-z0-9-]+$"
+        },
+        "subject": {
+          "type": "string",
+          "minLength": 1
+        },
+        "carriedForwardFrom": {
+          "enum": [
+            "F4",
+            "F5",
+            "F6"
+          ]
+        },
+        "status": {
+          "enum": [
+            "open",
+            "partially-resolved",
+            "resolved"
+          ],
+          "description": "\"resolved\" entries are kept rather than deleted so the audit trail from F5/F6 to V0 stays readable; `reason` must say what closed it and `resolvedBy` must start with \"done\"."
+        },
+        "reason": {
+          "type": "string",
+          "minLength": 1
+        },
+        "resolvedBy": {
+          "type": "string",
+          "minLength": 1
+        },
+        "blocking": {
+          "type": "boolean"
+        }
       }
     }
   }

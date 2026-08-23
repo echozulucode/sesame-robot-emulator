@@ -248,8 +248,8 @@
       "sha256": "f1f32efaa64a5ed35c2b2240c759f2094ef35888345a2d6c8b16b027e7ad7388"
     }
   ],
-  "assetSourceVersion": "upstream@401730514cefed738710d22303e84b0dcd6b76d0 hardware/{printing/stl,cad}; assets-inventory schemaVersion 1.0.0; parts Internal-Frame/Bottom-Cover v121, R1-R4/L1-L4 v117, Top-Cover-Enclosed v117, Top-Cover-Cat/No-Ears v100, CAD Sesame-ESP32-v122",
-  "jointMapVersion": "1.0.0",
+  "assetSourceVersion": "upstream@401730514cefed738710d22303e84b0dcd6b76d0 hardware/{printing/stl,cad}; assets-inventory schemaVersion 1.0.0; parts Internal-Frame/Bottom-Cover v121, R1-R4/L1-L4 v117, Top-Cover-Enclosed v117, Top-Cover-Cat/No-Ears v100, CAD Sesame-ESP32-v122; assembly-map schemaVersion 1.0.0 (V0 CAD reconstruction, canonical frame sesame-robot)",
+  "jointMapVersion": "1.1.0",
   "telemetryProtocolVersion": "1.0.0",
   "lessonContentVersion": null,
   "generatedAt": "2026-08-23T17:59:59.560Z",

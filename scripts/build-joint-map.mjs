@@ -47,6 +47,7 @@ const sha256 = (p) => createHash('sha256').update(readFileSync(resolve(repoRoot,
 
 const HARDWARE_MAP = 'hardware/hardware-map.json';
 const ASSETS_INVENTORY = 'hardware/assets-inventory.json';
+const ASSEMBLY_MAP = 'hardware/assembly-map.json';
 const TOPDOWN_PNG = 'firmware/upstream/software/sesame-studio/sesame-topdown.png';
 const REFCFG_PNG = 'firmware/upstream/docs/build-guide/assets/reference-configuration.png';
 const ANGLE_PNG = 'firmware/upstream/docs/build-guide/assets/sesame-angle-guide.png';
@@ -54,6 +55,25 @@ const BUILD_GUIDE = 'firmware/upstream/docs/build-guide/README.md';
 
 const hw = readJson(HARDWARE_MAP);
 const assets = readJson(ASSETS_INVENTORY);
+
+// V0 (Phase 1) reconstructed the CAD assembly. Everything geometric that used to
+// be a reading of a drawing now comes from here, from the design master itself.
+const asm = readJson(ASSEMBLY_MAP);
+if (asm.frameMap.result !== 'resolved') {
+  throw new Error('assembly-map.json reports an unresolved STL-to-CAD frame map; '
+    + 'the CAD-derived promotions below are only valid when it is resolved.');
+}
+const asmJoint = (name) => {
+  const j = asm.joints.find((x) => x.firmwareJointName === name);
+  if (!j) throw new Error(`assembly-map.json has no joint ${name}`);
+  return j;
+};
+const asmPart = (id) => {
+  const p = asm.parts.find((x) => x.id === id);
+  if (!p) throw new Error(`assembly-map.json has no part ${id}`);
+  return p;
+};
+const CAD_MATES = asm.assemblyChecks.kneeCoaxiality.matedPairs;
 
 // --------------------------------------------------------------------------
 // 1. Firmware order — taken from the map, never re-typed, never re-sorted.
@@ -121,10 +141,21 @@ const SHAPE_CLASS = {
 // Sign class == shape class family. See `directionSign` reasoning in the doc.
 const DIRECTION_SIGN = { R1: 1, L2: 1, R3: 1, L4: 1, R2: -1, L1: -1, R4: -1, L3: -1 };
 
-// Hip <-> foot pairing, read off reference-configuration.png and
-// sesame-topdown.png. Both images label all eight parts.
-const FOOT_TO_FEMUR = { R3: 'R1', R4: 'R2', L3: 'L1', L4: 'L2' };
-const FEMUR_TO_FOOT = { R1: 'R3', R2: 'R4', L1: 'L3', L2: 'L4' };
+// Hip <-> foot pairing. Originally read off reference-configuration.png and
+// sesame-topdown.png; since V0 it is measured, as the unique coaxial pairing of
+// the femur distal horn axes with the foot pivot axes in the CAD assembly. The
+// drawings agree, which is why this table is unchanged - but it is now taken
+// from the assembly map, so a future CAD revision moves it rather than a human.
+const FEMUR_TO_FOOT = { ...CAD_MATES };
+const FOOT_TO_FEMUR = Object.fromEntries(
+  Object.entries(FEMUR_TO_FOOT).map(([f, t]) => [t, f]),
+);
+for (const [f, t] of Object.entries({ R1: 'R3', R2: 'R4', L1: 'L3', L2: 'L4' })) {
+  if (FEMUR_TO_FOOT[f] !== t) {
+    throw new Error(`CAD mate ${f}->${FEMUR_TO_FOOT[f]} contradicts the drawings (${f}->${t}); `
+      + 'this is a real finding, not a typo - stop and write it up before regenerating.');
+  }
+}
 
 // Semantic guesses. verified:false, always.
 const SEMANTIC = {
@@ -144,20 +175,30 @@ const SEMANTIC_BASIS = (j) => {
   const side = SIDE[j[0]];
   const end = END[j[1]];
   const kind = Number(j[1]) <= 2 ? 'hip (femur)' : 'knee (foot)';
+  const bbox = asmPart(j).placedBoundingBoxMm;
+  const cf = asm.canonicalFrame;
+  const zMid = ((bbox.min[2] + bbox.max[2]) / 2).toFixed(1);
+  const xMid = ((bbox.min[0] + bbox.max[0]) / 2).toFixed(1);
   return [
-    `Front/rear: ${rel(resolve(repoRoot, TOPDOWN_PNG))} is a labelled top-down line drawing of the assembled robot carrying the words "FRONT" at the top edge and "BACK" at the bottom. In that drawing L3/L1 sit at the front-left, R3/R1 at the front-right, L2/L4 at the back-left and R2/R4 at the back-right. ${j} is therefore at the ${end}.`,
-    `Left/right: the same drawing places every L-named part on the image's left half and every R-named part on the image's right half. Read as a view from ABOVE with the robot facing away from the viewer, image-left is the robot's own left, so L = the robot's left and R = the robot's right, and ${j} is on the ${side}.`,
+    `Front/rear is MEASURED since V0, not read off a drawing. The part is placed at its CAD instance pose in the canonical robot frame (${ASSEMBLY_MAP}, parts[${j}]), where forward is ${cf.forwardAxis}. Its centre sits at Z = ${zMid} mm, so ${j} is at the ${end}. Which end of the chassis is the front is fixed by the CAD too: the STEP assembly puts USB_type_C_smd_12p at the rear end and the OLED screen at the front end, matching the build guide's "Notch = front. USB port = back." (docs/build-guide/README.md:168).`,
+    `Left/right is MEASURED since V0. In the same frame the robot's right is ${cf.rightAxis}, and this part's centre sits at X = ${xMid} mm, so ${j} is on the ${side}. All four R-named CAD products land on one side and all four L-named products on the other, which settles what the drawings could not: "R" and "L" denote the ROBOT'S OWN right and left. That in turn makes ${rel(resolve(repoRoot, TOPDOWN_PNG))} a view from ABOVE, because it agrees with the CAD only under that reading.`,
     `Joint kind is not a guess: the STEP file names this part "${Number(j[1]) <= 2 ? 'femur' : 'foot'}-joint-${j}", so "${kind}" is authoritative even though the spatial qualifier is not.`,
-    `Corroboration from firmware choreography (${servoSteps} setServoAngle steps in hardware-map.json): movements group the four hips as {R1,L1} versus {R2,L2} (runShakePose commands R1=L1=45 deg and R2=L2=0 deg; runCutePose commands R1=L1=90 deg and R2=L2=70 deg) — i.e. by the trailing digit, which is exactly the front-pair/rear-pair split the image shows. The walk gaits instead group {R1,R2} against {L1,L2} — i.e. by side. Two orthogonal groupings that match the image's two axes.`,
-    `Corroboration from ${rel(resolve(repoRoot, REFCFG_PNG))}: the assembled top view in the build guide shows the same eight labels in the same eight positions, and shows ${j} paired with ${Number(j[1]) <= 2 ? FEMUR_TO_FOOT[j] : FOOT_TO_FEMUR[j]}.`,
+    `Corroboration from firmware choreography (${servoSteps} setServoAngle steps in hardware-map.json): movements group the four hips as {R1,L1} versus {R2,L2} (runShakePose commands R1=L1=45 deg and R2=L2=0 deg; runCutePose commands R1=L1=90 deg and R2=L2=70 deg) - i.e. by the trailing digit, which is exactly the front-pair/rear-pair split the CAD shows. The walk gaits instead group {R1,R2} against {L1,L2} - i.e. by side. Two orthogonal groupings that match the two body axes.`,
+    `Corroboration from the drawings, which now merely agree rather than carry the claim: ${rel(resolve(repoRoot, REFCFG_PNG))} and ${rel(resolve(repoRoot, TOPDOWN_PNG))} both label all eight parts in the same eight positions and pair ${j} with ${Number(j[1]) <= 2 ? FEMUR_TO_FOOT[j] : FOOT_TO_FEMUR[j]}.`,
+    `WHY THIS IS STILL verified:false. Everything above is a statement about the DESIGN: it says where the CAD body named "${j}" sits. It cannot say that the servo on this firmware channel drives the printed part engraved "${j}" on any particular built robot. F5 measured R1 and L2 to be the same solid, and R2/L1, R3/L4, R4/L3, so two parts can be swapped at build time and neither the firmware nor the CAD would notice.`,
   ];
 };
 
 const SEMANTIC_CONFIRMED_BY = [
-  'Physically inspecting a built robot: confirm that the part engraved with this name is installed in the position the drawings show. A builder can physically swap two identical parts (F5 measured R1 and L2 to be the same solid, and R2 and L1, and R3/L4, and R4/L3), and nothing in the firmware would notice.',
-  'Confirming that sesame-topdown.png is a view from ABOVE and not from below. If it is a bottom view, every left/right assignment in this file inverts. Nothing in the repository states the camera direction.',
-  'Confirming that the drawing\'s "FRONT" is the direction the robot walks forward in when the `walk` command runs, not merely the end the OLED faces. The build guide gives the physical cue "Notch = front. USB port = back." (docs/build-guide/README.md:168) but never ties it to gait direction.',
-  'Confirming that "R"/"L" in the part names denote the robot\'s own left and right rather than a viewer\'s. No repository text states this.',
+  'Physically inspecting a built robot: confirm that the part engraved with this name is installed where the CAD places it. Since V0 this is the ONLY remaining gap in the spatial name, and it is a build-time question rather than a design question. A builder can swap two identical parts (F5 measured R1 and L2 to be the same solid, and R2 and L1, and R3/L4, and R4/L3) and nothing in the firmware, the CAD or the geometry would notice.',
+  'Confirming that the CAD front - the end carrying the OLED and the notch - is the direction the robot travels when the `walk` command runs. The CAD fixes which end is which; it cannot say which way the gait goes.',
+];
+
+// Recorded so the shrinking of the list above is auditable rather than silent.
+const SEMANTIC_CLOSED_BY_V0 = [
+  'Whether sesame-topdown.png is a view from above or below: CLOSED by V0. Real 3D CAD positions replace the 2D render, and they agree with it only if it is a view from above.',
+  'Whether "R"/"L" mean the robot\'s own sides or a viewer\'s: CLOSED by V0. All four R products sit on the robot\'s own right in the CAD assembly.',
+  'Front versus rear: CLOSED by V0, from the USB-C port and OLED screen positions in the STEP assembly.',
 ];
 
 const UNRESOLVED_SEMANTIC = 'semanticName is a guess read off two drawings; see semanticName.wouldBeConfirmedBy.';
@@ -173,6 +214,8 @@ const clamp = hw.servos.servoConfig.angleClamp;
 function jointEntry(name, index) {
   const fw = hwJoint(name);
   const part = assetPart(name);
+  const aj = asmJoint(name);
+  const apart = asmPart(name);
   const kind = part.cadIdentity.kind; // "femur" | "foot"
   const isFemur = kind === 'femur';
   const pivot = part.pivotCandidate;
@@ -190,17 +233,14 @@ function jointEntry(name, index) {
   const bodyRel = values.map((v) => (v - zero) * sign).sort((a, b) => a - b);
 
   const perJointUnresolved = [UNRESOLVED_SEMANTIC];
-  if (isFemur) {
-    perJointUnresolved.push(
-      'The build guide says that at Rest (90 deg) "the hip joint should move perfectly parallel to the body" (docs/build-guide/README.md:209), while sesame-angle-guide.png draws the 90 deg ray pointing laterally outward. Both readings cannot be right about the same feature; which one describes the femur arm and which the horn plate is unresolved without a physical robot.',
-    );
-  } else {
-    perJointUnresolved.push(
-      `parentLink is read from drawings, not measured. F5 proved which femur SHAPE mates with which foot SHAPE but could not name the instance: geometry alone leaves ${name} matching both ${FOOT_TO_FEMUR[name]} and its shape twin.`,
-    );
-  }
   perJointUnresolved.push(
-    'pivotOrigin is a point on the correct axis line, not the joint centre. Where the servo datum plane falls along that line is not present in the plastic.',
+    'Horn-spline quantisation and per-robot subtrim. The design angle is now known; the angle a given built robot actually reaches is not, and never will be from CAD.',
+  );
+  perJointUnresolved.push(
+    'Mechanical travel limits. V0 reconstructed one pose and confirmed it is collision-free; it did not sweep the joint.',
+  );
+  perJointUnresolved.push(
+    `pivotOrigin (in the STL frame) is a point on the correct axis line, not the joint centre. cadPose.servoShaftOriginMm does supply an along-axis datum where the CAD carries a servo horn occurrence (this joint: ${aj.servoShaftStatus}), and for a revolute joint the along-axis position of the origin does not affect the kinematics in any case.`,
   );
 
   return {
@@ -224,6 +264,36 @@ function jointEntry(name, index) {
     pinSourceByBoard: fw.pinSourceByBoard,
     pinsNote:
       'GPIO number per board configuration, from the servoPins[] arrays in firmware. Exactly one board is active (s2-mini); the others are commented-out alternates that F3 enables with build-time patches.',
+
+    cadPose: {
+      status: aj.axisStatus === 'inferred' ? 'inferred' : 'authoritative',
+      frame: asm.canonicalFrame.id,
+      source: ASSEMBLY_MAP,
+      poseFromStlMm: apart.poseFromStlMm,
+      poseStatus: apart.poseStatus,
+      rotationAxis: aj.axisUnitVector,
+      pointOnAxisMm: aj.pointOnAxisMm,
+      servoShaftOriginMm: aj.servoShaftOriginMm,
+      servoShaftAxis: aj.servoShaftAxis,
+      servoShaftStatus: aj.servoShaftStatus,
+      cadServoAgreementMm: aj.cadServoAgreementMm,
+      parentPart: aj.parentPart,
+      placedBoundingBoxMm: apart.placedBoundingBoxMm,
+      method:
+        'V0 reconstruction. The STL-to-CAD frame map was solved as the identity rotation '
+        + 'with zero translation and a scale of exactly 25.4 (the STEP file assigns '
+        + `CONVERSION_BASED_UNIT('inch') to every geometric representation context), winning a `
+        + '96-candidate search by a factor of '
+        + `${asm.frameMap.candidateSearch.marginRatio}. The pose is then this part's STEP `
+        + 'NEXT_ASSEMBLY_USAGE_OCCURRENCE transform composed into the root frame and mapped '
+        + `into the canonical robot frame. rotationAxis/pointOnAxisMm are F5's measured `
+        + 'pivot carried through that pose, so the DIRECTION is a measurement and the point '
+        + 'is a point on the line - which is all a revolute joint needs, since the '
+        + 'along-axis position of the origin does not affect its kinematics.',
+      caveat:
+        'A CAD-derived pose is a statement about the DESIGN. It does not say how any '
+        + 'particular robot was assembled; see semanticName.wouldBeConfirmedBy.',
+    },
 
     stlFile: part.file,
     stlPath: part.path,
@@ -272,17 +342,17 @@ function jointEntry(name, index) {
         value: 'internal-frame',
         status: 'authoritative',
         basis:
-          'The STEP assembly places all four hip servos on the internal frame, on an exact 1.500 x 2.000 inch (38.10 x 50.80 mm) rectangle; the build guide step "Install Frame Motors" and assets/install-frame-motors.png show the same four servos screwed to the internal frame. The femur link is bolted to that servo\'s output horn.',
+          `The STEP assembly places all four hip servo CASES on the internal frame on an exact 1.500 x 2.000 inch (38.100 x 50.800 mm) grid; the build guide step "Install Frame Motors" and assets/install-frame-motors.png show the same four servos screwed to the internal frame. The femur link is bolted to that servo's output horn. V0 measured where those four horns actually are: the hip AXES form a ${asm.assemblyChecks.hipAxisRectangle.foreAftSpacingMm} x ${asm.assemblyChecks.hipAxisRectangle.leftRightSpacingMm} mm rectangle - 50.800 mm (exactly 2.000 in) across, and 38.100 + 2 x 5.150 mm along, because the front and rear rows face opposite ways and each output shaft sits 5.15 mm off its case centre. That 5.15 mm is the offset F5 derived independently from the printed-part meshes.`,
         childLink: FEMUR_TO_FOOT[name],
       }
       : {
         value: FOOT_TO_FEMUR[name],
-        status: 'inferred',
+        status: 'authoritative',
         basis:
-          `The foot link hangs off the distal horn interface of a femur (F5 measured that interface on every femur and showed the foot shell's servo-mount bore line crosses it 5.15 mm from its midpoint). WHICH femur instance is read from ${rel(resolve(repoRoot, REFCFG_PNG))} and ${rel(resolve(repoRoot, TOPDOWN_PNG))}, both of which label all eight parts and show ${FOOT_TO_FEMUR[name]} adjacent to ${name}. Independently corroborated by firmware choreography: runStandPose commands ${FOOT_TO_FEMUR[name]}=${STAND[FOOT_TO_FEMUR[name]]} deg and ${name}=${STAND[name]} deg, and across the whole corpus the femur and foot of a leg always share the same direction-sign class.`,
+          `MEASURED since V0, not read from a drawing. With every part placed at its CAD instance pose, exactly four of the sixteen femur-distal-axis / foot-pivot-axis combinations are coaxial: ${Object.entries(FEMUR_TO_FOOT).map(([f, t]) => `${f}-${t}`).join(', ')}. The worst mated pair is ${asm.assemblyChecks.kneeCoaxiality.worstMatedPairErrorMm} mm off coaxial - F5 pivot-detector noise between the two files of a foot shape class - while the nearest non-mate is ${asm.assemblyChecks.kneeCoaxiality.closestNonMatedPairErrorMm} mm off, a separation of ${asm.assemblyChecks.kneeCoaxiality.separationRatio}x. Not a close call. Corroborated three further ways: those same four pairs are the only femur/foot pairs whose placed meshes share a bounding box at all; ${rel(resolve(repoRoot, REFCFG_PNG))} shows ${FOOT_TO_FEMUR[name]} adjacent to ${name}; and runStandPose commands ${FOOT_TO_FEMUR[name]}=${STAND[FOOT_TO_FEMUR[name]]} deg with ${name}=${STAND[name]} deg, the femur and foot of a leg always falling in the same direction-sign class.`,
         childLink: null,
         caveat:
-          'Read from drawings. Geometry alone cannot pick the instance, because mirror-identical parts were exported at the same station.',
+          'The pairing is a property of the DESIGN, measured out of the CAD assembly. Whether a given robot was built that way is a separate question, tracked as parts-installed-where-drawn.',
       },
 
     zeroReferenceDeg: {
@@ -298,6 +368,19 @@ function jointEntry(name, index) {
         'INFERRED FROM CHOREOGRAPHY AND DOCUMENTATION, NOT MEASURED. This is the commanded degree value the model treats as zero body-relative angle. It is not a claim about where the servo actually sits: horn spline resolution is 360/20 = 18 deg on an MG90S, so a physical robot can be up to +/-9 deg off this datum before subtrim.',
       restPoseDeg: REST[name],
       standPoseDeg: STAND[name],
+      ...(isFemur
+        ? {
+          cadRestGeometry: {
+            status: 'inferred',
+            source: ASSEMBLY_MAP,
+            legDirectionAtRest: asm.referencePose.restPoseGeometry.perJoint[name].restPoseLegDirection,
+            legDirectionAtStand: asm.referencePose.restPoseGeometry.perJoint[name].standPoseLegDirection,
+            angleFromBodyLongAxisAtRestDeg:
+              asm.referencePose.restPoseGeometry.perJoint[name].restLegAngleFromBodyLongAxisDeg,
+            finding: asm.referencePose.restPoseGeometry.finding,
+          },
+        }
+        : {}),
     },
 
     directionSign: {
@@ -312,7 +395,37 @@ function jointEntry(name, index) {
         'Over the whole 223-step corpus the transformed histograms of the two members of each class coincide in shape, and 12 of the 16 functions that command hips command all four hips to a single body-relative value.',
       ],
       caveat:
-        'The sign is RELATIVE, not absolute. What is evidenced is that the two classes are opposite; which of the two is counter-clockwise about the stated rotationAxis in a right-handed sense is NOT established. Flipping all eight signs at once would be equally consistent with everything measured here.',
+        'The sign is a CONVENTION for the body-relative formula, and it is still inferred from choreography. What it is NOT is the physical rotation sense - for that, use absoluteSense below, which V0 recovered from the CAD and which does not depend on this field at all.',
+      absoluteSense: {
+        status: 'inferred',
+        frame: asm.canonicalFrame.id,
+        rule: aj.rotationSense.rule,
+        axisUnitVector: aj.axisUnitVector,
+        rotatesRelativeTo: aj.rotationSense.childRotatesRelativeTo,
+        source: ASSEMBLY_MAP,
+        method:
+          'The CAD models each servo horn as its own occurrence, so its rotation about the '
+          + 'shaft axis relative to its own case is directly measurable. Over the servos whose '
+          + 'horn occurrence exists, alpha = slope * (commandedDeg - 90) + offset solves '
+          + `uniquely and exactly: hips slope ${asm.referencePose.hipRuleFit.slope} offset `
+          + `${asm.referencePose.hipRuleFit.offsetDeg}, knees slope ${asm.referencePose.kneeRuleFit.slope} `
+          + `offset ${asm.referencePose.kneeRuleFit.offsetDeg}, worst residual `
+          + `${Math.max(asm.referencePose.hipRuleFit.maxResidualDeg, asm.referencePose.kneeRuleFit.maxResidualDeg)} deg. `
+          + 'The hips and the knees take opposite slopes because the servo is mounted the other '
+          + 'way round at the knee: the case is bolted into the foot and the horn to the femur, '
+          + 'so the child link is the one carrying the case.',
+        dependsOn:
+          'Two things, both stated rather than hidden. (1) The CAD is drawn in runStandPose - '
+          + 'evidenced by all four hip horns sitting at exactly +/-45 deg and all four feet '
+          + 'exactly vertical, which is that pose and no other in the 395-step corpus. (2) A '
+          + '180-degree servo turns one degree of shaft per commanded degree over 0..180, which '
+          + 'the BOM specifies and the firmware clamp matches. The horn-at-neutral offset is NOT '
+          + 'assumed: it is solved for, and comes out at exactly zero.',
+        caveat:
+          'This is the DESIGN sense. A built robot adds horn-spline quantisation (up to +/-9 deg '
+          + 'on a 20-tooth spline) and per-robot subtrim on top of it; both belong to the V6 '
+          + 'calibration layer, not here.',
+      },
     },
 
     angleLimitsDeg: {
@@ -373,19 +486,20 @@ const jointMap = {
   $schema: './joint-map.schema.json',
   meta: {
     schemaVersion: '1.0.0',
-    jointMapVersion: '1.0.0',
-    task: 'F6 — joint map + sesame-model package',
+    jointMapVersion: '1.1.0',
+    task: 'F6 — joint map + sesame-model package (geometry promoted by Phase 1 task V0)',
     generatedAt: GENERATED_AT,
     generatedBy: 'scripts/build-joint-map.mjs (asset-pipeline agent, Sesame Lab Phase 0)',
     regenerateWith: 'node scripts/build-joint-map.mjs',
     validateWith: 'pnpm validate:joint-map',
     epistemicContract:
-      'Every fact-bearing field carries a `status` of exactly one of: "authoritative" (read out of firmware source or the STEP file), "inferred" (derived, always with a `method` and a confidence), or "guessed" (carries `verified: false` and a `basis`). Nothing in this file has been checked against a physical robot. The ONLY authoritative identity of a joint is `firmwareName` plus `firmwareIndex`; `semanticName` is a guess and is structurally non-authoritative in @sesame-lab/sesame-model.',
+      'Every fact-bearing field carries a `status` of exactly one of: "authoritative" (read out of firmware source or the STEP file), "inferred" (derived, always with a `method` and a confidence), or "guessed" (carries `verified: false` and a `basis`). Nothing in this file has been checked against a physical robot. The ONLY authoritative identity of a joint is `firmwareName` plus `firmwareIndex`; `semanticName` is a guess and is structurally non-authoritative in @sesame-lab/sesame-model. Phase 1 task V0 moved the whole geometric half of this file from "reading of a drawing" to "reading of the design master", which is a real promotion — but a CAD-authoritative value is a statement about the DESIGN, and never about how a particular robot was assembled. That is why semanticName still carries verified:false.',
     verificationStatus:
       'NOT PHYSICALLY VERIFIED. No built Sesame robot was available. Every semanticName carries verified:false.',
     sources: [
       { id: 'hardware-map', path: HARDWARE_MAP, sha256: sha256(HARDWARE_MAP), role: 'F4 boundary inventory — firmware order, per-board GPIO, servo clamp/subtrim, 21 movement functions', producedBy: 'F4' },
       { id: 'assets-inventory', path: ASSETS_INVENTORY, sha256: sha256(ASSETS_INVENTORY), role: 'F5 STL/STEP geometry — pivot axes, pivot origins, shape equivalence classes, CAD part names', producedBy: 'F5' },
+      { id: 'assembly-map', path: ASSEMBLY_MAP, sha256: sha256(ASSEMBLY_MAP), role: 'V0 CAD assembly reconstruction — the STL/CAD frame map, per-instance poses in the canonical robot frame, the femur/foot mate graph, the servo shaft datums and the absolute rotation sense', producedBy: 'V0' },
       { id: 'sesame-topdown', path: TOPDOWN_PNG, sha256: sha256(TOPDOWN_PNG), role: 'Labelled top-down drawing carrying explicit FRONT and BACK markers; the only artefact in the repository that resolves fore/aft', producedBy: 'upstream (read by F6)' },
       { id: 'reference-configuration', path: REFCFG_PNG, sha256: sha256(REFCFG_PNG), role: 'Assembled top view labelling all eight joint parts; used for the hip-to-foot pairing', producedBy: 'upstream (read by F6)' },
       { id: 'sesame-angle-guide', path: ANGLE_PNG, sha256: sha256(ANGLE_PNG), role: 'Per-joint angle convention diagram with motor indices 00-07; used for zeroReferenceDeg and directionSign', producedBy: 'upstream (read by F6)' },
@@ -403,7 +517,7 @@ const jointMap = {
     lengthUnit: 'millimetre',
     lengthUnitStatus: 'authoritative',
     lengthUnitSource:
-      'hardware/cad/Sesame-ESP32-v122.step declares LENGTH_UNIT() NAMED_UNIT(*) SI_UNIT(.MILLI.,.METRE.); read by scripts/extract-step-assembly.py in F5.',
+      'The STL files are in millimetres (F5: M2.5 clearance and M2 pilot bores measure exact metric sizes; the 27.8 mm MG90S ear pitch comes out exactly). CORRECTION TO F5: the STEP file is NOT in millimetres. F5 read SI_UNIT(.MILLI.,.METRE.) out of the unit context, but that entity is the BASE of an inch conversion. All 107 geometric representation contexts assign CONVERSION_BASED_UNIT(inch) with LENGTH_MEASURE_WITH_UNIT(25.4), so every STEP coordinate is an inch value. This is exactly why V0 found the STL-to-CAD scale factor to be precisely 25.4, and it explains F5 section 2 curiosity that every overall dimension is a multiple of 0.05 in.',
     coordinateFrame: {
       id: 'stl-assembly',
       status: 'inferred',
@@ -413,9 +527,29 @@ const jointMap = {
       lateralAxisConfidence: assets.coordinateFrame.lateralAxis.confidence,
       foreAftAxis: null,
       foreAftAxisNote:
-        'The fore/aft SIGN of the X axis in the STL frame is still unknown. sesame-topdown.png resolves which END of the robot is the front as a matter of labelling, but it is a drawing, not a coordinate frame, and F5 never established the STL-frame-to-CAD-frame mapping. Do not assume +X is forward.',
+        `This frame has no meaningful fore/aft axis, and asking for one was the wrong question. V0 showed that each of the eight joint STLs is simply its CAD body's own local geometry: the eight bodies are modelled at only two mirrored stations, which is why only two stations appear in the export. Use conventions.canonicalFrame for anything spatial.`,
       caveat:
-        'Positions in this frame are NOT per-instance assembly positions. F5 found that the four femur STLs occupy only two bounding-box stations and the four foot STLs likewise, because the exporter wrote one file per unique SHAPE at a representative station and then re-labelled. Orientations are frame-correct; placements are not.',
+        'Positions in this frame are NOT assembly positions and never were. Use conventions.canonicalFrame and joints[*].cadPose. This block is retained only because joints[*].rotationAxis and joints[*].pivotOrigin are still reported verbatim in it, so that F5 stays auditable.',
+      supersededBy: 'conventions.canonicalFrame',
+    },
+    canonicalFrame: {
+      id: asm.canonicalFrame.id,
+      status: 'authoritative',
+      source: ASSEMBLY_MAP,
+      handedness: asm.canonicalFrame.handedness,
+      upAxis: asm.canonicalFrame.upAxis,
+      forwardAxis: asm.canonicalFrame.forwardAxis,
+      rightAxis: asm.canonicalFrame.rightAxis,
+      convention: asm.canonicalFrame.convention,
+      originDefinition: asm.canonicalFrame.originDefinition,
+      groundPlaneYMm: asm.canonicalFrame.groundPlaneYMm,
+      stlToCadFrameMap: asm.frameMap.statement,
+      stlToCadFrameMapMarginRatio: asm.frameMap.candidateSearch.marginRatio,
+      note:
+        'Established by Phase 1 task V0 from the STEP design master. Forward is the end carrying '
+        + 'the OLED and the notch; the USB-C port is at the rear. All four R-named CAD products '
+        + `sit on the robot's own right, so "R"/"L" denote the robot's own sides. Every part pose, `
+        + 'joint axis and servo datum in joints[*].cadPose is expressed in this frame.',
     },
     commandedAngle: {
       domain: { min: clamp.min, max: clamp.max },
@@ -490,32 +624,32 @@ const jointMap = {
   unresolved: [
     {
       id: 'servo-datum-plane',
-      subject: 'joints[*].pivotOrigin',
+      subject: 'joints[*].pivotOrigin, joints[*].cadPose.servoShaftOriginMm',
       carriedForwardFrom: 'F5',
-      status: 'open',
+      status: 'resolved',
       reason:
-        'Every pivot axis LINE is measured, but where the servo\'s reference plane sits along that line is not recoverable from the plastic alone. Origins are points on the correct line, not joint centres.',
-      resolvedBy: 'an MG90S CAD model, a STEP B-Rep evaluation, or measuring a built robot',
+        'RESOLVED by V0. F5 asked for "an MG90S CAD model, a STEP B-Rep evaluation, or measuring a built robot"; V0 did the B-Rep evaluation. The STEP assembly carries a servo model whose output-horn occurrence has an explicit origin ON the shaft axis, which is exactly the along-axis datum that was missing. Six of the eight joints get it directly; the two front leg servos appear only as mirrored case bodies with no horn occurrence. Two caveats, recorded rather than smoothed over: the CAD models an SG90 while the BOM specifies an MG90S (same footprint, same 27.8 mm ear pitch, not the same part), and for a revolute joint the along-axis position of the origin does not affect the kinematics anyway, so this was never blocking as much as it looked.',
+      resolvedBy: 'done - hardware/assembly-map.json joints[*].servoShaftOriginMm',
       blocking: false,
     },
     {
       id: 'per-instance-assembly-poses',
-      subject: 'conventions.coordinateFrame, joints[*].pivotOrigin',
+      subject: 'joints[*].cadPose',
       carriedForwardFrom: 'F5',
-      status: 'open',
+      status: 'resolved',
       reason:
-        'The STL files are not at per-instance assembly positions: the four femur STLs occupy only two stations 46.03 mm apart in Z while the CAD hip stations are 50.80 mm apart, so at most one member of each mirror pair is where it belongs. The STEP assembly does give all eight joints an exact rigid pose, but in the CAD frame.',
-      resolvedBy: 'reconciling the STL and CAD frames — see stl-to-cad-frame-mapping',
+        'RESOLVED by V0. Every printed part that appears in the CAD now has an exact rigid pose in one canonical robot frame, read out of the STEP assembly and expressed in millimetres. The three top-cover variants are not in the CAD at all and are placed at the identity by inference, which the assembly map marks as inferred and justifies with the body-shell stacking test: both gaps come out at exactly 0.000 mm.',
+      resolvedBy: 'done - hardware/assembly-map.json parts[*].poseFromStlMm',
       blocking: false,
     },
     {
       id: 'stl-to-cad-frame-mapping',
-      subject: 'conventions.coordinateFrame',
+      subject: 'conventions.canonicalFrame',
       carriedForwardFrom: 'F5',
-      status: 'open',
+      status: 'resolved',
       reason:
-        'One hip pivot matches a CAD point to six digits after an inch-to-mm conversion, with the Z sign inverted. One sample is not a proof. Until it is, do NOT compose CAD occurrence transforms with STL coordinates.',
-      resolvedBy: 'evaluating the STEP B-Rep with pythonocc/FreeCAD and comparing part bounding boxes instance by instance',
+        `RESOLVED by V0, and F5's single sample turned out to be a red herring rather than a clue. The map is the identity rotation with zero translation and a scale of exactly 25.4: each joint STL is simply its own CAD body's local geometry in millimetres. It won a 96-candidate search (48 signed axis permutations x 2 scale hypotheses, translation fitted per candidate) with a combined score of ${asm.frameMap.candidateSearch.winner.score.toFixed(6)} mm against ${asm.frameMap.candidateSearch.runnerUp.score.toFixed(3)} mm for the runner-up, a margin of ${asm.frameMap.candidateSearch.marginRatio}x. The Z-sign inversion F5 saw is the mirror between the two modelling stations the eight CAD bodies occupy, not a frame flip.`,
+      resolvedBy: 'done - hardware/assembly-map.json frameMap',
       blocking: false,
     },
     {
@@ -524,48 +658,48 @@ const jointMap = {
       carriedForwardFrom: 'F5',
       status: 'partially-resolved',
       reason:
-        'PARTIALLY RESOLVED by F6. The firmware clamp (0-180) is authoritative. A zero reference of 90 deg and a per-class direction sign are now INFERRED from the shipped choreography, the calibration procedure and sesame-angle-guide.png, and they make every symmetric pose read uniformly — but they remain inferred, the absolute sense of the sign is not established, and the MECHANICAL travel limits are still entirely unknown.',
-      resolvedBy: 'a calibration run on a built robot, plus a collision study on repaired meshes for the mechanical limits',
+        'STILL PARTIAL. The firmware clamp (0-180) is authoritative. The 90-degree zero and the per-class direction sign remain INFERRED from choreography and documentation. What V0 added is the ABSOLUTE rotation sense, which F6 explicitly could not establish - see joints[*].directionSign.absoluteSense. What is still missing is the MECHANICAL travel limits: V0 reconstructed one pose and confirmed it collision-free, it did not sweep anything.',
+      resolvedBy: 'a collision study on repaired meshes for the mechanical limits; a calibration run on a built robot for the per-robot zero',
       blocking: false,
     },
     {
       id: 'front-rear-orientation',
-      subject: 'joints[*].semanticName',
+      subject: 'joints[*].semanticName, conventions.canonicalFrame',
       carriedForwardFrom: 'F5',
-      status: 'partially-resolved',
+      status: 'resolved',
       reason:
-        'PARTIALLY RESOLVED by F6. F5 could not distinguish fore from aft. software/sesame-studio/sesame-topdown.png is a labelled top-down drawing carrying the literal words FRONT and BACK, and places R1/L1 at the front and R2/L2 at the rear. The build guide adds the physical cue "Notch = front. USB port = back." (docs/build-guide/README.md:168). This is a reading of a drawing, so it stays verified:false, and the drawing never says the FRONT it marks is the direction the `walk` command travels.',
-      resolvedBy: 'physical inspection of a built robot, plus observing which way it actually walks',
+        'RESOLVED by V0 from the design master rather than from a drawing. The STEP assembly places USB_type_C_smd_12p at one end of the chassis and the OLED screen at the other, matching the build guide physical cue "Notch = front. USB port = back." (docs/build-guide/README.md:168). R1/L1 and R3/L3 sit at the OLED end, R2/L2 and R4/L4 at the USB end. What remains open, now tracked separately as walk-direction-vs-drawn-front, is whether the drawn front is the direction the walk command travels.',
+      resolvedBy: 'done - hardware/assembly-map.json canonicalFrame.axisEvidence.forward',
       blocking: false,
     },
     {
       id: 'hip-to-foot-instance-naming',
       subject: 'joints[*].parentLink',
       carriedForwardFrom: 'F5',
-      status: 'partially-resolved',
+      status: 'resolved',
       reason:
-        'PARTIALLY RESOLVED by F6. reference-configuration.png and sesame-topdown.png both label all eight parts and show R1-R3, R2-R4, L1-L3, L2-L4. The firmware choreography independently corroborates it: the femur and foot of a leg always fall in the same direction-sign class. Geometry alone still cannot pick the instance, so this stays a reading of a drawing.',
-      resolvedBy: 'physical confirmation on a built robot',
+        `RESOLVED by V0. With every part at its CAD instance pose, exactly four of the sixteen femur-distal-axis / foot-pivot-axis combinations are coaxial. The worst mated pair is ${asm.assemblyChecks.kneeCoaxiality.worstMatedPairErrorMm} mm off - F5 pivot-detector noise between the two foot files of a shape class - against ${asm.assemblyChecks.kneeCoaxiality.closestNonMatedPairErrorMm} mm for the nearest non-mate, a ${asm.assemblyChecks.kneeCoaxiality.separationRatio}x separation. The same four pairs are also the only femur/foot pairs whose placed meshes share a bounding box at all.`,
+      resolvedBy: 'done - hardware/assembly-map.json assemblyChecks.kneeCoaxiality',
       blocking: false,
     },
     {
       id: 'view-direction-of-the-labelled-drawings',
       subject: 'joints[*].semanticName',
       carriedForwardFrom: 'F6',
-      status: 'open',
+      status: 'resolved',
       reason:
-        'NEW IN F6. Every left/right assignment rests on sesame-topdown.png being a view from ABOVE. If it is a bottom view, "R" and "L" swap sides. Nothing in the repository states the camera direction, and no text anywhere says whether "R"/"L" mean the robot\'s own left and right or a viewer\'s.',
-      resolvedBy: 'physical inspection: hold a built robot with the notch facing away and read the engraved labels',
+        `RESOLVED by V0, and made moot. This was the single biggest exposure in F6: every left/right assignment rested on sesame-topdown.png being a view from above, and if it were a bottom view all eight semantic names would flip. Real 3D positions replace the 2D render. In the canonical frame all four R-named CAD products sit on the robot's own right and all four L-named products on its left, so "R"/"L" denote the robot's own sides - and the drawing, which puts FRONT at the top and the R parts on the image's right, is consistent with the CAD only if it is a view from ABOVE. The names did not change; what changed is that they no longer depend on the drawing.`,
+      resolvedBy: 'done - hardware/assembly-map.json canonicalFrame.axisEvidence.right',
       blocking: false,
     },
     {
       id: 'rest-pose-hip-orientation-contradiction',
-      subject: 'joints[R1,R2,L1,L2].zeroReferenceDeg',
+      subject: 'joints[R1,R2,L1,L2].zeroReferenceDeg.cadRestGeometry',
       carriedForwardFrom: 'F6',
-      status: 'open',
+      status: 'resolved',
       reason:
-        'NEW IN F6. docs/build-guide/README.md:209 says that at Rest the hip joint "should move perfectly parallel to the body", while sesame-angle-guide.png draws each hip\'s 90-degree ray pointing laterally outward, i.e. perpendicular to the body. Both cannot describe the same feature. The likeliest reconciliation is that the prose describes the horn plate and the diagram the leg direction, but that is a guess and it is not recorded as one anywhere in the data.',
-      resolvedBy: 'a photograph of a robot at Rest, or a physical robot',
+        'RESOLVED by V0, in favour of the build-guide prose. The CAD is drawn in runStandPose, with each hip horn rotated exactly +/-45 degrees from its case neutral. Undoing that rotation puts every leg exactly along the body long axis - front legs forward, rear legs rearward, 0.000 degrees off. So at the 90-degree datum the hip really is "perfectly parallel to the body" (docs/build-guide/README.md:209), and the laterally-pointing 90-degree rays in sesame-angle-guide.png are not the leg direction. F6 guessed the opposite reconciliation; that guess was wrong and is corrected here.',
+      resolvedBy: 'done - hardware/assembly-map.json referencePose.restPoseGeometry',
       blocking: false,
     },
     {
@@ -574,8 +708,38 @@ const jointMap = {
       carriedForwardFrom: 'F6',
       status: 'open',
       reason:
-        'NEW IN F6. The horn is pressed onto a splined shaft during assembly, so the mapping from commanded degrees to physical angle is quantised by the spline pitch and differs per built robot. The firmware exposes servoSubtrim[] for exactly this, and it defaults to all zeros and is never persisted (RAM only; `subtrim save` prints a C initialiser for the user to paste into source). Any per-robot calibration therefore lives outside this file.',
-      resolvedBy: 'per-robot calibration captured into a separate calibration artefact, not into joint-map.json',
+        'STILL OPEN and unreachable from CAD by construction. The horn is pressed onto a splined shaft during assembly, so the mapping from commanded degrees to physical angle is quantised by the spline pitch and differs per built robot. The CAD models the ideal design, which has no spline error at all. The firmware exposes servoSubtrim[] for exactly this; it defaults to zeros and is never persisted.',
+      resolvedBy: 'per-robot calibration captured into the V6 calibration artefact, not into joint-map.json',
+      blocking: false,
+    },
+    {
+      id: 'parts-installed-where-drawn',
+      subject: 'joints[*].semanticName',
+      carriedForwardFrom: 'F6',
+      status: 'open',
+      reason:
+        'STILL OPEN, and after V0 it is the ONLY thing keeping semanticName at verified:false. The CAD says where the body named R1 belongs; it cannot say that the servo on this firmware channel drives the part engraved R1 on a particular machine. F5 measured R1 and L2 to be the same solid, and R2/L1, R3/L4, R4/L3, so two parts can be swapped at build time and neither the firmware nor the CAD would notice. This is a build-time question, not a design question, and no amount of CAD work will close it.',
+      resolvedBy: 'physical inspection of a built robot',
+      blocking: false,
+    },
+    {
+      id: 'walk-direction-vs-drawn-front',
+      subject: 'joints[*].semanticName',
+      carriedForwardFrom: 'F6',
+      status: 'open',
+      reason:
+        'NEW SPLIT IN V0, carved out of front-rear-orientation. The CAD fixes which end of the chassis carries the OLED and the notch and which carries the USB-C port. It says nothing about which way the robot actually travels when the walk command runs, so "front" here means the OLED end and not necessarily the leading edge.',
+      resolvedBy: 'running walk on a built robot, or the V1 behaviour model plus a gait simulation',
+      blocking: false,
+    },
+    {
+      id: 'servo-model-is-sg90-not-mg90s',
+      subject: 'joints[*].cadPose.servoShaftOriginMm',
+      carriedForwardFrom: 'F6',
+      status: 'open',
+      reason:
+        'NEW IN V0. The CAD models an "SG90 - Micro Servo 9g - Tower Pro" while hardware/bom/README.md calls for MG90S all-metal servos. The two share the 32.2 x 12 x 30 mm footprint and the 27.8 mm mounting-ear pitch, so the mounting geometry is interchangeable and the printed parts fit either, but the shaft datum recorded in cadPose is the SG90 one and has not been checked against an MG90S.',
+      resolvedBy: 'an MG90S CAD model, or calliper measurement of a built robot',
       blocking: false,
     },
   ],
