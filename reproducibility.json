@@ -47,10 +47,10 @@
         "build.flash_size=4MB",
         "build.cdc_on_boot=1"
       ],
-      "elfSha256": "b14a916134ac4bf711ba80ca34932ed2b04ea5af95e2e575648c78de88f0005f",
-      "binSha256": "25b0290561485e6e81c1b4ec667e8f1073301d94ad8a9ed06ef7b65c26860073",
-      "mapSha256": "0f83d614778dc3501a97cc2918933d65cd7bd5ffff064dca2988b78f6f1e608d",
-      "builtAt": "2026-08-23T15:17:45.529Z"
+      "elfSha256": "7c3fd85a47ebbdacc3000d59b9b0ef39d443245c81ce84a26f6b31a79e92331f",
+      "binSha256": "d65504cc839697f2fdb739ac544c343b1d72558e40f12d9ddcf28113876eb703",
+      "mapSha256": "7409cb05dd4cf563fc8412ff4b9fb69611889d4452cee1aea91092be9d165352",
+      "builtAt": "2026-08-23T17:14:18.127Z"
     },
     {
       "profile": "distro-v3-s3",

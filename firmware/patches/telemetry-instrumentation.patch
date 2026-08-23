@@ -1,8 +1,8 @@
 diff --git a/sesame-firmware-main.ino b/sesame-firmware-main.ino
-index 92a1584..8a83ad4 100644
+index 92a1584..5151b15 100644
 --- a/sesame-firmware-main.ino
 +++ b/sesame-firmware-main.ino
-@@ -10,6 +10,111 @@
+@@ -10,6 +10,182 @@
  #include "movement-sequences.h"
  #include "captive-portal.h"
  
@@ -21,7 +21,9 @@ index 92a1584..8a83ad4 100644
 +//   1. setServoAngle()    - after the 0..180 clamp, before delayWithFace().
 +//   2. updateFaceBitmap() - the single convergence point every face frame
 +//                           passes through, before display.display().
-+//   +  end of setup()     - one `hello` line (protocol section 5.5).
++//   +  Serial.begin()     - open UART0 and send one `hello` line
++//                           (protocol section 5.5). Early, on purpose: see
++//                           sesameTelemetryBegin() below.
 +//
 +// Instrumenting the 21 movement functions individually would be 223 hook
 +// sites that could drift out of agreement with what actually reached
@@ -29,6 +31,56 @@ index 92a1584..8a83ad4 100644
 +// ===========================================================================
 +#define SESAME_TELEMETRY_VERSION 1
 +#define SESAME_TELEMETRY_EMITTER "sesame-fw-s2mini/0.1.0"
++
++// ---------------------------------------------------------------------------
++// WHERE THE TELEMETRY GOES. Read this before changing it.
++//
++// `Serial` is NOT UART0 on two of the three board profiles. Arduino-ESP32
++// aliases it at COMPILE time, in cores/esp32/HardwareSerial.h:441-452:
++//
++//   ARDUINO_USB_CDC_ON_BOOT=1, ARDUINO_USB_MODE=0  ->  #define Serial USBSerial
++//   ARDUINO_USB_CDC_ON_BOOT=1, ARDUINO_USB_MODE=1  ->  #define Serial HWCDCSerial
++//   ARDUINO_USB_CDC_ON_BOOT=0                      ->  #define Serial Serial0
++//
++// s2mini builds with CDC_ON_BOOT=1 / USB_MODE=0 and distro-v3-s3 with
++// CDC_ON_BOOT=1 / USB_MODE=1, so on both of them a bare `Serial.printf` leaves
++// through a USB CDC endpoint and NEVER reaches UART0 - which is the transport
++// R3 proved, the one the Renode socket terminal is connected to, and the only
++// one the bridge consumes. Only distro-v1-esp32 is safe, and only because the
++// original ESP32 has no USB peripheral at all. Found by R4
++// (docs/findings/R4-boot-probe.md section 6.4); the first cut of this patch had
++// the bug, and its disassembly loaded USBSerial as the printf `this` pointer.
++//
++// So the port is named explicitly. `Serial0` is ALWAYS UART0: the core declares
++// and defines it unconditionally on every target, outside the CDC conditional
++// (HardwareSerial.h:454, HardwareSerial.cpp:63 - "There is always Seria0 for
++// UART0", their typo, not ours).
++//
++// Chosen over flipping the profile to CDCOnBoot=dis_cdc, which would also work,
++// because it makes the routing a property of the INSTRUMENTATION rather than of
++// a board menu that anyone can change without realising telemetry depends on it
++// - and because it leaves the developer USB serial monitor working at the same
++// time as the telemetry stream, on all three boards.
++//
++// UART0 pins are GPIO43/44 on S2 and S3 and GPIO1/3 on the ESP32
++// (HardwareSerial.h:150-190). None collides with any servo or I2C pin in any of
++// the four board configurations in hardware/hardware-map.json.
++#ifndef SESAME_TELEMETRY_PORT
++#define SESAME_TELEMETRY_PORT Serial0
++#endif
++#ifndef SESAME_TELEMETRY_BAUD
++#define SESAME_TELEMETRY_BAUD 115200
++#endif
++
++// Does the telemetry port still need opening? Only when the sketch`s own
++// Serial.begin(115200) at setup() went somewhere else. With CDC_ON_BOOT=0 the
++// core makes `Serial` a literal macro for `Serial0`, so UART0 is already open
++// and a second begin() would only re-install the driver over itself.
++#if defined(ARDUINO_USB_CDC_ON_BOOT) && ARDUINO_USB_CDC_ON_BOOT
++#define SESAME_TELEMETRY_OWNS_PORT 1
++#else
++#define SESAME_TELEMETRY_OWNS_PORT 0
++#endif
 +
 +// The OLED framebuffer hook is OFF by default and must stay that way unless a
 +// human asks for it: one frame is 1385 bytes on the wire, ~120 ms at 115200
@@ -69,14 +121,14 @@ index 92a1584..8a83ad4 100644
 +// the line parse as bad-angle. And micros() is wall-clock on real silicon,
 +// not emulator virtual time, so t= would be a lie even in the right slot.
 +static void sesameEmitServo(uint8_t channel, int angleDeg) {
-+  Serial.printf("@SESAME servo %s %d\n", ServoNames[channel].c_str(), angleDeg);
++  SESAME_TELEMETRY_PORT.printf("@SESAME servo %s %d\n", ServoNames[channel].c_str(), angleDeg);
 +}
 +
 +// Hook 2 payload.
 +static void sesameEmitFace(const String &name, uint8_t frameIndex) {
 +  char safe[24];
 +  sesameSafeToken(name.c_str(), safe, sizeof(safe));
-+  Serial.printf("@SESAME face %s %u\n", safe, (unsigned)frameIndex);
++  SESAME_TELEMETRY_PORT.printf("@SESAME face %s %u\n", safe, (unsigned)frameIndex);
 +}
 +
 +#if SESAME_TELEMETRY_OLED
@@ -107,26 +159,44 @@ index 92a1584..8a83ad4 100644
 +  line[o++] = '=';
 +  line[o++] = '=';
 +  line[o] = '\0';   // 341*4 + 4 = 1368 characters
-+  Serial.printf("@SESAME oled b64 %s\n", line);
++  SESAME_TELEMETRY_PORT.printf("@SESAME oled b64 %s\n", line);
 +}
 +#endif
++
++// Open UART0 (when it is not already open) and announce the emitter.
++//
++// Called from setup() immediately after the sketch`s own Serial.begin(), which
++// is three statements before display.begin() - and R4 found display.begin()
++// hard-fails into `while (1);` under emulation, with nothing after it ever
++// running (sesame-firmware-main.ino:659-662). Announcing here means a boot that
++// dies on the OLED still identifies itself on the wire first.
++//
++// Protocol section 5.5 asks for the hello "as early as Serial is usable". On a
++// real UART that is immediately: unlike USB CDC there is no host enumeration to
++// wait for and no window in which early bytes are silently dropped.
++static void sesameTelemetryBegin() {
++#if SESAME_TELEMETRY_OWNS_PORT
++  SESAME_TELEMETRY_PORT.begin(SESAME_TELEMETRY_BAUD);
++#endif
++  SESAME_TELEMETRY_PORT.printf("@SESAME hello %d %s\n", SESAME_TELEMETRY_VERSION,
++                               SESAME_TELEMETRY_EMITTER);
++}
 +
  // --- Access Point Configuration ---
  // This is the network the Robot will create
  #define AP_SSID  "Sesame-Controller"
-@@ -747,6 +852,11 @@ void setup() {
-   setFace("rest");
-   
-   Serial.println(F("HTTP server & Captive Portal started."));
-+  // --- R6 boot banner (protocol section 5.5) ----------------------------
-+  // End of setup(), as the protocol document specifies. Note for real
-+  // silicon: on the S2 Mini Serial is USB-CDC, so anything printed before
-+  // the host enumerates is lost. Under emulation there is no such window.
-+  Serial.printf("@SESAME hello %d %s\n", SESAME_TELEMETRY_VERSION, SESAME_TELEMETRY_EMITTER);
- }
+@@ -650,6 +826,10 @@ void handleNotFound() {
  
- void loop() {
-@@ -887,6 +997,16 @@ void loop() {
+ void setup() {
+   Serial.begin(115200);
++  // --- R6 telemetry transport --------------------------------------------
++  // NOT the same port as the line above on this board: Serial is USB CDC here,
++  // telemetry is UART0. See the SESAME_TELEMETRY_PORT block near the top.
++  sesameTelemetryBegin();
+   randomSeed(micros());
+   
+   // I2C Init for ESP32
+@@ -887,6 +1067,16 @@ void loop() {
  void updateFaceBitmap(const unsigned char* bitmap) {
    display.clearDisplay();
    display.drawBitmap(0, 0, bitmap, 128, 64, SSD1306_WHITE);
@@ -143,7 +213,7 @@ index 92a1584..8a83ad4 100644
    display.display();
  }
  
-@@ -1052,6 +1172,12 @@ void setServoAngle(uint8_t channel, int angle) {
+@@ -1052,6 +1242,12 @@ void setServoAngle(uint8_t channel, int angle) {
    if (channel < 8) {
      int adjustedAngle = constrain(angle + servoSubtrim[channel], 0, 180);
      servos[channel].write(adjustedAngle);

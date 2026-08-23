@@ -4,24 +4,55 @@
   "protocol": "docs/protocol/sesame-telemetry-v1.md",
   "patch": {
     "file": "firmware/patches/telemetry-instrumentation.patch",
-    "sha256": "c3b43c05ae69b17859f9e6c2c86c2833e53a266f5966b7897b5547f60e3ad3d2"
+    "sha256": "c35989c5811298d615fb233c3973486c94b0d27b1e84a0356d7aa3cfab6d504f"
+  },
+  "routing": {
+    "available": true,
+    "target": "esp32s2",
+    "method": "backward dataflow on the a10/a11 argument registers at each Print::printf call8",
+    "serialSymbols": {
+      "Serial0": "0x3ffca168",
+      "Serial1": "0x3ffca11c",
+      "USBSerial": "0x3ffca1f4"
+    },
+    "expectedPort": "Serial0",
+    "sites": [
+      {
+        "literal": "@SESAME face %s %u\\n",
+        "callSite": "0x4008460f",
+        "formatVma": "0x3f000532",
+        "port": "Serial0"
+      },
+      {
+        "literal": "@SESAME hello %d %s\\n",
+        "callSite": "0x40084fba",
+        "formatVma": "0x3f000708",
+        "port": "Serial0"
+      },
+      {
+        "literal": "@SESAME servo %s %d\\n",
+        "callSite": "0x400854ea",
+        "formatVma": "0x3f00081c",
+        "port": "Serial0"
+      }
+    ]
   },
   "artifact": {
     "profile": "s2mini-instrumented",
     "elf": {
       "file": "firmware/artifacts/s2mini-instrumented/sesame-firmware-main.ino.elf",
-      "sha256": "b14a916134ac4bf711ba80ca34932ed2b04ea5af95e2e575648c78de88f0005f"
+      "sha256": "7c3fd85a47ebbdacc3000d59b9b0ef39d443245c81ce84a26f6b31a79e92331f"
     },
     "bin": {
       "file": "firmware/artifacts/s2mini-instrumented/sesame-firmware-main.ino.bin",
-      "sha256": "25b0290561485e6e81c1b4ec667e8f1073301d94ad8a9ed06ef7b65c26860073"
+      "sha256": "d65504cc839697f2fdb739ac544c343b1d72558e40f12d9ddcf28113876eb703"
     }
   },
   "literals": [
     {
       "literal": "@SESAME servo %s %d\\n",
       "verb": "servo",
-      "sourceLine": "Serial.printf(\"@SESAME servo %s %d\\n\", ServoNames[channel].c_str(), angleDeg);",
+      "sourceLine": "SESAME_TELEMETRY_PORT.printf(\"@SESAME servo %s %d\\n\", ServoNames[channel].c_str(), angleDeg);",
       "compileGated": false,
       "expectedInBinary": true,
       "foundInElf": true,
@@ -32,7 +63,7 @@
     {
       "literal": "@SESAME face %s %u\\n",
       "verb": "face",
-      "sourceLine": "Serial.printf(\"@SESAME face %s %u\\n\", safe, (unsigned)frameIndex);",
+      "sourceLine": "SESAME_TELEMETRY_PORT.printf(\"@SESAME face %s %u\\n\", safe, (unsigned)frameIndex);",
       "compileGated": false,
       "expectedInBinary": true,
       "foundInElf": true,
@@ -43,7 +74,7 @@
     {
       "literal": "@SESAME oled b64 %s\\n",
       "verb": "oled",
-      "sourceLine": "Serial.printf(\"@SESAME oled b64 %s\\n\", line);",
+      "sourceLine": "SESAME_TELEMETRY_PORT.printf(\"@SESAME oled b64 %s\\n\", line);",
       "compileGated": true,
       "expectedInBinary": false,
       "foundInElf": false,
@@ -54,13 +85,13 @@
     {
       "literal": "@SESAME hello %d %s\\n",
       "verb": "hello",
-      "sourceLine": "Serial.printf(\"@SESAME hello %d %s\\n\", SESAME_TELEMETRY_VERSION, SESAME_TELEMETRY_EMITTER);",
+      "sourceLine": "SESAME_TELEMETRY_PORT.printf(\"@SESAME hello %d %s\\n\", SESAME_TELEMETRY_VERSION,",
       "compileGated": false,
       "expectedInBinary": true,
       "foundInElf": true,
       "foundInBin": true,
-      "elfOffset": "0x1807",
-      "binOffset": "0x807"
+      "elfOffset": "0x1708",
+      "binOffset": "0x708"
     }
   ]
 }

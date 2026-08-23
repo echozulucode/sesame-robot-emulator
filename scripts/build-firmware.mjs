@@ -209,6 +209,30 @@ if (spec.telemetry) {
     fail('the OLED framebuffer hook must default to disabled (#define SESAME_TELEMETRY_OLED 0)');
   }
 
+  // ---- transport routing (R4's finding) ----------------------------------
+  // `Serial` is a compile-time alias. With ARDUINO_USB_CDC_ON_BOOT=1 it is a USB
+  // CDC endpoint, not UART0, so telemetry written to it compiles, links, emits
+  // perfectly - and goes somewhere nothing is listening. Only Serial0 is always
+  // UART0. This is asserted on the generated source; the built ELF is checked
+  // independently by scripts/extract-telemetry-literals.mjs.
+  if (!/^#define SESAME_TELEMETRY_PORT Serial0$/m.test(src)) {
+    fail('telemetry must be routed to Serial0 (#define SESAME_TELEMETRY_PORT Serial0)');
+  }
+  const strayPort = src
+    .split(/\r?\n/)
+    .filter((l) => !l.trimStart().startsWith('//'))
+    .filter((l) => l.includes('"@SESAME') && !l.includes('SESAME_TELEMETRY_PORT.'));
+  if (strayPort.length > 0) {
+    fail(`@SESAME emitted through something other than SESAME_TELEMETRY_PORT:\n  ${strayPort.join('\n  ')}`);
+  }
+  const serialBegin = at('  Serial.begin(115200);');
+  const telemetryBegin = at('  sesameTelemetryBegin();');
+  if (telemetryBegin < serialBegin) fail('sesameTelemetryBegin() must follow the sketch Serial.begin()');
+  // Ahead of the SSD1306 hard-fail at :659, which R4 showed is where an emulated
+  // boot stops dead. A hello that arrives after it never arrives at all.
+  const oledInit = at('if (!display.begin(SSD1306_SWITCHCAPVCC, OLED_I2C_ADDR)) {');
+  if (telemetryBegin > oledInit) fail('sesameTelemetryBegin() must run before display.begin() hard-fails');
+
   // Wire literals, extracted from the patched source rather than typed here.
   const literals = [...src.matchAll(/"(@SESAME[^"\\]*(?:\\.[^"\\]*)*)"/g)].map((m) => m[1]);
   const wanted = ['servo', 'face', 'hello'];
@@ -228,9 +252,13 @@ if (spec.telemetry) {
     protocolVersion: Number(src.match(/#define SESAME_TELEMETRY_VERSION (\d+)/)?.[1] ?? 0),
     emitter: src.match(/#define SESAME_TELEMETRY_EMITTER "([^"]*)"/)?.[1] ?? null,
     oledHookEnabledByDefault: false,
+    port: 'Serial0',
+    portIsUart0: true,
+    // arduinoUsbCdcOnBoot / arduinoUsbMode / serialAliasesTo are filled in below,
+    // once --show-properties has told us the real build flags.
     formatLiterals: literals,
   };
-  log(`[telemetry] OK  ${literals.length} @SESAME literals, hooks in place, OLED hook disabled`);
+  log(`[telemetry] OK  ${literals.length} @SESAME literals, hooks in place, OLED hook disabled, port=Serial0`);
 }
 
 // --------------------------------------------------------------------- build
@@ -284,6 +312,26 @@ const props = Object.fromEntries(
     })
 );
 const fqbn = props['build.fqbn'] ?? null;
+
+// What a bare `Serial` resolves to for THIS profile. Arduino-ESP32 decides it at
+// compile time from two -D flags (cores/esp32/HardwareSerial.h:441-452), and on
+// two of the three boards the answer is a USB CDC endpoint rather than UART0.
+// Recorded in the manifest so the routing is a stated fact per build instead of
+// something a reader has to re-derive from the FQBN. See R4 section 6.4.
+{
+  const extra = props['build.extra_flags'] ?? '';
+  const flag = (k) => new RegExp(`-D${k}=([^\\s]+)`).exec(extra)?.[1] ?? null;
+  const cdcOnBoot = flag('ARDUINO_USB_CDC_ON_BOOT');
+  const usbMode = flag('ARDUINO_USB_MODE');
+  const serialAliasesTo = cdcOnBoot === '1' ? (usbMode === '1' ? 'HWCDCSerial' : 'USBSerial') : 'Serial0';
+  if (telemetry) {
+    telemetry.arduinoUsbCdcOnBoot = cdcOnBoot;
+    telemetry.arduinoUsbMode = usbMode;
+    telemetry.serialAliasesTo = serialAliasesTo;
+    telemetry.telemetryOwnsPort = serialAliasesTo !== 'Serial0';
+    log(`[telemetry] routing: telemetry -> Serial0 (UART0); a bare Serial would be ${serialAliasesTo}`);
+  }
+}
 
 // Compiler version, straight from the binary the build actually invoked.
 let compiler = { path: null, version: null };

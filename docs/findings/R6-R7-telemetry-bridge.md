@@ -16,6 +16,14 @@ byte-identical WebSocket output.
 **Gate B is answered YES via instrumented firmware.** The one thing still missing
 is silicon: no ESP32-S2 has executed these hooks (§10).
 
+> **Correction, after R4.** The first version of this work shipped a real defect:
+> the hooks emitted on `Serial`, which on the `s2mini` profile is a USB CDC
+> endpoint rather than UART0, so the telemetry would never have reached the
+> transport the bridge consumes. R4 caught it. It is fixed — telemetry now names
+> `Serial0` explicitly — and §2.1 records the diagnosis, the routing truth for
+> all three profiles, and the regression test that pins it. The numbers in §3.2
+> and §3.3 are the post-fix ones.
+
 ---
 
 ## 1. Gate B answer
@@ -44,8 +52,8 @@ individually would have been 223 hook sites, each free to disagree with what
 actually reached the servo.
 
 `firmware/patches/telemetry-instrumentation.patch`
-· sha256 `c3b43c05ae69b17859f9e6c2c86c2833e53a266f5966b7897b5547f60e3ad3d2`
-· 4 hunks, 126 lines added, **0 removed**. `firmware/upstream/` is untouched.
+· sha256 `c35989c5811298d615fb233c3973486c94b0d27b1e84a0356d7aa3cfab6d504f`
+· 4 hunks, 196 lines added, **0 removed**. `firmware/upstream/` is untouched.
 
 ### Hook 1 — `setServoAngle()`
 
@@ -92,13 +100,167 @@ restores (`:1089`, `:1114`). `currentFaceName` and `currentFaceFrameIndex` are
 already correct at all four, so the hook reports the frame that is about to reach
 the glass rather than the one that was requested.
 
-### Boot banner — end of `setup()`
+### Boot banner — `sesameTelemetryBegin()`, at the top of `setup()`
 
-`@SESAME hello 1 sesame-fw-s2mini/0.1.0`, after
-`sesame-firmware-main.ino:749`. The protocol (§5.5) says emitters SHOULD send it;
-the plan said "two hook sites", meaning two *event-emitting* instrumentation
-points in the runtime paths, and this is counted separately as what it is — a
-one-shot banner, trivially deletable.
+`@SESAME hello 1 sesame-fw-s2mini/0.1.0`, emitted immediately after the sketch's
+own `Serial.begin(115200)` at `sesame-firmware-main.ino:652`. The protocol (§5.5)
+says emitters SHOULD send it "as early as `Serial` is usable"; the plan said "two
+hook sites", meaning two *event-emitting* instrumentation points in the runtime
+paths, and this is counted separately as what it is — a one-shot banner,
+trivially deletable.
+
+The same function opens the telemetry port (§2.1). Placing both at :652 rather
+than at the end of `setup()` is deliberate and was originally the wrong call:
+R4 found `display.begin()` hard-fails into `while (1);` at :659–662 under
+emulation, so **anything announced after it is never announced at all.** A boot
+that dies on the OLED now still identifies itself on the wire first. On a real
+UART there is also no enumeration window to lose the line in, which is the other
+half of why early is now safe — see §2.1.
+
+### 2.1 The transport defect, and the fix
+
+**This section exists because the first version of R6 was wrong**, in a way that
+every check R6 had was blind to. R4 found it (`docs/findings/R4-boot-probe.md`
+§6.4).
+
+#### What was wrong
+
+Arduino-ESP32 resolves `Serial` **at compile time**, from two `-D` flags
+(`cores/esp32/HardwareSerial.h:441-452`):
+
+| `ARDUINO_USB_CDC_ON_BOOT` | `ARDUINO_USB_MODE` | `Serial` becomes |
+|---|---|---|
+| 1 | 0 | `USBSerial` — native TinyUSB CDC |
+| 1 | 1 | `HWCDCSerial` — the USB-Serial/JTAG peripheral |
+| 0 | — | `Serial0` — a literal `#define`, i.e. UART0 |
+
+The routing truth for the three shipped profiles, read from each build's actual
+`build.extra_flags` and confirmed with `nm` on each linked ELF:
+
+| Profile | CDC_ON_BOOT | USB_MODE | bare `Serial` is | on UART0? |
+|---|:--:|:--:|---|---|
+| `s2mini` | 1 | 0 | `USBSerial` @ `0x3ffca1f4` | **no** |
+| `distro-v3-s3` | 1 | 1 | `HWCDCSerial` @ `0x3fc9d5d8` | **no** |
+| `distro-v1-esp32` | 0 | — | `Serial0` @ `0x3ffc4388` | yes |
+
+So on two of the three, `Serial.printf` leaves through a USB endpoint. Only
+`distro-v1-esp32` was safe, and only because the original ESP32 has no USB
+peripheral at all — luck, not design.
+
+The consequence for R6 specifically: the instrumented `s2mini` firmware compiled,
+linked, contained all three `@SESAME` format strings at verifiable offsets in
+`.flash.rodata`, passed every verification in §4 — and emitted every byte to a
+USB CDC endpoint. UART0, which is the transport R3 proved, the one Renode's
+socket terminal is connected to, and the only one the bridge reads, would have
+carried nothing.
+
+**Telemetry that is perfectly correct and perfectly undelivered.** String
+presence in a binary cannot see that. Here is the defect in the old ELF
+(`b14a9161…`), disassembled:
+
+```
+4008551a:  l32r  a11, ... (3f00081c)              <- "@SESAME servo %s %d\n"
+4008551d:  l32r  a10, ... (3ffc9f64 <USBSerial>)  <- the this pointer
+40085522:  call8 <Print::printf>
+```
+
+#### The fix, and why this one
+
+Telemetry names its port explicitly:
+
+```c
+#define SESAME_TELEMETRY_PORT Serial0
+```
+
+`Serial0` is **always** UART0. The core declares and defines it unconditionally
+on every target, outside the CDC conditional (`HardwareSerial.h:454`,
+`HardwareSerial.cpp:63` — *"There is always Seria0 for UART0"*, their typo).
+
+R4 offered two fixes and both work. Building the profile with
+`CDCOnBoot=dis_cdc` was rejected for two reasons:
+
+1. It makes the routing a property of **a board menu option**, which anyone can
+   change later without any reason to suspect telemetry depends on it. Naming the
+   port makes it a property of the instrumentation, where it belongs.
+2. It would take the developer's USB serial monitor away. With `Serial0`, the
+   sketch's own `Serial.print` output keeps going to USB CDC and telemetry goes
+   to UART0 **at the same time**, on all three boards. `USBSerial` is still in
+   the fixed ELF, and that is correct — what matters is that no telemetry call
+   site points at it.
+
+Opening the port is conditional, because on a non-CDC board `Serial` *is*
+`Serial0` and `setup()` has already opened it:
+
+```c
+#if defined(ARDUINO_USB_CDC_ON_BOOT) && ARDUINO_USB_CDC_ON_BOOT
+#define SESAME_TELEMETRY_OWNS_PORT 1   // Serial went to USB; UART0 is ours to open
+#else
+#define SESAME_TELEMETRY_OWNS_PORT 0   // Serial IS Serial0; already open
+#endif
+```
+
+**Pin check.** UART0 is GPIO 43/44 on the S2 and S3 and GPIO 1/3 on the ESP32
+(`HardwareSerial.h:150-190`). None of those collides with any servo pin or I²C
+pin in any of the four board configurations in `hardware-map.json`. Nothing had
+to move.
+
+#### Verified fixed, at the same level the defect was found
+
+```
+400854e2:  l32r  a11, ... (3f00081c)             <- "@SESAME servo %s %d\n"
+400854e5:  l32r  a10, ... (3ffca168 <Serial0>)   <- UART0
+400854ea:  call8 <Print::printf>
+```
+
+`scripts/extract-telemetry-literals.mjs` now does this automatically for every
+telemetry call site and records the result in `firmware/build/telemetry-literals.json`:
+
+```
+[routing]  3 telemetry call site(s), all -> Serial0 (UART0)
+           0x4008460f  "@SESAME face %s %u\n"    this=Serial0
+           0x40084fba  "@SESAME hello %d %s\n"   this=Serial0
+           0x400854ea  "@SESAME servo %s %d\n"   this=Serial0
+```
+
+Reading the nearest `l32r` is not sufficient, which is worth stating because it
+is the obvious implementation and it silently reports nothing useful: inside
+`setup()` the compiler keeps the port in a callee-saved register and forwards it,
+
+```
+40084f8b:  l32r  a7, ... (3ffca168 <Serial0>)
+   ...     0x25 bytes of unrelated work, including a USBSerial load
+40084fb5:  mov.n a10, a7
+40084fba:  call8 <Print::printf>
+```
+
+so the analyser (`scripts/lib/xtensa-call-args.mjs`) walks backwards through the
+function following `l32r` / `mov.n` / `or aX, aY, aY` until it reaches a literal.
+
+#### The regression test
+
+`emulator/bridge/src/__tests__/telemetry-transport.test.ts`, 15 cases at three
+levels. It asserts the **routing decision**, not string presence:
+
+- **Source** — `SESAME_TELEMETRY_PORT` is `Serial0`; no `@SESAME` literal is
+  emitted through anything else; no bare `Serial.print*` anywhere in the added
+  code; the port is opened only when the sketch has not already opened it; and
+  `sesameTelemetryBegin()` lands immediately after `Serial.begin(115200)` and
+  before the boot-blocking `display.begin()` — the last one checked by walking
+  the patch hunks for the insertion's original line number and comparing it
+  against F4's `bootOrder` in `hardware-map.json`, both checked in.
+- **The analyser itself** — because *a check that has never failed is not known
+  to work*, the resolver is pinned against **verbatim captured disassembly of the
+  defective build**, and must report `USBSerial` for it. It is also pinned
+  against the register-forwarded case above, and must not be fooled by the
+  `USBSerial` that `setup()` legitimately loads a few instructions earlier.
+- **The built artifact** — all three call sites resolve to `Serial0`; `USBSerial`
+  is present in the ELF but is never a telemetry `this`; and the per-profile
+  truth table above is pinned from each `build-manifest.json`, so instrumenting
+  the S3 profile later, or flipping a board option, trips a test instead of
+  shipping silence.
+
+The build driver enforces the source-level half too, so a bad patch fails the
+build rather than the test suite.
 
 ### A hardening decision that was not optional
 
@@ -124,6 +286,9 @@ testing the re-implementation.
 | The 1385-byte `oled` line is ~120 ms at 115200 baud | The framebuffer hook ships **disabled**: `#define SESAME_TELEMETRY_OLED 0`, with a 500 ms rate limit if enabled. Its literal is verifiably **absent** from the built binary, which is the proof the gate works. |
 | Verify byte-for-byte against the real literal | §4. |
 | No board available → mark hardware verification pending | §10. |
+
+A seventh, which R5 did **not** anticipate and R4 had to find: *`Serial` is not
+UART0.* §2.1.
 
 ---
 
@@ -153,15 +318,19 @@ the generated source.** The driver now checks, for this profile:
 - each anchor is present *exactly once*;
 - `#define SESAME_TELEMETRY_OLED 0` is present;
 - `servo`, `face` and `hello` literals exist, none carries a tag in an argument
-  slot, none uses the `log` verb, all are newline-terminated.
+  slot, none uses the `log` verb, all are newline-terminated;
+- **the telemetry port is `Serial0`**, no `@SESAME` literal is emitted through
+  anything else, and `sesameTelemetryBegin()` sits between `Serial.begin()` and
+  `display.begin()` (§2.1).
 
 A patch that applies but lands in the wrong place now fails the build:
 
 ```
-[patch] applied telemetry-instrumentation.patch (sha256 c3b43c05ae69b178...)
+[patch] applied telemetry-instrumentation.patch (sha256 c35989c5811298d6...)
 [verify] OK  board=s2-mini servoPins=[1,2,4,6,8,10,13,14] SDA=33 SCL=35
-[telemetry] OK  4 @SESAME literals, hooks in place, OLED hook disabled
-[build] OK in 113.8s
+[telemetry] OK  4 @SESAME literals, hooks in place, OLED hook disabled, port=Serial0
+[build] OK in 123.8s
+[telemetry] routing: telemetry -> Serial0 (UART0); a bare Serial would be USBSerial
 ```
 
 ### 3.2 Flash / RAM delta versus stock `s2mini`
@@ -171,25 +340,35 @@ options. The only difference is the patch.
 
 | | `s2mini` | `s2mini-instrumented` | Δ |
 |---|---:|---:|---:|
-| Flash (arduino-cli "program") | 1 120 590 | 1 120 946 | **+356 B** (+0.03 %) |
-| ...of 1 310 720 (1.2 MB app slot) | 85.49 % | **85.52 %** | +0.03 pt |
+| Flash (arduino-cli "program") | 1 120 590 | 1 130 614 | **+10 024 B** (+0.89 %) |
+| ...of 1 310 720 (1.2 MB app slot) | 85.49 % | **86.26 %** | +0.77 pt |
 | RAM (`.dram0.data` + `.dram0.bss`) | 79 632 | 79 632 | **+0 B** |
 
 Per-section, from `xtensa-esp32s2-elf-size -A`:
 
 | Section | `s2mini` | instrumented | Δ |
 |---|---:|---:|---:|
-| `.flash.text` | 803 934 | 804 198 | +264 |
-| `.flash.rodata` | 212 012 | 212 104 | +92 |
+| `.flash.text` | 803 934 | 812 198 | +8 264 |
+| `.flash.rodata` | 212 012 | 213 180 | +1 168 |
 | `.dram0.data` | 17 928 | 17 928 | 0 |
 | `.dram0.bss` | 61 704 | 61 704 | 0 |
 
-**+356 bytes of flash and zero bytes of RAM.** F3 flagged the 1.2 MB app
-partition as 85–87 % full with ~170–190 KB of headroom; the instrumentation
-consumes 0.2 % of that headroom. The zero RAM cost is the payoff for the
-`char safe[24]` living on the stack and the 1369-byte base64 buffer being inside
-`#if SESAME_TELEMETRY_OLED`. Enabling the OLED hook would cost ~1.4 KB of `.bss`
-and is the reason it is a compile flag rather than a runtime one.
+**+10 024 bytes of flash and zero bytes of RAM**, leaving 180 106 bytes (13.7 %)
+of the app slot free.
+
+The honest accounting of that number, because it changed by 28× when the
+transport defect was fixed: the *instrumentation itself* is ~356 bytes — that was
+the measurement before the fix, and the emitters have not grown. The other
+~9.7 KB is **`Serial0.begin()` pulling in the UART0 driver**, which a CDC-on-boot
+build otherwise never links: `HardwareSerial::begin`, `uartBegin`, the IDF UART
+driver, its ring buffers and its event task. It is the price of actually having a
+transport, and it is paid in flash, not RAM.
+
+The zero RAM cost survives because `char safe[24]` lives on the stack and the
+1369-byte base64 buffer is inside `#if SESAME_TELEMETRY_OLED`. Enabling the OLED
+hook would cost ~1.4 KB of `.bss`, which is why it is a compile flag rather than
+a runtime one. (The UART driver's own ring buffers are heap, not `.bss`, so they
+do not appear here — they are a runtime cost of a few hundred bytes.)
 
 ### 3.3 Determinism — bit-for-bit, same as the other three
 
@@ -198,8 +377,10 @@ rebuild → compare.
 
 | Artifact | SHA-256 | Reproduced |
 |---|---|---|
-| `.elf` (15 508 524 B) | `b14a916134ac4bf711ba80ca34932ed2b04ea5af95e2e575648c78de88f0005f` | identical, 2 runs |
-| `.bin` (1 121 088 B) | `25b0290561485e6e81c1b4ec667e8f1073301d94ad8a9ed06ef7b65c26860073` | identical, 2 runs |
+| `.elf` (15 523 320 B) | `7c3fd85a47ebbdacc3000d59b9b0ef39d443245c81ce84a26f6b31a79e92331f` | identical, 2 runs |
+| `.bin` (1 130 768 B) | `d65504cc839697f2fdb739ac544c343b1d72558e40f12d9ddcf28113876eb703` | identical, 2 runs |
+
+(The pre-fix build was `b14a9161…`; it is quoted in §2.1 as the defective one.)
 
 Recorded in `reproducibility.json` → `builds[]` alongside the other three
 profiles. Same caveat as F3: this is same-machine reproducibility; the absolute
@@ -247,7 +428,11 @@ never silently absent. On this machine it ran and passed:
 | `@SESAME oled b64 %s\n` | — | — | **absent** (compile-gated) |
 
 Plus a control: the **stock** `s2mini` ELF contains no `@SESAME` bytes at all. If
-it did, the +356 B delta would be measuring something else.
+it did, the flash delta would be measuring something else.
+
+**Level 4 · patch → the port at the call site.** Added after R4's finding, and
+the only level that can see a transport defect. Levels 1–3 all passed on the
+build that emitted to USB CDC. See §2.1.
 
 The OLED row is the interesting one. Its absence is not a missing feature; it is
 the machine-checkable proof that `#if SESAME_TELEMETRY_OLED` really does keep the
@@ -526,12 +711,13 @@ dropping and getting the backlog; oldest-first eviction when the buffer is small
 than the stream.
 
 ```
- ✓ reconnect.test.ts        (4)
- ✓ bridge-e2e.test.ts       (8)
- ✓ contract-paths.test.ts   (4 | 1 skipped)
- ✓ config-and-replay.test.ts (12)
- ✓ firmware-format.test.ts  (18)
- Tests  45 passed | 1 skipped (46)
+ ✓ reconnect.test.ts          (4)
+ ✓ bridge-e2e.test.ts         (8)
+ ✓ contract-paths.test.ts     (4 | 1 skipped)
+ ✓ config-and-replay.test.ts  (12)
+ ✓ firmware-format.test.ts    (18)
+ ✓ telemetry-transport.test.ts (15)
+ Tests  60 passed | 1 skipped (61)
 ```
 
 With `SESAME_PATH_A=1` the skipped case runs too, and passes:
@@ -543,7 +729,7 @@ With `SESAME_PATH_A=1` the skipped case runs too, and passes:
 ```
 
 `pnpm -r build`, `pnpm -r typecheck` and `pnpm -r test` are all green from the
-repo root: 53 + 255 + 45 = **353 tests passing**, 1 skipped by default (Path A,
+repo root: 53 + 255 + 60 = **368 tests passing**, 1 skipped by default (Path A,
 opt-in — see §8).
 
 A live process run, as a sanity check that the tests are not testing an in-memory
@@ -574,10 +760,17 @@ Nothing below is blocked on anything but a board.
    `motorCurrentDelay` budget without perturbing servo timing; and that emitting
    from `updateFaceBitmap()` — which runs re-entrantly out of `delayWithFace()`,
    itself called from `setServoAngle()` — does not deadlock or reorder.
-2. **USB-CDC and the boot banner.** On the S2 Mini `Serial` is USB-CDC. Output
-   printed before the host enumerates is lost. The banner sits at the end of
-   `setup()` per the protocol document, which is late enough to probably survive,
-   but "probably" is the accurate word. Under emulation there is no such window.
+2. **USB-CDC.** This was on the list as a hypothetical about the boot banner; R4
+   turned the underlying fact into a finding, and the fix (§2.1) removes the
+   hypothetical entirely. Telemetry is now on UART0, which has no enumeration
+   window, so no early line can be lost. What remains unverified on silicon is
+   the *other* side of the same coin: that `Serial0.begin(115200)` on a board
+   whose IDF console also sits on UART0 does not produce interleaved console and
+   telemetry bytes on the same wire. Under emulation it does not; the ROM/IDF
+   console on a real S2 might. If it does, the parser survives it by design —
+   non-sentinel text becomes `log`/`uart` events — but it has not been observed.
+   Related and also unverified: whether GPIO 43/44 are physically broken out on
+   the Lolin S2 Mini board being used.
 3. **Wire-rate headroom.** At 115200 baud a `servo` line is ~1.7 ms. `runDancePose`
    and `runWalkPose` issue servo writes faster than the wave does; whether any
    choreography saturates UART0 is arithmetic today and an observation only on
@@ -599,10 +792,11 @@ Nothing below is blocked on anything but a board.
 | `firmware/patches/telemetry-instrumentation.patch` | The two hooks + banner. 4 hunks, +126/-0. |
 | `firmware/build/sketch.yaml` | `s2mini-instrumented` profile. |
 | `scripts/build-firmware.mjs` | Profile entry + the generated-source assertions of §3.1. |
-| `scripts/extract-telemetry-literals.mjs` | Literal extraction and ELF/bin cross-check. |
+| `scripts/extract-telemetry-literals.mjs` | Literal extraction, ELF/bin cross-check, and the call-site port analysis. |
+| `scripts/lib/xtensa-call-args.mjs` | Pure Xtensa `call8` argument resolver — the thing that can see a transport defect. Unit-tested against captured disassembly of both the defective and the fixed build. |
 | `firmware/build/telemetry-literals.json` | Checked-in binary-level evidence (§4 level 2). |
 | `scripts/build-replay-fixture.mjs` | Choreography → timed `@SESAME` stream, any of the 21 movements. |
-| `emulator/bridge/` | The bridge, its CLI, and 46 tests (incl. the Renode Path-A driver in `src/__tests__/path-a-renode.ts`). |
+| `emulator/bridge/` | The bridge, its CLI, and 61 tests (incl. the Renode Path-A driver in `src/__tests__/path-a-renode.ts` and the transport regression guard). |
 | `emulator/bridge/fixtures/wave-pose.replay.jsonl` | The shipped Path-B fixture. |
 | `debug-viewer/index.html` | The throwaway. |
 | `reproducibility.json` | `builds[]` now has all four profiles. |

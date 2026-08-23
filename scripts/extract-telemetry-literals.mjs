@@ -17,6 +17,14 @@
  *      output. Available only after a build (artifacts are gitignored), and the
  *      only reading that proves the bytes survived the compiler.
  *
+ * And one thing neither reading catches on its own: **which serial port the
+ * emitter actually writes to.** `Serial` is a compile-time alias in
+ * Arduino-ESP32, and on the s2mini profile it is a USB CDC endpoint rather than
+ * UART0 (R4 section 6.4). Telemetry aimed at it compiles, links, contains all the
+ * right strings — and never reaches the transport anyone is listening to. The
+ * string-presence check above is completely blind to that, so §"routing" below
+ * disassembles the actual call sites and reads the `this` pointer.
+ *
  * This script cross-checks (1) against (2) and writes the result to
  * `firmware/build/telemetry-literals.json`, which IS checked in - so the
  * binary-level evidence outlives the gitignored artifacts it came from.
@@ -26,7 +34,9 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import crypto from 'node:crypto';
+import { execFileSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
+import { findTelemetryPrintfSites } from './lib/xtensa-call-args.mjs';
 
 const REPO = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const PATCH = path.join(REPO, 'firmware', 'patches', 'telemetry-instrumentation.patch');
@@ -101,8 +111,107 @@ const literals = fromPatch.map((entry) => {
   };
 });
 
+// ---------------------------------------------------------------- routing --
+/**
+ * Which serial object does each telemetry `printf` call actually take as its
+ * `this` pointer?
+ *
+ * This is the check that would have caught R4's finding. String presence proves
+ * nothing about routing: the defect version of this patch contained all three
+ * literals, in the right sections, and emitted every one of them out a USB CDC
+ * endpoint.
+ *
+ * Xtensa `call8` passes arg0 in a10 and arg1 in a11, so a telemetry emission is
+ * a `call8 <Print::printf>` whose a11 holds one of our format strings and whose
+ * a10 holds the port. Reading the two `l32r`s nearest the call is NOT enough —
+ * the compiler keeps a live port pointer in a callee-saved register and forwards
+ * it, which in this build really does happen:
+ *
+ *   40084f8b:  l32r  a7, (3ffca168 <Serial0>)
+ *   ...        (0x25 bytes of other work)
+ *   40084fb5:  mov.n a10, a7
+ *   40084fba:  call8 <Print::printf>
+ *
+ * The register resolution lives in scripts/lib/xtensa-call-args.mjs, pure and
+ * dependency-free, so it can be unit-tested against captured disassembly from
+ * BOTH the defective and the fixed build — the only way to know the check can
+ * actually fail.
+ */
+function analyseRouting() {
+  const target = /esp32s3/.test(manifestFqbn)
+    ? 'esp32s3'
+    : /esp32s2|lolin_s2_mini/.test(manifestFqbn)
+      ? 'esp32s2'
+      : 'esp32';
+  const binDir = path.join(REPO, 'tools/arduino-data/data/packages/esp32/tools/esp-x32/2601/bin');
+  const tool = (name) => path.join(binDir, `xtensa-${target}-elf-${name}.exe`);
+  if (!fs.existsSync(tool('objdump'))) return { available: false, reason: `no toolchain at ${binDir}` };
+
+  const run = (name, args) =>
+    execFileSync(tool(name), args, { encoding: 'utf8', maxBuffer: 512 * 1024 * 1024 });
+
+  const serialSymbols = new Map();
+  for (const line of run('nm', [elf]).split(/\r?\n/)) {
+    const m = /^([0-9a-f]+)\s+\S+\s+(Serial0|Serial1|USBSerial|HWCDCSerial)$/.exec(line.trim());
+    if (m) serialSymbols.set(parseInt(m[1], 16), m[2]);
+  }
+
+  // File offset -> virtual address, via the section headers.
+  const sections = [];
+  for (const line of run('readelf', ['-S', '-W', elf]).split(/\r?\n/)) {
+    const m = /^\s*\[\s*\d+\]\s+(\S+)\s+\S+\s+([0-9a-f]+)\s+([0-9a-f]+)\s+([0-9a-f]+)/.exec(line);
+    if (m) sections.push({ name: m[1], addr: parseInt(m[2], 16), offset: parseInt(m[3], 16), size: parseInt(m[4], 16) });
+  }
+  const toVma = (fileOffset) => {
+    const sec = sections.find((x) => x.addr !== 0 && fileOffset >= x.offset && fileOffset < x.offset + x.size);
+    return sec ? sec.addr + (fileOffset - sec.offset) : null;
+  };
+
+  const formatVmas = new Map();
+  for (const entry of literals) {
+    if (!entry.expectedInBinary || entry.elfOffset === null) continue;
+    const vma = toVma(parseInt(entry.elfOffset, 16));
+    if (vma !== null) formatVmas.set(vma, entry.literal);
+  }
+
+  const lines = run('objdump', ['-d', '-C', elf]).split(/\r?\n/);
+  const sites = findTelemetryPrintfSites(lines, formatVmas, serialSymbols);
+
+  return {
+    available: true,
+    target,
+    method: 'backward dataflow on the a10/a11 argument registers at each Print::printf call8',
+    serialSymbols: Object.fromEntries([...serialSymbols].map(([a, n]) => [n, `0x${a.toString(16)}`])),
+    expectedPort: 'Serial0',
+    sites,
+  };
+}
+
+const manifestPath = path.join(ARTIFACTS, 'build-manifest.json');
+const manifest = fs.existsSync(manifestPath) ? JSON.parse(fs.readFileSync(manifestPath, 'utf8')) : null;
+const manifestFqbn = manifest?.fqbn ?? '';
+const routing = haveArtifacts ? analyseRouting() : { available: false, reason: 'no built artifact' };
+
 let failed = false;
 if (haveArtifacts) {
+  // Every telemetry emission must go to Serial0. Anything else means the bytes
+  // leave through a USB CDC endpoint that nothing on the host is reading.
+  if (routing.available) {
+    if (routing.sites.length === 0) {
+      console.error('[literals] found no telemetry call sites in the disassembly - the check is not working');
+      failed = true;
+    }
+    for (const site of routing.sites) {
+      if (site.port !== 'Serial0') {
+        console.error(
+          `[literals] WRONG TRANSPORT at ${site.callSite}: ${JSON.stringify(site.literal)} ` +
+            `emits to ${site.port ?? '(unidentified)'}, not Serial0/UART0`,
+        );
+        failed = true;
+      }
+    }
+  }
+
   for (const l of literals) {
     if (l.expectedInBinary && !(l.foundInElf && l.foundInBin)) {
       console.error(`[literals] MISSING from the built artifact: ${JSON.stringify(l.literal)}`);
@@ -131,6 +240,8 @@ const doc = {
   generatedBy: 'scripts/extract-telemetry-literals.mjs',
   protocol: 'docs/protocol/sesame-telemetry-v1.md',
   patch: { file: 'firmware/patches/telemetry-instrumentation.patch', sha256: sha256(PATCH) },
+  // The routing decision, read out of the machine code. See analyseRouting().
+  routing,
   artifact: haveArtifacts
     ? {
         profile: 's2mini-instrumented',
@@ -148,6 +259,7 @@ if (CHECK) {
   // present when a build has been run, so demanding them would fail on a clean
   // clone for a reason that has nothing to do with the format contract.
   const strip = (t) => JSON.stringify(JSON.parse(t || '{}').literals ?? null);
+  // Routing is artifact-derived, so it is compared only when a build exists.
   if (strip(existing) !== strip(text)) {
     console.error(`[literals] ${path.relative(REPO, OUT)} is STALE - re-run scripts/extract-telemetry-literals.mjs`);
     process.exit(1);
@@ -159,6 +271,12 @@ if (CHECK) {
     `[literals] ${path.relative(REPO, OUT)}  ${literals.length} literals, ` +
       (haveArtifacts ? 'cross-checked against the built ELF + bin' : 'NO ARTIFACT - patch reading only'),
   );
+  if (routing.available) {
+    console.log(`[routing]  ${routing.sites.length} telemetry call site(s), all -> Serial0 (UART0)`);
+    for (const site of routing.sites) {
+      console.log(`           ${site.callSite}  ${JSON.stringify(site.literal).padEnd(26)} this=${site.port}`);
+    }
+  }
   for (const l of literals) {
     console.log(
       `           ${JSON.stringify(l.literal).padEnd(26)} ` +
