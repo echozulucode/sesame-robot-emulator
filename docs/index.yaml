@@ -1,0 +1,85 @@
+project: "Sesame Lab"
+created: 2026-08-23
+docs:
+  # Core project memory (project-docs skill)
+  - file: docs/plan.md
+    type: plan
+    status: active
+  - file: docs/status.md
+    type: status
+    status: active
+  - file: docs/research.md
+    type: research
+    status: active
+  - file: docs/issues.yaml
+    type: issues
+    status: active
+  - file: docs/lessons.yaml
+    type: lessons
+    status: active
+
+  # Executed phase plan
+  - file: docs/plans/phase-0-foundations-and-renode-research.md
+    type: plan
+    status: complete
+
+  # Architecture decisions
+  - file: docs/decisions/ADR-0001-behavioral-simulator-first.md
+    type: decision
+    status: accepted
+  - file: docs/decisions/ADR-0002-renode-portable-sidecar.md
+    type: decision
+    status: accepted
+
+  # Gate reports (independent synthesis)
+  - file: docs/findings/PHASE-0-SUMMARY.md
+    type: findings
+    status: complete
+  - file: docs/findings/GATE-A-renode-boot.md
+    type: findings
+    status: complete
+  - file: docs/findings/GATE-B-servo-extraction.md
+    type: findings
+    status: complete
+
+  # Foundations workstream evidence
+  - file: docs/findings/F2-upstream-drift.md
+    type: findings
+    status: complete
+  - file: docs/findings/F3-firmware-build.md
+    type: findings
+    status: complete
+  - file: docs/findings/F4-doc-drift.md
+    type: findings
+    status: complete
+  - file: docs/findings/F5-asset-geometry.md
+    type: findings
+    status: complete
+  - file: docs/findings/F6-joint-map.md
+    type: findings
+    status: complete
+
+  # Renode research workstream evidence
+  - file: docs/findings/R1-renode-capability-audit.md
+    type: findings
+    status: complete
+  - file: docs/findings/R2-xtensa-execution-probe.md
+    type: findings
+    status: complete
+  - file: docs/findings/R3-uart-probe.md
+    type: findings
+    status: complete
+  - file: docs/findings/R4-boot-probe.md
+    type: findings
+    status: complete
+  - file: docs/findings/R6-R7-telemetry-bridge.md
+    type: findings
+    status: complete
+  - file: docs/findings/EXP6-oled.md
+    type: findings
+    status: complete
+
+  # Interface specification
+  - file: docs/protocol/sesame-telemetry-v1.md
+    type: specification
+    status: active

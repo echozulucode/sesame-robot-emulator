@@ -1,0 +1,493 @@
+version: 1
+project: "Sesame Lab"
+updated: 2026-08-23
+issues:
+
+  # ---------------------------------------------------------------- OPEN: emulation
+
+  - id: ISSUE-20260823-001
+    title: "No ESP32-S2 SoC platform in Renode: 0 of 20 boot steps reached"
+    category: research-blocker
+    severity: high
+    priority: p2
+    confidence: high
+    scope: emulator
+    observed: |
+      Both the real Sesame ELF and a minimal three-line Arduino sketch abort on instruction #0.
+      "Illegal entry instruction (pc = 40025504)" - `entry a1,48` at call_start_cpu0. Reset state
+      is PS 0x1F (WOE=0, EXCM=1), WINDOWSTART 0, SP 0; with no boot ROM nothing initialises them.
+      setup() is 34 ESP-IDF startup functions away.
+    expected: |
+      Firmware reaches user setup(), per the research report's assumption that Renode might host
+      unmodified Sesame firmware.
+    trace_link: "docs/findings/R4-boot-probe.md; docs/findings/GATE-A-renode-boot.md"
+    status: open
+    next_action: |
+      Do NOT put this on the Phase 1 critical path. Keep as a funded research track. Ordered,
+      priced backlog exists: ~16-25 d to user code, +10-16 d for a robot that moves.
+    resolution: null
+    lesson: LESSON-20260823-005
+    history:
+      - timestamp: 2026-08-23T00:00:00Z
+        note: "Opened from R4. Gate A answered NO above the CPU line, YES below it. Backlog costed with every row anchored to an observed PC or counted static reference."
+
+  - id: ISSUE-20260823-002
+    title: "`rer` instruction hard-aborts Renode unrecoverably"
+    category: bug
+    severity: high
+    priority: p1
+    confidence: high
+    scope: emulator-upstream
+    observed: |
+      "CPU abort: reading from external register not yet supported" at pc=0x400251fe, after which
+      RunFor never returns and the Renode process must be killed. 6 uses in the Sesame ELF,
+      including esp_panic_handler - so the first firmware panic destroys the emulator.
+    expected: |
+      An unimplemented instruction should raise an illegal-instruction exception the guest can
+      handle, not terminate the emulator.
+    trace_link: "docs/findings/R2-xtensa-execution-probe.md (rung 5b)"
+    status: open
+    next_action: |
+      Fix FIRST if the Renode track is ever resumed (~0.5 d to downgrade the abort to an
+      exception; 2-3 d for a full model). Everything after it is miserable to debug without this.
+    resolution: null
+    lesson: null
+    history:
+      - timestamp: 2026-08-23T00:00:00Z
+        note: "Opened from R2 rung 5b."
+      - timestamp: 2026-08-23T00:00:00Z
+        note: "R4 upgraded this from a nuisance to a prerequisite - it destroys the emulator at the first real fault."
+
+  - id: ISSUE-20260823-003
+    title: "tlib ESP32-S2/S3 core configs include the LX6 opcode table, so salt/saltu are unrecognized"
+    category: bug
+    severity: medium
+    priority: p3
+    confidence: high
+    scope: emulator-upstream
+    observed: |
+      `salt` / `saltu` -> "unrecognized opcode in slot 0" on esp32/esp32s2/esp32s3 core configs.
+      196 uses in the real Sesame ELF including heap_caps_check_add_region_allowed and
+      xTaskIncrementTick. Root cause found in source: tlib/arch/xtensa/core-esp32s2.c and
+      core-esp32s3.c literally #include "core-esp32/xtensa-modules.c.inc" - the LX6 table on LX7
+      cores. translate_salt already exists at translate.c:2053.
+    expected: |
+      LX7 cores use an LX7 opcode table. Espressif's QEMU fork ships a generated one.
+    trace_link: "docs/findings/R2-xtensa-execution-probe.md; docs/findings/R4-boot-probe.md"
+    status: open
+    next_action: |
+      Low priority. R4's de233_fpu diagnostic showed the boot wedges in the identical SPI-flash
+      spin with salt available, so the missing opcodes are NOT the binding constraint. Fixing
+      them alone buys nothing. ~1 d file drop + 1-2 d one-off tlib build bring-up.
+    resolution: null
+    lesson: LESSON-20260823-006
+    history:
+      - timestamp: 2026-08-23T00:00:00Z
+        note: "Opened from R2 (estimated 1-2 d). R4 re-assessed cheaper (~1 d, a file drop) and root-caused it to the #include, but also proved it is not the binding constraint."
+
+  - id: ISSUE-20260823-009
+    title: "Renode's ESP32_UART model is S3/C3-shaped and wrong for the S2"
+    category: bug
+    severity: low
+    priority: p3
+    confidence: high
+    scope: emulator-upstream
+    observed: |
+      The S2 has no CLK_CONF register; 0x74 and 0x78 are UART_DATE and UART_ID, both modelled
+      incorrectly. UART_INT_ST (0x08) is enumerated but never implemented (11 of 30 registers),
+      confirmed at runtime - so interrupt-driven serial breaks. Polled FIFO writes work.
+    expected: "Register map matches the ESP32-S2 TRM."
+    trace_link: "docs/findings/R1-renode-capability-audit.md; docs/findings/R3-uart-probe.md"
+    status: open
+    next_action: "No action needed - polled writes are sufficient for the telemetry path. Revisit only if interrupt-driven serial is ever required."
+    resolution: null
+    lesson: null
+    history:
+      - timestamp: 2026-08-23T00:00:00Z
+        note: "Found during R1 audit, confirmed at runtime in R3."
+
+  - id: ISSUE-20260823-010
+    title: "esp32s2-sesame.repl interrupt routing `IRQ -> cpu@5` is unverified"
+    category: correctness
+    severity: low
+    priority: p3
+    confidence: low
+    scope: emulator
+    observed: |
+      Every other address in the platform file is cited to Espressif's own soc.h / reg_base.h /
+      linker scripts. `IRQ -> cpu@5` is the single unsourced value, marked UNVERIFIED in place -
+      the S2 interrupt matrix routes source 37 dynamically.
+    expected: "Interrupt routing derived from the S2 interrupt matrix rather than assumed."
+    trace_link: "emulator/renode/platforms/esp32s2-sesame.repl; docs/findings/R3-uart-probe.md"
+    status: open
+    next_action: "Resolve when/if an interrupt-matrix model is built (3-5 d item in the Gate A backlog). Harmless today - polled UART does not use it."
+    resolution: null
+    lesson: null
+    history:
+      - timestamp: 2026-08-23T00:00:00Z
+        note: "Marked UNVERIFIED in the platform file rather than silently assumed. Recorded here so it is not forgotten."
+
+  # ---------------------------------------------------------------- OPEN: upstream Sesame
+
+  - id: ISSUE-20260823-004
+    title: "UPSTREAM: epd_bitmap_stand and epd_bitmap_defualt declared weak, never defined"
+    category: bug
+    severity: high
+    priority: p2
+    confidence: high
+    scope: upstream
+    observed: |
+      Both symbols are declared __attribute__((weak)) and never defined - confirmed ABSENT from
+      the ELF symbol table with zero compiler diagnostics (the platform builds with -w). The
+      startup `default` face is therefore a null pointer, and `stand`, `default` and every
+      unknown face name render 0 frames. The global fallback is itself empty. /api/status will
+      report a face that is not on screen.
+    expected: "Named faces render their bitmaps, or the build fails loudly."
+    trace_link: "docs/findings/F4-doc-drift.md; docs/findings/F3-firmware-build.md (binary-level confirmation)"
+    status: open
+    next_action: |
+      File upstream at github.com/dorianborian/sesame-robot. We deliberately did NOT patch it -
+      Phase 0 rule was to keep upstream pristine. Our replay fixture models the bug faithfully.
+    resolution: null
+    lesson: null
+    history:
+      - timestamp: 2026-08-23T00:00:00Z
+        note: "Found by F4 in source; independently confirmed by F3 at the ELF symbol-table level; encoded as executable behaviour in R7's replay fixture."
+
+  - id: ISSUE-20260823-005
+    title: "UPSTREAM: four documentation-vs-source drifts"
+    category: docs
+    severity: low
+    priority: p3
+    confidence: high
+    scope: upstream
+    observed: |
+      1. AP SSID is `Sesame-Controller` in source; README says `Sesame-Controller-BETA` (x3).
+      2. README claims 400 kHz I2C; there is no Wire.setClock() anywhere.
+      3. README says idle is inactivity-triggered (x2); enterIdle() has exactly one call site,
+         runStandPose(face==1), and exit is narrower than documented.
+      4. All 10 routes register HTTP_ANY, not GET/POST as documented; three /api/wifi/* routes
+         are absent from both the README and the research report.
+    expected: "Documentation matches source."
+    trace_link: "docs/findings/F4-doc-drift.md"
+    status: open
+    next_action: "Bundle with ISSUE-20260823-004 into a single upstream report."
+    resolution: null
+    lesson: LESSON-20260823-007
+    history:
+      - timestamp: 2026-08-23T00:00:00Z
+        note: "Extracted by F4 while building hardware-map.json from source rather than from prose."
+
+  - id: ISSUE-20260823-006
+    title: "Recommended top cover STL is not watertight"
+    category: asset
+    severity: medium
+    priority: p3
+    confidence: high
+    scope: assets
+    observed: |
+      Top-Cover-Enclosed-v117.stl - the recommended print - has 10 disjoint bodies, is not
+      watertight, and yields no volume or centre of mass. The Cat and No-Ears variants are fine.
+    expected: "A manifold mesh suitable for physics/collision use."
+    trace_link: "docs/findings/F5-asset-geometry.md; hardware/assets-inventory.json"
+    status: open
+    next_action: "Repair before any physics or collision work (Phase 2+). Does not block the Phase 1 kinematic viewer."
+    resolution: null
+    lesson: null
+    history:
+      - timestamp: 2026-08-23T00:00:00Z
+        note: "Found by F5 mesh-integrity check."
+
+  # ---------------------------------------------------------------- OPEN: needs hardware
+
+  - id: ISSUE-20260823-007
+    title: "Ten joint-map facts cannot be settled without the physical robot"
+    category: verification
+    severity: high
+    priority: p1
+    confidence: high
+    scope: model
+    observed: |
+      joint-map.json carries 8 semantic names at verified:false. Open questions include: whether
+      the top-down render is from above or below (this FLIPS left/right), whether R/L are the
+      robot's or a viewer's, whether "FRONT" is the walk direction, whether parts are installed
+      where drawn (R1 and L2 are physically identical solids and therefore swappable), the servo
+      datum plane along each axis, the STL-to-CAD frame mapping, absolute rotational sense, and
+      mechanical travel limits. A contradiction is also logged: the build guide says the hip at
+      Rest is "parallel to the body"; the angle guide draws 90 degrees pointing laterally.
+    expected: "Semantic joint names and rotational conventions verified against hardware."
+    trace_link: "docs/findings/F6-joint-map.md (unresolved[] with wouldBeConfirmedBy per item)"
+    status: open
+    next_action: |
+      P1-0 hardware verification sprint, 1-2 d. Highest evidence-per-day item in the programme -
+      ten open unknowns reduce to putting the robot on a desk and looking at it. Do this BEFORE
+      writing the behaviour model.
+    resolution: null
+    lesson: LESSON-20260823-004
+    history:
+      - timestamp: 2026-08-23T00:00:00Z
+        note: "Opened by F6. Every item carries a wouldBeConfirmedBy field. The type system makes an unverified semanticName structurally non-authoritative so a guess cannot be read as fact."
+
+  - id: ISSUE-20260823-008
+    title: "Nothing has executed on physical silicon"
+    category: verification
+    severity: high
+    priority: p1
+    confidence: high
+    scope: firmware
+    observed: |
+      The instrumented firmware builds, links and is verified at source, patch, ELF and parser
+      level, but has never run on a real ESP32. Untested: Serial0 printf timing inside the 20 ms
+      motorCurrentDelay budget; re-entrancy of the face hook firing from inside delayWithFace()
+      called from the servo hook; UART saturation on the denser choreographies; the OLED hook
+      (compiles and round-trips, never executed); ESP32Servo issue #103, still unreproduced.
+    expected: "Gate B verified on hardware, not only in the toolchain."
+    trace_link: "docs/findings/GATE-B-servo-extraction.md; docs/findings/R6-R7-telemetry-bridge.md; docs/findings/EXP6-oled.md"
+    status: open
+    next_action: "Fold into the P1-0 hardware sprint. Flash s2mini-instrumented, capture UART, run the existing parser against the real stream."
+    resolution: null
+    lesson: null
+    history:
+      - timestamp: 2026-08-23T00:00:00Z
+        note: "Stated as a limit by R6/R7 rather than glossed; confirmed by the independent Gate B audit."
+
+  # ---------------------------------------------------------------- OPEN: minor / hygiene
+
+  - id: ISSUE-20260823-011
+    title: "Clean-clone `pnpm install` never verified this session"
+    category: process
+    severity: low
+    priority: p3
+    confidence: medium
+    scope: repo
+    observed: |
+      Definition-of-done item 1 requires clean clone -> pnpm install -> build -> test green.
+      Build/test/typecheck were verified in place (368 tests, 7 validators), but a fresh clone
+      install was not exercised.
+    expected: "A fresh clone builds and tests green."
+    trace_link: "docs/findings/PHASE-0-SUMMARY.md section 10 (Closeout)"
+    status: open
+    next_action: "Clone to a temp dir, run scripts/fetch-upstream, pnpm install, pnpm -r build && test. ~15 min."
+    resolution: null
+    lesson: null
+    history:
+      - timestamp: 2026-08-23T00:00:00Z
+        note: "Flagged as a partial by the independent Phase 0 audit."
+
+  - id: ISSUE-20260823-012
+    title: "Build reproducibility is same-machine only"
+    category: correctness
+    severity: low
+    priority: p3
+    confidence: high
+    scope: firmware
+    observed: |
+      All firmware profiles are bit-for-bit reproducible across clean rebuilds on this host, but
+      the absolute build path is embedded in the image, so a different machine would produce
+      different bytes.
+    expected: "Cross-machine bit-identical builds."
+    trace_link: "docs/findings/F3-firmware-build.md"
+    status: open
+    next_action: "Add -ffile-prefix-map if cross-machine reproducibility is ever needed (CI). Not needed today."
+    resolution: null
+    lesson: null
+    history:
+      - timestamp: 2026-08-23T00:00:00Z
+        note: "Characterised precisely by F3 rather than left as an unknown."
+
+  - id: ISSUE-20260823-013
+    title: "reproducibility.schema.json has no slot for probe-ELF or mask-ROM hashes"
+    category: process
+    severity: low
+    priority: p4
+    confidence: high
+    scope: repo
+    observed: |
+      R2/R3/R4 produced probe ELFs and three sliced ESP32-S2 mask-ROM images that are not
+      describable in the ledger schema.
+    expected: "Every artifact that affects a result is hashed in the ledger."
+    trace_link: "docs/findings/PHASE-0-SUMMARY.md section 10"
+    status: open
+    next_action: "Extend the schema when the Renode track is next resumed. Nothing to describe until then."
+    resolution: null
+    lesson: null
+    history:
+      - timestamp: 2026-08-23T00:00:00Z
+        note: "Flagged as a partial by the independent Phase 0 audit."
+
+  # ---------------------------------------------------------------- RESOLVED
+
+  - id: ISSUE-20260823-014
+    title: "`git apply` silent no-op built the wrong firmware config"
+    category: bug
+    severity: high
+    priority: p1
+    confidence: high
+    scope: build
+    observed: |
+      The scratch sketch directory sat inside the repo work tree, so git resolved patch paths
+      against the repo root, printed "Skipped patch", and EXITED 0. Both the distro-v3-s3 and
+      distro-v1-esp32 profiles silently compiled the S2 Mini pin configuration.
+    expected: "A patch that does not apply fails the build."
+    trace_link: "docs/findings/F3-firmware-build.md; commit 1498c3c"
+    status: resolved
+    next_action: "None - resolved; see resolution."
+    resolution: |
+      Throwaway `git init` in the scratch dir. The build driver now asserts the resulting pin
+      arrays against hardware-map.json, which is what caught it in the first place.
+    lesson: LESSON-20260823-001
+    history:
+      - timestamp: 2026-08-23T00:00:00Z
+        note: "Caught ONLY by the hardware-map pin assertion - exit code and stdout both looked fine. Strongest single argument for machine-checkable cross-artifact assertions."
+
+  - id: ISSUE-20260823-015
+    title: "Telemetry routed to USB-CDC instead of UART0"
+    category: bug
+    severity: high
+    priority: p1
+    confidence: high
+    scope: firmware
+    observed: |
+      s2mini builds with -DARDUINO_USB_CDC_ON_BOOT=1, so bare `Serial` is USBSerial, not UART0.
+      Reproduced at binary level: `l32r a10, (USBSerial)` immediately before the telemetry printf.
+      The instrumentation would have compiled, linked and emitted perfectly onto a transport
+      nobody was listening to. Two of three profiles were exposed; distro-v1-esp32 was safe only
+      because the original ESP32 has no USB peripheral - luck, not design.
+    expected: "Telemetry reaches the UART0 socket the bridge consumes."
+    trace_link: "docs/findings/R6-R7-telemetry-bridge.md; commit be9e56e"
+    status: resolved
+    next_action: "None - resolved; see resolution."
+    resolution: |
+      Emit on `Serial0`, which the core defines unconditionally outside the CDC conditional.
+      Chosen over CDCOnBoot=dis_cdc so routing is a property of the instrumentation rather than
+      of a board menu anyone can flip. Regression test asserts the routing decision via a
+      backward dataflow trace on the built artifact - string presence PASSED on the broken build.
+      Cost: flash +356 B -> +10 024 B, because Serial0.begin() links a UART driver a CDC build
+      never pulls in.
+    lesson: LESSON-20260823-002
+    history:
+      - timestamp: 2026-08-23T00:00:00Z
+        note: "Found by the R4 boot-probe agent reading a build manifest for an unrelated reason - not by the agent that wrote the code."
+      - timestamp: 2026-08-23T00:00:00Z
+        note: "Fixed. hello banner also moved to just after Serial.begin(), since display.begin() hard-fails into while(1) and anything announced later is never announced."
+
+  - id: ISSUE-20260823-016
+    title: "core.autocrlf byte drift hidden by git's stat cache"
+    category: bug
+    severity: medium
+    priority: p2
+    confidence: high
+    scope: repo
+    observed: |
+      core.autocrlf=true on this host rewrote LF to CRLF on 6 checked-out files. Worse, git then
+      reported the tree CLEAN while 3 files still had wrong bytes on disk - git status, git diff
+      and update-index --really-refresh all short-circuit on matching size/mtime.
+    expected: "Checked-out bytes match the committed blobs, or git says they do not."
+    trace_link: "docs/findings/F2-upstream-drift.md; commit 5c6f1a8"
+    status: resolved
+    next_action: "None - resolved; see resolution."
+    resolution: |
+      .gitattributes pins LF repo-wide. Fetch scripts pin core.autocrlf=false, delete and
+      re-materialise tracked files, and assert via `git ls-files --eol`. No firmware source was
+      affected, but F3's determinism check would have hit the same trap.
+    lesson: LESSON-20260823-003
+    history:
+      - timestamp: 2026-08-23T00:00:00Z
+        note: "Found by F2 while diffing the pinned checkout against the vendored copy."
+
+  - id: ISSUE-20260823-017
+    title: "hardware-map.json did not name the commit its 1167 citations point into"
+    category: correctness
+    severity: medium
+    priority: p2
+    confidence: high
+    scope: repo
+    observed: |
+      upstreamCommit was null with a note saying "F2 owns resolving it" - but F2 resolved it in
+      the same wave. The repo's most provenance-heavy artifact did not identify its own source.
+    expected: "Provenance artifacts name their source commit."
+    trace_link: "docs/findings/PHASE-0-SUMMARY.md; commit 3f85d55"
+    status: resolved
+    next_action: "None - resolved; see resolution."
+    resolution: |
+      Set to 401730514cef..., plus a cross-artifact assertion in validate-hardware-map.mjs that
+      it must equal upstream.pin.json - exercised negatively on a reverted copy to prove the
+      check fires.
+    lesson: LESSON-20260823-001
+    history:
+      - timestamp: 2026-08-23T00:00:00Z
+        note: "Found by the independent Phase 0 audit, not by any agent that wrote the file."
+
+  - id: ISSUE-20260823-018
+    title: "Findings docs carried four incorrect numbers"
+    category: docs
+    severity: medium
+    priority: p2
+    confidence: high
+    scope: docs
+    observed: |
+      R4's headline "~18-30 d" did not sum from its own table (line items: 15.25-23.25 d).
+      R2's "96.5% coverage" was by instruction occurrence, an upper bound, with distinct-mnemonic
+      coverage at 82.4%. R6/R7 section 11 said the patch was +126/-0 when section 2 of the same
+      doc correctly said 196/0. R6/R7 claimed "all 21 movement functions" when 19 of 21 contain
+      servo steps.
+    expected: "Reported numbers match their own evidence."
+    trace_link: "docs/findings/PHASE-0-SUMMARY.md section 3.3; commit 3f85d55"
+    status: resolved
+    next_action: "None - resolved; see resolution."
+    resolution: |
+      All four corrected in place with dated correction notes rather than silent edits. Gate B's
+      conclusion is unaffected - all 223 servo steps are covered either way.
+    lesson: LESSON-20260823-005
+    history:
+      - timestamp: 2026-08-23T00:00:00Z
+        note: "Found by the independent auditor. Each was a plausible-looking number that did not survive recomputation."
+
+  - id: ISSUE-20260823-019
+    title: "Plan omitted the OLED experiment it claimed to run"
+    category: process
+    severity: medium
+    priority: p2
+    confidence: high
+    scope: process
+    observed: |
+      The Phase 0 plan stated it would run the research report's experiments 1-7, but never
+      assigned the OLED experiment (experiment 6) to any task. It had no recorded result anywhere.
+    expected: "Every experiment the plan claims to run is assigned to a task."
+    trace_link: "docs/findings/EXP6-oled.md; commit 3f85d55"
+    status: resolved
+    next_action: "None - resolved; see resolution."
+    resolution: |
+      Closed during closeout, split three ways: Renode leg NO (restated from R4, no re-run),
+      instrumentation leg YES on its first ever compile (+308 B flash, +1376 B RAM, format string
+      and base64 alphabet read out of the ELF and round-tripped through the real parser to a
+      byte-identical 1024 B framebuffer), silicon leg untested. Default stays disabled.
+    lesson: LESSON-20260823-008
+    history:
+      - timestamp: 2026-08-23T00:00:00Z
+        note: "Gap was in the plan itself, not in any agent's execution. Found by the independent audit cross-checking the plan against the report."
+
+  - id: ISSUE-20260823-020
+    title: "Asset provenance pointed at a path a clean clone lacks"
+    category: correctness
+    severity: low
+    priority: p3
+    confidence: high
+    scope: repo
+    observed: |
+      assets-inventory.json was measured from the untracked reference/ tree rather than the
+      pinned firmware/upstream/. Benign - F2 verified the trees are 129/129 byte-identical - but
+      the provenance strings named a path absent from a clean clone. The same defect existed in
+      build-joint-map.mjs's four upstream sources.
+    expected: "Provenance points at tracked, reproducible paths."
+    trace_link: "hardware/assets-inventory.json; commit 3f85d55"
+    status: resolved
+    next_action: "None - resolved; see resolution."
+    resolution: |
+      All 22 path strings re-pointed after re-hashing all 17 measured files at the new locations -
+      every sha256 and byte count unchanged. extract-stl-geometry.py gained citable_path(), which
+      remaps only when byte-identity holds. No geometry re-extracted.
+    lesson: null
+    history:
+      - timestamp: 2026-08-23T00:00:00Z
+        note: "Found by the independent Phase 0 audit."

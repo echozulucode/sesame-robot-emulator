@@ -1,0 +1,181 @@
+version: 1
+project: "Sesame Lab"
+updated: 2026-08-23
+lessons:
+
+  - id: LESSON-20260823-001
+    date: 2026-08-23
+    source: "issue-ISSUE-20260823-014, issue-ISSUE-20260823-017"
+    category: engineering
+    lesson: |
+      Machine-checkable cross-artifact assertions catch what exit codes miss.
+
+      `git apply` printed "Skipped patch" and exited 0 while silently building the wrong firmware
+      configuration for two of three board profiles. Nothing in the build output looked wrong. It
+      was caught only because F4 had emitted the pin arrays as machine-readable data and the build
+      driver asserted the generated source against them.
+
+      The general form: when artifact A is derived from artifact B, write an assertion that
+      compares them, and make the build run it. Do not rely on the tool that performs the
+      derivation to report its own failure.
+    applied: true
+
+  - id: LESSON-20260823-002
+    date: 2026-08-23
+    source: "issue-ISSUE-20260823-015"
+    category: engineering
+    lesson: |
+      Verify the transport, not just the payload — and pin the verifier against a known-bad input.
+
+      The telemetry instrumentation compiled, linked, emitted a correctly formatted string, and
+      passed a test asserting the string was present in the binary. It was routed to USB-CDC
+      instead of UART0, so it would have worked perfectly onto a transport nobody was listening
+      to. The string-presence test PASSED on the broken build.
+
+      Two habits follow. First, assert the routing/destination decision, not just that the right
+      bytes exist somewhere. Second, pin the analyser against verbatim captured output from the
+      DEFECTIVE build, so it must report the defect: a check that has never failed is not known
+      to work.
+    applied: true
+
+  - id: LESSON-20260823-003
+    date: 2026-08-23
+    source: "issue-ISSUE-20260823-016"
+    category: tooling
+    lesson: |
+      Git's stat cache can report a tree clean while bytes on disk are wrong.
+
+      With core.autocrlf=true, checked-out files were rewritten, and `git status`, `git diff` and
+      even `update-index --really-refresh` all short-circuited on matching size/mtime. Any
+      byte-level reproducibility work on Windows must pin `.gitattributes`, force
+      core.autocrlf=false in fetch scripts, delete-and-re-materialise tracked files, and verify
+      with `git ls-files --eol` rather than trusting a clean status.
+    applied: true
+
+  - id: LESSON-20260823-004
+    date: 2026-08-23
+    source: "issue-ISSUE-20260823-007"
+    category: process
+    lesson: |
+      Make unverified inferences structurally non-authoritative, not just labelled.
+
+      Joint semantic names (right_front_hip and so on) were inferred from documentation images and
+      could not be confirmed without the physical robot. Rather than storing them as strings with
+      a comment, the type system was used: semanticName is never a bare string,
+      Extract<..., {verified:true}> is proven `never` at compile time, and extracting the value
+      requires passing an explicit SEMANTIC_NAME_IS_A_GUESS token.
+
+      Prose caveats get skimmed; type errors do not. When an inference could silently become
+      "fact" downstream, encode the uncertainty where the compiler can enforce it.
+    applied: true
+
+  - id: LESSON-20260823-005
+    date: 2026-08-23
+    source: "issue-ISSUE-20260823-001, issue-ISSUE-20260823-018"
+    category: process
+    lesson: |
+      Have the gate report written by someone who did none of the work.
+
+      An independent synthesis agent, given only the findings docs and the plan, found six real
+      defects the authoring agents missed: four numbers that did not survive recomputation
+      (including a headline estimate that did not sum from its own table), a provenance field left
+      null, and a whole experiment the plan promised but never assigned.
+
+      Authors verify what they set out to verify. A reader with no stake re-derives the claims and
+      checks them against the evidence actually cited. Budget for that pass explicitly.
+    applied: true
+
+  - id: LESSON-20260823-006
+    date: 2026-08-23
+    source: "issue-ISSUE-20260823-003"
+    category: research
+    lesson: |
+      A precisely characterised negative result is a deliverable; an unbounded risk is not.
+
+      The research report priced ESP32 SoC emulation at "weeks to months, potentially a multi-month
+      upstream-style effort." Phase 0 did not make it work — 0 of 20 boot steps were reached — but
+      by walking an escalating ladder and anchoring every blocker to an observed program counter or
+      a counted static reference, the unknown became an ordered, priced backlog of roughly 16-25
+      engineering days.
+
+      Two feared risk categories were deleted outright by negative evidence: register windows work
+      completely, and the S2 core has no cache ops or conditional store at all (the assembler
+      itself rejects them), so "does Renode model Xtensa cache control" was never a question.
+
+      Instruct researchers explicitly that "blocked at address X, in symbol Y, because Z, here is
+      the log" is success. Vague failure is the only unacceptable outcome, alongside fabricated
+      success.
+    applied: true
+
+  - id: LESSON-20260823-007
+    date: 2026-08-23
+    source: "issue-ISSUE-20260823-005"
+    category: engineering
+    lesson: |
+      Extract from source, not from prose — including your own research document.
+
+      The boundary inventory was built by reading all 5,739 lines of firmware with file:line
+      provenance on every fact, explicitly treating the research report as a hypothesis to check
+      rather than a source to transcribe. That surfaced four documentation drifts, a null-pointer
+      face bug invisible at compile time, a boot-order step the report omitted (dnsServer.start(53)
+      before the HTTP server), and the fact that face playback mode is global state rather than a
+      per-face property — the last of which would have made a simulator render differently from
+      the real robot.
+
+      Where a curated report and the source disagree, the source wins, and the disagreement is
+      itself worth recording.
+    applied: true
+
+  - id: LESSON-20260823-008
+    date: 2026-08-23
+    source: "issue-ISSUE-20260823-019"
+    category: process
+    lesson: |
+      Check the plan against its own stated scope before declaring a phase done.
+
+      The Phase 0 plan claimed to run experiments 1-7 from the research report, but never assigned
+      the OLED experiment to any task, so it had no recorded result anywhere. No agent failed —
+      the omission was in the plan, and every agent stayed correctly in its lane.
+
+      When a plan enumerates externally defined deliverables, add an explicit traceability check
+      mapping each one to a task, and run it at closeout rather than trusting the task list to be
+      complete.
+    applied: true
+
+  - id: LESSON-20260823-009
+    date: 2026-08-23
+    source: "phase-0 execution"
+    category: process
+    lesson: |
+      Two independent derivations landing on the same answer is worth more than either alone.
+
+      The joint sign convention was established twice by unrelated means: STL mesh analysis found
+      only four distinct printed solids (R1 identical to L2, R2 to L1, R3 to L4, R4 to L3), and
+      separately, statistical analysis of 223 real choreography steps found that zero=90 with sign
+      classes matching exactly that partition collapses six of 21 movement functions to round
+      numbers — runRestPose to 0 everywhere, runStandPose to +45 hips and +90 feet.
+
+      The transform was not fitted to those functions. When designing verification, prefer two
+      cheap independent derivations over one expensive authoritative one.
+    applied: true
+
+  - id: LESSON-20260823-010
+    date: 2026-08-23
+    source: "phase-0 execution"
+    category: process
+    lesson: |
+      Orchestrate concurrent agents: the orchestrator owns git, and waves are bounded by real
+      dependencies.
+
+      Practical rules that worked across 5 waves and 9 agents:
+      - Agents never run git add/commit. Concurrent agents racing the git index corrupts it, so
+        the orchestrator commits between waves. This contradicted the written plan and the
+        deviation was worth making.
+      - Never run two package-manager-installing agents concurrently in one workspace — lockfile
+        races. Pair a pnpm agent with a non-pnpm agent instead.
+      - Give agents disjoint directory ownership and say so explicitly in the brief.
+      - Tasks that only READ source can start immediately against a vendored copy instead of
+        waiting on a pinned checkout, provided provenance is recorded relative to the tree root so
+        the paths stay valid when the tree lands elsewhere. This took two tasks off the critical
+        path entirely.
+    applied: true
