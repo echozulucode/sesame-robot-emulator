@@ -2,7 +2,7 @@
   "$schema": "./reproducibility.schema.json",
   "sesameUpstreamCommit": "401730514cefed738710d22303e84b0dcd6b76d0",
   "sesameUpstreamResolvedDate": "2026-08-23T11:36:56Z",
-  "sesameLabCommit": null,
+  "sesameLabCommit": "be9e56e0f19f1153d3eb1baf8c2ea4af98eaabe9",
   "arduinoCliVersion": "1.5.1",
   "arduinoEsp32CoreVersion": "3.3.11",
   "libraries": {
@@ -227,11 +227,11 @@
       "sha256": "f1f32efaa64a5ed35c2b2240c759f2094ef35888345a2d6c8b16b027e7ad7388"
     }
   ],
-  "assetSourceVersion": null,
+  "assetSourceVersion": "upstream@401730514cefed738710d22303e84b0dcd6b76d0 hardware/{printing/stl,cad}; assets-inventory schemaVersion 1.0.0; parts Internal-Frame/Bottom-Cover v121, R1-R4/L1-L4 v117, Top-Cover-Enclosed v117, Top-Cover-Cat/No-Ears v100, CAD Sesame-ESP32-v122",
   "jointMapVersion": "1.0.0",
   "telemetryProtocolVersion": "1.0.0",
   "lessonContentVersion": null,
-  "generatedAt": "2026-08-23T14:55:37.153Z",
+  "generatedAt": "2026-08-23T17:26:41.691Z",
   "hostPlatform": {
     "os": "Windows 11 Pro 10.0.26200",
     "arch": "x64",
