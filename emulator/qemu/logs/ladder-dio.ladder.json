@@ -1,0 +1,252 @@
+{
+  "image": "C:\\Projects\\sesame-robot-emulator\\emulator\\qemu\\images\\distro-v1-esp32-dio.flash.bin",
+  "elf": "C:\\Projects\\sesame-robot-emulator\\tools\\arduino-data\\scratch\\qemu-dio\\out\\sesame-firmware-main.ino.elf",
+  "reached": 7,
+  "stopReason": "harness: RSP timeout on 'c'",
+  "steps": [
+    {
+      "label": "STEP01",
+      "order": 1,
+      "line": 652,
+      "subsystem": "serial",
+      "op": "Serial.begin(115200)",
+      "addr": 1074613503,
+      "noCode": false,
+      "hit": true
+    },
+    {
+      "label": "STEP02",
+      "order": 2,
+      "line": 653,
+      "subsystem": "rng",
+      "op": "randomSeed(micros())",
+      "addr": 1074613529,
+      "noCode": false,
+      "hit": true
+    },
+    {
+      "label": "STEP03",
+      "order": 3,
+      "line": 656,
+      "subsystem": "i2c",
+      "op": "Wire.begin(I2C_SDA, I2C_SCL)",
+      "addr": 1074613541,
+      "noCode": false,
+      "hit": true
+    },
+    {
+      "label": "STEP04",
+      "order": 4,
+      "line": 659,
+      "subsystem": "display",
+      "op": "display.begin(SSD1306_SWITCHCAPVCC, 0x3C)",
+      "addr": 1074613557,
+      "noCode": false,
+      "hit": true
+    },
+    {
+      "label": "STEP05",
+      "order": 5,
+      "line": 664,
+      "subsystem": "display",
+      "op": "OLED splash: clearDisplay / setTextColor / setTextSize / setCu",
+      "addr": 1074613596,
+      "noCode": false,
+      "hit": true
+    },
+    {
+      "label": "STEP06",
+      "order": 6,
+      "line": 674,
+      "subsystem": "wifi",
+      "op": "WiFi.persistent(false)",
+      "addr": 1074613642,
+      "noCode": false,
+      "hit": true
+    },
+    {
+      "label": "STEP07",
+      "order": 7,
+      "line": 677,
+      "subsystem": "wifi",
+      "op": "Station-mode branch: connectToWifi(NETWORK_SSID, NETWORK_PASS)",
+      "addr": 1074613653,
+      "noCode": true,
+      "hit": true
+    },
+    {
+      "label": "STEP08",
+      "order": 8,
+      "line": 688,
+      "subsystem": "wifi",
+      "op": "WiFi.softAP(AP_SSID, AP_PASS)",
+      "addr": 1074613672,
+      "noCode": false,
+      "hit": false
+    },
+    {
+      "label": "STEP09",
+      "order": 9,
+      "line": 689,
+      "subsystem": "wifi",
+      "op": "WiFi.softAPIP() -> myIP; Serial print of the AP address",
+      "addr": 1074613706,
+      "noCode": false,
+      "hit": false
+    },
+    {
+      "label": "STEP10",
+      "order": 10,
+      "line": 695,
+      "subsystem": "mdns",
+      "op": "announceNetwork(NETWORK_SSID) if networkConnected, else setApO",
+      "addr": 1074613740,
+      "noCode": false,
+      "hit": false
+    },
+    {
+      "label": "STEP11",
+      "order": 11,
+      "line": 703,
+      "subsystem": "state",
+      "op": "Input tracking init: lastInputTime = millis(); firstInputRecei",
+      "addr": 1074613779,
+      "noCode": false,
+      "hit": false
+    },
+    {
+      "label": "STEP12",
+      "order": 12,
+      "line": 709,
+      "subsystem": "dns",
+      "op": "dnsServer.start(53, \"*\", myIP)",
+      "addr": 1074613818,
+      "noCode": false,
+      "hit": false
+    },
+    {
+      "label": "STEP13",
+      "order": 13,
+      "line": 712,
+      "subsystem": "http",
+      "op": "HTTP route registration: server.on() x9",
+      "addr": 1074614486,
+      "noCode": true,
+      "hit": false
+    },
+    {
+      "label": "STEP14",
+      "order": 14,
+      "line": 729,
+      "subsystem": "http",
+      "op": "server.onNotFound(handleNotFound)",
+      "addr": 1074614486,
+      "noCode": true,
+      "aliasOf": "STEP13",
+      "hit": false
+    },
+    {
+      "label": "STEP15",
+      "order": 15,
+      "line": 731,
+      "subsystem": "http",
+      "op": "server.begin()",
+      "addr": 1074614486,
+      "noCode": false,
+      "aliasOf": "STEP13",
+      "hit": false
+    },
+    {
+      "label": "STEP16",
+      "order": 16,
+      "line": 734,
+      "subsystem": "pwm",
+      "op": "ESP32PWM::allocateTimer(0..3)",
+      "addr": 1074614498,
+      "noCode": false,
+      "hit": false
+    },
+    {
+      "label": "STEP17",
+      "order": 17,
+      "line": 739,
+      "subsystem": "servo",
+      "op": "for i in 0..7: servos[i].setPeriodHertz(50); servos[i].attach(",
+      "addr": 1074614530,
+      "noCode": false,
+      "hit": false
+    },
+    {
+      "label": "STEP18",
+      "order": 18,
+      "line": 744,
+      "subsystem": "timing",
+      "op": "delay(10)",
+      "addr": 1074614581,
+      "noCode": false,
+      "hit": false
+    },
+    {
+      "label": "STEP19",
+      "order": 19,
+      "line": 747,
+      "subsystem": "display",
+      "op": "setFace(\"rest\")",
+      "addr": 1074614589,
+      "noCode": false,
+      "hit": false
+    },
+    {
+      "label": "STEP20",
+      "order": 20,
+      "line": 749,
+      "subsystem": "serial",
+      "op": "Serial.println(F(\"HTTP server & Captive Portal started.\"))",
+      "addr": 1074614619,
+      "noCode": false,
+      "hit": false
+    }
+  ],
+  "probes": [
+    {
+      "label": "OLED-HARDFAIL",
+      "order": null,
+      "line": 661,
+      "subsystem": "display",
+      "op": "while(1) after display.begin() returned false",
+      "addr": 1074613592,
+      "noCode": false,
+      "hit": false
+    }
+  ],
+  "trace": [
+    {
+      "pc": 1074613503,
+      "label": "STEP01"
+    },
+    {
+      "pc": 1074613529,
+      "label": "STEP02"
+    },
+    {
+      "pc": 1074613541,
+      "label": "STEP03"
+    },
+    {
+      "pc": 1074613557,
+      "label": "STEP04"
+    },
+    {
+      "pc": 1074613596,
+      "label": "STEP05"
+    },
+    {
+      "pc": 1074613642,
+      "label": "STEP06"
+    },
+    {
+      "pc": 1074613653,
+      "label": "STEP07"
+    }
+  ]
+}

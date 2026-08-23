@@ -1,0 +1,345 @@
+{
+  "image": "C:\\Projects\\sesame-robot-emulator\\emulator\\qemu\\images\\distro-v1-esp32-nowifi.flash.bin",
+  "elf": "C:\\Projects\\sesame-robot-emulator\\tools\\arduino-data\\scratch\\qemu-nowifi\\out\\sesame-firmware-main.ino.elf",
+  "reached": 20,
+  "stopReason": "harness: RSP timeout on 'c'",
+  "steps": [
+    {
+      "label": "STEP01",
+      "order": 1,
+      "line": 832,
+      "subsystem": "serial",
+      "op": "Serial.begin(115200)",
+      "stockLine": 652,
+      "rewritten": false,
+      "addr": 1074610005,
+      "noCode": true,
+      "hit": true
+    },
+    {
+      "label": "STEP02",
+      "order": 2,
+      "line": 833,
+      "subsystem": "rng",
+      "op": "randomSeed(micros())",
+      "stockLine": 653,
+      "rewritten": false,
+      "addr": 1074610022,
+      "noCode": false,
+      "hit": true
+    },
+    {
+      "label": "STEP03",
+      "order": 3,
+      "line": 836,
+      "subsystem": "i2c",
+      "op": "Wire.begin(I2C_SDA, I2C_SCL)",
+      "stockLine": 656,
+      "rewritten": false,
+      "addr": 1074610034,
+      "noCode": false,
+      "hit": true
+    },
+    {
+      "label": "STEP04",
+      "order": 4,
+      "line": 839,
+      "subsystem": "display",
+      "op": "display.begin(SSD1306_SWITCHCAPVCC, 0x3C)",
+      "stockLine": 659,
+      "rewritten": false,
+      "addr": 1074610049,
+      "noCode": false,
+      "hit": true
+    },
+    {
+      "label": "STEP05",
+      "order": 5,
+      "line": 844,
+      "subsystem": "display",
+      "op": "OLED splash: clearDisplay / setTextColor / setTextSize / setCu",
+      "stockLine": 664,
+      "rewritten": false,
+      "addr": 1074610088,
+      "noCode": false,
+      "hit": true
+    },
+    {
+      "label": "STEP06",
+      "order": 6,
+      "line": 854,
+      "subsystem": "wifi",
+      "op": "WiFi.persistent(false)",
+      "stockLine": 674,
+      "rewritten": true,
+      "elided": true,
+      "addr": 1074610134,
+      "noCode": true,
+      "hit": false
+    },
+    {
+      "label": "STEP07",
+      "order": 7,
+      "line": 857,
+      "subsystem": "wifi",
+      "op": "Station-mode branch: connectToWifi(NETWORK_SSID, NETWORK_PASS)",
+      "stockLine": 677,
+      "rewritten": true,
+      "elided": true,
+      "addr": 1074610134,
+      "noCode": true,
+      "hit": false
+    },
+    {
+      "label": "STEP08",
+      "order": 8,
+      "line": 868,
+      "subsystem": "wifi",
+      "op": "WiFi.softAP(AP_SSID, AP_PASS)",
+      "stockLine": 688,
+      "rewritten": true,
+      "elided": true,
+      "addr": 1074610134,
+      "noCode": true,
+      "hit": false
+    },
+    {
+      "label": "STEP09",
+      "order": 9,
+      "line": 869,
+      "subsystem": "wifi",
+      "op": "WiFi.softAPIP() -> myIP; Serial print of the AP address",
+      "stockLine": 689,
+      "rewritten": true,
+      "elided": true,
+      "addr": 1074610134,
+      "noCode": true,
+      "hit": false
+    },
+    {
+      "label": "STEP10",
+      "order": 10,
+      "line": 875,
+      "subsystem": "mdns",
+      "op": "announceNetwork(NETWORK_SSID) if networkConnected, else setApO",
+      "stockLine": 695,
+      "rewritten": true,
+      "elided": true,
+      "addr": 1074610134,
+      "noCode": true,
+      "hit": false
+    },
+    {
+      "label": "STEP11",
+      "order": 11,
+      "line": 883,
+      "subsystem": "state",
+      "op": "Input tracking init: lastInputTime = millis(); firstInputRecei",
+      "stockLine": 703,
+      "rewritten": false,
+      "addr": 1074610134,
+      "noCode": false,
+      "hit": true
+    },
+    {
+      "label": "STEP12",
+      "order": 12,
+      "line": 889,
+      "subsystem": "dns",
+      "op": "dnsServer.start(53, \"*\", myIP)",
+      "stockLine": 709,
+      "rewritten": true,
+      "elided": true,
+      "addr": 1074610778,
+      "noCode": true,
+      "hit": false
+    },
+    {
+      "label": "STEP13",
+      "order": 13,
+      "line": 892,
+      "subsystem": "http",
+      "op": "HTTP route registration: server.on() x9",
+      "stockLine": 712,
+      "rewritten": false,
+      "addr": 1074610778,
+      "noCode": true,
+      "hit": true
+    },
+    {
+      "label": "STEP14",
+      "order": 14,
+      "line": 909,
+      "subsystem": "http",
+      "op": "server.onNotFound(handleNotFound)",
+      "stockLine": 729,
+      "rewritten": false,
+      "addr": 1074610778,
+      "noCode": true,
+      "aliasOf": "STEP13",
+      "hit": true
+    },
+    {
+      "label": "STEP15",
+      "order": 15,
+      "line": 911,
+      "subsystem": "http",
+      "op": "server.begin()",
+      "stockLine": 731,
+      "rewritten": true,
+      "elided": true,
+      "addr": 1074610778,
+      "noCode": true,
+      "hit": false
+    },
+    {
+      "label": "STEP16",
+      "order": 16,
+      "line": 914,
+      "subsystem": "pwm",
+      "op": "ESP32PWM::allocateTimer(0..3)",
+      "stockLine": 734,
+      "rewritten": false,
+      "addr": 1074610778,
+      "noCode": false,
+      "aliasOf": "STEP13",
+      "hit": true
+    },
+    {
+      "label": "STEP17",
+      "order": 17,
+      "line": 919,
+      "subsystem": "servo",
+      "op": "for i in 0..7: servos[i].setPeriodHertz(50); servos[i].attach(",
+      "stockLine": 739,
+      "rewritten": false,
+      "addr": 1074610810,
+      "noCode": false,
+      "hit": true
+    },
+    {
+      "label": "STEP18",
+      "order": 18,
+      "line": 924,
+      "subsystem": "timing",
+      "op": "delay(10)",
+      "stockLine": 744,
+      "rewritten": false,
+      "addr": 1074610867,
+      "noCode": false,
+      "hit": true
+    },
+    {
+      "label": "STEP19",
+      "order": 19,
+      "line": 927,
+      "subsystem": "display",
+      "op": "setFace(\"rest\")",
+      "stockLine": 747,
+      "rewritten": false,
+      "addr": 1074610876,
+      "noCode": false,
+      "hit": true
+    },
+    {
+      "label": "STEP20",
+      "order": 20,
+      "line": 929,
+      "subsystem": "serial",
+      "op": "Serial.println(F(\"HTTP server & Captive Portal started.\"))",
+      "stockLine": 749,
+      "rewritten": false,
+      "addr": 1074610918,
+      "noCode": false,
+      "hit": true
+    }
+  ],
+  "probes": [
+    {
+      "label": "OLED-HARDFAIL",
+      "order": null,
+      "line": 841,
+      "subsystem": "display",
+      "op": "while(1) after display.begin() returned false",
+      "stockLine": 661,
+      "rewritten": false,
+      "addr": 1074610084,
+      "noCode": false,
+      "hit": false
+    }
+  ],
+  "trace": [
+    {
+      "pc": 1074610005,
+      "label": "STEP01"
+    },
+    {
+      "pc": 1074610022,
+      "label": "STEP02"
+    },
+    {
+      "pc": 1074610034,
+      "label": "STEP03"
+    },
+    {
+      "pc": 1074610049,
+      "label": "STEP04"
+    },
+    {
+      "pc": 1074610088,
+      "label": "STEP05"
+    },
+    {
+      "pc": 1074610134,
+      "label": "STEP11"
+    },
+    {
+      "pc": 1074610134,
+      "label": "STEP11"
+    },
+    {
+      "pc": 1074610134,
+      "label": "STEP11"
+    },
+    {
+      "pc": 1074610134,
+      "label": "STEP11"
+    },
+    {
+      "pc": 1074610134,
+      "label": "STEP11"
+    },
+    {
+      "pc": 1074610134,
+      "label": "STEP11"
+    },
+    {
+      "pc": 1074610778,
+      "label": "STEP13"
+    },
+    {
+      "pc": 1074610778,
+      "label": "STEP13"
+    },
+    {
+      "pc": 1074610778,
+      "label": "STEP13"
+    },
+    {
+      "pc": 1074610810,
+      "label": "STEP17"
+    },
+    {
+      "pc": 1074610867,
+      "label": "STEP18"
+    },
+    {
+      "pc": 1074610876,
+      "label": "STEP19"
+    },
+    {
+      "pc": 1074610918,
+      "label": "STEP20"
+    }
+  ]
+}

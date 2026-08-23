@@ -1,0 +1,33 @@
+
+=== distro-v1-esp32-dio (stock firmware, DIO bootloader) ===
+The library ESP32Servo has been added from sketch project.
+The library Adafruit GFX Library has been added from sketch project.
+The library Adafruit BusIO has been added from sketch project.
+The library Adafruit SSD1306 has been added from sketch project.
+Sketch uses 1141406 bytes (87%) of program storage space. Maximum is 1310720 bytes.
+Global variables use 52512 bytes (16%) of dynamic memory, leaving 275168 bytes for local variables. Maximum is 327680 bytes.
+[q1] distro-v1-esp32-dio.flash.bin  sha256 e6db7e8050dc472faf487f4f2d08b6a98ba9915a8a51d6203fb00218286c02d3
+[q1]   elf                 sha256 95c93a547ade1d3edd359bb761f535a9375687f7cdcdd1efc96ba2def26c2492
+
+=== distro-v3-s3-dio (stock firmware, DIO bootloader) ===
+The library ESP32Servo has been added from sketch project.
+The library Adafruit GFX Library has been added from sketch project.
+The library Adafruit BusIO has been added from sketch project.
+The library Adafruit SSD1306 has been added from sketch project.
+Sketch uses 1119376 bytes (85%) of program storage space. Maximum is 1310720 bytes.
+Global variables use 51464 bytes (15%) of dynamic memory, leaving 276216 bytes for local variables. Maximum is 327680 bytes.
+[q1] distro-v3-s3-dio.flash.bin  sha256 db54d88b211e9fae0dd85d9c6eed7696d38fea4dc635ac9217cb09a88360371a
+[q1]   elf                 sha256 e39dcf63aae0e7a695c9fa54fb58387334dd9c98eaf80ff7a4b451069eeba19f
+
+=== distro-v1-esp32-nowifi (MODIFIED: telemetry + Wi-Fi elided) ===
+[q1] commented out 25 lines: 854, 857, 858, 859, 860, 861, 862, 863, 864, 865, 868, 869, 871, 872, 875, 876, 877, 878, 879, 880, 889, 911, 934, 936, 937
+[q1] injected movement trigger at line 928
+[q1] total lines 1334 (unchanged count: true)
+The library ESP32Servo has been added from sketch project.
+The library Adafruit GFX Library has been added from sketch project.
+The library Adafruit BusIO has been added from sketch project.
+The library Adafruit SSD1306 has been added from sketch project.
+Sketch uses 1127794 bytes (86%) of program storage space. Maximum is 1310720 bytes.
+Global variables use 52144 bytes (15%) of dynamic memory, leaving 275536 bytes for local variables. Maximum is 327680 bytes.
+[q1] distro-v1-esp32-nowifi.flash.bin  sha256 e6ac171cda45f512b640c24f94e3c7548c5e8e0ea0f17cb2e9056a76428358e6
+[q1]   elf                 sha256 d2f43c750f8557bfdad211cf6721c4f5d51a0b430266de49157b96dd6c5c933b

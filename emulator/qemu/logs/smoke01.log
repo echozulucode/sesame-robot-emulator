@@ -1,0 +1,542 @@
+Adding SPI flash device
+ets Jul 29 2019 12:21:46
+
+rst:0x1 (POWERON_RESET),boot:0x12 (SPI_FAST_FLASH_BOOT)
+configsip: 0, SPIWP:0xee
+clk_drv:0x00,q_drv:0x00,d_drv:0x00,cs0_drv:0x00,hd_drv:0x00,wp_drv:0x00
+mode:DIO, clock div:1
+load:0x3fff0030,len:4876
+ho 0 tail 12 room 4
+load:0x40078000,len:16532
+load:0x40080400,len:3500
+entry 0x400805b4
+E (816) qio_mode: Failed to set QIE bit, not enabling QIO mode
+
+assert failed: __esp_system_init_fn_init_flash startup_funcs.c:118 (flash_ret == ESP_OK)
+
+
+Backtrace: 0x4008bf58:0x3ffe3a70 0x4008bf1d:0x3ffe3a90 0x400925c9:0x3ffe3ab0 0x400eb020:0x3ffe3bf0 0x400ec39b:0x3ffe3c10 0x400ec3ce:0x3ffe3c30 0x40081c7e:0x3ffe3c60 0x40079912:0x3ffe3c90 |<-CORRUPTED
+
+
+
+
+ELF file SHA256: c8a895b06
+
+E (2973) esp_core_dump_flash: Core dump flash config is corrupted! CRC=0x7bd5c66f instead of 0x0
+E (2974) esp_core_dump_elf: Elf write init failed!
+E (2975) esp_core_dump_common: Core dump write failed with error=-1
+Rebooting...
+ets Jul 29 2019 12:21:46
+
+rst:0xc (SW_CPU_RESET),boot:0x12 (SPI_FAST_FLASH_BOOT)
+configsip: 0, SPIWP:0xee
+clk_drv:0x00,q_drv:0x00,d_drv:0x00,cs0_drv:0x00,hd_drv:0x00,wp_drv:0x00
+mode:DIO, clock div:1
+load:0x3fff0030,len:4876
+ho 0 tail 12 room 4
+load:0x40078000,len:16532
+load:0x40080400,len:3500
+entry 0x400805b4
+E (10003) qio_mode: Failed to set QIE bit, not enabling QIO mode
+
+assert failed: __esp_system_init_fn_init_flash startup_funcs.c:118 (flash_ret == ESP_OK)
+
+
+Backtrace: 0x4008bf58:0x3ffe3a70 0x4008bf1d:0x3ffe3a90 0x400925c9:0x3ffe3ab0 0x400eb020:0x3ffe3bf0 0x400ec39b:0x3ffe3c10 0x400ec3ce:0x3ffe3c30 0x40081c7e:0x3ffe3c60 0x40079912:0x3ffe3c90 |<-CORRUPTED
+
+
+
+
+ELF file SHA256: c8a895b06
+
+E (13295) esp_core_dump_flash: Core dump flash config is corrupted! CRC=0x7bd5c66f instead of 0x0
+E (13295) esp_core_dump_elf: Elf write init failed!
+E (13296) esp_core_dump_common: Core dump write failed with error=-1
+Rebooting...
+ets Jul 29 2019 12:21:46
+
+rst:0xc (SW_CPU_RESET),boot:0x12 (SPI_FAST_FLASH_BOOT)
+configsip: 0, SPIWP:0xee
+clk_drv:0x00,q_drv:0x00,d_drv:0x00,cs0_drv:0x00,hd_drv:0x00,wp_drv:0x00
+mode:DIO, clock div:1
+load:0x3fff0030,len:4876
+ho 0 tail 12 room 4
+load:0x40078000,len:16532
+load:0x40080400,len:3500
+entry 0x400805b4
+E (48829) qio_mode: Failed to set QIE bit, not enabling QIO mode
+
+assert failed: __esp_system_init_fn_init_flash startup_funcs.c:118 (flash_ret == ESP_OK)
+
+
+Backtrace: 0x4008bf58:0x3ffe3a70 0x4008bf1d:0x3ffe3a90 0x400925c9:0x3ffe3ab0 0x400eb020:0x3ffe3bf0 0x400ec39b:0x3ffe3c10 0x400ec3ce:0x3ffe3c30 0x40081c7e:0x3ffe3c60 0x40079912:0x3ffe3c90 |<-CORRUPTED
+
+
+
+
+ELF file SHA256: c8a895b06
+
+E (26475) esp_core_dump_flash: Core dump flash config is corrupted! CRC=0x7bd5c66f instead of 0x0
+E (26475) esp_core_dump_elf: Elf write init failed!
+E (26476) esp_core_dump_common: Core dump write failed with error=-1
+Rebooting...
+ets Jul 29 2019 12:21:46
+
+rst:0xc (SW_CPU_RESET),boot:0x12 (SPI_FAST_FLASH_BOOT)
+configsip: 0, SPIWP:0xee
+clk_drv:0x00,q_drv:0x00,d_drv:0x00,cs0_drv:0x00,hd_drv:0x00,wp_drv:0x00
+mode:DIO, clock div:1
+load:0x3fff0030,len:4876
+ho 0 tail 12 room 4
+load:0x40078000,len:16532
+load:0x40080400,len:3500
+entry 0x400805b4
+E (45486) qio_mode: Failed to set QIE bit, not enabling QIO mode
+
+assert failed: __esp_system_init_fn_init_flash startup_funcs.c:118 (flash_ret == ESP_OK)
+
+
+Backtrace: 0x4008bf58:0x3ffe3a70 0x4008bf1d:0x3ffe3a90 0x400925c9:0x3ffe3ab0 0x400eb020:0x3ffe3bf0 0x400ec39b:0x3ffe3c10 0x400ec3ce:0x3ffe3c30 0x40081c7e:0x3ffe3c60 0x40079912:0x3ffe3c90 |<-CORRUPTED
+
+
+
+
+ELF file SHA256: c8a895b06
+
+E (24725) esp_core_dump_flash: Core dump flash config is corrupted! CRC=0x7bd5c66f instead of 0x0
+E (24726) esp_core_dump_elf: Elf write init failed!
+E (24726) esp_core_dump_common: Core dump write failed with error=-1
+Rebooting...
+ets Jul 29 2019 12:21:46
+
+rst:0xc (SW_CPU_RESET),boot:0x12 (SPI_FAST_FLASH_BOOT)
+configsip: 0, SPIWP:0xee
+clk_drv:0x00,q_drv:0x00,d_drv:0x00,cs0_drv:0x00,hd_drv:0x00,wp_drv:0x00
+mode:DIO, clock div:1
+load:0x3fff0030,len:4876
+ho 0 tail 12 room 4
+load:0x40078000,len:16532
+load:0x40080400,len:3500
+entry 0x400805b4
+E (35645) qio_mode: Failed to set QIE bit, not enabling QIO mode
+
+assert failed: __esp_system_init_fn_init_flash startup_funcs.c:118 (flash_ret == ESP_OK)
+
+
+Backtrace: 0x4008bf58:0x3ffe3a70 0x4008bf1d:0x3ffe3a90 0x400925c9:0x3ffe3ab0 0x400eb020:0x3ffe3bf0 0x400ec39b:0x3ffe3c10 0x400ec3ce:0x3ffe3c30 0x40081c7e:0x3ffe3c60 0x40079912:0x3ffe3c90 |<-CORRUPTED
+
+
+
+
+ELF file SHA256: c8a895b06
+
+E (16085) esp_core_dump_flash: Core dump flash config is corrupted! CRC=0x7bd5c66f instead of 0x0
+E (16086) esp_core_dump_elf: Elf write init failed!
+E (16086) esp_core_dump_common: Core dump write failed with error=-1
+Rebooting...
+ets Jul 29 2019 12:21:46
+
+rst:0xc (SW_CPU_RESET),boot:0x12 (SPI_FAST_FLASH_BOOT)
+configsip: 0, SPIWP:0xee
+clk_drv:0x00,q_drv:0x00,d_drv:0x00,cs0_drv:0x00,hd_drv:0x00,wp_drv:0x00
+mode:DIO, clock div:1
+load:0x3fff0030,len:4876
+ho 0 tail 12 room 4
+load:0x40078000,len:16532
+load:0x40080400,len:3500
+entry 0x400805b4
+E (52034) qio_mode: Failed to set QIE bit, not enabling QIO mode
+
+assert failed: __esp_system_init_fn_init_flash startup_funcs.c:118 (flash_ret == ESP_OK)
+
+
+Backtrace: 0x4008bf58:0x3ffe3a70 0x4008bf1d:0x3ffe3a90 0x400925c9:0x3ffe3ab0 0x400eb020:0x3ffe3bf0 0x400ec39b:0x3ffe3c10 0x400ec3ce:0x3ffe3c30 0x40081c7e:0x3ffe3c60 0x40079912:0x3ffe3c90 |<-CORRUPTED
+
+
+
+
+ELF file SHA256: c8a895b06
+
+E (6791) esp_core_dump_flash: Core dump flash config is corrupted! CRC=0x7bd5c66f instead of 0x0
+E (6792) esp_core_dump_elf: Elf write init failed!
+E (6792) esp_core_dump_common: Core dump write failed with error=-1
+Rebooting...
+ets Jul 29 2019 12:21:46
+
+rst:0xc (SW_CPU_RESET),boot:0x12 (SPI_FAST_FLASH_BOOT)
+configsip: 0, SPIWP:0xee
+clk_drv:0x00,q_drv:0x00,d_drv:0x00,cs0_drv:0x00,hd_drv:0x00,wp_drv:0x00
+mode:DIO, clock div:1
+load:0x3fff0030,len:4876
+ho 0 tail 12 room 4
+load:0x40078000,len:16532
+load:0x40080400,len:3500
+entry 0x400805b4
+E (12475) qio_mode: Failed to set QIE bit, not enabling QIO mode
+
+assert failed: __esp_system_init_fn_init_flash startup_funcs.c:118 (flash_ret == ESP_OK)
+
+
+Backtrace: 0x4008bf58:0x3ffe3a70 0x4008bf1d:0x3ffe3a90 0x400925c9:0x3ffe3ab0 0x400eb020:0x3ffe3bf0 0x400ec39b:0x3ffe3c10 0x400ec3ce:0x3ffe3c30 0x40081c7e:0x3ffe3c60 0x40079912:0x3ffe3c90 |<-CORRUPTED
+
+
+
+
+ELF file SHA256: c8a895b06
+
+E (22121) esp_core_dump_flash: Core dump flash config is corrupted! CRC=0x7bd5c66f instead of 0x0
+E (22122) esp_core_dump_elf: Elf write init failed!
+E (22122) esp_core_dump_common: Core dump write failed with error=-1
+Rebooting...
+ets Jul 29 2019 12:21:46
+
+rst:0xc (SW_CPU_RESET),boot:0x12 (SPI_FAST_FLASH_BOOT)
+configsip: 0, SPIWP:0xee
+clk_drv:0x00,q_drv:0x00,d_drv:0x00,cs0_drv:0x00,hd_drv:0x00,wp_drv:0x00
+mode:DIO, clock div:1
+load:0x3fff0030,len:4876
+ho 0 tail 12 room 4
+load:0x40078000,len:16532
+load:0x40080400,len:3500
+entry 0x400805b4
+E (17671) qio_mode: Failed to set QIE bit, not enabling QIO mode
+
+assert failed: __esp_system_init_fn_init_flash startup_funcs.c:118 (flash_ret == ESP_OK)
+
+
+Backtrace: 0x4008bf58:0x3ffe3a70 0x4008bf1d:0x3ffe3a90 0x400925c9:0x3ffe3ab0 0x400eb020:0x3ffe3bf0 0x400ec39b:0x3ffe3c10 0x400ec3ce:0x3ffe3c30 0x40081c7e:0x3ffe3c60 0x40079912:0x3ffe3c90 |<-CORRUPTED
+
+
+
+
+ELF file SHA256: c8a895b06
+
+E (1667) esp_core_dump_flash: Core dump flash config is corrupted! CRC=0x7bd5c66f instead of 0x0
+E (1668) esp_core_dump_elf: Elf write init failed!
+E (1668) esp_core_dump_common: Core dump write failed with error=-1
+Rebooting...
+ets Jul 29 2019 12:21:46
+
+rst:0xc (SW_CPU_RESET),boot:0x12 (SPI_FAST_FLASH_BOOT)
+configsip: 0, SPIWP:0xee
+clk_drv:0x00,q_drv:0x00,d_drv:0x00,cs0_drv:0x00,hd_drv:0x00,wp_drv:0x00
+mode:DIO, clock div:1
+load:0x3fff0030,len:4876
+ho 0 tail 12 room 4
+load:0x40078000,len:16532
+load:0x40080400,len:3500
+entry 0x400805b4
+E (40880) qio_mode: Failed to set QIE bit, not enabling QIO mode
+
+assert failed: __esp_system_init_fn_init_flash startup_funcs.c:118 (flash_ret == ESP_OK)
+
+
+Backtrace: 0x4008bf58:0x3ffe3a70 0x4008bf1d:0x3ffe3a90 0x400925c9:0x3ffe3ab0 0x400eb020:0x3ffe3bf0 0x400ec39b:0x3ffe3c10 0x400ec3ce:0x3ffe3c30 0x40081c7e:0x3ffe3c60 0x40079912:0x3ffe3c90 |<-CORRUPTED
+
+
+
+
+ELF file SHA256: c8a895b06
+
+E (26176) esp_core_dump_flash: Core dump flash config is corrupted! CRC=0x7bd5c66f instead of 0x0
+E (26177) esp_core_dump_elf: Elf write init failed!
+E (26177) esp_core_dump_common: Core dump write failed with error=-1
+Rebooting...
+ets Jul 29 2019 12:21:46
+
+rst:0xc (SW_CPU_RESET),boot:0x12 (SPI_FAST_FLASH_BOOT)
+configsip: 0, SPIWP:0xee
+clk_drv:0x00,q_drv:0x00,d_drv:0x00,cs0_drv:0x00,hd_drv:0x00,wp_drv:0x00
+mode:DIO, clock div:1
+load:0x3fff0030,len:4876
+ho 0 tail 12 room 4
+load:0x40078000,len:16532
+load:0x40080400,len:3500
+entry 0x400805b4
+E (29014) qio_mode: Failed to set QIE bit, not enabling QIO mode
+
+assert failed: __esp_system_init_fn_init_flash startup_funcs.c:118 (flash_ret == ESP_OK)
+
+
+Backtrace: 0x4008bf58:0x3ffe3a70 0x4008bf1d:0x3ffe3a90 0x400925c9:0x3ffe3ab0 0x400eb020:0x3ffe3bf0 0x400ec39b:0x3ffe3c10 0x400ec3ce:0x3ffe3c30 0x40081c7e:0x3ffe3c60 0x40079912:0x3ffe3c90 |<-CORRUPTED
+
+
+
+
+ELF file SHA256: c8a895b06
+
+E (15489) esp_core_dump_flash: Core dump flash config is corrupted! CRC=0x7bd5c66f instead of 0x0
+E (15490) esp_core_dump_elf: Elf write init failed!
+E (15490) esp_core_dump_common: Core dump write failed with error=-1
+Rebooting...
+ets Jul 29 2019 12:21:46
+
+rst:0xc (SW_CPU_RESET),boot:0x12 (SPI_FAST_FLASH_BOOT)
+configsip: 0, SPIWP:0xee
+clk_drv:0x00,q_drv:0x00,d_drv:0x00,cs0_drv:0x00,hd_drv:0x00,wp_drv:0x00
+mode:DIO, clock div:1
+load:0x3fff0030,len:4876
+ho 0 tail 12 room 4
+load:0x40078000,len:16532
+load:0x40080400,len:3500
+entry 0x400805b4
+E (37513) qio_mode: Failed to set QIE bit, not enabling QIO mode
+
+assert failed: __esp_system_init_fn_init_flash startup_funcs.c:118 (flash_ret == ESP_OK)
+
+
+Backtrace: 0x4008bf58:0x3ffe3a70 0x4008bf1d:0x3ffe3a90 0x400925c9:0x3ffe3ab0 0x400eb020:0x3ffe3bf0 0x400ec39b:0x3ffe3c10 0x400ec3ce:0x3ffe3c30 0x40081c7e:0x3ffe3c60 0x40079912:0x3ffe3c90 |<-CORRUPTED
+
+
+
+
+ELF file SHA256: c8a895b06
+
+E (25083) esp_core_dump_flash: Core dump flash config is corrupted! CRC=0x7bd5c66f instead of 0x0
+E (25083) esp_core_dump_elf: Elf write init failed!
+E (25083) esp_core_dump_common: Core dump write failed with error=-1
+Rebooting...
+ets Jul 29 2019 12:21:46
+
+rst:0xc (SW_CPU_RESET),boot:0x12 (SPI_FAST_FLASH_BOOT)
+configsip: 0, SPIWP:0xee
+clk_drv:0x00,q_drv:0x00,d_drv:0x00,cs0_drv:0x00,hd_drv:0x00,wp_drv:0x00
+mode:DIO, clock div:1
+load:0x3fff0030,len:4876
+ho 0 tail 12 room 4
+load:0x40078000,len:16532
+load:0x40080400,len:3500
+entry 0x400805b4
+E (19921) qio_mode: Failed to set QIE bit, not enabling QIO mode
+
+assert failed: __esp_system_init_fn_init_flash startup_funcs.c:118 (flash_ret == ESP_OK)
+
+
+Backtrace: 0x4008bf58:0x3ffe3a70 0x4008bf1d:0x3ffe3a90 0x400925c9:0x3ffe3ab0 0x400eb020:0x3ffe3bf0 0x400ec39b:0x3ffe3c10 0x400ec3ce:0x3ffe3c30 0x40081c7e:0x3ffe3c60 0x40079912:0x3ffe3c90 |<-CORRUPTED
+
+
+
+
+ELF file SHA256: c8a895b06
+
+E (8628) esp_core_dump_flash: Core dump flash config is corrupted! CRC=0x7bd5c66f instead of 0x0
+E (8629) esp_core_dump_elf: Elf write init failed!
+E (8629) esp_core_dump_common: Core dump write failed with error=-1
+Rebooting...
+ets Jul 29 2019 12:21:46
+
+rst:0xc (SW_CPU_RESET),boot:0x12 (SPI_FAST_FLASH_BOOT)
+configsip: 0, SPIWP:0xee
+clk_drv:0x00,q_drv:0x00,d_drv:0x00,cs0_drv:0x00,hd_drv:0x00,wp_drv:0x00
+mode:DIO, clock div:1
+load:0x3fff0030,len:4876
+ho 0 tail 12 room 4
+load:0x40078000,len:16532
+load:0x40080400,len:3500
+entry 0x400805b4
+E (5492) qio_mode: Failed to set QIE bit, not enabling QIO mode
+
+assert failed: __esp_system_init_fn_init_flash startup_funcs.c:118 (flash_ret == ESP_OK)
+
+
+Backtrace: 0x4008bf58:0x3ffe3a70 0x4008bf1d:0x3ffe3a90 0x400925c9:0x3ffe3ab0 0x400eb020:0x3ffe3bf0 0x400ec39b:0x3ffe3c10 0x400ec3ce:0x3ffe3c30 0x40081c7e:0x3ffe3c60 0x40079912:0x3ffe3c90 |<-CORRUPTED
+
+
+
+
+ELF file SHA256: c8a895b06
+
+E (22276) esp_core_dump_flash: Core dump flash config is corrupted! CRC=0x7bd5c66f instead of 0x0
+E (22277) esp_core_dump_elf: Elf write init failed!
+E (22277) esp_core_dump_common: Core dump write failed with error=-1
+Rebooting...
+ets Jul 29 2019 12:21:46
+
+rst:0xc (SW_CPU_RESET),boot:0x12 (SPI_FAST_FLASH_BOOT)
+configsip: 0, SPIWP:0xee
+clk_drv:0x00,q_drv:0x00,d_drv:0x00,cs0_drv:0x00,hd_drv:0x00,wp_drv:0x00
+mode:DIO, clock div:1
+load:0x3fff0030,len:4876
+ho 0 tail 12 room 4
+load:0x40078000,len:16532
+load:0x40080400,len:3500
+entry 0x400805b4
+E (4027) qio_mode: Failed to set QIE bit, not enabling QIO mode
+
+assert failed: __esp_system_init_fn_init_flash startup_funcs.c:118 (flash_ret == ESP_OK)
+
+
+Backtrace: 0x4008bf58:0x3ffe3a70 0x4008bf1d:0x3ffe3a90 0x400925c9:0x3ffe3ab0 0x400eb020:0x3ffe3bf0 0x400ec39b:0x3ffe3c10 0x400ec3ce:0x3ffe3c30 0x40081c7e:0x3ffe3c60 0x40079912:0x3ffe3c90 |<-CORRUPTED
+
+
+
+
+ELF file SHA256: c8a895b06
+
+E (21903) esp_core_dump_flash: Core dump flash config is corrupted! CRC=0x7bd5c66f instead of 0x0
+E (21904) esp_core_dump_elf: Elf write init failed!
+E (21904) esp_core_dump_common: Core dump write failed with error=-1
+Rebooting...
+ets Jul 29 2019 12:21:46
+
+rst:0xc (SW_CPU_RESET),boot:0x12 (SPI_FAST_FLASH_BOOT)
+configsip: 0, SPIWP:0xee
+clk_drv:0x00,q_drv:0x00,d_drv:0x00,cs0_drv:0x00,hd_drv:0x00,wp_drv:0x00
+mode:DIO, clock div:1
+load:0x3fff0030,len:4876
+ho 0 tail 12 room 4
+load:0x40078000,len:16532
+load:0x40080400,len:3500
+entry 0x400805b4
+E (287) qio_mode: Failed to set QIE bit, not enabling QIO mode
+
+assert failed: __esp_system_init_fn_init_flash startup_funcs.c:118 (flash_ret == ESP_OK)
+
+
+Backtrace: 0x4008bf58:0x3ffe3a70 0x4008bf1d:0x3ffe3a90 0x400925c9:0x3ffe3ab0 0x400eb020:0x3ffe3bf0 0x400ec39b:0x3ffe3c10 0x400ec3ce:0x3ffe3c30 0x40081c7e:0x3ffe3c60 0x40079912:0x3ffe3c90 |<-CORRUPTED
+
+
+
+
+ELF file SHA256: c8a895b06
+
+E (19541) esp_core_dump_flash: Core dump flash config is corrupted! CRC=0x7bd5c66f instead of 0x0
+E (19542) esp_core_dump_elf: Elf write init failed!
+E (19542) esp_core_dump_common: Core dump write failed with error=-1
+Rebooting...
+ets Jul 29 2019 12:21:46
+
+rst:0xc (SW_CPU_RESET),boot:0x12 (SPI_FAST_FLASH_BOOT)
+configsip: 0, SPIWP:0xee
+clk_drv:0x00,q_drv:0x00,d_drv:0x00,cs0_drv:0x00,hd_drv:0x00,wp_drv:0x00
+mode:DIO, clock div:1
+load:0x3fff0030,len:4876
+ho 0 tail 12 room 4
+load:0x40078000,len:16532
+load:0x40080400,len:3500
+entry 0x400805b4
+E (41958) qio_mode: Failed to set QIE bit, not enabling QIO mode
+
+assert failed: __esp_system_init_fn_init_flash startup_funcs.c:118 (flash_ret == ESP_OK)
+
+
+Backtrace: 0x4008bf58:0x3ffe3a70 0x4008bf1d:0x3ffe3a90 0x400925c9:0x3ffe3ab0 0x400eb020:0x3ffe3bf0 0x400ec39b:0x3ffe3c10 0x400ec3ce:0x3ffe3c30 0x40081c7e:0x3ffe3c60 0x40079912:0x3ffe3c90 |<-CORRUPTED
+
+
+
+
+ELF file SHA256: c8a895b06
+
+E (8722) esp_core_dump_flash: Core dump flash config is corrupted! CRC=0x7bd5c66f instead of 0x0
+E (8723) esp_core_dump_elf: Elf write init failed!
+E (8723) esp_core_dump_common: Core dump write failed with error=-1
+Rebooting...
+ets Jul 29 2019 12:21:46
+
+rst:0xc (SW_CPU_RESET),boot:0x12 (SPI_FAST_FLASH_BOOT)
+configsip: 0, SPIWP:0xee
+clk_drv:0x00,q_drv:0x00,d_drv:0x00,cs0_drv:0x00,hd_drv:0x00,wp_drv:0x00
+mode:DIO, clock div:1
+load:0x3fff0030,len:4876
+ho 0 tail 12 room 4
+load:0x40078000,len:16532
+load:0x40080400,len:3500
+entry 0x400805b4
+E (49900) qio_mode: Failed to set QIE bit, not enabling QIO mode
+
+assert failed: __esp_system_init_fn_init_flash startup_funcs.c:118 (flash_ret == ESP_OK)
+
+
+Backtrace: 0x4008bf58:0x3ffe3a70 0x4008bf1d:0x3ffe3a90 0x400925c9:0x3ffe3ab0 0x400eb020:0x3ffe3bf0 0x400ec39b:0x3ffe3c10 0x400ec3ce:0x3ffe3c30 0x40081c7e:0x3ffe3c60 0x40079912:0x3ffe3c90 |<-CORRUPTED
+
+
+
+
+ELF file SHA256: c8a895b06
+
+E (17945) esp_core_dump_flash: Core dump flash config is corrupted! CRC=0x7bd5c66f instead of 0x0
+E (17946) esp_core_dump_elf: Elf write init failed!
+E (17946) esp_core_dump_common: Core dump write failed with error=-1
+Rebooting...
+ets Jul 29 2019 12:21:46
+
+rst:0xc (SW_CPU_RESET),boot:0x12 (SPI_FAST_FLASH_BOOT)
+configsip: 0, SPIWP:0xee
+clk_drv:0x00,q_drv:0x00,d_drv:0x00,cs0_drv:0x00,hd_drv:0x00,wp_drv:0x00
+mode:DIO, clock div:1
+load:0x3fff0030,len:4876
+ho 0 tail 12 room 4
+load:0x40078000,len:16532
+load:0x40080400,len:3500
+entry 0x400805b4
+E (30566) qio_mode: Failed to set QIE bit, not enabling QIO mode
+
+assert failed: __esp_system_init_fn_init_flash startup_funcs.c:118 (flash_ret == ESP_OK)
+
+
+Backtrace: 0x4008bf58:0x3ffe3a70 0x4008bf1d:0x3ffe3a90 0x400925c9:0x3ffe3ab0 0x400eb020:0x3ffe3bf0 0x400ec39b:0x3ffe3c10 0x400ec3ce:0x3ffe3c30 0x40081c7e:0x3ffe3c60 0x40079912:0x3ffe3c90 |<-CORRUPTED
+
+
+
+
+ELF file SHA256: c8a895b06
+
+E (26666) esp_core_dump_flash: Core dump flash config is corrupted! CRC=0x7bd5c66f instead of 0x0
+E (26667) esp_core_dump_elf: Elf write init failed!
+E (26667) esp_core_dump_common: Core dump write failed with error=-1
+Rebooting...
+ets Jul 29 2019 12:21:46
+
+rst:0xc (SW_CPU_RESET),boot:0x12 (SPI_FAST_FLASH_BOOT)
+configsip: 0, SPIWP:0xee
+clk_drv:0x00,q_drv:0x00,d_drv:0x00,cs0_drv:0x00,hd_drv:0x00,wp_drv:0x00
+mode:DIO, clock div:1
+load:0x3fff0030,len:4876
+ho 0 tail 12 room 4
+load:0x40078000,len:16532
+load:0x40080400,len:3500
+entry 0x400805b4
+E (9306) qio_mode: Failed to set QIE bit, not enabling QIO mode
+
+assert failed: __esp_system_init_fn_init_flash startup_funcs.c:118 (flash_ret == ESP_OK)
+
+
+Backtrace: 0x4008bf58:0x3ffe3a70 0x4008bf1d:0x3ffe3a90 0x400925c9:0x3ffe3ab0 0x400eb020:0x3ffe3bf0 0x400ec39b:0x3ffe3c10 0x400ec3ce:0x3ffe3c30 0x40081c7e:0x3ffe3c60 0x40079912:0x3ffe3c90 |<-CORRUPTED
+
+
+
+
+ELF file SHA256: c8a895b06
+
+E (6514) esp_core_dump_flash: Core dump flash config is corrupted! CRC=0x7bd5c66f instead of 0x0
+E (6514) esp_core_dump_elf: Elf write init failed!
+E (6515) esp_core_dump_common: Core dump write failed with error=-1
+Rebooting...
+ets Jul 29 2019 12:21:46
+
+rst:0xc (SW_CPU_RESET),boot:0x12 (SPI_FAST_FLASH_BOOT)
+configsip: 0, SPIWP:0xee
+clk_drv:0x00,q_drv:0x00,d_drv:0x00,cs0_drv:0x00,hd_drv:0x00,wp_drv:0x00
+mode:DIO, clock div:1
+load:0x3fff0030,len:4876
+ho 0 tail 12 room 4
+load:0x40078000,len:16532
+load:0x40080400,len:3500
+entry 0x400805b4
+E (33748) qio_mode: Failed to set QIE bit, not enabling QIO mode
+
+assert failed: __esp_system_init_fn_init_flash startup_funcs.c:118 (flash_ret == ESP_OK)
+
+
+Backtrace: 0x4008bf58:0x3ffe3a70 0x4008bf1d:0x3ffe3a90 0x400925c9:0x3ffe3ab0 0x400eb020:0x3ffe3bf0 0x400ec39b:0x3ffe3c10 0x400ec3ce:0x3ffe3c30 0x40081c7e:0x3ffe3c60 0x40079912:0x3ffe3c90 |<-CORRUPTED
+
+
+
+
+ELF file SHA256: c8a895b06
+
+E (5426) esp_core_dump_flash: Core dump flash config is corrupted! CRC=0x7bd5c66f instead of 0x0
+E (5427) esp_core_dump_elf: Elf write init failed!
+E (5427) esp_core_dump_common: Core dump write failed with error=-1
+Rebooting...
+ets 

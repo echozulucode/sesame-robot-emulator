@@ -1,0 +1,811 @@
+Adding SPI flash device
+ESP-ROM:esp32s3-20210327
+Build:Mar 27 2021
+rst:0x1 (POWERON),boot:0x4 (SPI_FLASH_BOOT)
+SPIWP:0xee
+mode:DIO, clock div:1
+load:0x3fce2820,len:0x10cc
+load:0x403c8700,len:0xc2c
+load:0x403cb700,len:0x30b0
+entry 0x403c88b8
+E (29) qio_mode: Failed to set QIE bit, not enabling QIO mode
+
+assert failed: 0x4201b59b <cached disabled>:118 (<cached disabled>)
+
+
+Backtrace: 0x4037d3b5:0x3fceb120 0x4037d37d:0x3fceb140 0x4038467e:0x3fceb160 0x4201b59b:0x3fceb2a0 0x4201cc77:0x3fceb2c0 0x4201ccb2:0x3fceb2e0 0x40375d12:0x3fceb310 0x403ccd59:0x3fceb340 0x403cd115:0x3fceb380 0x403c8925:0x3fceb4b0 0x40045c01:0x3fceb570 0x40043ab6:0x3fceb6f0 0x40034c45:0x3fceb710
+
+
+
+
+ELF file SHA256: b11fe2da9
+
+E (308) esp_core_dump_flash: Core dump flash config is corrupted! CRC=0x7bd5c66f instead of 0x0
+E (308) esp_core_dump_elf: Elf write init failed!
+E (308) esp_core_dump_common: Core dump write failed with error=-1
+Rebooting...
+ESP-ROM:esp32s3-20210327
+Build:Mar 27 2021
+rst:0xc (RTC_SW_CPU_RST),boot:0x4 (SPI_FLASH_BOOT)
+SPIWP:0xee
+mode:DIO, clock div:1
+load:0x3fce2820,len:0x10cc
+load:0x403c8700,len:0xc2c
+load:0x403cb700,len:0x30b0
+entry 0x403c88b8
+E (958) qio_mode: Failed to set QIE bit, not enabling QIO mode
+
+assert failed: 0x4201b59b <cached disabled>:118 (<cached disabled>)
+
+
+Backtrace: 0x4037d3b5:0x3fceb120 0x4037d37d:0x3fceb140 0x4038467e:0x3fceb160 0x4201b59b:0x3fceb2a0 0x4201cc77:0x3fceb2c0 0x4201ccb2:0x3fceb2e0 0x40375d12:0x3fceb310 0x403ccd59:0x3fceb340 0x403cd115:0x3fceb380 0x403c8925:0x3fceb4b0 0x40045c01:0x3fceb570 0x40043ab6:0x3fceb6f0 0x40034c45:0x3fceb710
+
+
+
+
+ELF file SHA256: b11fe2da9
+
+E (1175) esp_core_dump_flash: Core dump flash config is corrupted! CRC=0x7bd5c66f instead of 0x0
+E (1175) esp_core_dump_elf: Elf write init failed!
+E (1175) esp_core_dump_common: Core dump write failed with error=-1
+Rebooting...
+ESP-ROM:esp32s3-20210327
+Build:Mar 27 2021
+rst:0xc (RTC_SW_CPU_RST),boot:0x4 (SPI_FLASH_BOOT)
+SPIWP:0xee
+mode:DIO, clock div:1
+load:0x3fce2820,len:0x10cc
+load:0x403c8700,len:0xc2c
+load:0x403cb700,len:0x30b0
+entry 0x403c88b8
+E (3559) qio_mode: Failed to set QIE bit, not enabling QIO mode
+
+assert failed: 0x4201b59b <cached disabled>:118 (<cached disabled>)
+
+
+Backtrace: 0x4037d3b5:0x3fceb120 0x4037d37d:0x3fceb140 0x4038467e:0x3fceb160 0x4201b59b:0x3fceb2a0 0x4201cc77:0x3fceb2c0 0x4201ccb2:0x3fceb2e0 0x40375d12:0x3fceb310 0x403ccd59:0x3fceb340 0x403cd115:0x3fceb380 0x403c8925:0x3fceb4b0 0x40045c01:0x3fceb570 0x40043ab6:0x3fceb6f0 0x40034c45:0x3fceb710
+
+
+
+
+ELF file SHA256: b11fe2da9
+
+E (3778) esp_core_dump_flash: Core dump flash config is corrupted! CRC=0x7bd5c66f instead of 0x0
+E (3778) esp_core_dump_elf: Elf write init failed!
+E (3778) esp_core_dump_common: Core dump write failed with error=-1
+Rebooting...
+ESP-ROM:esp32s3-20210327
+Build:Mar 27 2021
+rst:0xc (RTC_SW_CPU_RST),boot:0x4 (SPI_FLASH_BOOT)
+SPIWP:0xee
+mode:DIO, clock div:1
+load:0x3fce2820,len:0x10cc
+load:0x403c8700,len:0xc2c
+load:0x403cb700,len:0x30b0
+entry 0x403c88b8
+E (11366) qio_mode: Failed to set QIE bit, not enabling QIO mode
+
+assert failed: 0x4201b59b <cached disabled>:118 (<cached disabled>)
+
+
+Backtrace: 0x4037d3b5:0x3fceb120 0x4037d37d:0x3fceb140 0x4038467e:0x3fceb160 0x4201b59b:0x3fceb2a0 0x4201cc77:0x3fceb2c0 0x4201ccb2:0x3fceb2e0 0x40375d12:0x3fceb310 0x403ccd59:0x3fceb340 0x403cd115:0x3fceb380 0x403c8925:0x3fceb4b0 0x40045c01:0x3fceb570 0x40043ab6:0x3fceb6f0 0x40034c45:0x3fceb710
+
+
+
+
+ELF file SHA256: b11fe2da9
+
+E (11583) esp_core_dump_flash: Core dump flash config is corrupted! CRC=0x7bd5c66f instead of 0x0
+E (11583) esp_core_dump_elf: Elf write init failed!
+E (11583) esp_core_dump_common: Core dump write failed with error=-1
+Rebooting...
+ESP-ROM:esp32s3-20210327
+Build:Mar 27 2021
+rst:0xc (RTC_SW_CPU_RST),boot:0x4 (SPI_FLASH_BOOT)
+SPIWP:0xee
+mode:DIO, clock div:1
+load:0x3fce2820,len:0x10cc
+load:0x403c8700,len:0xc2c
+load:0x403cb700,len:0x30b0
+entry 0x403c88b8
+E (34786) qio_mode: Failed to set QIE bit, not enabling QIO mode
+
+assert failed: 0x4201b59b <cached disabled>:118 (<cached disabled>)
+
+
+Backtrace: 0x4037d3b5:0x3fceb120 0x4037d37d:0x3fceb140 0x4038467e:0x3fceb160 0x4201b59b:0x3fceb2a0 0x4201cc77:0x3fceb2c0 0x4201ccb2:0x3fceb2e0 0x40375d12:0x3fceb310 0x403ccd59:0x3fceb340 0x403cd115:0x3fceb380 0x403c8925:0x3fceb4b0 0x40045c01:0x3fceb570 0x40043ab6:0x3fceb6f0 0x40034c45:0x3fceb710
+
+
+
+
+ELF file SHA256: b11fe2da9
+
+E (17113) esp_core_dump_flash: Core dump flash config is corrupted! CRC=0x7bd5c66f instead of 0x0
+E (17113) esp_core_dump_elf: Elf write init failed!
+E (17113) esp_core_dump_common: Core dump write failed with error=-1
+Rebooting...
+ESP-ROM:esp32s3-20210327
+Build:Mar 27 2021
+rst:0xc (RTC_SW_CPU_RST),boot:0x4 (SPI_FLASH_BOOT)
+SPIWP:0xee
+mode:DIO, clock div:1
+load:0x3fce2820,len:0x10cc
+load:0x403c8700,len:0xc2c
+load:0x403cb700,len:0x30b0
+entry 0x403c88b8
+E (51371) qio_mode: Failed to set QIE bit, not enabling QIO mode
+
+assert failed: 0x4201b59b <cached disabled>:118 (<cached disabled>)
+
+
+Backtrace: 0x4037d3b5:0x3fceb120 0x4037d37d:0x3fceb140 0x4038467e:0x3fceb160 0x4201b59b:0x3fceb2a0 0x4201cc77:0x3fceb2c0 0x4201ccb2:0x3fceb2e0 0x40375d12:0x3fceb310 0x403ccd59:0x3fceb340 0x403cd115:0x3fceb380 0x403c8925:0x3fceb4b0 0x40045c01:0x3fceb570 0x40043ab6:0x3fceb6f0 0x40034c45:0x3fceb710
+
+
+
+
+ELF file SHA256: b11fe2da9
+
+E (15804) esp_core_dump_flash: Core dump flash config is corrupted! CRC=0x7bd5c66f instead of 0x0
+E (15804) esp_core_dump_elf: Elf write init failed!
+E (15804) esp_core_dump_common: Core dump write failed with error=-1
+Rebooting...
+ESP-ROM:esp32s3-20210327
+Build:Mar 27 2021
+rst:0xc (RTC_SW_CPU_RST),boot:0x4 (SPI_FLASH_BOOT)
+SPIWP:0xee
+mode:DIO, clock div:1
+load:0x3fce2820,len:0x10cc
+load:0x403c8700,len:0xc2c
+load:0x403cb700,len:0x30b0
+entry 0x403c88b8
+E (47449) qio_mode: Failed to set QIE bit, not enabling QIO mode
+
+assert failed: 0x4201b59b <cached disabled>:118 (<cached disabled>)
+
+
+Backtrace: 0x4037d3b5:0x3fceb120 0x4037d37d:0x3fceb140 0x4038467e:0x3fceb160 0x4201b59b:0x3fceb2a0 0x4201cc77:0x3fceb2c0 0x4201ccb2:0x3fceb2e0 0x40375d12:0x3fceb310 0x403ccd59:0x3fceb340 0x403cd115:0x3fceb380 0x403c8925:0x3fceb4b0 0x40045c01:0x3fceb570 0x40043ab6:0x3fceb6f0 0x40034c45:0x3fceb710
+
+
+
+
+ELF file SHA256: b11fe2da9
+
+E (11908) esp_core_dump_flash: Core dump flash config is corrupted! CRC=0x7bd5c66f instead of 0x0
+E (11908) esp_core_dump_elf: Elf write init failed!
+E (11909) esp_core_dump_common: Core dump write failed with error=-1
+Rebooting...
+ESP-ROM:esp32s3-20210327
+Build:Mar 27 2021
+rst:0xc (RTC_SW_CPU_RST),boot:0x4 (SPI_FLASH_BOOT)
+SPIWP:0xee
+mode:DIO, clock div:1
+load:0x3fce2820,len:0x10cc
+load:0x403c8700,len:0xc2c
+load:0x403cb700,len:0x30b0
+entry 0x403c88b8
+E (35760) qio_mode: Failed to set QIE bit, not enabling QIO mode
+
+assert failed: 0x4201b59b <cached disabled>:118 (<cached disabled>)
+
+
+Backtrace: 0x4037d3b5:0x3fceb120 0x4037d37d:0x3fceb140 0x4038467e:0x3fceb160 0x4201b59b:0x3fceb2a0 0x4201cc77:0x3fceb2c0 0x4201ccb2:0x3fceb2e0 0x40375d12:0x3fceb310 0x403ccd59:0x3fceb340 0x403cd115:0x3fceb380 0x403c8925:0x3fceb4b0 0x40045c01:0x3fceb570 0x40043ab6:0x3fceb6f0 0x40034c45:0x3fceb710
+
+
+
+
+ELF file SHA256: b11fe2da9
+
+E (206) esp_core_dump_flash: Core dump flash config is corrupted! CRC=0x7bd5c66f instead of 0x0
+E (206) esp_core_dump_elf: Elf write init failed!
+E (206) esp_core_dump_common: Core dump write failed with error=-1
+Rebooting...
+ESP-ROM:esp32s3-20210327
+Build:Mar 27 2021
+rst:0xc (RTC_SW_CPU_RST),boot:0x4 (SPI_FLASH_BOOT)
+SPIWP:0xee
+mode:DIO, clock div:1
+load:0x3fce2820,len:0x10cc
+load:0x403c8700,len:0xc2c
+load:0x403cb700,len:0x30b0
+entry 0x403c88b8
+E (651) qio_mode: Failed to set QIE bit, not enabling QIO mode
+
+assert failed: 0x4201b59b <cached disabled>:118 (<cached disabled>)
+
+
+Backtrace: 0x4037d3b5:0x3fceb120 0x4037d37d:0x3fceb140 0x4038467e:0x3fceb160 0x4201b59b:0x3fceb2a0 0x4201cc77:0x3fceb2c0 0x4201ccb2:0x3fceb2e0 0x40375d12:0x3fceb310 0x403ccd59:0x3fceb340 0x403cd115:0x3fceb380 0x403c8925:0x3fceb4b0 0x40045c01:0x3fceb570 0x40043ab6:0x3fceb6f0 0x40034c45:0x3fceb710
+
+
+
+
+ELF file SHA256: b11fe2da9
+
+E (939) esp_core_dump_flash: Core dump flash config is corrupted! CRC=0x7bd5c66f instead of 0x0
+E (939) esp_core_dump_elf: Elf write init failed!
+E (939) esp_core_dump_common: Core dump write failed with error=-1
+Rebooting...
+ESP-ROM:esp32s3-20210327
+Build:Mar 27 2021
+rst:0xc (RTC_SW_CPU_RST),boot:0x4 (SPI_FLASH_BOOT)
+SPIWP:0xee
+mode:DIO, clock div:1
+load:0x3fce2820,len:0x10cc
+load:0x403c8700,len:0xc2c
+load:0x403cb700,len:0x30b0
+entry 0x403c88b8
+E (2849) qio_mode: Failed to set QIE bit, not enabling QIO mode
+
+assert failed: 0x4201b59b <cached disabled>:118 (<cached disabled>)
+
+
+Backtrace: 0x4037d3b5:0x3fceb120 0x4037d37d:0x3fceb140 0x4038467e:0x3fceb160 0x4201b59b:0x3fceb2a0 0x4201cc77:0x3fceb2c0 0x4201ccb2:0x3fceb2e0 0x40375d12:0x3fceb310 0x403ccd59:0x3fceb340 0x403cd115:0x3fceb380 0x403c8925:0x3fceb4b0 0x40045c01:0x3fceb570 0x40043ab6:0x3fceb6f0 0x40034c45:0x3fceb710
+
+
+
+
+ELF file SHA256: b11fe2da9
+
+E (3074) esp_core_dump_flash: Core dump flash config is corrupted! CRC=0x7bd5c66f instead of 0x0
+E (3074) esp_core_dump_elf: Elf write init failed!
+E (3074) esp_core_dump_common: Core dump write failed with error=-1
+Rebooting...
+ESP-ROM:esp32s3-20210327
+Build:Mar 27 2021
+rst:0xc (RTC_SW_CPU_RST),boot:0x4 (SPI_FLASH_BOOT)
+SPIWP:0xee
+mode:DIO, clock div:1
+load:0x3fce2820,len:0x10cc
+load:0x403c8700,len:0xc2c
+load:0x403cb700,len:0x30b0
+entry 0x403c88b8
+E (9254) qio_mode: Failed to set QIE bit, not enabling QIO mode
+
+assert failed: 0x4201b59b <cached disabled>:118 (<cached disabled>)
+
+
+Backtrace: 0x4037d3b5:0x3fceb120 0x4037d37d:0x3fceb140 0x4038467e:0x3fceb160 0x4201b59b:0x3fceb2a0 0x4201cc77:0x3fceb2c0 0x4201ccb2:0x3fceb2e0 0x40375d12:0x3fceb310 0x403ccd59:0x3fceb340 0x403cd115:0x3fceb380 0x403c8925:0x3fceb4b0 0x40045c01:0x3fceb570 0x40043ab6:0x3fceb6f0 0x40034c45:0x3fceb710
+
+
+
+
+ELF file SHA256: b11fe2da9
+
+E (9481) esp_core_dump_flash: Core dump flash config is corrupted! CRC=0x7bd5c66f instead of 0x0
+E (9481) esp_core_dump_elf: Elf write init failed!
+E (9481) esp_core_dump_common: Core dump write failed with error=-1
+Rebooting...
+ESP-ROM:esp32s3-20210327
+Build:Mar 27 2021
+rst:0xc (RTC_SW_CPU_RST),boot:0x4 (SPI_FLASH_BOOT)
+SPIWP:0xee
+mode:DIO, clock div:1
+load:0x3fce2820,len:0x10cc
+load:0x403c8700,len:0xc2c
+load:0x403cb700,len:0x30b0
+entry 0x403c88b8
+E (28476) qio_mode: Failed to set QIE bit, not enabling QIO mode
+
+assert failed: 0x4201b59b <cached disabled>:118 (<cached disabled>)
+
+
+Backtrace: 0x4037d3b5:0x3fceb120 0x4037d37d:0x3fceb140 0x4038467e:0x3fceb160 0x4201b59b:0x3fceb2a0 0x4201cc77:0x3fceb2c0 0x4201ccb2:0x3fceb2e0 0x40375d12:0x3fceb310 0x403ccd59:0x3fceb340 0x403cd115:0x3fceb380 0x403c8925:0x3fceb4b0 0x40045c01:0x3fceb570 0x40043ab6:0x3fceb6f0 0x40034c45:0x3fceb710
+
+
+
+
+ELF file SHA256: b11fe2da9
+
+E (10804) esp_core_dump_flash: Core dump flash config is corrupted! CRC=0x7bd5c66f instead of 0x0
+E (10804) esp_core_dump_elf: Elf write init failed!
+E (10804) esp_core_dump_common: Core dump write failed with error=-1
+Rebooting...
+ESP-ROM:esp32s3-20210327
+Build:Mar 27 2021
+rst:0xc (RTC_SW_CPU_RST),boot:0x4 (SPI_FLASH_BOOT)
+SPIWP:0xee
+mode:DIO, clock div:1
+load:0x3fce2820,len:0x10cc
+load:0x403c8700,len:0xc2c
+load:0x403cb700,len:0x30b0
+entry 0x403c88b8
+E (32445) qio_mode: Failed to set QIE bit, not enabling QIO mode
+
+assert failed: 0x4201b59b <cached disabled>:118 (<cached disabled>)
+
+
+Backtrace: 0x4037d3b5:0x3fceb120 0x4037d37d:0x3fceb140 0x4038467e:0x3fceb160 0x4201b59b:0x3fceb2a0 0x4201cc77:0x3fceb2c0 0x4201ccb2:0x3fceb2e0 0x40375d12:0x3fceb310 0x403ccd59:0x3fceb340 0x403cd115:0x3fceb380 0x403c8925:0x3fceb4b0 0x40045c01:0x3fceb570 0x40043ab6:0x3fceb6f0 0x40034c45:0x3fceb710
+
+
+
+
+ELF file SHA256: b11fe2da9
+
+E (14772) esp_core_dump_flash: Core dump flash config is corrupted! CRC=0x7bd5c66f instead of 0x0
+E (14772) esp_core_dump_elf: Elf write init failed!
+E (14772) esp_core_dump_common: Core dump write failed with error=-1
+Rebooting...
+ESP-ROM:esp32s3-20210327
+Build:Mar 27 2021
+rst:0xc (RTC_SW_CPU_RST),boot:0x4 (SPI_FLASH_BOOT)
+SPIWP:0xee
+mode:DIO, clock div:1
+load:0x3fce2820,len:0x10cc
+load:0x403c8700,len:0xc2c
+load:0x403cb700,len:0x30b0
+entry 0x403c88b8
+E (44349) qio_mode: Failed to set QIE bit, not enabling QIO mode
+
+assert failed: 0x4201b59b <cached disabled>:118 (<cached disabled>)
+
+
+Backtrace: 0x4037d3b5:0x3fceb120 0x4037d37d:0x3fceb140 0x4038467e:0x3fceb160 0x4201b59b:0x3fceb2a0 0x4201cc77:0x3fceb2c0 0x4201ccb2:0x3fceb2e0 0x40375d12:0x3fceb310 0x403ccd59:0x3fceb340 0x403cd115:0x3fceb380 0x403c8925:0x3fceb4b0 0x40045c01:0x3fceb570 0x40043ab6:0x3fceb6f0 0x40034c45:0x3fceb710
+
+
+
+
+ELF file SHA256: b11fe2da9
+
+E (8787) esp_core_dump_flash: Core dump flash config is corrupted! CRC=0x7bd5c66f instead of 0x0
+E (8788) esp_core_dump_elf: Elf write init failed!
+E (8788) esp_core_dump_common: Core dump write failed with error=-1
+Rebooting...
+ESP-ROM:esp32s3-20210327
+Build:Mar 27 2021
+rst:0xc (RTC_SW_CPU_RST),boot:0x4 (SPI_FLASH_BOOT)
+SPIWP:0xee
+mode:DIO, clock div:1
+load:0x3fce2820,len:0x10cc
+load:0x403c8700,len:0xc2c
+load:0x403cb700,len:0x30b0
+entry 0x403c88b8
+E (26394) qio_mode: Failed to set QIE bit, not enabling QIO mode
+
+assert failed: 0x4201b59b <cached disabled>:118 (<cached disabled>)
+
+
+Backtrace: 0x4037d3b5:0x3fceb120 0x4037d37d:0x3fceb140 0x4038467e:0x3fceb160 0x4201b59b:0x3fceb2a0 0x4201cc77:0x3fceb2c0 0x4201ccb2:0x3fceb2e0 0x40375d12:0x3fceb310 0x403ccd59:0x3fceb340 0x403cd115:0x3fceb380 0x403c8925:0x3fceb4b0 0x40045c01:0x3fceb570 0x40043ab6:0x3fceb6f0 0x40034c45:0x3fceb710
+
+
+
+
+ELF file SHA256: b11fe2da9
+
+E (8720) esp_core_dump_flash: Core dump flash config is corrupted! CRC=0x7bd5c66f instead of 0x0
+E (8720) esp_core_dump_elf: Elf write init failed!
+E (8720) esp_core_dump_common: Core dump write failed with error=-1
+Rebooting...
+ESP-ROM:esp32s3-20210327
+Build:Mar 27 2021
+rst:0xc (RTC_SW_CPU_RST),boot:0x4 (SPI_FLASH_BOOT)
+SPIWP:0xee
+mode:DIO, clock div:1
+load:0x3fce2820,len:0x10cc
+load:0x403c8700,len:0xc2c
+load:0x403cb700,len:0x30b0
+entry 0x403c88b8
+E (26193) qio_mode: Failed to set QIE bit, not enabling QIO mode
+
+assert failed: 0x4201b59b <cached disabled>:118 (<cached disabled>)
+
+
+Backtrace: 0x4037d3b5:0x3fceb120 0x4037d37d:0x3fceb140 0x4038467e:0x3fceb160 0x4201b59b:0x3fceb2a0 0x4201cc77:0x3fceb2c0 0x4201ccb2:0x3fceb2e0 0x40375d12:0x3fceb310 0x403ccd59:0x3fceb340 0x403cd115:0x3fceb380 0x403c8925:0x3fceb4b0 0x40045c01:0x3fceb570 0x40043ab6:0x3fceb6f0 0x40034c45:0x3fceb710
+
+
+
+
+ELF file SHA256: b11fe2da9
+
+E (8570) esp_core_dump_flash: Core dump flash config is corrupted! CRC=0x7bd5c66f instead of 0x0
+E (8570) esp_core_dump_elf: Elf write init failed!
+E (8570) esp_core_dump_common: Core dump write failed with error=-1
+Rebooting...
+ESP-ROM:esp32s3-20210327
+Build:Mar 27 2021
+rst:0xc (RTC_SW_CPU_RST),boot:0x4 (SPI_FLASH_BOOT)
+SPIWP:0xee
+mode:DIO, clock div:1
+load:0x3fce2820,len:0x10cc
+load:0x403c8700,len:0xc2c
+load:0x403cb700,len:0x30b0
+entry 0x403c88b8
+E (25744) qio_mode: Failed to set QIE bit, not enabling QIO mode
+
+assert failed: 0x4201b59b <cached disabled>:118 (<cached disabled>)
+
+
+Backtrace: 0x4037d3b5:0x3fceb120 0x4037d37d:0x3fceb140 0x4038467e:0x3fceb160 0x4201b59b:0x3fceb2a0 0x4201cc77:0x3fceb2c0 0x4201ccb2:0x3fceb2e0 0x40375d12:0x3fceb310 0x403ccd59:0x3fceb340 0x403cd115:0x3fceb380 0x403c8925:0x3fceb4b0 0x40045c01:0x3fceb570 0x40043ab6:0x3fceb6f0 0x40034c45:0x3fceb710
+
+
+
+
+ELF file SHA256: b11fe2da9
+
+E (8206) esp_core_dump_flash: Core dump flash config is corrupted! CRC=0x7bd5c66f instead of 0x0
+E (8206) esp_core_dump_elf: Elf write init failed!
+E (8206) esp_core_dump_common: Core dump write failed with error=-1
+Rebooting...
+ESP-ROM:esp32s3-20210327
+Build:Mar 27 2021
+rst:0xc (RTC_SW_CPU_RST),boot:0x4 (SPI_FLASH_BOOT)
+SPIWP:0xee
+mode:DIO, clock div:1
+load:0x3fce2820,len:0x10cc
+load:0x403c8700,len:0xc2c
+load:0x403cb700,len:0x30b0
+entry 0x403c88b8
+E (24654) qio_mode: Failed to set QIE bit, not enabling QIO mode
+
+assert failed: 0x4201b59b <cached disabled>:118 (<cached disabled>)
+
+
+Backtrace: 0x4037d3b5:0x3fceb120 0x4037d37d:0x3fceb140 0x4038467e:0x3fceb160 0x4201b59b:0x3fceb2a0 0x4201cc77:0x3fceb2c0 0x4201ccb2:0x3fceb2e0 0x40375d12:0x3fceb310 0x403ccd59:0x3fceb340 0x403cd115:0x3fceb380 0x403c8925:0x3fceb4b0 0x40045c01:0x3fceb570 0x40043ab6:0x3fceb6f0 0x40034c45:0x3fceb710
+
+
+
+
+ELF file SHA256: b11fe2da9
+
+E (7068) esp_core_dump_flash: Core dump flash config is corrupted! CRC=0x7bd5c66f instead of 0x0
+E (7068) esp_core_dump_elf: Elf write init failed!
+E (7069) esp_core_dump_common: Core dump write failed with error=-1
+Rebooting...
+ESP-ROM:esp32s3-20210327
+Build:Mar 27 2021
+rst:0xc (RTC_SW_CPU_RST),boot:0x4 (SPI_FLASH_BOOT)
+SPIWP:0xee
+mode:DIO, clock div:1
+load:0x3fce2820,len:0x10cc
+load:0x403c8700,len:0xc2c
+load:0x403cb700,len:0x30b0
+entry 0x403c88b8
+E (21238) qio_mode: Failed to set QIE bit, not enabling QIO mode
+
+assert failed: 0x4201b59b <cached disabled>:118 (<cached disabled>)
+
+
+Backtrace: 0x4037d3b5:0x3fceb120 0x4037d37d:0x3fceb140 0x4038467e:0x3fceb160 0x4201b59b:0x3fceb2a0 0x4201cc77:0x3fceb2c0 0x4201ccb2:0x3fceb2e0 0x40375d12:0x3fceb310 0x403ccd59:0x3fceb340 0x403cd115:0x3fceb380 0x403c8925:0x3fceb4b0 0x40045c01:0x3fceb570 0x40043ab6:0x3fceb6f0 0x40034c45:0x3fceb710
+
+
+
+
+ELF file SHA256: b11fe2da9
+
+E (3569) esp_core_dump_flash: Core dump flash config is corrupted! CRC=0x7bd5c66f instead of 0x0
+E (3569) esp_core_dump_elf: Elf write init failed!
+E (3569) esp_core_dump_common: Core dump write failed with error=-1
+Rebooting...
+ESP-ROM:esp32s3-20210327
+Build:Mar 27 2021
+rst:0xc (RTC_SW_CPU_RST),boot:0x4 (SPI_FLASH_BOOT)
+SPIWP:0xee
+mode:DIO, clock div:1
+load:0x3fce2820,len:0x10cc
+load:0x403c8700,len:0xc2c
+load:0x403cb700,len:0x30b0
+entry 0x403c88b8
+E (10741) qio_mode: Failed to set QIE bit, not enabling QIO mode
+
+assert failed: 0x4201b59b <cached disabled>:118 (<cached disabled>)
+
+
+Backtrace: 0x4037d3b5:0x3fceb120 0x4037d37d:0x3fceb140 0x4038467e:0x3fceb160 0x4201b59b:0x3fceb2a0 0x4201cc77:0x3fceb2c0 0x4201ccb2:0x3fceb2e0 0x40375d12:0x3fceb310 0x403ccd59:0x3fceb340 0x403cd115:0x3fceb380 0x403c8925:0x3fceb4b0 0x40045c01:0x3fceb570 0x40043ab6:0x3fceb6f0 0x40034c45:0x3fceb710
+
+
+
+
+ELF file SHA256: b11fe2da9
+
+E (10973) esp_core_dump_flash: Core dump flash config is corrupted! CRC=0x7bd5c66f instead of 0x0
+E (10973) esp_core_dump_elf: Elf write init failed!
+E (10973) esp_core_dump_common: Core dump write failed with error=-1
+Rebooting...
+ESP-ROM:esp32s3-20210327
+Build:Mar 27 2021
+rst:0xc (RTC_SW_CPU_RST),boot:0x4 (SPI_FLASH_BOOT)
+SPIWP:0xee
+mode:DIO, clock div:1
+load:0x3fce2820,len:0x10cc
+load:0x403c8700,len:0xc2c
+load:0x403cb700,len:0x30b0
+entry 0x403c88b8
+E (32951) qio_mode: Failed to set QIE bit, not enabling QIO mode
+
+assert failed: 0x4201b59b <cached disabled>:118 (<cached disabled>)
+
+
+Backtrace: 0x4037d3b5:0x3fceb120 0x4037d37d:0x3fceb140 0x4038467e:0x3fceb160 0x4201b59b:0x3fceb2a0 0x4201cc77:0x3fceb2c0 0x4201ccb2:0x3fceb2e0 0x40375d12:0x3fceb310 0x403ccd59:0x3fceb340 0x403cd115:0x3fceb380 0x403c8925:0x3fceb4b0 0x40045c01:0x3fceb570 0x40043ab6:0x3fceb6f0 0x40034c45:0x3fceb710
+
+
+
+
+ELF file SHA256: b11fe2da9
+
+E (15317) esp_core_dump_flash: Core dump flash config is corrupted! CRC=0x7bd5c66f instead of 0x0
+E (15317) esp_core_dump_elf: Elf write init failed!
+E (15317) esp_core_dump_common: Core dump write failed with error=-1
+Rebooting...
+ESP-ROM:esp32s3-20210327
+Build:Mar 27 2021
+rst:0xc (RTC_SW_CPU_RST),boot:0x4 (SPI_FLASH_BOOT)
+SPIWP:0xee
+mode:DIO, clock div:1
+load:0x3fce2820,len:0x10cc
+load:0x403c8700,len:0xc2c
+load:0x403cb700,len:0x30b0
+entry 0x403c88b8
+E (45982) qio_mode: Failed to set QIE bit, not enabling QIO mode
+
+assert failed: 0x4201b59b <cached disabled>:118 (<cached disabled>)
+
+
+Backtrace: 0x4037d3b5:0x3fceb120 0x4037d37d:0x3fceb140 0x4038467e:0x3fceb160 0x4201b59b:0x3fceb2a0 0x4201cc77:0x3fceb2c0 0x4201ccb2:0x3fceb2e0 0x40375d12:0x3fceb310 0x403ccd59:0x3fceb340 0x403cd115:0x3fceb380 0x403c8925:0x3fceb4b0 0x40045c01:0x3fceb570 0x40043ab6:0x3fceb6f0 0x40034c45:0x3fceb710
+
+
+
+
+ELF file SHA256: b11fe2da9
+
+E (10418) esp_core_dump_flash: Core dump flash config is corrupted! CRC=0x7bd5c66f instead of 0x0
+E (10418) esp_core_dump_elf: Elf write init failed!
+E (10418) esp_core_dump_common: Core dump write failed with error=-1
+Rebooting...
+ESP-ROM:esp32s3-20210327
+Build:Mar 27 2021
+rst:0xc (RTC_SW_CPU_RST),boot:0x4 (SPI_FLASH_BOOT)
+SPIWP:0xee
+mode:DIO, clock div:1
+load:0x3fce2820,len:0x10cc
+load:0x403c8700,len:0xc2c
+load:0x403cb700,len:0x30b0
+entry 0x403c88b8
+E (31288) qio_mode: Failed to set QIE bit, not enabling QIO mode
+
+assert failed: 0x4201b59b <cached disabled>:118 (<cached disabled>)
+
+
+Backtrace: 0x4037d3b5:0x3fceb120 0x4037d37d:0x3fceb140 0x4038467e:0x3fceb160 0x4201b59b:0x3fceb2a0 0x4201cc77:0x3fceb2c0 0x4201ccb2:0x3fceb2e0 0x40375d12:0x3fceb310 0x403ccd59:0x3fceb340 0x403cd115:0x3fceb380 0x403c8925:0x3fceb4b0 0x40045c01:0x3fceb570 0x40043ab6:0x3fceb6f0 0x40034c45:0x3fceb710
+
+
+
+
+ELF file SHA256: b11fe2da9
+
+E (13624) esp_core_dump_flash: Core dump flash config is corrupted! CRC=0x7bd5c66f instead of 0x0
+E (13624) esp_core_dump_elf: Elf write init failed!
+E (13624) esp_core_dump_common: Core dump write failed with error=-1
+Rebooting...
+ESP-ROM:esp32s3-20210327
+Build:Mar 27 2021
+rst:0xc (RTC_SW_CPU_RST),boot:0x4 (SPI_FLASH_BOOT)
+SPIWP:0xee
+mode:DIO, clock div:1
+load:0x3fce2820,len:0x10cc
+load:0x403c8700,len:0xc2c
+load:0x403cb700,len:0x30b0
+entry 0x403c88b8
+E (40904) qio_mode: Failed to set QIE bit, not enabling QIO mode
+
+assert failed: 0x4201b59b <cached disabled>:118 (<cached disabled>)
+
+
+Backtrace: 0x4037d3b5:0x3fceb120 0x4037d37d:0x3fceb140 0x4038467e:0x3fceb160 0x4201b59b:0x3fceb2a0 0x4201cc77:0x3fceb2c0 0x4201ccb2:0x3fceb2e0 0x40375d12:0x3fceb310 0x403ccd59:0x3fceb340 0x403cd115:0x3fceb380 0x403c8925:0x3fceb4b0 0x40045c01:0x3fceb570 0x40043ab6:0x3fceb6f0 0x40034c45:0x3fceb710
+
+
+
+
+ELF file SHA256: b11fe2da9
+
+E (5323) esp_core_dump_flash: Core dump flash config is corrupted! CRC=0x7bd5c66f instead of 0x0
+E (5323) esp_core_dump_elf: Elf write init failed!
+E (5323) esp_core_dump_common: Core dump write failed with error=-1
+Rebooting...
+ESP-ROM:esp32s3-20210327
+Build:Mar 27 2021
+rst:0xc (RTC_SW_CPU_RST),boot:0x4 (SPI_FLASH_BOOT)
+SPIWP:0xee
+mode:DIO, clock div:1
+load:0x3fce2820,len:0x10cc
+load:0x403c8700,len:0xc2c
+load:0x403cb700,len:0x30b0
+entry 0x403c88b8
+E (16004) qio_mode: Failed to set QIE bit, not enabling QIO mode
+
+assert failed: 0x4201b59b <cached disabled>:118 (<cached disabled>)
+
+
+Backtrace: 0x4037d3b5:0x3fceb120 0x4037d37d:0x3fceb140 0x4038467e:0x3fceb160 0x4201b59b:0x3fceb2a0 0x4201cc77:0x3fceb2c0 0x4201ccb2:0x3fceb2e0 0x40375d12:0x3fceb310 0x403ccd59:0x3fceb340 0x403cd115:0x3fceb380 0x403c8925:0x3fceb4b0 0x40045c01:0x3fceb570 0x40043ab6:0x3fceb6f0 0x40034c45:0x3fceb710
+
+
+
+
+ELF file SHA256: b11fe2da9
+
+E (16256) esp_core_dump_flash: Core dump flash config is corrupted! CRC=0x7bd5c66f instead of 0x0
+E (16256) esp_core_dump_elf: Elf write init failed!
+E (16256) esp_core_dump_common: Core dump write failed with error=-1
+Rebooting...
+ESP-ROM:esp32s3-20210327
+Build:Mar 27 2021
+rst:0xc (RTC_SW_CPU_RST),boot:0x4 (SPI_FLASH_BOOT)
+SPIWP:0xee
+mode:DIO, clock div:1
+load:0x3fce2820,len:0x10cc
+load:0x403c8700,len:0xc2c
+load:0x403cb700,len:0x30b0
+entry 0x403c88b8
+E (48802) qio_mode: Failed to set QIE bit, not enabling QIO mode
+
+assert failed: 0x4201b59b <cached disabled>:118 (<cached disabled>)
+
+
+Backtrace: 0x4037d3b5:0x3fceb120 0x4037d37d:0x3fceb140 0x4038467e:0x3fceb160 0x4201b59b:0x3fceb2a0 0x4201cc77:0x3fceb2c0 0x4201ccb2:0x3fceb2e0 0x40375d12:0x3fceb310 0x403ccd59:0x3fceb340 0x403cd115:0x3fceb380 0x403c8925:0x3fceb4b0 0x40045c01:0x3fceb570 0x40043ab6:0x3fceb6f0 0x40034c45:0x3fceb710
+
+
+
+
+ELF file SHA256: b11fe2da9
+
+E (13367) esp_core_dump_flash: Core dump flash config is corrupted! CRC=0x7bd5c66f instead of 0x0
+E (13367) esp_core_dump_elf: Elf write init failed!
+E (13367) esp_core_dump_common: Core dump write failed with error=-1
+Rebooting...
+ESP-ROM:esp32s3-20210327
+Build:Mar 27 2021
+rst:0xc (RTC_SW_CPU_RST),boot:0x4 (SPI_FLASH_BOOT)
+SPIWP:0xee
+mode:DIO, clock div:1
+load:0x3fce2820,len:0x10cc
+load:0x403c8700,len:0xc2c
+load:0x403cb700,len:0x30b0
+entry 0x403c88b8
+E (40143) qio_mode: Failed to set QIE bit, not enabling QIO mode
+
+assert failed: 0x4201b59b <cached disabled>:118 (<cached disabled>)
+
+
+Backtrace: 0x4037d3b5:0x3fceb120 0x4037d37d:0x3fceb140 0x4038467e:0x3fceb160 0x4201b59b:0x3fceb2a0 0x4201cc77:0x3fceb2c0 0x4201ccb2:0x3fceb2e0 0x40375d12:0x3fceb310 0x403ccd59:0x3fceb340 0x403cd115:0x3fceb380 0x403c8925:0x3fceb4b0 0x40045c01:0x3fceb570 0x40043ab6:0x3fceb6f0 0x40034c45:0x3fceb710
+
+
+
+
+ELF file SHA256: b11fe2da9
+
+E (4613) esp_core_dump_flash: Core dump flash config is corrupted! CRC=0x7bd5c66f instead of 0x0
+E (4613) esp_core_dump_elf: Elf write init failed!
+E (4613) esp_core_dump_common: Core dump write failed with error=-1
+Rebooting...
+ESP-ROM:esp32s3-20210327
+Build:Mar 27 2021
+rst:0xc (RTC_SW_CPU_RST),boot:0x4 (SPI_FLASH_BOOT)
+SPIWP:0xee
+mode:DIO, clock div:1
+load:0x3fce2820,len:0x10cc
+load:0x403c8700,len:0xc2c
+load:0x403cb700,len:0x30b0
+entry 0x403c88b8
+E (13881) qio_mode: Failed to set QIE bit, not enabling QIO mode
+
+assert failed: 0x4201b59b <cached disabled>:118 (<cached disabled>)
+
+
+Backtrace: 0x4037d3b5:0x3fceb120 0x4037d37d:0x3fceb140 0x4038467e:0x3fceb160 0x4201b59b:0x3fceb2a0 0x4201cc77:0x3fceb2c0 0x4201ccb2:0x3fceb2e0 0x40375d12:0x3fceb310 0x403ccd59:0x3fceb340 0x403cd115:0x3fceb380 0x403c8925:0x3fceb4b0 0x40045c01:0x3fceb570 0x40043ab6:0x3fceb6f0 0x40034c45:0x3fceb710
+
+
+
+
+ELF file SHA256: b11fe2da9
+
+E (14103) esp_core_dump_flash: Core dump flash config is corrupted! CRC=0x7bd5c66f instead of 0x0
+E (14103) esp_core_dump_elf: Elf write init failed!
+E (14103) esp_core_dump_common: Core dump write failed with error=-1
+Rebooting...
+ESP-ROM:esp32s3-20210327
+Build:Mar 27 2021
+rst:0xc (RTC_SW_CPU_RST),boot:0x4 (SPI_FLASH_BOOT)
+SPIWP:0xee
+mode:DIO, clock div:1
+load:0x3fce2820,len:0x10cc
+load:0x403c8700,len:0xc2c
+load:0x403cb700,len:0x30b0
+entry 0x403c88b8
+E (42344) qio_mode: Failed to set QIE bit, not enabling QIO mode
+
+assert failed: 0x4201b59b <cached disabled>:118 (<cached disabled>)
+
+
+Backtrace: 0x4037d3b5:0x3fceb120 0x4037d37d:0x3fceb140 0x4038467e:0x3fceb160 0x4201b59b:0x3fceb2a0 0x4201cc77:0x3fceb2c0 0x4201ccb2:0x3fceb2e0 0x40375d12:0x3fceb310 0x403ccd59:0x3fceb340 0x403cd115:0x3fceb380 0x403c8925:0x3fceb4b0 0x40045c01:0x3fceb570 0x40043ab6:0x3fceb6f0 0x40034c45:0x3fceb710
+
+
+
+
+ELF file SHA256: b11fe2da9
+
+E (6782) esp_core_dump_flash: Core dump flash config is corrupted! CRC=0x7bd5c66f instead of 0x0
+E (6782) esp_core_dump_elf: Elf write init failed!
+E (6782) esp_core_dump_common: Core dump write failed with error=-1
+Rebooting...
+ESP-ROM:esp32s3-20210327
+Build:Mar 27 2021
+rst:0xc (RTC_SW_CPU_RST),boot:0x4 (SPI_FLASH_BOOT)
+SPIWP:0xee
+mode:DIO, clock div:1
+load:0x3fce2820,len:0x10cc
+load:0x403c8700,len:0xc2c
+load:0x403cb700,len:0x30b0
+entry 0x403c88b8
+E (20378) qio_mode: Failed to set QIE bit, not enabling QIO mode
+
+assert failed: 0x4201b59b <cached disabled>:118 (<cached disabled>)
+
+
+Backtrace: 0x4037d3b5:0x3fceb120 0x4037d37d:0x3fceb140 0x4038467e:0x3fceb160 0x4201b59b:0x3fceb2a0 0x4201cc77:0x3fceb2c0 0x4201ccb2:0x3fceb2e0 0x40375d12:0x3fceb310 0x403ccd59:0x3fceb340 0x403cd115:0x3fceb380 0x403c8925:0x3fceb4b0 0x40045c01:0x3fceb570 0x40043ab6:0x3fceb6f0 0x40034c45:0x3fceb710
+
+
+
+
+ELF file SHA256: b11fe2da9
+
+E (2709) esp_core_dump_flash: Core dump flash config is corrupted! CRC=0x7bd5c66f instead of 0x0
+E (2709) esp_core_dump_elf: Elf write init failed!
+E (2709) esp_core_dump_common: Core dump write failed with error=-1
+Rebooting...
+ESP-ROM:esp32s3-20210327
+Build:Mar 27 2021
+rst:0xc (RTC_SW_CPU_RST),boot:0x4 (SPI_FLASH_BOOT)
+SPIWP:0xee
+mode:DIO, clock div:1
+load:0x3fce2820,len:0x10cc
+load:0x403c8700,len:0xc2c
+load:0x403cb700,len:0x30b0
+entry 0x403c88b8
+E (8160) qio_mode: Failed to set QIE bit, not enabling QIO mode
+
+assert failed: 0x4201b59b <cached disabled>:118 (<cached disabled>)
+
+
+Backtrace: 0x4037d3b5:0x3fceb120 0x4037d37d:0x3fceb140 0x4038467e:0x3fceb160 0x4201b59b:0x3fceb2a0 0x4201cc77:0x3fceb2c0 0x4201ccb2:0x3fceb2e0 0x40375d12:0x3fceb310 0x403ccd59:0x3fceb340 0x403cd115:0x3fceb380 0x403c8925:0x3fceb4b0 0x40045c01:0x3fceb570 0x40043ab6:0x3fceb6f0 0x40034c45:0x3fceb710
+
+
+
+
+ELF file SHA256: b11fe2da9
+
+E (8395) esp_core_dump_flash: Core dump flash config is corrupted! CRC=0x7bd5c66f instead of 0x0
+E (8395) esp_core_dump_elf: Elf write init failed!
+E (8395) esp_core_dump_common: Core dump write failed with error=-1
+Rebooting...
+ESP-ROM:esp32s3-20210327
+Build:Mar 27 2021
+rst:0xc (RTC_SW_CPU_RST),boot:0x4 (SPI_FLASH_BOOT)
+SPIWP:0xee
+mode:DIO, clock div:1
+load:0x3fce2820,len:0x10cc
+load:0x403c8700,len:0xc2c
+load:0x403cb700,len:0x30b0
+entry 0x403c88b8
+E (25218) qio_mode: Failed to set QIE bit, not enabling QIO mode
+
+assert failed: 0x4201b59b <cached disabled>:118 (<cached disabled>)
+
+
+Backtrace: 0x4037d3b5:0x3fceb120 0x4037d37d:0x3fceb140 0x4038467e:0x3fceb160 0x4201b59b:0x3fceb2a0 0x4201cc77:0x3fceb2c0 0x4201ccb2:0x3fceb2e0 0x40375d12:0x3fceb310 0x403ccd59:0x3fceb340 0x403cd115:0x3fceb380 0x403c8925:0x3fceb4b0 0x40045c01:0x3fceb570 0x40043ab6:0x3fceb6f0 0x40034c45:0x3fceb710
+
+
+
+
+ELF file SHA256: b11fe2da9
+
+E (7553) esp_core_dump_flash: Core dump flash config is corrupted! CRC=0x7bd5c66f instead of 0x0
+E (7553) esp_core_dump_elf: Elf write init failed!
+E (7553) esp_core_dump_common: Core dump write failed with error=-1
+Rebooting...
+ESP-ROM:esp32s3-20210327
+Build:Mar 27 2021
+rst:0xc (RTC_SW_CPU_RST),boot:0x4 (SPI_FLASH_BOOT)
+SPIWP:0xee
+mode:DIO, clock div:1
+load:0x3fce2820,len:0x10cc
+load:0x403c8700,len:0xc2c
+load:0x403cb700,len:0x30b0
+entry 0x403c88b8
+E (22695) qio_mode: Failed to set QIE bit, not enabling QIO mode

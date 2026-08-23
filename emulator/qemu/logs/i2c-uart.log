@@ -1,0 +1,60 @@
+ets Jul 29 2019 12:21:46
+
+rst:0x1 (POWERON_RESET),boot:0x12 (SPI_FAST_FLASH_BOOT)
+configsip: 0, SPIWP:0xee
+clk_drv:0x00,q_drv:0x00,d_drv:0x00,cs0_drv:0x00,hd_drv:0x00,wp_drv:0x00
+mode:DIO, clock div:1
+load:0x3fff0030,len:4640
+load:0x40078000,len:15592
+load:0x40080400,len:3164
+entry 0x4008059c
+@SESAME hello 1 sesame-fw-s2mini/0.1.0
+@SESAME face rest 0
+HTTP server & Captive Portal started.
+@SESAME face rest 1
+WAVE
+@SESAME face wave 0
+STAND
+@SESAME servo R1 135
+@SESAME servo R2 45
+@SESAME servo L1 45
+@SESAME servo L2 135
+@SESAME servo R4 0
+@SESAME servo R3 180
+@SESAME servo L3 0
+@SESAME servo L4 180
+@SESAME servo R4 80
+@SESAME servo L3 180
+@SESAME servo L2 90
+@SESAME servo R1 100
+@SESAME servo L3 180
+@SESAME servo L3 180
+@SESAME servo L3 100
+@SESAME servo L3 180
+@SESAME servo L3 100
+@SESAME servo L3 180
+@SESAME servo L3 100
+@SESAME servo L3 180
+@SESAME servo L3 100
+STAND
+@SESAME servo R1 135
+@SESAME servo R2 45
+@SESAME servo L1 45
+@SESAME servo L2 135
+@SESAME servo R4 0
+@SESAME servo R3 180
+@SESAME servo L3 0
+@SESAME servo L4 180
+@SESAME face idle 0
+@SESAME face idle_blink 0
+@SESAME face idle_blink 1
+@SESAME face idle_blink 2
+@SESAME face idle_blink 3
+@SESAME face idle_blink 3
+@SESAME face idle 0
+@SESAME face idle_blink 0
+@SESAME face idle_blink 1
+@SESAME face idle_blink 2
+@SESAME face idle_blink 3
+@SESAME face idle_blink 3
+@SESAME face idle 0

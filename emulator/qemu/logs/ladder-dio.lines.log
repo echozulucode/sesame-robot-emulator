@@ -1,0 +1,24 @@
+Line 652 of "C:\Projects\sesame-robot-emulator\tools\arduino-data\scratch\qemu-dio\sesame-firmware-main/sesame-firmware-main.ino" starts at address 0x400d4cff <_Z5setupv+31> and ends at 0x400d4d19 <_Z5setupv+57>.
+Line 653 of "C:\Projects\sesame-robot-emulator\tools\arduino-data\scratch\qemu-dio\sesame-firmware-main/sesame-firmware-main.ino" starts at address 0x400d4d19 <_Z5setupv+57> and ends at 0x400d4d25 <_Z5setupv+69>.
+Line 656 of "C:\Projects\sesame-robot-emulator\tools\arduino-data\scratch\qemu-dio\sesame-firmware-main/sesame-firmware-main.ino" starts at address 0x400d4d25 <_Z5setupv+69> and ends at 0x400d4d35 <_Z5setupv+85>.
+Line 659 of "C:\Projects\sesame-robot-emulator\tools\arduino-data\scratch\qemu-dio\sesame-firmware-main/sesame-firmware-main.ino" starts at address 0x400d4d35 <_Z5setupv+85> and ends at 0x400d4d4c <_Z5setupv+108>.
+Line 664 of "C:\Projects\sesame-robot-emulator\tools\arduino-data\scratch\qemu-dio\sesame-firmware-main/sesame-firmware-main.ino" starts at address 0x400d4d5c <_Z5setupv+124> and ends at 0x400d4d64 <_Z5setupv+132>.
+Line 674 of "C:\Projects\sesame-robot-emulator\tools\arduino-data\scratch\qemu-dio\sesame-firmware-main/sesame-firmware-main.ino" starts at address 0x400d4d8a <_Z5setupv+170> and ends at 0x400d4d95 <_Z5setupv+181>.
+Line 677 of "C:\Projects\sesame-robot-emulator\tools\arduino-data\scratch\qemu-dio\sesame-firmware-main/sesame-firmware-main.ino" is at address 0x400d4d95 <_Z5setupv+181> but contains no code.
+Line 688 of "C:\Projects\sesame-robot-emulator\tools\arduino-data\scratch\qemu-dio\sesame-firmware-main/sesame-firmware-main.ino" starts at address 0x400d4da8 <_Z5setupv+200> and ends at 0x400d4dca <_Z5setupv+234>.
+Line 689 of "C:\Projects\sesame-robot-emulator\tools\arduino-data\scratch\qemu-dio\sesame-firmware-main/sesame-firmware-main.ino" starts at address 0x400d4dca <_Z5setupv+234> and ends at 0x400d4dd5 <_Z5setupv+245>.
+Line 695 of "C:\Projects\sesame-robot-emulator\tools\arduino-data\scratch\qemu-dio\sesame-firmware-main/sesame-firmware-main.ino" starts at address 0x400d4dec <_Z5setupv+268> and ends at 0x400d4df5 <_Z5setupv+277>.
+Line 703 of "C:\Projects\sesame-robot-emulator\tools\arduino-data\scratch\qemu-dio\sesame-firmware-main/sesame-firmware-main.ino" starts at address 0x400d4e13 <_Z5setupv+307> and ends at 0x400d4e1c <_Z5setupv+316>.
+Line 709 of "C:\Projects\sesame-robot-emulator\tools\arduino-data\scratch\qemu-dio\sesame-firmware-main/sesame-firmware-main.ino" starts at address 0x400d4e3a <_Z5setupv+346> and ends at 0x400d4e54 <_Z5setupv+372>.
+Line 712 of "C:\Projects\sesame-robot-emulator\tools\arduino-data\scratch\qemu-dio\sesame-firmware-main/sesame-firmware-main.ino" is at address 0x400d50d6 <_Z5setupv+1014> but contains no code.
+Line 729 of "C:\Projects\sesame-robot-emulator\tools\arduino-data\scratch\qemu-dio\sesame-firmware-main/sesame-firmware-main.ino" is at address 0x400d50d6 <_Z5setupv+1014> but contains no code.
+Line 731 of "C:\Projects\sesame-robot-emulator\tools\arduino-data\scratch\qemu-dio\sesame-firmware-main/sesame-firmware-main.ino" starts at address 0x400d50d6 <_Z5setupv+1014> and ends at 0x400d50e2 <_Z5setupv+1026>.
+Line 734 of "C:\Projects\sesame-robot-emulator\tools\arduino-data\scratch\qemu-dio\sesame-firmware-main/sesame-firmware-main.ino" starts at address 0x400d50e2 <_Z5setupv+1026> and ends at 0x400d50ea <_Z5setupv+1034>.
+Line 739 of "C:\Projects\sesame-robot-emulator\tools\arduino-data\scratch\qemu-dio\sesame-firmware-main/sesame-firmware-main.ino" starts at address 0x400d5102 <_Z5setupv+1058> and ends at 0x400d510a <_Z5setupv+1066>.
+Line 744 of "C:\Projects\sesame-robot-emulator\tools\arduino-data\scratch\qemu-dio\sesame-firmware-main/sesame-firmware-main.ino" starts at address 0x400d5135 <_Z5setupv+1109> and ends at 0x400d513d <_Z5setupv+1117>.
+Line 747 of "C:\Projects\sesame-robot-emulator\tools\arduino-data\scratch\qemu-dio\sesame-firmware-main/sesame-firmware-main.ino" starts at address 0x400d513d <_Z5setupv+1117> and ends at 0x400d515b <_Z5setupv+1147>.
+Line 749 of "C:\Projects\sesame-robot-emulator\tools\arduino-data\scratch\qemu-dio\sesame-firmware-main/sesame-firmware-main.ino" starts at address 0x400d515b <_Z5setupv+1147> and ends at 0x400d5166 <_Z5setupv+1158>.
+Line 661 of "C:\Projects\sesame-robot-emulator\tools\arduino-data\scratch\qemu-dio\sesame-firmware-main/sesame-firmware-main.ino" starts at address 0x400d4d58 <_Z5setupv+120> and ends at 0x400d4d5c <_Z5setupv+124>.
+
+
+warning: Section .debug_aranges in C:\Projects\sesame-robot-emulator\tools\arduino-data\scratch\qemu-dio\out\sesame-firmware-main.ino.elf entry at offset 616 debug_info_offset 3756196096 does not exists, ignoring .debug_aranges.

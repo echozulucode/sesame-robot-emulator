@@ -1,0 +1,11 @@
+Adding SPI flash device
+ets Jul 29 2019 12:21:46
+
+rst:0x1 (POWERON_RESET),boot:0x12 (SPI_FAST_FLASH_BOOT)
+invalid header: 0x600080b4
+invalid header: 0x600080b4
+invalid header: 0x600080b4
+invalid header: 0x600080b4
+invalid header: 0x600080b4
+invalid header: 0x600080b4
+invalid header: 0x600080b4

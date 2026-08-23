@@ -1,0 +1,75 @@
+Adding SPI flash device
+ets Jul 29 2019 12:21:46
+
+rst:0x1 (POWERON_RESET),boot:0x12 (SPI_FAST_FLASH_BOOT)
+configsip: 0, SPIWP:0xee
+clk_drv:0x00,q_drv:0x00,d_drv:0x00,cs0_drv:0x00,hd_drv:0x00,wp_drv:0x00
+mode:DIO, clock div:1
+load:0x3fff0030,len:4640
+load:0x40078000,len:15592
+load:0x40080400,len:3164
+entry 0x4008059c
+Guru Meditation Error: Core  / panic'ed (Cache error). 
+Cache disabled but cached memory region accessed
+
+Core  0 register dump:
+PC      : 0x4008faa3  PS      : 0x00060135  A0      : 0x8008aedc  A1      : 0x3ffcb950  
+A2      : 0x00000001  A3      : 0x00000002  A4      : 0x00060120  A5      : 0x3f429650  
+A6      : 0x3ff00040  A7      : 0x3ff00058  A8      : 0xfffffff7  A9      : 0x3ffcb930  
+A10     : 0x00000020  A11     : 0x00000001  A12     : 0x00060d20  A13     : 0x00060123  
+A14     : 0x3ffcba0c  A15     : 0x0000cdcd  SAR     : 0x00000001  EXCCAUSE: 0x00000007  
+EXCVADDR: 0x00000000  LBEG    : 0x40083471  LEND    : 0x40083479  LCOUNT  : 0x00000028  
+
+
+Backtrace: 0x4008faa0:0x3ffcb950 0x4008aed9:0x3ffcb970 0x400817ab:0x3ffcb990 0x400818ab:0x3ffcb9b0 0x4008172f:0x3ffcb9d0 0x40081739:0x3ffcb9f0 0x40093ad1:0x3ffcba10 0x40093b0d:0x3ffcba50 0x4009351f:0x3ffcba70 0x400e9c8b:0x3ffcbab0 0x400f497e:0x3ffcbad0 0x400f3449:0x3ffcbaf0 0x400f517a:0x3ffcbb50 0x400f45f9:0x3ffcbbc0 0x400f4b8f:0x3ffcbc30 0x400f4c4d:0x3ffcbc60 0x400f1fbb:0x3ffcbc90 0x400f1fce:0x3ffcbcc0 0x400e4fa4:0x3ffcbce0 0x400e7b99:0x3ffcbd10 0x40192043:0x3ffcbd40 0x4008cda1:0x3ffcbd70
+
+
+Core  1 register dump:
+PC      : 0x400817e9  PS      : 0x00060535  A0      : 0x80081a0e  A1      : 0x3ffbacb0  
+A2      : 0x00000001  A3      : 0x00000001  A4      : 0xffffffff  A5      : 0x3f429650  
+A6      : 0x3ffbdec8  A7      : 0x3ffc5220  A8      : 0x00000000  A9      : 0x3ffc4c56  
+A10     : 0x00000001  A11     : 0xffffffff  A12     : 0x84000042  A13     : 0x00000004  
+A14     : 0x00000001  A15     : 0x00000000  SAR     : 0x00000001  EXCCAUSE: 0x00000007  
+EXCVADDR: 0x00000000  LBEG    : 0x00000000  LEND    : 0x00000000  LCOUNT  : 0x00000000  
+
+
+Backtrace: 0x400817e6:0x3ffbacb0 0x40081a0b:0x3ffbacd0 0x4008cda1:0x3ffbad00
+
+
+
+
+ELF file SHA256: 95c93a547
+
+Rebooting...
+ets Jul 29 2019 12:21:46
+
+rst:0xc (SW_CPU_RESET),boot:0x12 (SPI_FAST_FLASH_BOOT)
+configsip: 0, SPIWP:0xee
+clk_drv:0x00,q_drv:0x00,d_drv:0x00,cs0_drv:0x00,hd_drv:0x00,wp_drv:0x00
+mode:DIO, clock div:1
+load:0x3fff0030,len:4640
+load:0x40078000,len:15592
+load:0x40080400,len:3164
+entry 0x4008059c
+
+assert failed: esp_phy_enable phy_init.c:336 (phy_module_has_clock_bits(PHY_INIT_MODEM_CLOCK_REQUIRED_BITS))
+
+
+Backtrace: 0x4008bf58:0x3ffcf360 0x4008bf1d:0x3ffcf380 0x400925c9:0x3ffcf3a0 0x400f5951:0x3ffcf4e0 0x401231ed:0x3ffcf500 0x4015198d:0x3ffcf520 0x4015236b:0x3ffcf540 0x4014feaa:0x3ffcf560 0x40188419:0x3ffcf580 0x4008cda1:0x3ffcf5b0
+
+
+
+
+ELF file SHA256: 95c93a547
+
+Rebooting...
+ets Jul 29 2019 12:21:46
+
+rst:0xc (SW_CPU_RESET),boot:0x12 (SPI_FAST_FLASH_BOOT)
+configsip: 0, SPIWP:0xee
+clk_drv:0x00,q_drv:0x00,d_drv:0x00,cs0_drv:0x00,hd_drv:0x00,wp_drv:0x00
+mode:DIO, clock div:1
+load:0x3fff0030,len:4640
+load:0x40078000,len:15592
+load:0x40080400,len:3164
+entry 0x4008059c
