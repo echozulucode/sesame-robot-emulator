@@ -25,6 +25,18 @@
         },
         "detectorThresholds": { "type": "object" },
         "sourceTree": { "type": "string" },
+        "sourceTreeProvenance": {
+          "type": "object",
+          "description": "Which tree the geometry was actually measured from versus which tree the recorded paths cite. F5 measured the gitignored reference/sesame-robot-main/ snapshot; the paths cite the pinned firmware/upstream/, which F2 proved byte-identical. Enforced by scripts/validate-assets-inventory.mjs.",
+          "required": ["measuredFrom", "citedAs", "upstreamCommit", "note"],
+          "additionalProperties": false,
+          "properties": {
+            "measuredFrom": { "type": "string" },
+            "citedAs": { "type": "string" },
+            "upstreamCommit": { "type": ["string", "null"], "pattern": "^[0-9a-f]{40}$" },
+            "note": { "type": "string" }
+          }
+        },
         "determinism": { "type": "string" },
         "verificationStatus": { "type": "string" }
       }

@@ -10,6 +10,7 @@ they cite, and records disagreements rather than smoothing them.
 
 **Companion gate reports:** [`GATE-A-renode-boot.md`](GATE-A-renode-boot.md) ·
 [`GATE-B-servo-extraction.md`](GATE-B-servo-extraction.md)
+**Closeout:** §10, appended by `phase0-closeout` · [`EXP6-oled.md`](EXP6-oled.md)
 
 ---
 
@@ -46,9 +47,9 @@ and were **not run** — see §1.2.
 | **3** | **Minimal UART** | exact message observed | **PASS** — freestanding C on the emulated core wrote UART0 MMIO; 199 bytes arrived byte-identical on a host TCP socket and decoded through the real R5 parser to `{type:'servo.target', joint:'R4', angleDeg:72, provenance:'observed'}` | R3 §5 `[RAN]` |
 | **4** | **Arduino startup** | marker appears | **FAIL** — none of the four raw UART markers ever reached the socket. The minimal sketch aborts on **instruction #0** (`entry a1,48` at `0x40025504`, `PS.WOE=0`, no boot ROM). Fallback per the report: *"inventory SoC startup dependencies"* — done, §9.1 of R4 | R4 §2 `[RAN]` |
 | **5** | **Sesame early boot** | identify exact first failing block | **The experiment PASSED; the boot did not.** The pass criterion is identification, and it was met precisely: first blocker `entry` at `0x40025738`; then, in order, ROM (`0x4000FF58`), EXTMEM cache (`0x400184BE`), `saltu` at `0x400E6AD2` in `s_get_bus_mask` (`cache_ll.h:473`), `rer` at `0x4009BAC2` in `panic_handler`. **0 of 20 `bootOrder` steps reached; 34 ESP-IDF startup functions short of `setup()`** | R4 §4 `[RAN]` |
-| **6** | **OLED** | `display.begin()` succeeds, pixels observable | **NOT RUN.** No task in the plan implemented it, and it is unreachable: no ESP32 I²C model and no SSD1306 model exist in Renode, and the boot dies 34 functions earlier. Priced by R4 at 3–5 d (I²C) + 2–3 d (SSD1306). **This is a genuine gap against the plan's own definition of done** — §6 | R1 §6, R4 §9.2 items 18–19. `[GR]` no findings doc references experiment 6 |
+| **6** | **OLED** | `display.begin()` succeeds, pixels observable | **FAIL against the literal criterion, split three ways** — see [`EXP6-oled.md`](EXP6-oled.md), written by `phase0-closeout`. **Renode: NO** — `display.begin()` is `bootOrder` step 4 of 20 and 0 steps are reached; making it runnable costs ≈21–33 d (≈16–25 d to `setup()`, +3–5 d I²C, +2–3 d SSD1306). **Instrumentation: YES** — the compile-gated OLED framebuffer hook was built for the first time (`s2mini-oled`, one `-D`), and it compiles, links, keeps its symbols, reads the real `Adafruit_SSD1306` buffer, routes to `Serial0`, and round-trips into a typed 128×64 `oled.frame`. **Silicon: untested.** *The plan's own gap — no task ever owned this experiment — is now closed with a recorded result* | R1 §6, R4 §9.2 items 18–19; EXP6 §2–§4 `[RAN]` |
 | **7** | **Servo** | joint + angle event captured | **PASS** via instrumented firmware. Single convergence point verified independently; 223/223 servo steps covered; reproducible ELF; format verified at source, patch, binary and call-site level | R6 §2–§4; Gate B §2 `[GR]` |
-| **8** | **Browser joint** | correct joint visibly moves | **PARTIAL PASS.** The architecture is proven end to end — Path B (replay → socket → bridge → WebSocket → canvas) and Path A (**real Renode** → emulated UART → same bridge) produce byte-identical envelope sequences, with an automated e2e test asserting all 35 fixture lines, gapless `seq`, and the L3 wave being exactly `180,100,180,100,…`. **But the report's experiment says "a real Sesame mesh" and R7 ships eight labelled canvas bars.** No mesh, no R3F, no 3D transform — deliberately, as a throwaway harness | R6/R7 §6–§9 `[RAN]`; `[GR]` 60 bridge tests pass |
+| **8** | **Browser joint** | correct joint visibly moves | **PARTIAL PASS.** The architecture is proven end to end — Path B (replay → socket → bridge → WebSocket → canvas) and Path A (**real Renode** → emulated UART → same bridge) produce byte-identical envelope sequences, with an automated e2e test asserting all 35 fixture lines, gapless `seq`, and the L3 wave being exactly `180,100,180,100,…`. **But the report's experiment says "a real Sesame mesh" and R7 ships eight labelled canvas bars.** No mesh, no R3F, no 3D transform — deliberately, as a throwaway harness. **The browser hop is now evidenced too:** `phase0-closeout` drove headless Edge over CDP against the live bridge and captured two renders at different points in the wave, with the joint angles read back out of the rendered canvas (§10) | R6/R7 §6–§9 `[RAN]`; `[GR]` 60 bridge tests pass; `docs/findings/assets/exp8-browser-*.png` `[RAN]` |
 
 ### 1.2 Experiments 9 and 10 — out of scope, not run
 
@@ -158,12 +159,12 @@ Recorded here rather than by editing another agent's file, per the phase's separ
 
 | Document | Claim | Correction |
 |---|---|---|
-| R4 §9.1 | "Subtotal ≈16–27 d → realistic band ≈18–30 d" | Line items for 1 and 3–11 sum to **15.25–23.25 d**; with the 1–2 d bring-up, **≈16–25 d**. The headline is padded in the prudent direction, which is fine, but it should be labelled as padding rather than presented as a sum `[GR]` |
-| R2 §5 | "96.5 % of the real firmware's instruction stream" | True **by occurrence**, and an upper bound (the 188-mnemonic probe set is disassembled, not executed). By **distinct mnemonic** the coverage is 169/205 = **82.4 %** `[GR]` |
-| R6/R7 §1 | "All **21** movement functions … route through it" | 223/223 servo steps do route through the single hook — verified independently. But **19 of 21** functions contain servo steps; `enterIdle` and `exitIdle` contain none `[GR]` |
-| R6/R7 §11 | Patch is "4 hunks, +126/-0" | Stale, from the pre-fix version. §2 of the same document says 196 added / 0 removed, which is correct: `[GR]` the file has 4 hunks, 196 added lines, 0 removed |
-| `hardware/hardware-map.json` | `meta.sourceTree.upstreamCommit: null`, noted "Unknown at F4 time — F2 owns resolving it" | **F2 resolved it** (`401730514cefed738710d22303e84b0dcd6b76d0`) and the map was committed in the same wave. The field is still null, so the single most provenance-heavy artifact in the repo does not name the commit its 1167 citations point into. Cosmetic today, a real traceability hole the moment lessons are generated from it. Left unedited by design; **fix in Phase 1** |
-| `hardware/assets-inventory.json` | `meta.sourceTree: "reference/sesame-robot-main/hardware/printing/stl"` | F5 measured from the **vendored reference copy**, not the pinned `firmware/upstream/`. Benign — F2 proved all 129 files byte-identical — but `reference/` is gitignored and untracked, so the provenance string points at a path a clean clone does not have. `firmware/upstream/` is the citable path |
+| R4 §9.1 | "Subtotal ≈16–27 d → realistic band ≈18–30 d" | Line items for 1 and 3–11 sum to **15.25–23.25 d**; with the 1–2 d bring-up, **≈16–25 d**. The headline is padded in the prudent direction, which is fine, but it should be labelled as padding rather than presented as a sum `[GR]`. **CORRECTED IN PLACE** by `phase0-closeout` at all four occurrences in R4, each carrying a dated correction note |
+| R2 §5 | "96.5 % of the real firmware's instruction stream" | True **by occurrence**, and an upper bound (the 188-mnemonic probe set is disassembled, not executed). By **distinct mnemonic** the coverage is 169/205 = **82.4 %** `[GR]`. **CORRECTED IN PLACE** — R2 §5 now states both figures side by side and labels which is which |
+| R6/R7 §1 | "All **21** movement functions … route through it" | 223/223 servo steps do route through the single hook — verified independently. But **19 of 21** functions contain servo steps; `enterIdle` and `exitIdle` contain none `[GR]`. **CORRECTED IN PLACE**; the Gate-B conclusion is unaffected. Re-derived a third time by `phase0-closeout` `[RAN]` |
+| R6/R7 §11 | Patch is "4 hunks, +126/-0" | Stale, from the pre-fix version. §2 of the same document says 196 added / 0 removed, which is correct: `[GR]` the file has 4 hunks, 196 added lines, 0 removed. **CORRECTED IN PLACE** |
+| `hardware/hardware-map.json` | `meta.sourceTree.upstreamCommit: null`, noted "Unknown at F4 time — F2 owns resolving it" | **F2 resolved it** (`401730514cefed738710d22303e84b0dcd6b76d0`) and the map was committed in the same wave. The field was still null, so the single most provenance-heavy artifact in the repo did not name the commit its 1167 citations point into. **FIXED by `phase0-closeout`** — the commit is recorded, the stale note replaced, and `validate-hardware-map.mjs` now cross-asserts it against `firmware/upstream.pin.json` (negative case exercised). §10 |
+| `hardware/assets-inventory.json` | `meta.sourceTree: "reference/sesame-robot-main/hardware/printing/stl"` | F5 measured from the **vendored reference copy**, not the pinned `firmware/upstream/`. Benign — F2 proved all 129 files byte-identical — but `reference/` is gitignored and untracked, so the provenance string pointed at a path a clean clone does not have. **FIXED by `phase0-closeout`** — all 22 path strings re-pointed after re-hashing 17/17 measured files at their new locations, `meta.sourceTreeProvenance` records what was measured versus what is cited, the generator maps paths only when byte-identity holds, and `pnpm validate:assets-inventory` enforces it. No geometry was re-extracted. §10 |
 | F5 §5 | "`sesame-angle-guide.png` is a top-down line drawing" | It is a three-quarter view. Corrected in F6 §8, and the "no front marker" half is right |
 | R3 §7.5 | The no-aliasing simplification "is the one most likely to bite R4" | It did not — the boot dies long before IDF's IRAM-attribute setup. Still live past `system_early_init` (R4 §6.5) |
 | R1 §6 | `ESP32_UART`'s map is "the S2/S3/C3 layout" | The S2 half is wrong; see correction 5 above (R3 §4) |
@@ -403,17 +404,20 @@ Every item was checked this session. Commands and real output below.
 |---|---|---|---|
 | 1 | Clean clone → `pnpm install` → `pnpm build` → `pnpm test` all green | **PARTIALLY MET** | `[GR]` `pnpm -r build` → 3/3 packages Done. `pnpm -r typecheck` → 3/3 Done. `pnpm -r test` → **368 passed, 1 skipped** (53 model + 255 protocol + 60 bridge). **Not verified:** the *clean clone → `pnpm install`* half — this session was forbidden from running `install`. Note that a clean clone would also skip ~7 artifact-dependent assertions, since `firmware/artifacts/` is gitignored; those tests `skipIf` correctly and name the command to enable them, so the suite is honest about it rather than silently weaker |
 | 2 | All three firmware profiles build; ELF SHA-256s recorded; determinism characterised | **MET, exceeded** | Four profiles (the fourth is `s2mini-instrumented`), all **bit-for-bit reproducible** across `--clean` rebuilds. `[GR]` on-disk ELFs re-hashed: `5436d303…9eedfd` (s2mini) and `7c3fd85a…92331f` (instrumented), both matching `reproducibility.json`. Determinism is characterised *and root-caused* — the `esp_app_desc_t` timestamp is Espressif's, frozen inside the pinned core, which is why pinning the core version pins the timestamp. Caveat recorded by F3: this is **same-machine** reproducibility; the absolute build path is embedded |
-| 3 | `hardware-map.json` + `joint-map.json` validate, with full source provenance | **MET** | `[GR]` `pnpm validate:hardware-map` → *OK … 4 boards · 8 servos · 10 routes · 21 movement functions (395 steps) · 38 faces · 20 boot steps · 21 commands · **1167 provenance citations, line numbers verified against `firmware/upstream`** · 10 unresolved*. `pnpm validate:joint-map` → *OK … 8 joints in firmware order, 8/8 semantic names all `verified:false`, cross-checked against hardware-map and assets-inventory*. One blemish: `hardware-map.meta.sourceTree.upstreamCommit` is still `null` (§3.3) |
+| 3 | `hardware-map.json` + `joint-map.json` validate, with full source provenance | **MET** | `[GR]` `pnpm validate:hardware-map` → *OK … 4 boards · 8 servos · 10 routes · 21 movement functions (395 steps) · 38 faces · 20 boot steps · 21 commands · **1167 provenance citations, line numbers verified against `firmware/upstream`** · 10 unresolved*. `pnpm validate:joint-map` → *OK … 8 joints in firmware order, 8/8 semantic names all `verified:false`, cross-checked against hardware-map and assets-inventory*. The one blemish — `hardware-map.meta.sourceTree.upstreamCommit` was `null` — is **closed** (§10), and a fourth validator, `pnpm validate:assets-inventory`, now enforces that F5's provenance resolves in a clean clone |
 | 4 | `sesame-model` + `sesame-protocol` in the workspace with tests | **MET** | `[GR]` both build, typecheck and test clean: 53 and 255 tests. The `JOINT_ORDER` regression guard asserts the tuple is exactly `R1,R2,L1,L2,R4,R3,L3,L4` and explicitly **not** the alphabetical sort — the order looks like a typo and alphabetising it would silently rewire four servos |
 | 5 | Renode 1.16.x sidecar installed; capability audit written with evidence | **MET** | `[GR]` `tools/renode/renode.exe --version` → `Renode v1.16.1.19220`. `C:\Program Files\Renode` (1.15.3) untouched. R1 is a 30 KB audit with per-row evidence and a revised feasibility matrix |
-| 6 | Experiments 1–7 each have a recorded pass/fail with evidence | **PARTIALLY MET** | 1,2,3,4,5,7 all have a documented result with evidence (§1.1). **Experiment 6 (OLED) has no recorded result in any findings document** — `[GR]` no findings file references it. The gap originates in the plan itself: §1 promises experiments 1–7, but the F1–F6/R1–R7 task breakdown contains no OLED task. It is also genuinely unreachable — no I²C model, no SSD1306 model, boot dies 34 functions earlier — so the honest entry is **NOT RUN, blocked, priced at 5–8 d**, which is now recorded here |
+| 6 | Experiments 1–7 each have a recorded pass/fail with evidence | **MET** | 1,2,3,4,5,7 documented by their own tasks (§1.1). Experiment 6 had **no recorded result anywhere** — a gap in the plan, which promised experiments 1–7 but assigned no OLED task. Closed by [`EXP6-oled.md`](EXP6-oled.md): the criterion **fails**, split into a Renode leg (**NO**, priced at ≈21–33 d), an instrumentation leg (**YES** — hook built and verified for the first time, §10) and a silicon leg (**untested**). A recorded, evidenced FAIL satisfies this item; an unrecorded experiment did not |
 | 7 | Gate A and Gate B answered | **MET** | `GATE-A-renode-boot.md`, `GATE-B-servo-extraction.md`, both written by an agent that did none of the work |
-| 8 | Telemetry flows end-to-end to a browser (Path A or Path B) | **PARTIALLY MET** | `[GR]` Both paths pass. Path B: an automated e2e test plays the 35-line fixture through a real TCP socket into a real WebSocket client (Node's built-in, not the `ws` one the server uses) and asserts gapless `seq`, correct joint/angle pairs, backlog replay, and that `GET /` serves the viewer. Path A: **real Renode** → emulated UART → same bridge → byte-identical envelopes. **What is not evidenced anywhere: an actual browser rendering it.** The plan's wording is *"a joint visibly moving in the browser"*; no screenshot, no human observation, no headless-browser assertion is recorded. The viewer HTML exists (308 lines, served, asserted to carry the firmware joint order) and a live process run delivered 40 envelopes to an attached client. The remaining step is a two-minute confirmation, not a defect — but it is unproven |
-| 9 | `reproducibility.json` fully populated for every artifact produced | **PARTIALLY MET** | `[GR]` `pnpm validate:reproducibility` → **OK**, 1 field unresolved (`lessonContentVersion`, correctly null — no lesson content exists). This session set `sesameLabCommit` and `assetSourceVersion` (§7.1). **But "every artifact" is not literally true**: the schema has no home for the R2/R3 probe ELF hashes (recorded only in R2 §7), the ESP32-S2 mask-ROM image hashes (R4 §1.1), or the `hardware-map.json` / `joint-map.json` / `assets-inventory.json` digests. Those *are* recorded, with hashes, in prose. Extending the schema is a Phase-1 task |
+| 8 | Telemetry flows end-to-end to a browser (Path A or Path B) | **MET** | `[GR]` Both paths pass. Path B: an automated e2e test plays the 35-line fixture through a real TCP socket into a real WebSocket client (Node's built-in, not the `ws` one the server uses) and asserts gapless `seq`, correct joint/angle pairs, backlog replay, and that `GET /` serves the viewer. Path A: **real Renode** → emulated UART → same bridge → byte-identical envelopes. The last hop — *"a joint visibly moving in the browser"* — was unevidenced, with no screenshot, no observation and no headless-browser assertion recorded. **Now evidenced by `phase0-closeout`** (§10): a real Chromium (headless Edge, zero install) driven over CDP against the live bridge, two PNGs captured at different points in the wave, and each joint's angle **read back out of the rendered canvas** and checked against the fixture. `docs/findings/assets/exp8-browser-l3-100.png` and `…-l3-180.png`, re-runnable via `pnpm capture:viewer` |
+| 9 | `reproducibility.json` fully populated for every artifact produced | **PARTIALLY MET** | `[GR]` `pnpm validate:reproducibility` → **OK**, 1 field unresolved (`lessonContentVersion`, correctly null — no lesson content exists). `gate-reporter` set `sesameLabCommit` and `assetSourceVersion` (§7.1); `phase0-closeout` added the fifth build profile, `s2mini-oled`, with its ELF/bin/map digests (§10). **But "every artifact" is not literally true**: the schema has no home for the R2/R3 probe ELF hashes (recorded only in R2 §7), the ESP32-S2 mask-ROM image hashes (R4 §1.1), or the `hardware-map.json` / `joint-map.json` / `assets-inventory.json` digests. Those *are* recorded, with hashes, in prose. Extending the schema is a Phase-1 task |
 | 10 | Phase-0 summary with corrections and a costed Phase-1 recommendation | **MET** | This document — §3 (20 corrections) and §7 |
 
-**Tally: 6 met, 4 partially met, 0 not met.** No item failed outright, and no command run this
-session errored.
+**Tally after the closeout: 8 met, 2 partially met, 0 not met** (was 6 / 4 / 0 — items 6 and 8 moved
+to met; see §10). No item failed outright, and no command run in either session errored. The two
+remaining partials are honest and both need something this repository cannot provide: item 1 needs a
+`pnpm install` on a clean clone, and item 9 needs a schema extension that has no artifacts to
+describe until Phase 1.
 
 ### 6.1 Verbatim, this session
 
@@ -480,11 +484,11 @@ One experienced developer; ranges, not promises. Items 1–4 have **no dependenc
 | **P1-1** | `SimulatedSesameRobot` behaviour model over `hardware-map.movements` + `joint-map` | **6–10 d** | The report's MVP. Consumes 395 steps directly; emits the existing protocol; reuses the bridge unchanged (it accepts any TCP producer of `@SESAME`). Must encode F4's three behavioural corrections: no inactivity-triggered idle, playback mode is global not per-face, `motorCurrentDelay` is a yield point |
 | **P1-2** | Browser articulated viewer (R3F) driven by the same WebSocket | **8–12 d** | Finally satisfies experiment 8 as written. Must be driven by *axis + sign*, not by `pivotOrigin` — the joint map gives points on lines, not joint centres, and says so in every caveat. Should surface the `provenance` tag in the UI, per the report's "See the Signal" requirement |
 | **P1-3** | `sesame-api` host adapter — all 10 routes | **4–6 d** | Gate D. Replicate the five quirks in §2.1, especially `HTTP_ANY` and the hand-rolled body parser |
-| **P1-4** | OLED path: enable the compile-gated framebuffer hook; decode in the viewer | **2–4 d** | The protocol, the SSD1306 page-layout decoder and 12 tests already exist. Delivers experiment 6's *educational* intent without touching Renode. (Experiment 6 as literally written — real `display.begin()` under emulation — stays with P1-6) |
+| **P1-4** | OLED path: enable the compile-gated framebuffer hook; decode in the viewer. **De-risked** — the firmware half is built and verified (§10, [`EXP6-oled.md`](EXP6-oled.md)); what remains is the viewer wiring and a board | **2–4 d** | The protocol, the SSD1306 page-layout decoder and 12 tests already exist. Delivers experiment 6's *educational* intent without touching Renode. (Experiment 6 as literally written — real `display.begin()` under emulation — stays with P1-6) |
 | **P1-5** | Contract/parity suite across `Simulated` / `Real` / `Renode` backends | **5–8 d** | Experiment 10. Only meaningful once P1-0 and P1-3 exist |
 | **P1-6** | **Renode research track**, in R4's order, off the critical path | **~3 d cheap + 1–2 d bring-up, then 12–20 d** | `rer` downgrade (0.5 d) → tlib/Renode build bring-up (1–2 d) → LX7 module-table drop (1 d) → `UART_INT_ST` (1 d) → EXTMEM (2–3 d) → SPI flash (5–8 d) → RTCCNTL / SYSTEM / SENSITIVE / EFUSE (6–10 d). **Fix `rer` first** — until then the emulator dies at the exact moment it becomes interesting. The cheap items are upstream contributions benefiting every future ESP32 Renode user |
 | **P1-7** | **Do not start LEDC / ESP32 I²C / SSD1306 peripheral modelling** | — | It pays off only after P1-6 lands, and instrumentation already delivers the same wire protocol |
-| **P1-8** | Housekeeping: fill `hardware-map.meta.sourceTree.upstreamCommit`; extend `reproducibility.schema.json` to cover probe ELFs and the ROM image; re-point `assets-inventory` provenance at `firmware/upstream/` | **0.5 d** | §3.3, §6 item 9 |
+| **P1-8** | Housekeeping: ~~fill `hardware-map.meta.sourceTree.upstreamCommit`~~ **done** · ~~re-point `assets-inventory` provenance at `firmware/upstream/`~~ **done** · extend `reproducibility.schema.json` to cover probe ELFs and the ROM image — **the only item left** | **~0.25 d** | §3.3, §6 item 9, §10 |
 
 Two standing constraints for Phase 1: the **1.2 MB app slot is 86.3 % full** (180 KB headroom, and
 the OLED hook costs a further ~1.4 KB of `.bss` when enabled); and **cross-machine build
@@ -546,10 +550,98 @@ first**.
 
 | Category | Artifacts |
 |---|---|
-| **Findings** | F2 (upstream drift), F3 (firmware build), F4 (doc drift), F5 (asset geometry), F6 (joint map), R1 (Renode audit), R2 (Xtensa ladder), R3 (UART probe), R4 (boot probe), R6+R7 (telemetry + bridge), and these three gate reports |
+| **Findings** | F2 (upstream drift), F3 (firmware build), F4 (doc drift), F5 (asset geometry), F6 (joint map), R1 (Renode audit), R2 (Xtensa ladder), R3 (UART probe), R4 (boot probe), R6+R7 (telemetry + bridge), EXP6 (OLED, closeout), and these three gate reports |
 | **Decisions** | ADR-0001 behavioural-simulator-first · ADR-0002 Renode portable sidecar |
 | **Contracts** | `docs/protocol/sesame-telemetry-v1.md` · `hardware/*.schema.json` × 3 · `reproducibility.schema.json` |
 | **Data** | `hardware-map.json` (10 074 lines, 1167 citations) · `joint-map.json` · `assets-inventory.json` (11 660 lines) · `reproducibility.json` |
-| **Code** | `@sesame-lab/sesame-model` · `@sesame-lab/sesame-protocol` · `@sesame-lab/sesame-bridge` · `debug-viewer/` · 8 build/validate/extract scripts · **368 tests** |
+| **Code** | `@sesame-lab/sesame-model` · `@sesame-lab/sesame-protocol` · `@sesame-lab/sesame-bridge` · `debug-viewer/` · 11 build/validate/extract/verify scripts · **368 tests** · two recorded browser renders (`docs/findings/assets/`) |
 | **Emulation** | `esp32s2-sesame.repl` + ROM and shim overlays · 25 `.resc` probes and scripts · committed raw logs for every run quoted in any finding |
-| **Firmware** | 4 reproducible profiles · 3 patches (2 board, 1 telemetry) · R2/R3/R4 probe sources · `firmware/upstream/` **never modified** |
+| **Firmware** | **5** reproducible profiles (the fifth, `s2mini-oled`, added by the closeout) · 3 patches (2 board, 1 telemetry) · R2/R3/R4 probe sources · `firmware/upstream/` **never modified** |
+
+---
+
+## 10. Closeout
+
+**Author:** `phase0-closeout`, 2026-08-23, appended after §1–§9 were written. This agent did not
+perform the F/R work either; it closed the specific defects and omissions §3.3 and §6 named. Six
+tasks, all of them named gaps rather than new scope. Nothing in §0–§9 above was rewritten beyond
+the individual rows these tasks made stale, each of which now points here.
+
+### 10.1 What changed
+
+| # | Gap | What was done | Verified by |
+|---|---|---|---|
+| **1** | `hardware-map.json` carried `upstreamCommit: null` with a note saying F2 owned it — and F2 had resolved it in the same wave. The repo's most provenance-heavy artifact did not name the commit its 1167 citations point into | Set to `401730514cefed738710d22303e84b0dcd6b76d0` from `firmware/upstream.pin.json`; stale note replaced with the resolution, the byte-identity evidence and the backfill. There is no generator for this file, so it was edited in place. **`validate-hardware-map.mjs` now cross-asserts the field against the pin file** and rejects `null` | `pnpm validate:hardware-map` → OK, 1167 citations line-verified. The new check was exercised **negatively** on a copy with the field reverted, and failed as it should `[RAN]` |
+| **2** | Experiment 6 (OLED) had no recorded result in any document — a hole in the plan, not just in the work | [`EXP6-oled.md`](EXP6-oled.md). Renode leg answered **NO** from R4's existing evidence, with no boot probe re-run. Instrumentation leg **proven for the first time**: new `s2mini-oled` profile (`-DSESAME_TELEMETRY_OLED=1`, source default untouched at `0`), and `scripts/verify-oled-hook.mjs` (`pnpm verify:oled-hook`) | Compiles and links; symbols present; `Adafruit_SSD1306::getBuffer()` really called; **cost +308 B flash / +1 376 B RAM**; literal absent from both other profiles and present here in `.elf` and `.bin`; call site resolves to **`Serial0`**; a rendered line round-trips to a typed `oled.frame` 128×64, byte-identical over 1024 bytes; bit-identical across two `--clean` rebuilds `[RAN]` |
+| **3** | "a joint visibly moving in the browser" had never been observed | `scripts/capture-viewer-screenshots.mjs` (`pnpm capture:viewer`): starts the real bridge on the `runWavePose` fixture, launches the machine's own Edge in `--headless=new` with no install, and drives it over CDP | **Two real screenshots** at different points in the wave — `assets/exp8-browser-l3-100.png` and `assets/exp8-browser-l3-180.png` — plus `assets/exp8-browser-capture.json`. All eight joint angles were **read back out of the rendered canvas** (bar pixel widths, not JS variables) and matched the fixture; the two PNGs are asserted to differ `[RAN]` |
+| **4** | Four known-wrong numbers still standing in findings docs | Fixed in place with dated `> **Corrected 2026-08-23**` notes: R4's ≈18–30 d headline (4 occurrences) → **≈16–25 d** with the arithmetic shown and the padding labelled; R2's "96.5 %" → both figures, **96.5 % by occurrence / 82.4 % by distinct mnemonic**, each labelled; R6/R7 §11 `+126/-0` → **+196/−0**; R6/R7 §1 "all 21 movement functions" → **19 of 21** contain servo steps, conclusion unchanged | Patch stats counted from the file (4 hunks, 196 added, 0 removed); the 19-of-21 / 223-of-395 split recomputed independently from `hardware-map.json` by walking every nested `repeat`/`conditional`/`call` `[RAN]` |
+| **5** | F5's provenance named `reference/`, which a clean clone does not have | All 22 path strings re-pointed to `firmware/upstream/` **after re-hashing all 17 measured files (15 STL + 2 CAD) at the new locations** — every sha256 and byte count unchanged. `meta.sourceTreeProvenance` records measured-from versus cited-as plus the commit. `extract-stl-geometry.py` grew a `citable_path()` that only remaps when byte-identity holds. New validator `scripts/validate-assets-inventory.mjs`. **No geometry was re-extracted.** The same fix was applied to `build-joint-map.mjs`, whose four upstream sources had the same problem; `joint-map.json` was regenerated | `pnpm validate:assets-inventory` → OK, 21 upstream paths all citing the pinned tree, 17 files re-hashed and matching. `pnpm validate:joint-map` → OK, cross-checked `[RAN]` |
+| **6** | — | Full verification, `reproducibility.json` updated with the fifth build profile, this section | §10.3 |
+
+Two smaller things were fixed in passing and are recorded rather than hidden: `hardware-map.json`
+said the OLED hard-fail's `while (1);` is at `.ino:662` — it is at **:661**, verified against the
+pinned tree; and `package.json` gained three scripts (`verify:oled-hook`, `capture:viewer`,
+`validate:assets-inventory`).
+
+### 10.2 The browser render, since it is the item that had no evidence at all
+
+Two frames from one continuous run of the `runWavePose` fixture, **one telemetry event apart**
+(28 events received versus 29) — i.e. 320 ms of fixture time.
+Everything except the **L3** bar is identical; L3 moves 100° → 180°, which is exactly the
+`180,100,180,100,…` alternation the R7 e2e test asserts on the wire. This is the same joint, in a
+real browser, driven by the same bridge.
+
+| L3 at 100° | L3 at 180° |
+|---|---|
+| ![Sesame debug viewer, L3 at 100 degrees](assets/exp8-browser-l3-100.png) | ![Sesame debug viewer, L3 at 180 degrees](assets/exp8-browser-l3-180.png) |
+
+The screenshots are corroboration, not the assertion. The assertion is that all eight bars were
+**read back out of the rendered canvas** by pixel width and matched the fixture
+(`R1 100 · R2 45 · L1 45 · L2 90 · R4 80 · R3 180 · L4 180`, with L3 the variable), that the viewer
+reported `connected`, and that the two PNGs are not byte-identical — a single static frame would
+prove a render, not motion. Machine-readable in `assets/exp8-browser-capture.json`.
+
+Two caveats, stated because the image looks more conclusive than it is: the OLED panel is blank and
+`frames received` is 0, because the fixture contains no `oled` lines (the hook ships disabled — task
+2); and the provenance chip reads **`simulated`**, correctly, because this is Path B — a replayed
+fixture never happened on a robot. Path A would render the same bars tagged `observed`.
+
+### 10.3 Verbatim, this session
+
+```
+$ pnpm -r build                    → 3 projects, all Done
+$ pnpm -r typecheck                → 3 projects, all Done
+$ pnpm -r test                     → 368 passed | 1 skipped  (53 model + 255 protocol + 60 bridge)
+$ pnpm validate:reproducibility    → OK (1 field unresolved: lessonContentVersion)
+$ pnpm validate:hardware-map       → OK (1167 provenance citations line-verified, 10 unresolved)
+$ pnpm validate:joint-map          → OK (8 joints, 8/8 semantic names verified:false)
+$ pnpm validate:assets-inventory   → OK (15 parts, 2 CAD, 21 upstream paths, 17 files re-hashed)
+$ pnpm validate:replay-fixture     → up to date (35 lines, 3680 ms)
+$ pnpm validate:telemetry-literals → up to date (4 literals)
+$ pnpm verify:oled-hook            → OK  (+308 B flash, +1376 B RAM, port=Serial0, round trip clean)
+$ pnpm capture:viewer              → OK  (two browser renders, canvas read back, images differ)
+```
+
+`reproducibility.json` now carries **five** build profiles. `s2mini-oled`:
+`elf d61fea9f…5bbcfbda`, `bin 38ff00f5…09245995`, both reproduced byte-for-byte across a second
+full `--clean` rebuild. No other recorded hash changed — the three data artifacts this session
+edited (`hardware-map.json`, `assets-inventory.json`, `joint-map.json`) have no digest fields in
+`reproducibility.json`, which is itself §6 item 9's open point.
+
+### 10.4 What the closeout did **not** do
+
+Stated so the next reader does not have to infer it:
+
+- **The OLED hook is still disabled by default** and must stay that way. `s2mini-oled` exists to
+  prove the path, not to ship it: 1386 B per frame is ~120 ms at 115200, six times the 20 ms
+  `motorCurrentDelay` budget it would fire inside. `build-firmware.mjs` still fails any build whose
+  source default is not `0`.
+- **No Renode work.** No boot probe re-run, no tlib patch, no build from source. Leg 1 of EXP6 is
+  R4's evidence restated, not new measurement.
+- **No geometry re-extraction, no re-measurement.** Task 5 moved provenance strings after proving
+  the bytes are the same; the numbers F5 produced are untouched.
+- **Nothing was flashed.** Everything the phase says about silicon in §8 is still open, and
+  EXP6's third leg joins it.
+- **No Phase-1 work.** P1-8's housekeeping list is now empty except for the
+  `reproducibility.schema.json` extension, which stays a Phase-1 task because it has nothing to
+  describe yet.

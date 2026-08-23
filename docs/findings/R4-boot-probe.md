@@ -543,8 +543,15 @@ independently corroborates it (§4.3).
 >
 > **But it is bounded, ordered and priced.** §9 lists every blocker with an observed PC or a counted
 > static reference. The path to *user code executing* — as distinct from a faithful robot — runs
-> through eleven items totalling **≈18–30 engineering days**, of which one (the boot ROM) is already
-> delivered and two (`salt`/`saltu`, `rer`) are upstream one-liners behind a build.
+> through eleven items totalling **≈16–25 engineering days** by the line items in §9.1, of which one
+> (the boot ROM) is already delivered and two (`salt`/`saltu`, `rer`) are upstream one-liners behind
+> a build.
+>
+> **Corrected 2026-08-23 (phase-0 closeout):** this line originally read "≈18–30 engineering days".
+> That figure does not sum from §9.1's own table — the line items give 15.25–23.25 d, or ≈16–25 d
+> once the 1–2 d one-off build bring-up is added. The headline was padded in the prudent direction,
+> which is defensible, but it was presented as a sum. **≈16–25 d is the sum; ≈18–30 d is the padded
+> band**, and both are now labelled as such wherever they appear. See §9.1.
 >
 > This does **not** change the Phase-0 recommendation: the behavioural simulator stays primary and
 > the instrumented-firmware telemetry path (R6 / Gate B) stays the way the robot gets driven. What
@@ -576,8 +583,17 @@ machine, or a counted static reference in the real ELF.
 | 10 | **EFUSE** `0x3F41A000` | `0x3F41A034` observed `[RAN]`; `efuse_hal_blk_version`, chip-revision checks | **YES** (IDF asserts on revision) | **0.5–1 d** — constant-valued block |
 | 11 | **IRAM/DRAM aliasing** (`0x4002xxxx` ↔ `0x3FFBxxxx`) | not yet hit; `esp32s2-sesame.repl` note 1 `[SRC]` | likely, past `system_early_init` | **0.5 d** — one memory, two sysbus mappings |
 
-**Subtotal to plausibly reach `setup()`: ≈16–27 d** (items 1, 3–11), of which item 2 is already
-delivered. Add the 1–2 d one-off build bring-up and the realistic band is **≈18–30 d**.
+**Subtotal to plausibly reach `setup()`: 15.25–23.25 d** (items 1, 3–11), of which item 2 is already
+delivered. Add the 1–2 d one-off build bring-up and the sum is **≈16–25 d**.
+
+> **Corrected 2026-08-23 (phase-0 closeout):** this originally read "≈16–27 d … realistic band
+> ≈18–30 d". Neither number sums from the table above. Adding the low ends of items 1 and 3–11 gives
+> 0.25 + 2 + 1 + 0.5 + 5 + 3 + 2 + 0.5 + 0.5 + 0.5 = **15.25 d**; the high ends give 0.25 + 3 + 1 +
+> 0.5 + 8 + 5 + 3 + 1 + 1 + 0.5 = **23.25 d**. With the 1–2 d bring-up that is **≈16–25 d**.
+> The original ≈18–30 d was padding for unstated integration overhead, not arithmetic. It is a
+> reasonable thing to carry — a register-modelling exercise with no calibration point should not be
+> quoted at its floor — but it must be quoted as **padding on top of a ≈16–25 d sum**, never as the
+> sum itself. Independently re-checked by `gate-reporter` (Gate A §4.2).
 
 ### 9.2 Needed for the firmware to *work*, once it boots
 
@@ -600,7 +616,8 @@ delivered. Add the 1–2 d one-off build bring-up and the realistic band is **�
 
 ### 9.3 The shape of the answer
 
-- **Reaching `setup()`:** ≈18–30 d, dominated by the flash controller, the clock tree and the cache
+- **Reaching `setup()`:** **≈16–25 d** by line item (≈18–30 d if the padded band is preferred; see
+  the correction in §9.1), dominated by the flash controller, the clock tree and the cache
   controller. None of it is research; all of it is register-level modelling against Espressif
   headers already on this machine.
 - **A robot that moves:** add items 12, 13, 16, 17 → **+10–16 d**.
@@ -733,5 +750,5 @@ then `target remote :3333` from the no-python GDB with the ELF loaded.
 5. **Tell R6/R7 about `ARDUINO_USB_CDC_ON_BOOT=1`** (§6.4). It costs nothing to fix now and silently
    breaks Path A later.
 6. **Phase 0's conclusion is unchanged and now evidenced:** behavioural simulator primary,
-   instrumented firmware for Gate B, Renode as a research track with a ~18–30 day price tag to reach
-   user code and no Wi-Fi story at any price.
+   instrumented firmware for Gate B, Renode as a research track with a **~16–25 day** price tag to
+   reach user code (§9.1, corrected 2026-08-23) and no Wi-Fi story at any price.

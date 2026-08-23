@@ -760,6 +760,54 @@ def classify(filename: str) -> tuple[str, str | None]:
     return "unknown", None
 
 
+# --------------------------------------------------------------------------
+# Provenance: cite the PINNED tree, not whichever copy happened to be handy.
+#
+# F5 originally ran over the vendored reference/sesame-robot-main/ snapshot,
+# which is gitignored, so every recorded path named a location a clean clone
+# does not have. The measurements were correct; the citations were unfollowable.
+# citable_path() rewrites such a path onto firmware/upstream/ -- but ONLY after
+# confirming the file is there and byte-identical, so it can never launder a
+# measurement of one tree into a citation of a different one.
+# --------------------------------------------------------------------------
+VENDORED_PREFIX = 'reference/sesame-robot-main/'
+PINNED_PREFIX = 'firmware/upstream/'
+
+
+def upstream_commit(repo_root: Path) -> str | None:
+    """The commit firmware/upstream/ is pinned to, or None if unpinned."""
+    pin = repo_root / "firmware" / "upstream.pin.json"
+    if not pin.is_file():
+        return None
+    return json.loads(pin.read_text(encoding="utf-8")).get("commit")
+
+
+def citable_path(path: Path, repo_root: Path) -> str:
+    """Repo-relative posix path, moved onto the pinned tree when equivalent."""
+    rel = path.relative_to(repo_root).as_posix()
+    if not rel.startswith(VENDORED_PREFIX):
+        return rel
+    pinned = PINNED_PREFIX + rel[len(VENDORED_PREFIX):]
+    target = repo_root / pinned
+    if path.is_dir():
+        # Directories carry no bytes of their own; every file measured under
+        # this directory is hash-checked individually below, and
+        # scripts/validate-assets-inventory.mjs re-checks the lot.
+        return pinned if target.is_dir() else rel
+    if target.is_file() and sha256_file(target) == sha256_file(path):
+        return pinned
+    return rel
+
+
+def citable_text(text: str, repo_root: Path) -> str:
+    """Same mapping for prose that embeds paths."""
+    out = text
+    for m in sorted(set(re.findall(r"reference/sesame-robot-main/[A-Za-z0-9_./-]+", text)),
+                    key=len, reverse=True):
+        out = out.replace(m, citable_path(repo_root / m, repo_root))
+    return out
+
+
 def measure(path: Path, repo_root: Path) -> tuple[dict[str, Any], trimesh.Trimesh]:
     raw_facets = stl_header_facet_count(path)
     mesh = trimesh.load(str(path), file_type="stl", process=True)
@@ -794,7 +842,7 @@ def measure(path: Path, repo_root: Path) -> tuple[dict[str, Any], trimesh.Trimes
 
     entry: dict[str, Any] = {
         "file": path.name,
-        "path": path.relative_to(repo_root).as_posix(),
+        "path": citable_path(path, repo_root),
         "sha256": sha256_file(path),
         "bytes": path.stat().st_size,
         "role": role,
@@ -933,7 +981,7 @@ def inspect_cad(cad_dir: Path, repo_root: Path) -> list[dict[str, Any]]:
             continue
         e: dict[str, Any] = {
             "file": p.name,
-            "path": p.relative_to(repo_root).as_posix(),
+            "path": citable_path(p, repo_root),
             "sha256": sha256_file(p),
             "bytes": p.stat().st_size,
             "parsed": False,
@@ -1302,7 +1350,19 @@ def build_inventory(args) -> dict[str, Any]:
                 "coaxialAngleDeg": COAXIAL_ANGLE_DEG,
                 "coaxialOffset": COAXIAL_OFFSET,
             },
-            "sourceTree": stl_dir.relative_to(repo_root).as_posix(),
+            "sourceTree": citable_path(stl_dir, repo_root),
+            "sourceTreeProvenance": {
+                "measuredFrom": stl_dir.relative_to(repo_root).as_posix(),
+                "citedAs": citable_path(stl_dir, repo_root),
+                "upstreamCommit": upstream_commit(repo_root),
+                "note": ("Paths in this file cite the pinned tree. Where the "
+                         "extractor was pointed at the vendored "
+                         "reference/sesame-robot-main/ snapshot, each path was "
+                         "moved onto firmware/upstream/ only after confirming "
+                         "the target file exists and is byte-identical "
+                         "(citable_path()). Enforced by "
+                         "scripts/validate-assets-inventory.mjs."),
+            },
             "determinism": ("Re-running with the same inputs reproduces this "
                             "file byte-for-byte except meta.generatedAt; pass "
                             "--generated-at to pin that too."),
@@ -1315,9 +1375,10 @@ def build_inventory(args) -> dict[str, Any]:
         "servo": servo,
         "expectedPartSet": {
             "count": 11,
-            "source": ("reference/sesame-robot-main/hardware/printing/README.md "
-                       "and reference/sesame-robot-main/docs/build-guide/"
-                       "README.md line 33"),
+            "source": citable_text(
+                "reference/sesame-robot-main/hardware/printing/README.md and "
+                "reference/sesame-robot-main/docs/build-guide/README.md line 33",
+                repo_root),
             "composition": ("internal frame + bottom cover + one top cover "
                             "(three interchangeable styles shipped) + joints "
                             "R1-R4 and L1-L4"),

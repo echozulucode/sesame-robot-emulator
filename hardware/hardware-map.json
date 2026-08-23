@@ -6,10 +6,10 @@
     "generatedAt": "2026-08-23",
     "generatedBy": "boundary-inventory agent (Sesame Lab Phase 0)",
     "sourceTree": {
-      "description": "Upstream Sesame robot firmware, read from the vendored snapshot at reference/sesame-robot-main/ (F2 lands the same tree at firmware/upstream/).",
-      "pathsRelativeTo": "the upstream repository root. A provenance path of \"firmware/sesame-firmware-main.ino\" therefore resolves to firmware/upstream/firmware/sesame-firmware-main.ino once F2 has run, and to reference/sesame-robot-main/firmware/sesame-firmware-main.ino today.",
-      "upstreamCommit": null,
-      "upstreamCommitNote": "Unknown at F4 time — the vendored snapshot carries no SHA. F2 owns resolving it.",
+      "description": "Upstream Sesame robot firmware. F4 read the vendored snapshot at reference/sesame-robot-main/; F2 landed the byte-identical pinned tree at firmware/upstream/, which is what every path in this file cites.",
+      "pathsRelativeTo": "the upstream repository root. A provenance path of \"firmware/sesame-firmware-main.ino\" therefore resolves to firmware/upstream/firmware/sesame-firmware-main.ino, the tree pinned at meta.sourceTree.upstreamCommit. F2 has since run, so that is the citable location; the gitignored reference/sesame-robot-main/ snapshot F4 originally read is byte-identical to it (129/129 files) but is absent from a clean clone. pnpm validate:hardware-map --check-lines verifies every citation's line number against firmware/upstream/.",
+      "upstreamCommit": "401730514cefed738710d22303e84b0dcd6b76d0",
+      "upstreamCommitNote": "Resolved by F2 and recorded in firmware/upstream.pin.json (git ls-remote on https://github.com/dorianborian/sesame-robot.git refs/heads/main, 2026-08-23). F4 read the vendored reference/sesame-robot-main/ snapshot, which F2 verified byte-for-byte identical to firmware/upstream/ at this commit for all 129 files (docs/findings/F2-upstream-drift.md), so every provenance citation in this file resolves against this commit. Backfilled by the phase-0 closeout task.",
       "filesRead": [
         {
           "file": "firmware/sesame-firmware-main.ino",
@@ -9118,7 +9118,7 @@
         "line": 659
       },
       "bootBlocker": true,
-      "note": "HARD FAIL: on false, prints \"SSD1306 allocation failed.\" and enters `while (1);` at line 662. Nothing after this point executes."
+      "note": "HARD FAIL: on false, prints \"SSD1306 allocation failed.\" and enters `while (1);` at line 661. Nothing after this point executes. (Line number corrected from 662 by the phase-0 closeout task; verified against firmware/upstream/firmware/sesame-firmware-main.ino at the pinned commit.)"
     },
     {
       "order": 5,

@@ -68,6 +68,29 @@ profiles:
       - Adafruit GFX Library (1.12.6)
       - Adafruit BusIO (1.17.4)
 
+  # ------------------------------------------------------------ s2mini-oled --
+  # Phase-0 closeout (EXP6): the s2mini-instrumented configuration compiled with
+  # -DSESAME_TELEMETRY_OLED=1, which the patch's own #ifndef leaves overridable
+  # from the command line. Identical FQBN, core, libraries and board options to
+  # s2mini-instrumented, and the patch's in-source default stays 0 - the ONLY
+  # difference is the one -D, which is what makes the flash/RAM delta between
+  # the two attributable to the OLED framebuffer hook alone.
+  #
+  # This profile exists to PROVE the compile-gated hook builds, links and emits
+  # a decodable line. It is not the default and must not become one: one frame
+  # is 1385 bytes, ~120 ms at 115200 baud. See docs/findings/EXP6-oled.md.
+  s2mini-oled:
+    notes: Lolin S2 Mini (ESP32-S2), telemetry hooks + the OLED framebuffer hook enabled via -DSESAME_TELEMETRY_OLED=1.
+    fqbn: esp32:esp32:lolin_s2_mini:CDCOnBoot=default,PartitionScheme=default,DebugLevel=none,EraseFlash=none
+    platforms:
+      - platform: esp32:esp32 (3.3.11)
+        platform_index_url: https://espressif.github.io/arduino-esp32/package_esp32_index.json
+    libraries:
+      - ESP32Servo (3.0.9)
+      - Adafruit SSD1306 (2.5.17)
+      - Adafruit GFX Library (1.12.6)
+      - Adafruit BusIO (1.17.4)
+
   # ---------------------------------------------------------- distro-v3-s3 --
   # Requires firmware/patches/board-distro-v3-s3.patch.
   # hardware-map board "distro-v3": servoPins {4,5,6,7,10,11,12,13}, I2C SDA 8 / SCL 9.

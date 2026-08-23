@@ -192,6 +192,24 @@ for (const u of map.unresolved) {
   check(topLevel.has(root), `unresolved "${u.id}": subject "${u.subject}" does not start at a top-level section`);
 }
 
+// ------------------------------------- upstream commit must match the pin
+// Cross-artifact check: the commit this map's 1167 citations resolve into is
+// owned by firmware/upstream.pin.json (F2). Asserting equality here means the
+// two artifacts cannot silently disagree, and a null here is now a failure.
+const pinPath = resolve(repoRoot, 'firmware/upstream.pin.json');
+if (existsSync(pinPath)) {
+  const pin = readJson(pinPath);
+  const mapped = map.meta.sourceTree.upstreamCommit;
+  check(
+    typeof mapped === 'string' && /^[0-9a-f]{40}$/.test(mapped),
+    `meta.sourceTree.upstreamCommit must be a 40-hex commit (found ${JSON.stringify(mapped)}); it is resolved in firmware/upstream.pin.json`,
+  );
+  check(
+    mapped === pin.commit,
+    `meta.sourceTree.upstreamCommit (${mapped}) does not match firmware/upstream.pin.json commit (${pin.commit})`,
+  );
+}
+
 // ------------------------------------------------- provenance path coverage
 const declaredFiles = new Set(map.meta.sourceTree.filesRead.map((f) => f.file));
 const citations = [];

@@ -37,6 +37,17 @@ const PROFILES = {
   // R6. Same board configuration as s2mini; the only difference is the patch,
   // which is what makes the flash/RAM delta between the two attributable.
   's2mini-instrumented': { patch: 'telemetry-instrumentation.patch', boardId: 's2-mini', telemetry: true },
+  // EXP6 (phase-0 closeout). Same patch, same board config, same FQBN as
+  // s2mini-instrumented; the ONLY difference is -DSESAME_TELEMETRY_OLED=1,
+  // which the patch's `#ifndef SESAME_TELEMETRY_OLED` leaves overridable from
+  // the command line without changing its in-source default of 0. That makes
+  // the flash/RAM delta between the two builds attributable to the OLED
+  // framebuffer hook alone. Proving the hook compiles is the point; it is NOT
+  // a shipping profile (1385 B/frame, ~120 ms at 115200 baud).
+  's2mini-oled': {
+    patch: 'telemetry-instrumentation.patch', boardId: 's2-mini', telemetry: true,
+    defines: ['SESAME_TELEMETRY_OLED=1'],
+  },
   'distro-v3-s3': { patch: 'board-distro-v3-s3.patch', boardId: 'distro-v3' },
   'distro-v1-esp32': { patch: 'board-distro-v1-esp32.patch', boardId: 'distro-v1' },
 };
@@ -49,6 +60,15 @@ if (!profile || !PROFILES[profile]) {
   process.exit(2);
 }
 const spec = PROFILES[profile];
+
+// Profile-level -D flags. Injected through compiler.cpp.extra_flags (present in
+// the esp32 3.3.11 recipe.cpp.o.pattern) rather than by editing the patch, so
+// the checked-in source default is never touched and the two builds differ by
+// exactly one token. Passed to BOTH `compile` and `--show-properties`, or the
+// manifest would describe a build that never happened.
+const EXTRA_BUILD_PROPS = (spec.defines ?? []).length
+  ? ['--build-property', `compiler.cpp.extra_flags=${spec.defines.map((d) => `-D${d}`).join(' ')}`]
+  : [];
 
 // Every arduino-cli invocation MUST carry --config-file. A bare invocation
 // falls back to %LOCALAPPDATA%\Arduino15 and violates the no-machine-wide-state
@@ -252,6 +272,11 @@ if (spec.telemetry) {
     protocolVersion: Number(src.match(/#define SESAME_TELEMETRY_VERSION (\d+)/)?.[1] ?? 0),
     emitter: src.match(/#define SESAME_TELEMETRY_EMITTER "([^"]*)"/)?.[1] ?? null,
     oledHookEnabledByDefault: false,
+    // What the OLED gate actually evaluates to for THIS build. The source
+    // default above stays 0 on every profile; only a -D on the command line
+    // turns it on, and only the s2mini-oled profile does that.
+    oledHookEnabledInThisBuild: (spec.defines ?? []).includes('SESAME_TELEMETRY_OLED=1'),
+    extraDefines: spec.defines ?? [],
     port: 'Serial0',
     portIsUart0: true,
     // arduinoUsbCdcOnBoot / arduinoUsbMode / serialAliasesTo are filled in below,
@@ -275,6 +300,7 @@ const res = spawnSync(CLI, [
   '--build-path', BUILD_PATH,
   '--output-dir', OUT_DIR,
   '--warnings', 'default',
+  ...EXTRA_BUILD_PROPS,
   '--json', SKETCH_DIR,
 ], { env: ENV, encoding: 'utf8', maxBuffer: 512 * 1024 * 1024 });
 const elapsed = ((Date.now() - t0) / 1000).toFixed(1);
@@ -305,7 +331,7 @@ if (fs.existsSync(mapSrc) && !fs.existsSync(path.join(OUT_DIR, `${SKETCH_NAME}.i
 // a manifest that quietly describes a build that never happened.
 const props = Object.fromEntries(
   acli(['compile', '--profile', profile, '--warnings', 'default',
-        '--build-path', BUILD_PATH, '--show-properties', SKETCH_DIR])
+        '--build-path', BUILD_PATH, ...EXTRA_BUILD_PROPS, '--show-properties', SKETCH_DIR])
     .split(/\r?\n/).filter((l) => l.includes('=')).map((l) => {
       const i = l.indexOf('=');
       return [l.slice(0, i), l.slice(i + 1)];

@@ -53,6 +53,27 @@
       "builtAt": "2026-08-23T17:14:18.127Z"
     },
     {
+      "profile": "s2mini-oled",
+      "fqbn": "esp32:esp32:lolin_s2_mini:CDCOnBoot=default,PartitionScheme=default,DebugLevel=none,EraseFlash=none",
+      "buildFlags": [
+        "build.extra_flags=-DARDUINO_HOST_OS=\"windows\" -DARDUINO_FQBN=\"esp32:esp32:lolin_s2_mini:CDCOnBoot=default,PartitionScheme=default,DebugLevel=none,EraseFlash=none\" -DESP32=ESP32 -DCORE_DEBUG_LEVEL=0   -DBOARD_HAS_PSRAM -DARDUINO_USB_MODE=0 -DARDUINO_USB_CDC_ON_BOOT=1 -DARDUINO_USB_MSC_ON_BOOT=0 -DARDUINO_USB_DFU_ON_BOOT=0 ",
+        "build.defines=-DBOARD_HAS_PSRAM",
+        "compiler.c.flags=-MMD -c \"@C:\\Projects\\sesame-robot-emulator\\tools\\arduino-data\\data\\internal\\esp32_esp32s2-libs_3.3.11_7e8ee1fb2020ede4/flags/c_flags\" -w -Os -Werror=return-type",
+        "compiler.cpp.flags=-MMD -c \"@C:\\Projects\\sesame-robot-emulator\\tools\\arduino-data\\data\\internal\\esp32_esp32s2-libs_3.3.11_7e8ee1fb2020ede4/flags/cpp_flags\" -w -Os -Werror=return-type",
+        "compiler.c.elf.flags=\"-Wl,--Map=C:\\Projects\\sesame-robot-emulator\\tools\\arduino-data\\scratch\\s2mini-oled\\build/sesame-firmware-main.ino.map\" \"-LC:\\Projects\\sesame-robot-emulator\\tools\\arduino-data\\data\\internal\\esp32_esp32s2-libs_3.3.11_7e8ee1fb2020ede4/lib\" \"-LC:\\Projects\\sesame-robot-emulator\\tools\\arduino-data\\data\\internal\\esp32_esp32s2-libs_3.3.11_7e8ee1fb2020ede4/ld\" \"-LC:\\Projects\\sesame-robot-emulator\\tools\\arduino-data\\data\\internal\\esp32_esp32s2-libs_3.3.11_7e8ee1fb2020ede4/qio_qspi\" \"-Wl,--wrap=esp_panic_handler\" \"-Wl,--wrap=esp_bt_mem_release\" \"-Wl,--wrap=esp_bt_controller_mem_release\" \"@C:\\Projects\\sesame-robot-emulator\\tools\\arduino-data\\data\\internal\\esp32_esp32s2-libs_3.3.11_7e8ee1fb2020ede4/flags/ld_flags\" \"@C:\\Projects\\sesame-robot-emulator\\tools\\arduino-data\\data\\internal\\esp32_esp32s2-libs_3.3.11_7e8ee1fb2020ede4/flags/ld_scripts\"",
+        "build.partitions=default",
+        "build.flash_mode=dio",
+        "build.flash_freq=80m",
+        "build.flash_size=4MB",
+        "build.cdc_on_boot=1",
+        "compiler.cpp.extra_flags=-DSESAME_TELEMETRY_OLED=1"
+      ],
+      "elfSha256": "d61fea9fe38b2f531f4181a3339e89c9cca5360f1de3b5d4cd849f9b5bbcfbda",
+      "binSha256": "38ff00f50c626894c9af4a8b08f130045db19a312a85efa138849e7b09245995",
+      "mapSha256": "8ca255b778fcccfcf4bf27d3edf77f6fdf62f4b39a0080baf5f68130f32b27fb",
+      "builtAt": "2026-08-23T17:58:33.021Z"
+    },
+    {
       "profile": "distro-v3-s3",
       "fqbn": "esp32:esp32:esp32s3:CDCOnBoot=cdc,FlashMode=qio,FlashSize=4M,PartitionScheme=default,UploadSpeed=921600,CPUFreq=240,PSRAM=disabled,DebugLevel=none,LoopCore=1,EventsCore=1,USBMode=hwcdc,EraseFlash=none",
       "buildFlags": [
@@ -231,7 +252,7 @@
   "jointMapVersion": "1.0.0",
   "telemetryProtocolVersion": "1.0.0",
   "lessonContentVersion": null,
-  "generatedAt": "2026-08-23T17:26:41.691Z",
+  "generatedAt": "2026-08-23T17:59:59.560Z",
   "hostPlatform": {
     "os": "Windows 11 Pro 10.0.26200",
     "arch": "x64",

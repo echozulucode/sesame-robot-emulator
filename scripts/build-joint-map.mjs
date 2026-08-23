@@ -47,10 +47,10 @@ const sha256 = (p) => createHash('sha256').update(readFileSync(resolve(repoRoot,
 
 const HARDWARE_MAP = 'hardware/hardware-map.json';
 const ASSETS_INVENTORY = 'hardware/assets-inventory.json';
-const TOPDOWN_PNG = 'reference/sesame-robot-main/software/sesame-studio/sesame-topdown.png';
-const REFCFG_PNG = 'reference/sesame-robot-main/docs/build-guide/assets/reference-configuration.png';
-const ANGLE_PNG = 'reference/sesame-robot-main/docs/build-guide/assets/sesame-angle-guide.png';
-const BUILD_GUIDE = 'reference/sesame-robot-main/docs/build-guide/README.md';
+const TOPDOWN_PNG = 'firmware/upstream/software/sesame-studio/sesame-topdown.png';
+const REFCFG_PNG = 'firmware/upstream/docs/build-guide/assets/reference-configuration.png';
+const ANGLE_PNG = 'firmware/upstream/docs/build-guide/assets/sesame-angle-guide.png';
+const BUILD_GUIDE = 'firmware/upstream/docs/build-guide/README.md';
 
 const hw = readJson(HARDWARE_MAP);
 const assets = readJson(ASSETS_INVENTORY);

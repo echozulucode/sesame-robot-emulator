@@ -420,8 +420,25 @@ in real image but NOT present in any probe: 36
 their combined occurrence count: 4705  (3.48% of instructions)
 ```
 
-**96.5 % of the real firmware's instruction stream, by occurrence, uses mnemonics the probes
-executed.** The untested 3.5 % breaks down as:
+**Two different numbers, and they must not be conflated:**
+
+| Measure | Coverage | What it means |
+|---|---|---|
+| **By instruction occurrence** | **96.5 %** (130,413 of 135,118) | Of every instruction *slot* in the real image, 96.5 % holds a mnemonic that also appears in a probe ELF. This is the flattering figure, because the hot mnemonics are the common ones |
+| **By distinct mnemonic** | **82.4 %** (169 of 205) | Of the 205 *different* mnemonics the image uses, 36 appear in no probe at all. This is the figure to quote when asking "what could still surprise us?" |
+
+Both are **upper bounds**, for the reason in the caveat below: the 188-mnemonic probe set is
+disassembled from the probe ELFs rather than traced, so it includes literal-pool bytes decoded as
+instructions. The authoritative list of what actually executed is §3.5's per-probe PASS/FAIL table.
+
+> **Corrected 2026-08-23 (phase-0 closeout):** this section originally led with a bare "96.5 % of
+> the real firmware's instruction stream", which reads as overall coverage. It is coverage **by
+> occurrence**; distinct-mnemonic coverage is **82.4 %** (169 of 205), and both are upper bounds
+> rather than measurements. The conclusion is unchanged — the untested remainder is dominated by
+> ordinary branches and arithmetic — but the number now carries the label that says which question
+> it answers. Independently re-derived by `gate-reporter` (Gate A §2).
+
+The untested 3.5 % by occurrence (36 mnemonics, 4,705 instructions) breaks down as:
 
 - **4,577 of the 4,705 are ordinary conditional branches, adds and shifts** - `beqz`, `beq`, `beqi`,
   `add`, `addx8`, `bltz`, `bgeui`, `blti`, `bnone`, `bgez`, `bgei`, `bany`, `l16si`, `sra`,

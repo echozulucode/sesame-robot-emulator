@@ -22,6 +22,9 @@
     "validate:replay-fixture": "node scripts/build-replay-fixture.mjs --check",
     "extract:telemetry-literals": "node scripts/extract-telemetry-literals.mjs",
     "validate:telemetry-literals": "node scripts/extract-telemetry-literals.mjs --check",
+    "verify:oled-hook": "node scripts/verify-oled-hook.mjs",
+    "capture:viewer": "node scripts/capture-viewer-screenshots.mjs",
+    "validate:assets-inventory": "node scripts/validate-assets-inventory.mjs",
     "demo:telemetry": "node emulator/bridge/dist/cli.js --replay emulator/bridge/fixtures/wave-pose.replay.jsonl --loop --serve-viewer"
   },
   "devDependencies": {

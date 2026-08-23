@@ -24,7 +24,13 @@
       "coaxialAngleDeg": 2.0,
       "coaxialOffset": 0.3
     },
-    "sourceTree": "reference/sesame-robot-main/hardware/printing/stl",
+    "sourceTree": "firmware/upstream/hardware/printing/stl",
+  "sourceTreeProvenance": {
+   "measuredFrom": "reference/sesame-robot-main/hardware/printing/stl",
+   "citedAs": "firmware/upstream/hardware/printing/stl",
+   "upstreamCommit": "401730514cefed738710d22303e84b0dcd6b76d0",
+   "note": "F5 ran the extractor over the vendored reference/sesame-robot-main/ snapshot, which is gitignored and absent from a clean clone. Every `path` in this file was re-pointed at the pinned tree firmware/upstream/ by the phase-0 closeout task, after re-hashing all 17 measured files (15 STL + 2 CAD) at their new locations and confirming each sha256 and byte count is unchanged. No geometry was re-extracted; only the provenance strings moved. F2 independently established 129/129 byte-identity between the two trees (docs/findings/F2-upstream-drift.md). Enforced by scripts/validate-assets-inventory.mjs."
+  },
     "determinism": "Re-running with the same inputs reproduces this file byte-for-byte except meta.generatedAt; pass --generated-at to pin that too.",
     "verificationStatus": "NOTHING in this file has been physically verified against a built robot. Every part carries verified:false."
   },
@@ -137,7 +143,7 @@
   "servo": {
     "model": "MG90S",
     "quantity": 8,
-    "source": "reference/sesame-robot-main/hardware/bom/README.md",
+    "source": "firmware/upstream/hardware/bom/README.md",
     "quotedFromBom": [
       "MG90S all-metal micro servos (180 Deg) | 8 (buy 10 for spares) | Primary hip/leg actuators; includes servo horns but keep extras",
       "M2.5 x 5mm machine screws | 10 | Servo horn attachment to servo shafts only. Included servo horn screws are usually too short.",
@@ -146,7 +152,7 @@
     "travelDegFromBom": 180,
     "hornStyle": {
       "value": "one-sided horn; the shorter side is pressed into the hip part and retained by an M2 self-threading screw through the horn's second hole; the assembly is then fastened to the motor shaft by an M2.5 machine screw through the main hole",
-      "source": "reference/sesame-robot-main/docs/build-guide/README.md, 'Hip Joints' steps 2-3 and 'Attaching Hip & Leg Joints' step 3"
+      "source": "firmware/upstream/docs/build-guide/README.md, 'Hip Joints' steps 2-3 and 'Attaching Hip & Leg Joints' step 3"
     },
     "mounting": {
       "hips": "four servos screwed to the internal frame with output shafts vertical; source: docs/build-guide/assets/install-frame-motors.png and docs/build-guide/README.md 'Install Frame Motors'",
@@ -166,7 +172,7 @@
   },
   "expectedPartSet": {
     "count": 11,
-    "source": "reference/sesame-robot-main/hardware/printing/README.md and reference/sesame-robot-main/docs/build-guide/README.md line 33",
+    "source": "firmware/upstream/hardware/printing/README.md and firmware/upstream/docs/build-guide/README.md line 33",
     "composition": "internal frame + bottom cover + one top cover (three interchangeable styles shipped) + joints R1-R4 and L1-L4",
     "stlFilesPresent": 15,
     "missingJoints": [],
@@ -297,7 +303,7 @@
   "parts": [
     {
       "file": "Internal-Frame-v121.stl",
-      "path": "reference/sesame-robot-main/hardware/printing/stl/Internal-Frame-v121.stl",
+      "path": "firmware/upstream/hardware/printing/stl/Internal-Frame-v121.stl",
       "sha256": "6df1f1f0fc60da4498de36412be317fc953dc52c33a9933733e2c967c200c916",
       "bytes": 389084,
       "role": "frame",
@@ -2405,7 +2411,7 @@
     },
     {
       "file": "Bottom-Cover-v121.stl",
-      "path": "reference/sesame-robot-main/hardware/printing/stl/Bottom-Cover-v121.stl",
+      "path": "firmware/upstream/hardware/printing/stl/Bottom-Cover-v121.stl",
       "sha256": "6c2cce125cea714c0e710ee904b82a9e51f02c815f523cc73b0b3b949d96f0c7",
       "bytes": 85184,
       "role": "cover",
@@ -3053,7 +3059,7 @@
     },
     {
       "file": "Top-Cover-Cat-v100.stl",
-      "path": "reference/sesame-robot-main/hardware/printing/stl/top-covers/Top-Cover-Cat-v100.stl",
+      "path": "firmware/upstream/hardware/printing/stl/top-covers/Top-Cover-Cat-v100.stl",
       "sha256": "a39dd37f19252db9206afe08d3284c33a3f2fdeea7cfc4ebb1731aae4a231296",
       "bytes": 195884,
       "role": "cover",
@@ -3897,7 +3903,7 @@
     },
     {
       "file": "Top-Cover-Enclosed-v117.stl",
-      "path": "reference/sesame-robot-main/hardware/printing/stl/top-covers/Top-Cover-Enclosed-v117.stl",
+      "path": "firmware/upstream/hardware/printing/stl/top-covers/Top-Cover-Enclosed-v117.stl",
       "sha256": "07bf63aefab29fdde65b706b0b5fd62e283c62c8381022089598e00f32870a26",
       "bytes": 184184,
       "role": "cover",
@@ -4546,7 +4552,7 @@
     },
     {
       "file": "Top-Cover-No-Ears-v100.stl",
-      "path": "reference/sesame-robot-main/hardware/printing/stl/top-covers/Top-Cover-No-Ears-v100.stl",
+      "path": "firmware/upstream/hardware/printing/stl/top-covers/Top-Cover-No-Ears-v100.stl",
       "sha256": "70a7235d26dc84995b86ff701ae40cdaa83eedf0592de8027239995f595c7f16",
       "bytes": 143284,
       "role": "cover",
@@ -5244,7 +5250,7 @@
     },
     {
       "file": "L1-v117.stl",
-      "path": "reference/sesame-robot-main/hardware/printing/stl/L1-v117.stl",
+      "path": "firmware/upstream/hardware/printing/stl/L1-v117.stl",
       "sha256": "081896568cc9776393c038d05ecc8caf01090c6971efebe799d064def4c92558",
       "bytes": 359384,
       "role": "joint",
@@ -5840,7 +5846,7 @@
     },
     {
       "file": "L2-v117.stl",
-      "path": "reference/sesame-robot-main/hardware/printing/stl/L2-v117.stl",
+      "path": "firmware/upstream/hardware/printing/stl/L2-v117.stl",
       "sha256": "4e47eef40bf523aa0d7b0ac285f3086b3e6c5ccd347525f5c93bbf0c5bcd1fbf",
       "bytes": 383384,
       "role": "joint",
@@ -6436,7 +6442,7 @@
     },
     {
       "file": "L3-v117.stl",
-      "path": "reference/sesame-robot-main/hardware/printing/stl/L3-v117.stl",
+      "path": "firmware/upstream/hardware/printing/stl/L3-v117.stl",
       "sha256": "136b0f28814629c654a45da1ebed93f496399c0d97007c6c02e1df4422be56a3",
       "bytes": 102684,
       "role": "joint",
@@ -6868,7 +6874,7 @@
     },
     {
       "file": "L4-v117.stl",
-      "path": "reference/sesame-robot-main/hardware/printing/stl/L4-v117.stl",
+      "path": "firmware/upstream/hardware/printing/stl/L4-v117.stl",
       "sha256": "731819f13cd34efb4ab1b9121e9fae835a463ae11f6689670f7800113ec7b470",
       "bytes": 91384,
       "role": "joint",
@@ -7300,7 +7306,7 @@
     },
     {
       "file": "R1-v117.stl",
-      "path": "reference/sesame-robot-main/hardware/printing/stl/R1-v117.stl",
+      "path": "firmware/upstream/hardware/printing/stl/R1-v117.stl",
       "sha256": "443f956016ad416699d8d5e56ab2fb0e36b10d42f02ff47ea02ae5986180e871",
       "bytes": 379784,
       "role": "joint",
@@ -7896,7 +7902,7 @@
     },
     {
       "file": "R2-v117.stl",
-      "path": "reference/sesame-robot-main/hardware/printing/stl/R2-v117.stl",
+      "path": "firmware/upstream/hardware/printing/stl/R2-v117.stl",
       "sha256": "fab2770d0d7f1384c4888e2b3a25cd7a6729c2b4230894b4771a177b73c6452c",
       "bytes": 378984,
       "role": "joint",
@@ -8492,7 +8498,7 @@
     },
     {
       "file": "R3-v117.stl",
-      "path": "reference/sesame-robot-main/hardware/printing/stl/R3-v117.stl",
+      "path": "firmware/upstream/hardware/printing/stl/R3-v117.stl",
       "sha256": "c2c35b4c948849878649d99e512af6702b5fcbbd2b30578bbec87ab15b8ec99e",
       "bytes": 105884,
       "role": "joint",
@@ -8924,7 +8930,7 @@
     },
     {
       "file": "R4-v117.stl",
-      "path": "reference/sesame-robot-main/hardware/printing/stl/R4-v117.stl",
+      "path": "firmware/upstream/hardware/printing/stl/R4-v117.stl",
       "sha256": "131348a19491edad32f29d7a64109fdfadc3a03e01feedbf08dc1769e050938a",
       "bytes": 94584,
       "role": "joint",
@@ -9356,7 +9362,7 @@
     },
     {
       "file": "magnetic-chainsaw-hat.stl",
-      "path": "reference/sesame-robot-main/hardware/printing/stl/top-covers/hats/magnetic-chainsaw-hat.stl",
+      "path": "firmware/upstream/hardware/printing/stl/top-covers/hats/magnetic-chainsaw-hat.stl",
       "sha256": "63893f2010ff33bbfda0b8cb384c7b8be067bf80fee1cee03f23f4917107c961",
       "bytes": 55484,
       "role": "accessory",
@@ -9612,7 +9618,7 @@
     },
     {
       "file": "magnetic-modular-mount-hat.stl",
-      "path": "reference/sesame-robot-main/hardware/printing/stl/top-covers/hats/magnetic-modular-mount-hat.stl",
+      "path": "firmware/upstream/hardware/printing/stl/top-covers/hats/magnetic-modular-mount-hat.stl",
       "sha256": "562f8246784666ea26f0a12b69ecff1e3d97d72603a7687ab778f58ebe2de3a6",
       "bytes": 87284,
       "role": "accessory",
@@ -10235,7 +10241,7 @@
   "cad": [
     {
       "file": "Sesame-ESP32-v122.f3z",
-      "path": "reference/sesame-robot-main/hardware/cad/Sesame-ESP32-v122.f3z",
+      "path": "firmware/upstream/hardware/cad/Sesame-ESP32-v122.f3z",
       "sha256": "0fc4b5190d7a42bdfcd329b09cc6ff7b6b112bdf8f88d1dd67506189fa0f1024",
       "bytes": 41557195,
       "parsed": true,
@@ -10333,7 +10339,7 @@
     },
     {
       "file": "Sesame-ESP32-v122.step",
-      "path": "reference/sesame-robot-main/hardware/cad/Sesame-ESP32-v122.step",
+      "path": "firmware/upstream/hardware/cad/Sesame-ESP32-v122.step",
       "sha256": "b6ae8936df90d85d4d6f6b24ea53bd387bd0508da2090fdbc535227d5feb9be0",
       "bytes": 30977899,
       "parsed": true,

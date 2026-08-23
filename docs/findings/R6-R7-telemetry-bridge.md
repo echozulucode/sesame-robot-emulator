@@ -34,10 +34,18 @@ is silicon: no ESP32-S2 has executed these hooks (§10).
 
 | Property | Evidence |
 |---|---|
-| Captured at all | `@SESAME servo <joint> <deg>` is emitted from the single convergence point in `setServoAngle()`. All 21 movement functions and all 223 servo steps in `hardware-map.json` route through it. |
+| Captured at all | `@SESAME servo <joint> <deg>` is emitted from the single convergence point in `setServoAngle()`. **All 223 servo steps** in `hardware-map.json` route through it, across the **19 of 21 movement functions that contain any servo step** — `enterIdle` and `exitIdle` contain none, being face/state functions. Coverage of the servo corpus is total. |
 | Deterministic | The instrumented ELF is byte-identical across a full clean rebuild (§3.3). The value emitted is the post-subtrim, post-clamp integer that reached `Servo::write()`, not the requested angle. |
 | Correct on the wire | The three shipped format literals are present verbatim in the built `.elf` and `.bin`, and decode through the R5 parser to the intended events with zero warnings (§4). |
 | Observed across a real boundary | Partly. R3's probe emits `@SESAME servo R4 72` from an **emulated ESP32-S2 writing UART0 MMIO**, and the bridge decodes it correctly (§7) — so the transport half is observed. The hooks themselves have not executed: the full instrumented image still needs R4's boot ladder, or a board. See §10. |
+
+> **Corrected 2026-08-23 (phase-0 closeout):** the first row of this table originally read "All 21
+> movement functions and all 223 servo steps … route through it". The 223/223 servo-step figure is
+> exact and the hook's coverage is total, but **only 19 of the 21 functions contain a servo step**:
+> `enterIdle` and `exitIdle` contain none. The Gate-B conclusion is unaffected — nothing escapes the
+> hook — but the original phrasing implied telemetry from two functions that emit no servo events by
+> construction. Recomputed from `hardware/hardware-map.json` by walking every nested
+> `repeat`/`conditional`/`call`; independently confirmed by `gate-reporter` (Gate B §2, link 2).
 
 The **emulated-peripheral** route to Gate B (a real LEDC/PWM model in Renode)
 remains unproven and is not this task's to answer; R4 and the Gate-B report own
@@ -789,8 +797,8 @@ Nothing below is blocked on anything but a board.
 
 | Path | What |
 |---|---|
-| `firmware/patches/telemetry-instrumentation.patch` | The two hooks + banner. 4 hunks, +126/-0. |
-| `firmware/build/sketch.yaml` | `s2mini-instrumented` profile. |
+| `firmware/patches/telemetry-instrumentation.patch` | The two hooks + banner. 4 hunks, **+196/−0**. |
+| `firmware/build/sketch.yaml` | `s2mini-instrumented` profile (plus `s2mini-oled`, added by the phase-0 closeout for EXP6). |
 | `scripts/build-firmware.mjs` | Profile entry + the generated-source assertions of §3.1. |
 | `scripts/extract-telemetry-literals.mjs` | Literal extraction, ELF/bin cross-check, and the call-site port analysis. |
 | `scripts/lib/xtensa-call-args.mjs` | Pure Xtensa `call8` argument resolver — the thing that can see a transport defect. Unit-tested against captured disassembly of both the defective and the fixed build. |
@@ -798,6 +806,11 @@ Nothing below is blocked on anything but a board.
 | `scripts/build-replay-fixture.mjs` | Choreography → timed `@SESAME` stream, any of the 21 movements. |
 | `emulator/bridge/` | The bridge, its CLI, and 61 tests (incl. the Renode Path-A driver in `src/__tests__/path-a-renode.ts` and the transport regression guard). |
 | `emulator/bridge/fixtures/wave-pose.replay.jsonl` | The shipped Path-B fixture. |
+
+> **Corrected 2026-08-23 (phase-0 closeout):** the patch row in this table said "4 hunks, +126/-0",
+> which was stale from a pre-fix revision of the patch. The current file is **4 hunks, 196 added,
+> 0 removed** — as §2 of this same document already stated correctly. Counted directly from
+> `firmware/patches/telemetry-instrumentation.patch`.
 | `debug-viewer/index.html` | The throwaway. |
 | `reproducibility.json` | `builds[]` now has all four profiles. |
 
