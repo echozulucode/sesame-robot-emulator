@@ -1,28 +1,84 @@
 {
   "$schema": "./reproducibility.schema.json",
-
   "sesameUpstreamCommit": "401730514cefed738710d22303e84b0dcd6b76d0",
   "sesameUpstreamResolvedDate": "2026-08-23T11:36:56Z",
   "sesameLabCommit": null,
-
-  "arduinoCliVersion": null,
-  "arduinoEsp32CoreVersion": null,
+  "arduinoCliVersion": "1.5.1",
+  "arduinoEsp32CoreVersion": "3.3.11",
   "libraries": {
-    "ESP32Servo": null,
-    "Adafruit_SSD1306": null,
-    "Adafruit_GFX": null
+    "ESP32Servo": "3.0.9",
+    "Adafruit_SSD1306": "2.5.17",
+    "Adafruit_GFX": "1.12.6",
+    "Adafruit_BusIO": "1.17.4"
   },
-
-  "builds": [],
-
+  "builds": [
+    {
+      "profile": "s2mini",
+      "fqbn": "esp32:esp32:lolin_s2_mini:CDCOnBoot=default,PartitionScheme=default,DebugLevel=none,EraseFlash=none",
+      "buildFlags": [
+        "build.extra_flags=-DARDUINO_HOST_OS=\"windows\" -DARDUINO_FQBN=\"esp32:esp32:lolin_s2_mini:CDCOnBoot=default,PartitionScheme=default,DebugLevel=none,EraseFlash=none\" -DESP32=ESP32 -DCORE_DEBUG_LEVEL=0   -DBOARD_HAS_PSRAM -DARDUINO_USB_MODE=0 -DARDUINO_USB_CDC_ON_BOOT=1 -DARDUINO_USB_MSC_ON_BOOT=0 -DARDUINO_USB_DFU_ON_BOOT=0 ",
+        "build.defines=-DBOARD_HAS_PSRAM",
+        "compiler.c.flags=-MMD -c \"@C:\\Projects\\sesame-robot-emulator\\tools\\arduino-data\\data\\internal\\esp32_esp32s2-libs_3.3.11_7e8ee1fb2020ede4/flags/c_flags\" -w -Os -Werror=return-type",
+        "compiler.cpp.flags=-MMD -c \"@C:\\Projects\\sesame-robot-emulator\\tools\\arduino-data\\data\\internal\\esp32_esp32s2-libs_3.3.11_7e8ee1fb2020ede4/flags/cpp_flags\" -w -Os -Werror=return-type",
+        "compiler.c.elf.flags=\"-Wl,--Map=C:\\Projects\\sesame-robot-emulator\\tools\\arduino-data\\scratch\\s2mini\\build/sesame-firmware-main.ino.map\" \"-LC:\\Projects\\sesame-robot-emulator\\tools\\arduino-data\\data\\internal\\esp32_esp32s2-libs_3.3.11_7e8ee1fb2020ede4/lib\" \"-LC:\\Projects\\sesame-robot-emulator\\tools\\arduino-data\\data\\internal\\esp32_esp32s2-libs_3.3.11_7e8ee1fb2020ede4/ld\" \"-LC:\\Projects\\sesame-robot-emulator\\tools\\arduino-data\\data\\internal\\esp32_esp32s2-libs_3.3.11_7e8ee1fb2020ede4/qio_qspi\" \"-Wl,--wrap=esp_panic_handler\" \"-Wl,--wrap=esp_bt_mem_release\" \"-Wl,--wrap=esp_bt_controller_mem_release\" \"@C:\\Projects\\sesame-robot-emulator\\tools\\arduino-data\\data\\internal\\esp32_esp32s2-libs_3.3.11_7e8ee1fb2020ede4/flags/ld_flags\" \"@C:\\Projects\\sesame-robot-emulator\\tools\\arduino-data\\data\\internal\\esp32_esp32s2-libs_3.3.11_7e8ee1fb2020ede4/flags/ld_scripts\"",
+        "build.partitions=default",
+        "build.flash_mode=dio",
+        "build.flash_freq=80m",
+        "build.flash_size=4MB",
+        "build.cdc_on_boot=1"
+      ],
+      "elfSha256": "5436d303bfa9fb1458c2c03b5154f27fbf8c32cfefd10c556d2c61e9849eedfd",
+      "binSha256": "e263e7c9550d9a20db81f0a59a77e47b70642acb1de5bdbcec48dc33188a29f1",
+      "mapSha256": "eac008fa131a64267f8f5807b7b2919e76b2393fa5ecf5d178ca953ee9057a43",
+      "builtAt": "2026-08-23T14:54:04.811Z"
+    },
+    {
+      "profile": "distro-v3-s3",
+      "fqbn": "esp32:esp32:esp32s3:CDCOnBoot=cdc,FlashMode=qio,FlashSize=4M,PartitionScheme=default,UploadSpeed=921600,CPUFreq=240,PSRAM=disabled,DebugLevel=none,LoopCore=1,EventsCore=1,USBMode=hwcdc,EraseFlash=none",
+      "buildFlags": [
+        "build.extra_flags=-DARDUINO_HOST_OS=\"windows\" -DARDUINO_FQBN=\"esp32:esp32:esp32s3:CDCOnBoot=cdc,FlashMode=qio,FlashSize=4M,PartitionScheme=default,UploadSpeed=921600,CPUFreq=240,PSRAM=disabled,DebugLevel=none,LoopCore=1,EventsCore=1,USBMode=hwcdc,EraseFlash=none\" -DESP32=ESP32 -DCORE_DEBUG_LEVEL=0 -DARDUINO_RUNNING_CORE=1 -DARDUINO_EVENT_RUNNING_CORE=1  -DARDUINO_USB_MODE=1 -DARDUINO_USB_CDC_ON_BOOT=1 -DARDUINO_USB_MSC_ON_BOOT=0 -DARDUINO_USB_DFU_ON_BOOT=0 ",
+        "build.defines=",
+        "compiler.c.flags=-MMD -c \"@C:\\Projects\\sesame-robot-emulator\\tools\\arduino-data\\data\\internal\\esp32_esp32s3-libs_3.3.11_248a8d62c92d4583/flags/c_flags\" -w -Os -Werror=return-type",
+        "compiler.cpp.flags=-MMD -c \"@C:\\Projects\\sesame-robot-emulator\\tools\\arduino-data\\data\\internal\\esp32_esp32s3-libs_3.3.11_248a8d62c92d4583/flags/cpp_flags\" -w -Os -Werror=return-type",
+        "compiler.c.elf.flags=\"-Wl,--Map=C:\\Projects\\sesame-robot-emulator\\tools\\arduino-data\\scratch\\distro-v3-s3\\build/sesame-firmware-main.ino.map\" \"-LC:\\Projects\\sesame-robot-emulator\\tools\\arduino-data\\data\\internal\\esp32_esp32s3-libs_3.3.11_248a8d62c92d4583/lib\" \"-LC:\\Projects\\sesame-robot-emulator\\tools\\arduino-data\\data\\internal\\esp32_esp32s3-libs_3.3.11_248a8d62c92d4583/ld\" \"-LC:\\Projects\\sesame-robot-emulator\\tools\\arduino-data\\data\\internal\\esp32_esp32s3-libs_3.3.11_248a8d62c92d4583/qio_qspi\" \"-Wl,--wrap=esp_panic_handler\" \"-Wl,--wrap=esp_bt_mem_release\" \"-Wl,--wrap=esp_bt_controller_mem_release\" \"@C:\\Projects\\sesame-robot-emulator\\tools\\arduino-data\\data\\internal\\esp32_esp32s3-libs_3.3.11_248a8d62c92d4583/flags/ld_flags\" \"@C:\\Projects\\sesame-robot-emulator\\tools\\arduino-data\\data\\internal\\esp32_esp32s3-libs_3.3.11_248a8d62c92d4583/flags/ld_scripts\"",
+        "build.partitions=default",
+        "build.flash_mode=dio",
+        "build.flash_freq=80m",
+        "build.flash_size=4MB",
+        "build.cdc_on_boot=1"
+      ],
+      "elfSha256": "b11fe2da9dbdd5cf445c72cb2bf72a05cf2674a27acea13d66bfd493b5cfe5de",
+      "binSha256": "952111713910bf13f6c96cec1fd363a2b1eb27c786985dc5ebe38985e6e71662",
+      "mapSha256": "885e63731300a870bccbce510d3b7f6779005197a5a118a841e53c6293b183b2",
+      "builtAt": "2026-08-23T14:49:48.843Z"
+    },
+    {
+      "profile": "distro-v1-esp32",
+      "fqbn": "esp32:esp32:esp32:FlashMode=qio,FlashFreq=80,FlashSize=4M,PartitionScheme=default,UploadSpeed=921600,CPUFreq=240,PSRAM=disabled,DebugLevel=none,LoopCore=1,EventsCore=1,EraseFlash=none",
+      "buildFlags": [
+        "build.extra_flags=-DARDUINO_HOST_OS=\"windows\" -DARDUINO_FQBN=\"esp32:esp32:esp32:FlashMode=qio,FlashFreq=80,FlashSize=4M,PartitionScheme=default,UploadSpeed=921600,CPUFreq=240,PSRAM=disabled,DebugLevel=none,LoopCore=1,EventsCore=1,EraseFlash=none\" -DESP32=ESP32 -DCORE_DEBUG_LEVEL=0 -DARDUINO_RUNNING_CORE=1 -DARDUINO_EVENT_RUNNING_CORE=1  -DARDUINO_USB_CDC_ON_BOOT=0 ",
+        "build.defines=",
+        "compiler.c.flags=-MMD -c \"@C:\\Projects\\sesame-robot-emulator\\tools\\arduino-data\\data\\internal\\esp32_esp32-libs_3.3.11_3d17a2c49fcf1be9/flags/c_flags\" -w -Os -Werror=return-type",
+        "compiler.cpp.flags=-MMD -c \"@C:\\Projects\\sesame-robot-emulator\\tools\\arduino-data\\data\\internal\\esp32_esp32-libs_3.3.11_3d17a2c49fcf1be9/flags/cpp_flags\" -w -Os -Werror=return-type",
+        "compiler.c.elf.flags=\"-Wl,--Map=C:\\Projects\\sesame-robot-emulator\\tools\\arduino-data\\scratch\\distro-v1-esp32\\build/sesame-firmware-main.ino.map\" \"-LC:\\Projects\\sesame-robot-emulator\\tools\\arduino-data\\data\\internal\\esp32_esp32-libs_3.3.11_3d17a2c49fcf1be9/lib\" \"-LC:\\Projects\\sesame-robot-emulator\\tools\\arduino-data\\data\\internal\\esp32_esp32-libs_3.3.11_3d17a2c49fcf1be9/ld\" \"-LC:\\Projects\\sesame-robot-emulator\\tools\\arduino-data\\data\\internal\\esp32_esp32-libs_3.3.11_3d17a2c49fcf1be9/qio_qspi\" \"-Wl,--wrap=esp_panic_handler\" \"-Wl,--wrap=esp_bt_mem_release\" \"-Wl,--wrap=esp_bt_controller_mem_release\" \"@C:\\Projects\\sesame-robot-emulator\\tools\\arduino-data\\data\\internal\\esp32_esp32-libs_3.3.11_3d17a2c49fcf1be9/flags/ld_flags\" \"@C:\\Projects\\sesame-robot-emulator\\tools\\arduino-data\\data\\internal\\esp32_esp32-libs_3.3.11_3d17a2c49fcf1be9/flags/ld_scripts\"",
+        "build.partitions=default",
+        "build.flash_mode=dio",
+        "build.flash_freq=80m",
+        "build.flash_size=4MB"
+      ],
+      "elfSha256": "c8a895b06531faa9866d4d7dd09b9b1783c906fde184e683dd66314ed0d3282c",
+      "binSha256": "a300f5136f9376cbd5bbfdca65614c93916f4eeff07a44f532f8272e3d42b4c0",
+      "mapSha256": "ea9da0f38e14d01c1e71d05df51e8375afd95a272644ba9d1dc0b5c054fb34da",
+      "builtAt": "2026-08-23T14:51:51.719Z"
+    }
+  ],
   "renodeVersion": null,
   "renodePlatformFiles": [],
-
   "assetSourceVersion": null,
   "jointMapVersion": "1.0.0",
+  "telemetryProtocolVersion": "1.0.0",
   "lessonContentVersion": null,
-
-  "generatedAt": "2026-08-23T12:09:33Z",
+  "generatedAt": "2026-08-23T14:55:37.153Z",
   "hostPlatform": {
     "os": "Windows 11 Pro 10.0.26200",
     "arch": "x64",

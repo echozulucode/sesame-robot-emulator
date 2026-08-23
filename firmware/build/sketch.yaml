@@ -1,0 +1,92 @@
+# F3 — declarative build pinning for the Sesame firmware.
+#
+# arduino-cli sketch profiles. scripts/build-firmware.mjs copies this file into
+# the scratch sketch directory next to the (patched) sesame-firmware-main.ino
+# and builds with `arduino-cli compile --profile <name>`.
+#
+# Everything that can change the produced binary is pinned here: core version,
+# the index it comes from, every library version, and the full FQBN including
+# board options. Nothing resolves to "latest".
+#
+# Board options were read from the INSTALLED core with
+#   arduino-cli board details -b <fqbn>
+# not guessed from documentation — the option identifiers differ per board (see
+# the CDCOnBoot note on s2mini below, which is a genuine trap).
+#
+# The board-manager index URL is Espressif's GitHub Pages host rather than the
+# raw.githubusercontent.com URL given in firmware/README.md:37, because
+# raw.githubusercontent.com intermittently fails TLS revocation checking on the
+# build host. Same JSON, different origin.
+
+profiles:
+
+  # ---------------------------------------------------------------- s2mini --
+  # The configuration that is ACTIVE in checked-in upstream source: no patch.
+  # hardware-map board "s2-mini": servoPins {1,2,4,6,8,10,13,14}, I2C SDA 33 / SCL 35.
+  #
+  # firmware/README.md:65-68 asks for Upload Speed 921600, USB CDC On Boot
+  # "Enabled", Partition Scheme "Default 4MB with spiffs".
+  #  - UploadSpeed: the lolin_s2_mini board exposes NO UploadSpeed menu in core
+  #    3.3.11, so there is nothing to pin. It only affects flashing, never the
+  #    binary, so this costs the build nothing.
+  #  - CDCOnBoot: on THIS board "Enabled" is spelled `CDCOnBoot=default`, and
+  #    "Disabled" is `dis_cdc` — the inverse of the S3 board below. Stated
+  #    explicitly so a future edit cannot silently flip it.
+  s2mini:
+    notes: Lolin S2 Mini (ESP32-S2) - the active, unpatched upstream configuration.
+    fqbn: esp32:esp32:lolin_s2_mini:CDCOnBoot=default,PartitionScheme=default,DebugLevel=none,EraseFlash=none
+    platforms:
+      - platform: esp32:esp32 (3.3.11)
+        platform_index_url: https://espressif.github.io/arduino-esp32/package_esp32_index.json
+    libraries:
+      # 3.0.9 is mandated by firmware/README.md:42,47,175: newer releases have a
+      # known bug where writing one servo can move several channels
+      # (madhephaestus/ESP32Servo#103). Verified against the README text; the
+      # library index confirms 3.1.x/3.2.x exist and are deliberately not used.
+      - ESP32Servo (3.0.9)
+      - Adafruit SSD1306 (2.5.17)
+      - Adafruit GFX Library (1.12.6)
+      - Adafruit BusIO (1.17.4)
+
+  # ---------------------------------------------------------- distro-v3-s3 --
+  # Requires firmware/patches/board-distro-v3-s3.patch.
+  # hardware-map board "distro-v3": servoPins {4,5,6,7,10,11,12,13}, I2C SDA 8 / SCL 9.
+  #
+  # firmware/README.md:69-72: USB CDC On Boot "Enabled" (required for the serial
+  # monitor), Flash Mode "QIO 80MHz", Partition Scheme "Default 4MB with spiffs".
+  # On esp32s3, "Enabled" is `CDCOnBoot=cdc` and the board default is Disabled,
+  # so this option genuinely changes the build — unlike on the S2 Mini.
+  distro-v3-s3:
+    notes: Sesame Distro Board V3 (ESP32-S3), USB-CDC on boot, 4MB SPIFFS partitions.
+    fqbn: esp32:esp32:esp32s3:CDCOnBoot=cdc,FlashMode=qio,FlashSize=4M,PartitionScheme=default,UploadSpeed=921600,CPUFreq=240,PSRAM=disabled,DebugLevel=none,LoopCore=1,EventsCore=1,USBMode=hwcdc,EraseFlash=none
+    platforms:
+      - platform: esp32:esp32 (3.3.11)
+        platform_index_url: https://espressif.github.io/arduino-esp32/package_esp32_index.json
+    libraries:
+      - ESP32Servo (3.0.9)
+      - Adafruit SSD1306 (2.5.17)
+      - Adafruit GFX Library (1.12.6)
+      - Adafruit BusIO (1.17.4)
+
+  # ------------------------------------------------------- distro-v1-esp32 --
+  # Requires firmware/patches/board-distro-v1-esp32.patch.
+  # hardware-map board "distro-v1": servoPins {15,2,23,19,4,16,17,18}, I2C SDA 21 / SCL 22.
+  #
+  # firmware/README.md:61 only says "Select ESP32 Dev Module" with no option
+  # overrides, so the board defaults are pinned explicitly rather than left
+  # implicit — a core upgrade must not be able to move them silently.
+  # This is also the original-ESP32 (LX6) target, which is the Espressif-QEMU
+  # fallback for the Renode workstream.
+  distro-v1-esp32:
+    notes: Sesame Distro Board V1 (ESP32-WROOM32). Also the Espressif-QEMU fallback target.
+    fqbn: esp32:esp32:esp32:FlashMode=qio,FlashFreq=80,FlashSize=4M,PartitionScheme=default,UploadSpeed=921600,CPUFreq=240,PSRAM=disabled,DebugLevel=none,LoopCore=1,EventsCore=1,EraseFlash=none
+    platforms:
+      - platform: esp32:esp32 (3.3.11)
+        platform_index_url: https://espressif.github.io/arduino-esp32/package_esp32_index.json
+    libraries:
+      - ESP32Servo (3.0.9)
+      - Adafruit SSD1306 (2.5.17)
+      - Adafruit GFX Library (1.12.6)
+      - Adafruit BusIO (1.17.4)
+
+default_profile: s2mini

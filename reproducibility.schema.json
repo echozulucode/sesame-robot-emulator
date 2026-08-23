@@ -18,28 +18,41 @@
     "renodePlatformFiles",
     "assetSourceVersion",
     "jointMapVersion",
+    "telemetryProtocolVersion",
     "lessonContentVersion",
     "generatedAt",
     "hostPlatform"
   ],
   "$defs": {
     "sha256": {
-      "type": ["string", "null"],
+      "type": [
+        "string",
+        "null"
+      ],
       "pattern": "^[0-9a-f]{64}$",
       "description": "Lowercase hex SHA-256 digest."
     },
     "gitSha": {
-      "type": ["string", "null"],
+      "type": [
+        "string",
+        "null"
+      ],
       "pattern": "^[0-9a-f]{40}$",
       "description": "Full 40-character lowercase git commit SHA."
     },
     "isoDate": {
-      "type": ["string", "null"],
+      "type": [
+        "string",
+        "null"
+      ],
       "format": "date-time",
       "description": "ISO 8601 / RFC 3339 timestamp."
     },
     "version": {
-      "type": ["string", "null"],
+      "type": [
+        "string",
+        "null"
+      ],
       "minLength": 1,
       "description": "An exact version string. Never 'latest'."
     }
@@ -72,15 +85,25 @@
     "libraries": {
       "type": "object",
       "description": "Exact pinned Arduino library versions.",
-      "additionalProperties": { "$ref": "#/$defs/version" },
-      "required": ["ESP32Servo", "Adafruit_SSD1306", "Adafruit_GFX"],
+      "additionalProperties": {
+        "$ref": "#/$defs/version"
+      },
+      "required": [
+        "ESP32Servo",
+        "Adafruit_SSD1306",
+        "Adafruit_GFX"
+      ],
       "properties": {
         "ESP32Servo": {
           "$ref": "#/$defs/version",
           "description": "Pinned to 3.0.9 by upstream firmware docs; later releases have a known multi-servo command leak."
         },
-        "Adafruit_SSD1306": { "$ref": "#/$defs/version" },
-        "Adafruit_GFX": { "$ref": "#/$defs/version" }
+        "Adafruit_SSD1306": {
+          "$ref": "#/$defs/version"
+        },
+        "Adafruit_GFX": {
+          "$ref": "#/$defs/version"
+        }
       }
     },
     "builds": {
@@ -89,7 +112,15 @@
       "items": {
         "type": "object",
         "additionalProperties": false,
-        "required": ["profile", "fqbn", "buildFlags", "elfSha256", "binSha256", "mapSha256", "builtAt"],
+        "required": [
+          "profile",
+          "fqbn",
+          "buildFlags",
+          "elfSha256",
+          "binSha256",
+          "mapSha256",
+          "builtAt"
+        ],
         "properties": {
           "profile": {
             "type": "string",
@@ -97,18 +128,34 @@
             "description": "Sketch profile name, e.g. s2mini, distro-v3-s3, distro-v1-esp32, s2mini-instrumented."
           },
           "fqbn": {
-            "type": ["string", "null"],
+            "type": [
+              "string",
+              "null"
+            ],
             "description": "Fully qualified board name, e.g. esp32:esp32:lolin_s2_mini."
           },
           "buildFlags": {
-            "type": ["array", "null"],
-            "items": { "type": "string" },
+            "type": [
+              "array",
+              "null"
+            ],
+            "items": {
+              "type": "string"
+            },
             "description": "Exact compiler/build flags used."
           },
-          "elfSha256": { "$ref": "#/$defs/sha256" },
-          "binSha256": { "$ref": "#/$defs/sha256" },
-          "mapSha256": { "$ref": "#/$defs/sha256" },
-          "builtAt": { "$ref": "#/$defs/isoDate" }
+          "elfSha256": {
+            "$ref": "#/$defs/sha256"
+          },
+          "binSha256": {
+            "$ref": "#/$defs/sha256"
+          },
+          "mapSha256": {
+            "$ref": "#/$defs/sha256"
+          },
+          "builtAt": {
+            "$ref": "#/$defs/isoDate"
+          }
         }
       }
     },
@@ -122,27 +169,48 @@
       "items": {
         "type": "object",
         "additionalProperties": false,
-        "required": ["path", "sha256"],
+        "required": [
+          "path",
+          "sha256"
+        ],
         "properties": {
           "path": {
             "type": "string",
             "minLength": 1,
             "description": "Repo-relative path, e.g. emulator/renode/platforms/esp32s2.repl."
           },
-          "sha256": { "$ref": "#/$defs/sha256" }
+          "sha256": {
+            "$ref": "#/$defs/sha256"
+          }
         }
       }
     },
     "assetSourceVersion": {
-      "type": ["string", "null"],
+      "type": [
+        "string",
+        "null"
+      ],
       "description": "Version/provenance of the 3D asset source (STL/CAD) the visualization is built from."
     },
     "jointMapVersion": {
-      "type": ["string", "null"],
+      "type": [
+        "string",
+        "null"
+      ],
       "description": "Version of hardware/joint-map.json (F6)."
     },
+    "telemetryProtocolVersion": {
+      "description": "Wire-format version of @sesame-lab/sesame-protocol (docs/protocol/sesame-telemetry-v1.md). Null until a protocol package is released.",
+      "type": [
+        "string",
+        "null"
+      ]
+    },
     "lessonContentVersion": {
-      "type": ["string", "null"],
+      "type": [
+        "string",
+        "null"
+      ],
       "description": "Version of the lesson content bundle. null through Phase 0 — lessons are out of scope."
     },
     "generatedAt": {
@@ -150,15 +218,43 @@
       "description": "When this ledger instance was last written."
     },
     "hostPlatform": {
-      "type": ["object", "null"],
+      "type": [
+        "object",
+        "null"
+      ],
       "description": "The host that produced the artifacts.",
       "additionalProperties": true,
       "properties": {
-        "os": { "type": ["string", "null"] },
-        "arch": { "type": ["string", "null"] },
-        "node": { "type": ["string", "null"] },
-        "pnpm": { "type": ["string", "null"] },
-        "python": { "type": ["string", "null"] }
+        "os": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "arch": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "node": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "pnpm": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "python": {
+          "type": [
+            "string",
+            "null"
+          ]
+        }
       }
     }
   }

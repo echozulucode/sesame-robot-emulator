@@ -55,6 +55,9 @@ const ENV = {
   ARDUINO_DIRECTORIES_DATA: path.join(REPO, 'tools', 'arduino-data', 'data'),
   ARDUINO_DIRECTORIES_DOWNLOADS: path.join(REPO, 'tools', 'arduino-data', 'downloads'),
   ARDUINO_DIRECTORIES_USER: path.join(REPO, 'tools', 'arduino-data', 'user'),
+  // Separate leak from the data dir: the compilation cache defaults to
+  // %LOCALAPPDATA%\arduino and was observed creating sketches/<hash> dirs there.
+  ARDUINO_BUILD_CACHE_PATH: path.join(REPO, 'tools', 'arduino-data', 'builds'),
   // Neutralise locale/TZ influence on anything the toolchain might embed.
   TZ: 'UTC',
   LC_ALL: 'C',
@@ -102,15 +105,31 @@ let patchSha = null;
 if (spec.patch) {
   const patchFile = path.join(REPO, 'firmware', 'patches', spec.patch);
   patchSha = sha256(patchFile);
-  const check = spawnSync('git', ['-c', 'core.autocrlf=false', 'apply', '--check', '-p1', patchFile],
+
+  // The scratch sketch lives under tools/, i.e. INSIDE this repository's work
+  // tree. `git apply` resolves patch paths against the enclosing work-tree root,
+  // so from here it looked for <repo-root>/sesame-firmware-main.ino, printed
+  // "Skipped patch", and exited 0 - a silent no-op that even --check passed.
+  // Giving the scratch dir its own repository makes it the innermost work-tree
+  // root, so -p1 paths resolve to the files we actually copied.
+  spawnSync('git', ['init', '-q', '.'], { cwd: SKETCH_DIR, encoding: 'utf8' });
+
+  const run = (extra) => spawnSync('git',
+    ['-c', 'core.autocrlf=false', 'apply', '-v', '-p1', ...extra, patchFile],
     { cwd: SKETCH_DIR, encoding: 'utf8' });
-  if (check.status !== 0) {
-    console.error(`[patch] FAILED --check for ${spec.patch}:\n${check.stderr}`);
+
+  const check = run(['--check']);
+  const skipped = (out) => /Skipped patch/.test(`${out.stdout}${out.stderr}`);
+  if (check.status !== 0 || skipped(check)) {
+    console.error(`[patch] FAILED --check for ${spec.patch}:\n${check.stdout}${check.stderr}`);
     process.exit(1);
   }
-  const ap = spawnSync('git', ['-c', 'core.autocrlf=false', 'apply', '-p1', patchFile],
-    { cwd: SKETCH_DIR, encoding: 'utf8' });
-  if (ap.status !== 0) { console.error(`[patch] FAILED to apply:\n${ap.stderr}`); process.exit(1); }
+  const ap = run([]);
+  if (ap.status !== 0 || skipped(ap)) {
+    console.error(`[patch] FAILED to apply ${spec.patch}:\n${ap.stdout}${ap.stderr}`);
+    process.exit(1);
+  }
+  fs.rmSync(path.join(SKETCH_DIR, '.git'), { recursive: true, force: true });
   log(`[patch] applied ${spec.patch} (sha256 ${patchSha.slice(0, 16)}...)`);
 } else {
   log('[patch] none - upstream default configuration is already the target');
@@ -186,8 +205,14 @@ if (fs.existsSync(mapSrc) && !fs.existsSync(path.join(OUT_DIR, `${SKETCH_NAME}.i
   fs.copyFileSync(mapSrc, path.join(OUT_DIR, `${SKETCH_NAME}.ino.map`));
 }
 
+// --show-properties must be given the SAME flags as the real build, or it
+// reports the defaults instead: without --warnings it prints `-w` (the
+// platform's base warning_flags) and without --build-path it prints a --Map=
+// pointing at arduino-cli's default cache directory. Recording either would be
+// a manifest that quietly describes a build that never happened.
 const props = Object.fromEntries(
-  acli(['compile', '--profile', profile, '--show-properties', SKETCH_DIR])
+  acli(['compile', '--profile', profile, '--warnings', 'default',
+        '--build-path', BUILD_PATH, '--show-properties', SKETCH_DIR])
     .split(/\r?\n/).filter((l) => l.includes('=')).map((l) => {
       const i = l.indexOf('=');
       return [l.slice(0, i), l.slice(i + 1)];
