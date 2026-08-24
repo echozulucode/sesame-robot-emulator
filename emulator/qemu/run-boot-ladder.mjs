@@ -26,7 +26,20 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const REPO = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', '..');
-const arg = (n, d) => { const i = process.argv.indexOf(`--${n}`); return i > 0 ? process.argv[i + 1] : d; };
+import { parseArgs } from './args.mjs';
+
+const opts = parseArgs({
+  name: 'run-boot-ladder.mjs',
+  summary: "Walk hardware-map.json's 20-step bootOrder under QEMU with per-step breakpoints.",
+  flags: {
+    image:   { describe: 'flash image to boot', default: 'emulator/qemu/images/distro-v1-esp32-dio.flash.bin' },
+    elf:     { describe: 'ELF providing symbols for the breakpoints', default: 'tools/arduino-data/scratch/qemu-dio/out/sesame-firmware-main.ino.elf' },
+    tag:     { describe: 'log-file tag', default: 'ladder' },
+    port:    { describe: 'gdbstub port', type: 'number', default: 3333 },
+    seconds: { describe: 'how long to run before shutting down', type: 'number', default: 40 },
+  },
+});
+const arg = (n, d) => (opts[n] === undefined || opts[n] === '' ? d : opts[n]);
 
 const QEMU = path.join(REPO, 'tools', 'qemu', 'qemu', 'bin', 'qemu-system-xtensa.exe');
 const GDB = path.join(REPO, 'tools', 'arduino-data', 'data', 'packages', 'esp32', 'tools',
@@ -34,8 +47,8 @@ const GDB = path.join(REPO, 'tools', 'arduino-data', 'data', 'packages', 'esp32'
 const IMAGE = path.resolve(arg('image', path.join(REPO, 'emulator/qemu/images/distro-v1-esp32-dio.flash.bin')));
 const ELF = path.resolve(arg('elf', path.join(REPO, 'tools/arduino-data/scratch/qemu-dio/out/sesame-firmware-main.ino.elf')));
 const TAG = arg('tag', 'ladder');
-const PORT = Number(arg('port', '3333'));
-const SECONDS = Number(arg('seconds', '40'));
+const PORT = Number(arg('port', 3333));
+const SECONDS = Number(arg('seconds', 40));
 // hardware-map.json's bootOrder line numbers are against the STOCK upstream
 // .ino. A build whose source has extra lines inserted (the R6 telemetry patch
 // inserts 176 of them, four of which land inside setup()) shifts every step.

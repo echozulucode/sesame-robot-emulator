@@ -18,7 +18,17 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const REPO = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', '..');
-const arg = (n, d) => { const i = process.argv.indexOf(`--${n}`); return i > 0 ? process.argv[i + 1] : d; };
+import { parseArgs } from './args.mjs';
+
+const opts = parseArgs({
+  name: 'fetch-qemu.mjs',
+  summary: "Download and verify Espressif's pinned QEMU fork into tools/qemu/.",
+  flags: {
+    release: { describe: 'Espressif QEMU release tag (pinned deliberately, never "latest")', default: 'esp-develop-9.2.2-20260417' },
+    force:   { describe: 're-download even if already present', type: 'boolean' },
+  },
+});
+const arg = (n, d) => (opts[n] === undefined || opts[n] === '' ? d : opts[n]);
 
 // Pinned deliberately. Never "latest" - the same rule F3 applied to the
 // arduino-esp32 core applies here: a floating emulator version would make every
@@ -33,7 +43,7 @@ const DEST = path.join(REPO, 'tools', 'qemu');
 const DL = path.join(DEST, 'dl');
 const BIN = path.join(DEST, 'qemu', 'bin', 'qemu-system-xtensa.exe');
 
-if (fs.existsSync(BIN) && process.argv.indexOf('--force') < 0) {
+if (fs.existsSync(BIN) && !opts.force) {
   console.log(`[q1] already installed: ${BIN}`);
   console.log(execFileSync(BIN, ['--version'], { encoding: 'utf8' }).split('\n')[0]);
   process.exit(0);

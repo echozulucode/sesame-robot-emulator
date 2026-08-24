@@ -32,7 +32,15 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const REPO = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', '..');
-const which = (process.argv[2] ?? 'all').toLowerCase();
+import { parseArgs } from './args.mjs';
+
+const opts = parseArgs({
+  name: 'build-qemu-images.mjs',
+  summary: 'Assemble bootloader + partition table + app into QEMU-bootable flash images.',
+  flags: {},
+  positional: ['all|dio|nowifi|s3'],
+});
+const which = (opts._[0] ?? 'all').toLowerCase();
 
 const CLI = path.join(REPO, 'tools', 'arduino-cli', 'arduino-cli.exe');
 const CFG = path.join(REPO, 'tools', 'arduino-cli', 'arduino-cli.yaml');

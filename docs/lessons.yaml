@@ -179,3 +179,26 @@ lessons:
         the paths stay valid when the tree lands elsewhere. This took two tasks off the critical
         path entirely.
     applied: true
+
+  - id: LESSON-20260823-011
+    date: 2026-08-23
+    source: "issue-ISSUE-20260823-022"
+    category: process
+    lesson: |
+      Three green runs is not evidence of determinism, and the first explanation for a flaky
+      failure is usually wrong.
+
+      Q1 reported "exactly 29 servo events per run across 3 runs, zero panics." True, and still
+      an under-sample: the real failure rate is roughly 1 in 5. A handful of passes cannot
+      distinguish "deterministic" from "usually works."
+
+      Worse, when the failure did surface, the first explanation offered - a stray --help
+      argument - was asserted twice before being checked. It was wrong: the script's QEMU
+      arguments are entirely hardcoded with no argv passthrough. A controlled run (bare-fail,
+      bare-pass, bare-pass, --help-pass) isolated it to nondeterminism in about a minute.
+
+      Two habits: when claiming reproducibility, state the sample size and prefer enough runs to
+      catch a 1-in-5 event; and when something intermittent fails, run the controlled comparison
+      before naming a cause.
+    applied: true
+

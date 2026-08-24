@@ -227,6 +227,40 @@ issues:
       - timestamp: 2026-08-23T00:00:00Z
         note: "Found by the V5 agent while reproducing the real route contract. Not covered by ISSUE-20260823-004 or -005; a distinct defect in the same family."
 
+  - id: ISSUE-20260823-022
+    title: "QEMU boot is intermittently flaky: ~20% of runs panic with a cache error and emit zero telemetry"
+    category: bug
+    severity: medium
+    priority: p2
+    confidence: high
+    scope: emulator
+    observed: |
+      run-bridge-demo.mjs intermittently fails during early boot with:
+        Guru Meditation Error: Core 0 panic'ed (Cache error).
+        Cache disabled but cached memory region accessed
+      The run completes but emits 0 servo.target events instead of the expected 29.
+      Measured 2026-08-23: 1 failure in 5 consecutive runs of the same unmodified image.
+      Failures and successes both leave the flash image byte-identical (sha256 unchanged),
+      so it is not image mutation from the missing snapshot=on.
+    expected: |
+      Deterministic boot. Q1 reported "exactly 29 servo events per run across 3 runs, zero
+      panics" - true as far as it went, but a 3-run sample under-measured a roughly 1-in-5
+      failure rate.
+    trace_link: "emulator/qemu/run-bridge-demo.mjs; emulator/qemu/logs/bridge-demo.qemu.log; docs/findings/Q1-qemu-spike.md"
+    status: open
+    next_action: |
+      Re-running succeeds, so this is an annoyance rather than a blocker for evaluation.
+      Before adopting QEMU as a supported backend, characterise it: suspects are a race
+      between QEMU's UART TCP server coming up and the fixed 1500 ms sleep before the bridge
+      attaches, and cache-init timing in the DIO bootloader path. Add snapshot=on to the
+      -drive argument regardless - Q1 flagged that if=mtd is read-write, and the demo script
+      does not apply the fix Q1 itself recommended.
+    resolution: null
+    lesson: LESSON-20260823-011
+    history:
+      - timestamp: 2026-08-23T00:00:00Z
+        note: "Found during pre-evaluation verification, not by the agent that wrote the script. First attributed to a bogus --help argument; that was wrong - the QEMU args are fully hardcoded with no argv passthrough. A controlled 5-run test showed 1 bare failure, 2 bare successes, and a success WITH --help, isolating the cause to run-to-run nondeterminism."
+
   # ---------------------------------------------------------------- OPEN: needs hardware
 
   - id: ISSUE-20260823-007

@@ -23,7 +23,19 @@ import { createRequire } from 'node:module';
 import { fileURLToPath } from 'node:url';
 
 const REPO = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', '..');
-const arg = (n, d) => { const i = process.argv.indexOf(`--${n}`); return i > 0 ? process.argv[i + 1] : d; };
+import { parseArgs } from './args.mjs';
+
+const opts = parseArgs({
+  name: 'run-bridge-demo.mjs',
+  summary: 'Boot Sesame firmware in QEMU and pipe UART0 through the Phase-0 bridge to a WebSocket.',
+  flags: {
+    image:       { describe: 'flash image to boot', default: 'emulator/qemu/images/distro-v1-esp32-nowifi.flash.bin' },
+    'uart-port': { describe: 'TCP port for UART0 (0 = pick a free one)', type: 'number', default: 0 },
+    'ws-port':   { describe: 'WebSocket port for the bridge (0 = pick a free one)', type: 'number', default: 0 },
+    seconds:     { describe: 'how long to run before shutting down', type: 'number', default: 25 },
+  },
+});
+const arg = (n, d) => (opts[n] === undefined || opts[n] === '' ? d : opts[n]);
 
 const QEMU = path.join(REPO, 'tools', 'qemu', 'qemu', 'bin', 'qemu-system-xtensa.exe');
 const BRIDGE = path.join(REPO, 'emulator', 'bridge', 'dist', 'cli.js');
@@ -35,9 +47,9 @@ const freePort = async () => await new Promise((resolve, reject) => {
   s.once('error', reject);
   s.listen(0, '127.0.0.1', () => { const { port } = s.address(); s.close(() => resolve(port)); });
 });
-const UART_PORT = Number(arg('uart-port', '0')) || await freePort();
-const WS_PORT = Number(arg('ws-port', '0')) || await freePort();
-const SECONDS = Number(arg('seconds', '25'));
+const UART_PORT = Number(arg('uart-port', 0)) || await freePort();
+const WS_PORT = Number(arg('ws-port', 0)) || await freePort();
+const SECONDS = Number(arg('seconds', 25));
 const LOGS = path.join(REPO, 'emulator', 'qemu', 'logs');
 fs.mkdirSync(LOGS, { recursive: true });
 

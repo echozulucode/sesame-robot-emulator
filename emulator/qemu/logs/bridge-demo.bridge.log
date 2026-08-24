@@ -1,5 +1,5 @@
-[bridge] bridge up: uart tcp://127.0.0.1:57185 -> ws://127.0.0.1:57186/telemetry (default provenance observed)
-websocket   ws://127.0.0.1:57186/telemetry
-uart source tcp://127.0.0.1:57185
-[bridge] uart connected to 127.0.0.1:57185
+[bridge] bridge up: uart tcp://127.0.0.1:51420 -> ws://127.0.0.1:51421/telemetry (default provenance observed)
+websocket   ws://127.0.0.1:51421/telemetry
+uart source tcp://127.0.0.1:51420
+[bridge] uart connected to 127.0.0.1:51420
 [bridge] 1 viewer client connected
