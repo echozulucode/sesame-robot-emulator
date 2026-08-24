@@ -20,16 +20,18 @@ issues:
     expected: |
       Firmware reaches user setup(), per the research report's assumption that Renode might host
       unmodified Sesame firmware.
-    trace_link: "docs/findings/R4-boot-probe.md; docs/findings/GATE-A-renode-boot.md"
-    status: open
+    trace_link: "docs/findings/R4-boot-probe.md; docs/findings/GATE-A-renode-boot.md; docs/findings/Q1-qemu-spike.md"
+    status: wont_fix
     next_action: |
-      Do NOT put this on the Phase 1 critical path. Keep as a funded research track. Ordered,
-      priced backlog exists: ~16-25 d to user code, +10-16 d for a robot that moves.
+      SUPERSEDED. Espressif's QEMU reaches setup() today, so the ~16-25 d Renode SoC track buys
+      nothing we cannot get free and vendor-maintained. No further Renode SoC work planned.
     resolution: null
     lesson: LESSON-20260823-005
     history:
       - timestamp: 2026-08-23T00:00:00Z
         note: "Opened from R4. Gate A answered NO above the CPU line, YES below it. Backlog costed with every row anchored to an observed PC or counted static reference."
+      - timestamp: 2026-08-23T00:00:00Z
+        note: "Closed as wont_fix. Q1 showed Espressif QEMU boots the same firmware to bootOrder 7/20 and enters setup(), against Renode's 0/20. Renode independently reconfirmed the same Wi-Fi blocker, so the two agree on the diagnosis - QEMU just gets there for free."
 
   - id: ISSUE-20260823-002
     title: "`rer` instruction hard-aborts Renode unrecoverably"
@@ -48,8 +50,9 @@ issues:
     trace_link: "docs/findings/R2-xtensa-execution-probe.md (rung 5b)"
     status: open
     next_action: |
-      Fix FIRST if the Renode track is ever resumed (~0.5 d to downgrade the abort to an
-      exception; 2-3 d for a full model). Everything after it is miserable to debug without this.
+      Only relevant if the Renode track is ever resumed, which Q1 makes unlikely. If so, fix this
+      FIRST (~0.5 d to downgrade the abort to an exception). Everything after it is miserable to
+      debug without it.
     resolution: null
     lesson: null
     history:
@@ -254,6 +257,8 @@ issues:
       - timestamp: 2026-08-23T00:00:00Z
         note: "Opened by F6. Every item carries a wouldBeConfirmedBy field. The type system makes an unverified semanticName structurally non-authoritative so a guess cannot be read as fact."
       - timestamp: 2026-08-23T00:00:00Z
+        note: "V0 closed 7 of 9 from the CAD, including view direction and absolute rotational sense, which F6 had said required a robot. V6 then made the remainder runtime-swappable behind a four-mechanism guess barrier. Severity effectively reduced: this no longer gates product work."
+      - timestamp: 2026-08-23T00:00:00Z
         note: "V0 closed six of the nine geometric items from the CAD, plus the absolute rotation sense F6 said needed a robot. What remains is build-time and per-build, not design."
       - timestamp: 2026-08-23T00:00:00Z
         note: "V6 made every remaining item runtime-swappable data in hardware/calibration.json (81 fields, all measured:false) and wrote an ordered, costed script for settling them. Closing this is now a JSON edit plus `pnpm validate:calibration`, not a re-architecture."
@@ -283,6 +288,8 @@ issues:
     history:
       - timestamp: 2026-08-23T00:00:00Z
         note: "Stated as a limit by R6/R7 rather than glossed; confirmed by the independent Gate B audit."
+      - timestamp: 2026-08-23T00:00:00Z
+        note: "Q1 partially reduced this: the hooks have now executed under Espressif QEMU on genuinely-executing firmware, emitting 29 servo events per run. That is not silicon, but it is no longer only a toolchain-level claim."
       - timestamp: 2026-08-23T00:00:00Z
         note: "V6 established that this issue does NOT need an assembled robot. Steps V6-06..V6-12 run on a bare board; the loop-quantum measurement at V6-08 also settles two sesame-sim simulation choices that have no firmware period behind them."
 

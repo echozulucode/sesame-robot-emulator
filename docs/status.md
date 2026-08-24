@@ -1,16 +1,58 @@
 ---
 type: status
 updated: 2026-08-23
-current_phase: "Phase 0 complete — Phase 1 (Virtual MVP) not started"
-blockers:
-  - "No physical Sesame robot has been used yet. 10 joint-map facts and the whole Gate B silicon list depend on it (ISSUE-20260823-007, -008)."
+current_phase: "Phase 1 (Virtual MVP) complete - Phase 2 (Learning application) not started"
+blockers: []
 next_actions:
-  - "P1-0: physical hardware verification sprint (1-2 d) — highest evidence-per-day item available"
-  - "Optionally file the upstream defect report (ISSUE-20260823-004, -005)"
-  - "Then P1-1 behaviour model against the 395 machine-readable choreography steps"
+  - "USER EVALUATION of the Virtual MVP (see the walkthrough in this entry)"
+  - "Decision: adopt QEMU as a QemuSesameRobot backend (~4-7 d, Q1 recommendation)"
+  - "Opportunistic: 13 checklist steps (4h25m) need only a bare ESP32-S2 + one servo + an OLED, no robot"
+  - "Then Phase 2: architecture graph, See the Signal traces, source explorer, first lessons"
 ---
 
 # Status Log
+
+## Session: 2026-08-23 (later) - Phase 1 executed end to end
+
+**Phase:** 1 - Virtual MVP -> **COMPLETE**. Plan: `docs/plans/phase-1-virtual-mvp.md`.
+
+**Constraint:** no physical Sesame robot, and none expected. The planned hardware-verification
+sprint was cancelled and replaced by **V0**, a CAD-derived reconstruction.
+
+**Actions taken:** 8 tasks across 4 waves (V0, V1, Q1, V2, V5, V3, V4, V6), 7 commits.
+`pnpm -r build`/`typecheck` clean, **674 tests passing**, **10 validators passing**.
+
+**Outcome:**
+
+- **V0 replaced the hardware sprint successfully.** The STL->CAD frame map resolved by an
+  **8876x margin** (0.0035 mm vs 31.23 mm over 96 candidates). Closed 7 unresolved items plus
+  F6 item 7, which F6 had said required a physical robot. Corrected F5: the STEP is in inches,
+  not mm.
+- **Q1 superseded the Renode track.** Real Sesame firmware executes under Espressif QEMU,
+  reaching bootOrder 7/20 and entering `setup()` - against Renode's 0/20. With Wi-Fi elided it
+  runs all 20 steps and emits real `@SESAME` telemetry. **Recommended for adoption, ~4-7 d.**
+- **The Phase 0 architecture paid off literally.** Real firmware under QEMU -> UART0 -> the
+  *unmodified* bridge -> the R3F scene: 8 joints from 21 `observed` events, zero bridge changes.
+- **Cross-layer consistency verified numerically.** V1's simulator independently reproduces
+  Phase 0's replay fixture byte-for-byte. In-browser stand pose: max joint error 0.000 deg,
+  ground plane -68.650045 mm vs V2's -68.650046 mm.
+- **V6 made 81 hardware-gated values runtime-swappable** behind a four-mechanism guess barrier,
+  and produced a 28-step, 10h15m verification checklist.
+
+**A correction to a claim repeated several times earlier:** `Adafruit_SSD1306::begin()` returns
+false **only on malloc failure** - it never checks an I2C ACK. Boot steps 4 and 5 pass with no
+display modelled at all. The "OLED is a hard boot blocker" inference was drawn from the firmware's
+error path, not the library's behaviour. An SSD1306 model buys visibility, not boot.
+
+**New upstream defect found:** ISSUE-20260823-021 - `/api/status` concatenates command and face
+names into JSON unescaped, while `jsonEscape()` is correctly applied to SSIDs 98 lines later.
+
+**Blockers:** none. The two hardware issues (007, 008) are now **deferred, not blocking** - V6's
+calibration layer means closing them later is data entry, not rework.
+
+**Next concrete action:** user evaluation, then the QEMU-adoption decision, then Phase 2.
+
+---
 
 ## Session: 2026-08-23 — Phase 0 executed end to end
 

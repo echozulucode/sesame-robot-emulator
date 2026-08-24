@@ -2,7 +2,7 @@
 type: plan
 project: "Sesame Lab"
 status: active
-version: 2
+version: 3
 updated: 2026-08-23
 phases:
   - id: 0
@@ -10,7 +10,7 @@ phases:
     status: complete
   - id: 1
     name: "Virtual MVP (behaviour model + browser robot)"
-    status: pending
+    status: complete
   - id: 2
     name: "Learning application (architecture view, lessons, Lab mode)"
     status: pending
@@ -18,9 +18,9 @@ phases:
     name: "Integration (real hardware adapter, contract tests)"
     status: pending
   - id: 4
-    name: "Renode research track (off critical path)"
-    status: research
-current_phase: 1
+    name: "Renode research track"
+    status: superseded_by_qemu
+current_phase: 2
 ---
 
 # Plan: Sesame Lab
@@ -73,26 +73,52 @@ Delivered:
   independent of Wi-Fi emulation.
 - **Gates C / E / F** — out of Phase 0 scope.
 
-## Phase 1: Virtual MVP — NEXT
+## Phase 1: Virtual MVP — COMPLETE (2026-08-23)
 
-Ordering below is the Phase-0 recommendation, evidence-backed.
+Executed without a physical robot. Plan: `docs/plans/phase-1-virtual-mvp.md`. 7 commits,
+674 tests, 10 validators.
 
-- [ ] **P1-0 Physical hardware verification sprint (1–2 d) — DO THIS FIRST.**
-      Highest evidence-per-day item in the programme. Converts 8 unverified joint semantic
-      names into facts and closes the Gate B silicon list. Ten open questions reduce to
-      "put the robot on a desk and look at it." See `issues.yaml` ISSUE-20260823-007/008.
-- [ ] **P1-1 Behaviour model (6–10 d).** `SimulatedSesameRobot` consuming the 395
-      machine-readable choreography steps in `hardware-map.json`.
-- [ ] **P1-2 R3F browser robot (8–12 d).** Articulated glTF from the F5/F6 geometry.
-- [ ] **P1-3 API adapter (4–6 d).** `/api/status` + `/api/command` parity at a host proxy.
-- [ ] **P1-4 OLED framebuffer in browser (2–4 d).** 128×64 canvas; encoding already specified.
+| Task | Outcome |
+|---|---|
+| V0 CAD assembly reconstruction | Frame map resolved by **8876×**; closed 7 unresolved items + F6 item 7 |
+| V1 Behaviour model | `@sesame-lab/sesame-sim`, 15 upstream quirks reproduced, 129 tests |
+| Q1 QEMU spike | **Real firmware executes**, bootOrder 7/20, `setup()` entered |
+| V2 glTF pipeline | `assets/sesame.glb`, stand residual 2.065e-6 mm through the written GLB |
+| V5 API adapter | `@sesame-lab/sesame-api`, Gate D implemented, 15-case contract suite |
+| V3 Browser robot | `apps/web`, R3F, both backends, QEMU-driven scene demonstrated |
+| V4 Virtual OLED | 8× canvas + 3D projection, empty-face bug rendered honestly |
+| V6 Calibration layer | 81 values runtime-swappable; 28-step, 10h15m hardware checklist |
 
-## Phase 4: Renode research track — funded, OFF the critical path
+**The headline result:** real Sesame firmware under QEMU → UART0 → the *unmodified* Phase 0
+bridge → the R3F scene, 8 joints from 21 `observed` events. The report's claim that the browser
+would change zero architecture when a firmware backend arrived is now demonstrated, twice, on
+two different emulators.
 
-- [ ] Fix `rer` first (0.5 d) — it destroys the emulator at the first real fault, making
-      everything after it miserable to debug.
-- [ ] `salt`/`saltu` LX7 opcode table drop (~1 d + 1–2 d one-off tlib build bring-up).
-- [ ] **Do NOT start LEDC modelling.** Instrumented firmware already satisfies Gate B.
+**Cancelled:** the physical-hardware sprint (P1-0). V0 replaced it for everything geometric;
+the remainder is deferred behind V6's calibration layer.
+
+## Phase 2: Learning application — NEXT
+
+The product the research report is actually about. Not started.
+
+- [ ] Interactive architecture graph (React Flow) with cross-pane highlighting
+- [ ] "See the Signal" causal traces — `traceId` threading already exists end to end
+- [ ] Source explorer against the pinned commit, with annotation metadata
+- [ ] First lessons, ordered around Sesame's real architecture
+- [ ] Lab mode: pose editor, face editor, API console
+
+**Prerequisite decision:** whether to adopt QEMU as a `QemuSesameRobot` backend (~4–7 d).
+It would slot into V5's contract suite as one additional call.
+
+## Phase 4: Renode track — SUPERSEDED by QEMU
+
+Q1 established that Espressif's QEMU delivers, free and vendor-maintained, what the Renode SoC
+track was costed at ≈16–25 d to reach. Renode is no longer merely parked; it is superseded for
+the firmware-execution use case.
+
+Retained findings, should anyone resume it: fix `rer` first (ISSUE-20260823-002, it destroys the
+emulator at the first fault), then the LX7 opcode table (ISSUE-20260823-003). Do **not** start
+LEDC modelling.
 
 ## Decisions Made
 
@@ -107,6 +133,11 @@ Ordering below is the Phase-0 recommendation, evidence-backed.
 | 2026-08-23 | `semanticName` structurally non-authoritative until physically verified | Prevents a guessed left/right mapping being baked in as fact |
 | 2026-08-23 | Gate reports written by an agent that performed none of the work | Independent verification found 6 real defects the authors missed |
 | 2026-08-23 | Phase 1 starts with a hardware sprint, not with code | Cheapest way to convert 10 open unknowns into facts |
+| 2026-08-23 | **Reversed:** hardware sprint cancelled, replaced by V0 CAD reconstruction | No physical robot available; the CAD carried the geometry and settled it by an 8876x margin |
+| 2026-08-23 | Adopt QEMU over Renode for firmware execution | QEMU reaches `setup()` today; Renode was costed at 16-25 d to get there |
+| 2026-08-23 | `SimulatedSesameRobot` stays the default backend, QEMU is opt-in | Lessons need determinism and speed; QEMU earns its place for showing real firmware |
+| 2026-08-23 | Calibration layers over the joint map, never forks it | One authoritative geometry source; calibration must not become a laundering mechanism |
+| 2026-08-23 | Calibration UI deferred to Phase 2 | `rig.ts` throws if `neutralCommandedDeg != 90`; doing it properly means touching a finished package |
 
 ## Errors Encountered
 
@@ -119,3 +150,5 @@ Ordering below is the Phase-0 recommendation, evidence-backed.
 | 2026-08-23 | F5 provenance pointed at the untracked `reference/` tree, absent from a clean clone | Re-pointed at `firmware/upstream/` after re-hashing all 17 files; hashes unchanged |
 | 2026-08-23 | Plan gap: promised the report's experiments 1–7 but never assigned the OLED experiment | Closed as `docs/findings/EXP6-oled.md` during closeout |
 | 2026-08-23 | Four wrong numbers in findings docs (R4 headline didn't sum; R2 coverage ambiguous; R6/R7 patch size; "all 21" functions) | Corrected in place with dated notes |
+| 2026-08-23 | Repeated claim that the OLED is a hard boot blocker was wrong | `Adafruit_SSD1306::begin()` fails only on malloc, never on I2C ACK; Q1 passed steps 4-5 with no display modelled |
+| 2026-08-23 | QEMU's flash model has no Quad-Enable bit; the QIO bootloader panics in `init_flash` | Rebuild with `FlashMode=dio` - 67 bytes of 1,141,552 differ, all metadata, zero instruction bytes |
