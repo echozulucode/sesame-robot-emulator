@@ -1,0 +1,1105 @@
+{
+  "image": "C:\\Projects\\sesame-robot-emulator\\emulator\\qemu\\images\\distro-v1-esp32-nowifi.flash.bin",
+  "base": 1073057792,
+  "pc": 1074307062,
+  "registers": [
+    {
+      "name": "LEDC_HSCH0_CONF0",
+      "off": 0,
+      "raw": 4,
+      "err": null,
+      "hex": "0x00000004"
+    },
+    {
+      "name": "LEDC_HSCH0_HPOINT",
+      "off": 4,
+      "raw": 0,
+      "err": null,
+      "hex": "0x00000000"
+    },
+    {
+      "name": "LEDC_HSCH0_DUTY",
+      "off": 8,
+      "raw": 0,
+      "err": null,
+      "hex": "0x00000000"
+    },
+    {
+      "name": "LEDC_HSCH0_CONF1",
+      "off": 12,
+      "raw": 0,
+      "err": null,
+      "hex": "0x00000000"
+    },
+    {
+      "name": "LEDC_HSCH0_DUTY_R",
+      "off": 16,
+      "raw": 0,
+      "err": null,
+      "hex": "0x00000000"
+    },
+    {
+      "name": "LEDC_HSCH1_CONF0",
+      "off": 20,
+      "raw": 4,
+      "err": null,
+      "hex": "0x00000004"
+    },
+    {
+      "name": "LEDC_HSCH1_HPOINT",
+      "off": 24,
+      "raw": 0,
+      "err": null,
+      "hex": "0x00000000"
+    },
+    {
+      "name": "LEDC_HSCH1_DUTY",
+      "off": 28,
+      "raw": 0,
+      "err": null,
+      "hex": "0x00000000"
+    },
+    {
+      "name": "LEDC_HSCH1_CONF1",
+      "off": 32,
+      "raw": 0,
+      "err": null,
+      "hex": "0x00000000"
+    },
+    {
+      "name": "LEDC_HSCH1_DUTY_R",
+      "off": 36,
+      "raw": 0,
+      "err": null,
+      "hex": "0x00000000"
+    },
+    {
+      "name": "LEDC_HSCH2_CONF0",
+      "off": 40,
+      "raw": 4,
+      "err": null,
+      "hex": "0x00000004"
+    },
+    {
+      "name": "LEDC_HSCH2_HPOINT",
+      "off": 44,
+      "raw": 0,
+      "err": null,
+      "hex": "0x00000000"
+    },
+    {
+      "name": "LEDC_HSCH2_DUTY",
+      "off": 48,
+      "raw": 0,
+      "err": null,
+      "hex": "0x00000000"
+    },
+    {
+      "name": "LEDC_HSCH2_CONF1",
+      "off": 52,
+      "raw": 0,
+      "err": null,
+      "hex": "0x00000000"
+    },
+    {
+      "name": "LEDC_HSCH2_DUTY_R",
+      "off": 56,
+      "raw": 0,
+      "err": null,
+      "hex": "0x00000000"
+    },
+    {
+      "name": "LEDC_HSCH3_CONF0",
+      "off": 60,
+      "raw": 4,
+      "err": null,
+      "hex": "0x00000004"
+    },
+    {
+      "name": "LEDC_HSCH3_HPOINT",
+      "off": 64,
+      "raw": 0,
+      "err": null,
+      "hex": "0x00000000"
+    },
+    {
+      "name": "LEDC_HSCH3_DUTY",
+      "off": 68,
+      "raw": 0,
+      "err": null,
+      "hex": "0x00000000"
+    },
+    {
+      "name": "LEDC_HSCH3_CONF1",
+      "off": 72,
+      "raw": 0,
+      "err": null,
+      "hex": "0x00000000"
+    },
+    {
+      "name": "LEDC_HSCH3_DUTY_R",
+      "off": 76,
+      "raw": 0,
+      "err": null,
+      "hex": "0x00000000"
+    },
+    {
+      "name": "LEDC_HSCH4_CONF0",
+      "off": 80,
+      "raw": 0,
+      "err": null,
+      "hex": "0x00000000"
+    },
+    {
+      "name": "LEDC_HSCH4_HPOINT",
+      "off": 84,
+      "raw": 0,
+      "err": null,
+      "hex": "0x00000000"
+    },
+    {
+      "name": "LEDC_HSCH4_DUTY",
+      "off": 88,
+      "raw": 0,
+      "err": null,
+      "hex": "0x00000000"
+    },
+    {
+      "name": "LEDC_HSCH4_CONF1",
+      "off": 92,
+      "raw": 0,
+      "err": null,
+      "hex": "0x00000000"
+    },
+    {
+      "name": "LEDC_HSCH4_DUTY_R",
+      "off": 96,
+      "raw": 0,
+      "err": null,
+      "hex": "0x00000000"
+    },
+    {
+      "name": "LEDC_HSCH5_CONF0",
+      "off": 100,
+      "raw": 0,
+      "err": null,
+      "hex": "0x00000000"
+    },
+    {
+      "name": "LEDC_HSCH5_HPOINT",
+      "off": 104,
+      "raw": 0,
+      "err": null,
+      "hex": "0x00000000"
+    },
+    {
+      "name": "LEDC_HSCH5_DUTY",
+      "off": 108,
+      "raw": 0,
+      "err": null,
+      "hex": "0x00000000"
+    },
+    {
+      "name": "LEDC_HSCH5_CONF1",
+      "off": 112,
+      "raw": 0,
+      "err": null,
+      "hex": "0x00000000"
+    },
+    {
+      "name": "LEDC_HSCH5_DUTY_R",
+      "off": 116,
+      "raw": 0,
+      "err": null,
+      "hex": "0x00000000"
+    },
+    {
+      "name": "LEDC_HSCH6_CONF0",
+      "off": 120,
+      "raw": 0,
+      "err": null,
+      "hex": "0x00000000"
+    },
+    {
+      "name": "LEDC_HSCH6_HPOINT",
+      "off": 124,
+      "raw": 0,
+      "err": null,
+      "hex": "0x00000000"
+    },
+    {
+      "name": "LEDC_HSCH6_DUTY",
+      "off": 128,
+      "raw": 0,
+      "err": null,
+      "hex": "0x00000000"
+    },
+    {
+      "name": "LEDC_HSCH6_CONF1",
+      "off": 132,
+      "raw": 0,
+      "err": null,
+      "hex": "0x00000000"
+    },
+    {
+      "name": "LEDC_HSCH6_DUTY_R",
+      "off": 136,
+      "raw": 0,
+      "err": null,
+      "hex": "0x00000000"
+    },
+    {
+      "name": "LEDC_HSCH7_CONF0",
+      "off": 140,
+      "raw": 0,
+      "err": null,
+      "hex": "0x00000000"
+    },
+    {
+      "name": "LEDC_HSCH7_HPOINT",
+      "off": 144,
+      "raw": 0,
+      "err": null,
+      "hex": "0x00000000"
+    },
+    {
+      "name": "LEDC_HSCH7_DUTY",
+      "off": 148,
+      "raw": 0,
+      "err": null,
+      "hex": "0x00000000"
+    },
+    {
+      "name": "LEDC_HSCH7_CONF1",
+      "off": 152,
+      "raw": 0,
+      "err": null,
+      "hex": "0x00000000"
+    },
+    {
+      "name": "LEDC_HSCH7_DUTY_R",
+      "off": 156,
+      "raw": 0,
+      "err": null,
+      "hex": "0x00000000"
+    },
+    {
+      "name": "LEDC_LSCH0_CONF0",
+      "off": 160,
+      "raw": 20,
+      "err": null,
+      "hex": "0x00000014"
+    },
+    {
+      "name": "LEDC_LSCH0_HPOINT",
+      "off": 164,
+      "raw": 0,
+      "err": null,
+      "hex": "0x00000000"
+    },
+    {
+      "name": "LEDC_LSCH0_DUTY",
+      "off": 168,
+      "raw": 0,
+      "err": null,
+      "hex": "0x00000000"
+    },
+    {
+      "name": "LEDC_LSCH0_CONF1",
+      "off": 172,
+      "raw": 0,
+      "err": null,
+      "hex": "0x00000000"
+    },
+    {
+      "name": "LEDC_LSCH0_DUTY_R",
+      "off": 176,
+      "raw": 0,
+      "err": null,
+      "hex": "0x00000000"
+    },
+    {
+      "name": "LEDC_LSCH1_CONF0",
+      "off": 180,
+      "raw": 20,
+      "err": null,
+      "hex": "0x00000014"
+    },
+    {
+      "name": "LEDC_LSCH1_HPOINT",
+      "off": 184,
+      "raw": 0,
+      "err": null,
+      "hex": "0x00000000"
+    },
+    {
+      "name": "LEDC_LSCH1_DUTY",
+      "off": 188,
+      "raw": 0,
+      "err": null,
+      "hex": "0x00000000"
+    },
+    {
+      "name": "LEDC_LSCH1_CONF1",
+      "off": 192,
+      "raw": 0,
+      "err": null,
+      "hex": "0x00000000"
+    },
+    {
+      "name": "LEDC_LSCH1_DUTY_R",
+      "off": 196,
+      "raw": 0,
+      "err": null,
+      "hex": "0x00000000"
+    },
+    {
+      "name": "LEDC_LSCH2_CONF0",
+      "off": 200,
+      "raw": 20,
+      "err": null,
+      "hex": "0x00000014"
+    },
+    {
+      "name": "LEDC_LSCH2_HPOINT",
+      "off": 204,
+      "raw": 0,
+      "err": null,
+      "hex": "0x00000000"
+    },
+    {
+      "name": "LEDC_LSCH2_DUTY",
+      "off": 208,
+      "raw": 0,
+      "err": null,
+      "hex": "0x00000000"
+    },
+    {
+      "name": "LEDC_LSCH2_CONF1",
+      "off": 212,
+      "raw": 0,
+      "err": null,
+      "hex": "0x00000000"
+    },
+    {
+      "name": "LEDC_LSCH2_DUTY_R",
+      "off": 216,
+      "raw": 0,
+      "err": null,
+      "hex": "0x00000000"
+    },
+    {
+      "name": "LEDC_LSCH3_CONF0",
+      "off": 220,
+      "raw": 20,
+      "err": null,
+      "hex": "0x00000014"
+    },
+    {
+      "name": "LEDC_LSCH3_HPOINT",
+      "off": 224,
+      "raw": 0,
+      "err": null,
+      "hex": "0x00000000"
+    },
+    {
+      "name": "LEDC_LSCH3_DUTY",
+      "off": 228,
+      "raw": 0,
+      "err": null,
+      "hex": "0x00000000"
+    },
+    {
+      "name": "LEDC_LSCH3_CONF1",
+      "off": 232,
+      "raw": 0,
+      "err": null,
+      "hex": "0x00000000"
+    },
+    {
+      "name": "LEDC_LSCH3_DUTY_R",
+      "off": 236,
+      "raw": 0,
+      "err": null,
+      "hex": "0x00000000"
+    },
+    {
+      "name": "LEDC_LSCH4_CONF0",
+      "off": 240,
+      "raw": 0,
+      "err": null,
+      "hex": "0x00000000"
+    },
+    {
+      "name": "LEDC_LSCH4_HPOINT",
+      "off": 244,
+      "raw": 0,
+      "err": null,
+      "hex": "0x00000000"
+    },
+    {
+      "name": "LEDC_LSCH4_DUTY",
+      "off": 248,
+      "raw": 0,
+      "err": null,
+      "hex": "0x00000000"
+    },
+    {
+      "name": "LEDC_LSCH4_CONF1",
+      "off": 252,
+      "raw": 0,
+      "err": null,
+      "hex": "0x00000000"
+    },
+    {
+      "name": "LEDC_LSCH4_DUTY_R",
+      "off": 256,
+      "raw": 0,
+      "err": null,
+      "hex": "0x00000000"
+    },
+    {
+      "name": "LEDC_LSCH5_CONF0",
+      "off": 260,
+      "raw": 0,
+      "err": null,
+      "hex": "0x00000000"
+    },
+    {
+      "name": "LEDC_LSCH5_HPOINT",
+      "off": 264,
+      "raw": 0,
+      "err": null,
+      "hex": "0x00000000"
+    },
+    {
+      "name": "LEDC_LSCH5_DUTY",
+      "off": 268,
+      "raw": 0,
+      "err": null,
+      "hex": "0x00000000"
+    },
+    {
+      "name": "LEDC_LSCH5_CONF1",
+      "off": 272,
+      "raw": 0,
+      "err": null,
+      "hex": "0x00000000"
+    },
+    {
+      "name": "LEDC_LSCH5_DUTY_R",
+      "off": 276,
+      "raw": 0,
+      "err": null,
+      "hex": "0x00000000"
+    },
+    {
+      "name": "LEDC_LSCH6_CONF0",
+      "off": 280,
+      "raw": 0,
+      "err": null,
+      "hex": "0x00000000"
+    },
+    {
+      "name": "LEDC_LSCH6_HPOINT",
+      "off": 284,
+      "raw": 0,
+      "err": null,
+      "hex": "0x00000000"
+    },
+    {
+      "name": "LEDC_LSCH6_DUTY",
+      "off": 288,
+      "raw": 0,
+      "err": null,
+      "hex": "0x00000000"
+    },
+    {
+      "name": "LEDC_LSCH6_CONF1",
+      "off": 292,
+      "raw": 0,
+      "err": null,
+      "hex": "0x00000000"
+    },
+    {
+      "name": "LEDC_LSCH6_DUTY_R",
+      "off": 296,
+      "raw": 0,
+      "err": null,
+      "hex": "0x00000000"
+    },
+    {
+      "name": "LEDC_LSCH7_CONF0",
+      "off": 300,
+      "raw": 0,
+      "err": null,
+      "hex": "0x00000000"
+    },
+    {
+      "name": "LEDC_LSCH7_HPOINT",
+      "off": 304,
+      "raw": 0,
+      "err": null,
+      "hex": "0x00000000"
+    },
+    {
+      "name": "LEDC_LSCH7_DUTY",
+      "off": 308,
+      "raw": 0,
+      "err": null,
+      "hex": "0x00000000"
+    },
+    {
+      "name": "LEDC_LSCH7_CONF1",
+      "off": 312,
+      "raw": 0,
+      "err": null,
+      "hex": "0x00000000"
+    },
+    {
+      "name": "LEDC_LSCH7_DUTY_R",
+      "off": 316,
+      "raw": 0,
+      "err": null,
+      "hex": "0x00000000"
+    },
+    {
+      "name": "LEDC_HSTIMER0_CONF",
+      "off": 320,
+      "raw": 160010,
+      "err": null,
+      "hex": "0x0002710a"
+    },
+    {
+      "name": "LEDC_HSTIMER0_VALUE",
+      "off": 324,
+      "raw": 160010,
+      "err": null,
+      "hex": "0x0002710a"
+    },
+    {
+      "name": "LEDC_HSTIMER1_CONF",
+      "off": 328,
+      "raw": 0,
+      "err": null,
+      "hex": "0x00000000"
+    },
+    {
+      "name": "LEDC_HSTIMER1_VALUE",
+      "off": 332,
+      "raw": 0,
+      "err": null,
+      "hex": "0x00000000"
+    },
+    {
+      "name": "LEDC_HSTIMER2_CONF",
+      "off": 336,
+      "raw": 0,
+      "err": null,
+      "hex": "0x00000000"
+    },
+    {
+      "name": "LEDC_HSTIMER2_VALUE",
+      "off": 340,
+      "raw": 0,
+      "err": null,
+      "hex": "0x00000000"
+    },
+    {
+      "name": "LEDC_HSTIMER3_CONF",
+      "off": 344,
+      "raw": 0,
+      "err": null,
+      "hex": "0x00000000"
+    },
+    {
+      "name": "LEDC_HSTIMER3_VALUE",
+      "off": 348,
+      "raw": 0,
+      "err": null,
+      "hex": "0x00000000"
+    },
+    {
+      "name": "LEDC_LSTIMER0_CONF",
+      "off": 352,
+      "raw": 67268874,
+      "err": null,
+      "hex": "0x0402710a"
+    },
+    {
+      "name": "LEDC_LSTIMER0_VALUE",
+      "off": 356,
+      "raw": 67268874,
+      "err": null,
+      "hex": "0x0402710a"
+    },
+    {
+      "name": "LEDC_LSTIMER1_CONF",
+      "off": 360,
+      "raw": 0,
+      "err": null,
+      "hex": "0x00000000"
+    },
+    {
+      "name": "LEDC_LSTIMER1_VALUE",
+      "off": 364,
+      "raw": 0,
+      "err": null,
+      "hex": "0x00000000"
+    },
+    {
+      "name": "LEDC_LSTIMER2_CONF",
+      "off": 368,
+      "raw": 0,
+      "err": null,
+      "hex": "0x00000000"
+    },
+    {
+      "name": "LEDC_LSTIMER2_VALUE",
+      "off": 372,
+      "raw": 0,
+      "err": null,
+      "hex": "0x00000000"
+    },
+    {
+      "name": "LEDC_LSTIMER3_CONF",
+      "off": 376,
+      "raw": 0,
+      "err": null,
+      "hex": "0x00000000"
+    },
+    {
+      "name": "LEDC_LSTIMER3_VALUE",
+      "off": 380,
+      "raw": 0,
+      "err": null,
+      "hex": "0x00000000"
+    },
+    {
+      "name": "LEDC_INT_RAW",
+      "off": 384,
+      "raw": 0,
+      "err": null,
+      "hex": "0x00000000"
+    },
+    {
+      "name": "LEDC_INT_ST",
+      "off": 388,
+      "raw": 0,
+      "err": null,
+      "hex": "0x00000000"
+    },
+    {
+      "name": "LEDC_INT_ENA",
+      "off": 392,
+      "raw": 0,
+      "err": null,
+      "hex": "0x00000000"
+    },
+    {
+      "name": "LEDC_INT_CLR",
+      "off": 396,
+      "raw": 0,
+      "err": null,
+      "hex": "0x00000000"
+    },
+    {
+      "name": "LEDC_CONF",
+      "off": 400,
+      "raw": 0,
+      "err": null,
+      "hex": "0x00000000"
+    }
+  ],
+  "ledSetIntensityPercents": [
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    10,
+    5,
+    5,
+    10,
+    3,
+    12,
+    3,
+    12,
+    7,
+    12,
+    8,
+    8,
+    12,
+    12,
+    8,
+    12,
+    8,
+    12,
+    8,
+    12,
+    8,
+    10,
+    5,
+    5,
+    10,
+    3,
+    12,
+    3,
+    12
+  ],
+  "servoTelemetry": [
+    "@SESAME servo R1 135",
+    "@SESAME servo R2 45",
+    "@SESAME servo L1 45",
+    "@SESAME servo L2 135",
+    "@SESAME servo R4 0",
+    "@SESAME servo R3 180",
+    "@SESAME servo L3 0",
+    "@SESAME servo L4 180",
+    "@SESAME servo R4 80",
+    "@SESAME servo L3 180",
+    "@SESAME servo L2 90",
+    "@SESAME servo R1 100",
+    "@SESAME servo L3 180",
+    "@SESAME servo L3 180",
+    "@SESAME servo L3 100",
+    "@SESAME servo L3 180",
+    "@SESAME servo L3 100",
+    "@SESAME servo L3 180",
+    "@SESAME servo L3 100",
+    "@SESAME servo L3 180",
+    "@SESAME servo L3 100",
+    "@SESAME servo R1 135",
+    "@SESAME servo R2 45",
+    "@SESAME servo L1 45",
+    "@SESAME servo L2 135",
+    "@SESAME servo R4 0",
+    "@SESAME servo R3 180",
+    "@SESAME servo L3 0",
+    "@SESAME servo L4 180"
+  ],
+  "comparison": [
+    {
+      "joint": "R1",
+      "angle": 135,
+      "qemuPct": 10,
+      "us": 2058,
+      "ticks": 105,
+      "realUs": 2050.78125,
+      "realPct": 10.25390625,
+      "modelPct": 10,
+      "match": true
+    },
+    {
+      "joint": "R2",
+      "angle": 45,
+      "qemuPct": 5,
+      "us": 1174,
+      "ticks": 60,
+      "realUs": 1171.875,
+      "realPct": 5.859375,
+      "modelPct": 5,
+      "match": true
+    },
+    {
+      "joint": "L1",
+      "angle": 45,
+      "qemuPct": 5,
+      "us": 1174,
+      "ticks": 60,
+      "realUs": 1171.875,
+      "realPct": 5.859375,
+      "modelPct": 5,
+      "match": true
+    },
+    {
+      "joint": "L2",
+      "angle": 135,
+      "qemuPct": 10,
+      "us": 2058,
+      "ticks": 105,
+      "realUs": 2050.78125,
+      "realPct": 10.25390625,
+      "modelPct": 10,
+      "match": true
+    },
+    {
+      "joint": "R4",
+      "angle": 0,
+      "qemuPct": 3,
+      "us": 732,
+      "ticks": 37,
+      "realUs": 722.65625,
+      "realPct": 3.61328125,
+      "modelPct": 3,
+      "match": true
+    },
+    {
+      "joint": "R3",
+      "angle": 180,
+      "qemuPct": 12,
+      "us": 2500,
+      "ticks": 128,
+      "realUs": 2500,
+      "realPct": 12.5,
+      "modelPct": 12,
+      "match": true
+    },
+    {
+      "joint": "L3",
+      "angle": 0,
+      "qemuPct": 3,
+      "us": 732,
+      "ticks": 37,
+      "realUs": 722.65625,
+      "realPct": 3.61328125,
+      "modelPct": 3,
+      "match": true
+    },
+    {
+      "joint": "L4",
+      "angle": 180,
+      "qemuPct": 12,
+      "us": 2500,
+      "ticks": 128,
+      "realUs": 2500,
+      "realPct": 12.5,
+      "modelPct": 12,
+      "match": true
+    },
+    {
+      "joint": "R4",
+      "angle": 80,
+      "qemuPct": 7,
+      "us": 1517,
+      "ticks": 77,
+      "realUs": 1503.90625,
+      "realPct": 7.51953125,
+      "modelPct": 7,
+      "match": true
+    },
+    {
+      "joint": "L3",
+      "angle": 180,
+      "qemuPct": 12,
+      "us": 2500,
+      "ticks": 128,
+      "realUs": 2500,
+      "realPct": 12.5,
+      "modelPct": 12,
+      "match": true
+    },
+    {
+      "joint": "L2",
+      "angle": 90,
+      "qemuPct": 8,
+      "us": 1616,
+      "ticks": 82,
+      "realUs": 1601.5625,
+      "realPct": 8.0078125,
+      "modelPct": 8,
+      "match": true
+    },
+    {
+      "joint": "R1",
+      "angle": 100,
+      "qemuPct": 8,
+      "us": 1714,
+      "ticks": 87,
+      "realUs": 1699.21875,
+      "realPct": 8.49609375,
+      "modelPct": 8,
+      "match": true
+    },
+    {
+      "joint": "L3",
+      "angle": 180,
+      "qemuPct": 12,
+      "us": 2500,
+      "ticks": 128,
+      "realUs": 2500,
+      "realPct": 12.5,
+      "modelPct": 12,
+      "match": true
+    },
+    {
+      "joint": "L3",
+      "angle": 180,
+      "qemuPct": 12,
+      "us": 2500,
+      "ticks": 128,
+      "realUs": 2500,
+      "realPct": 12.5,
+      "modelPct": 12,
+      "match": true
+    },
+    {
+      "joint": "L3",
+      "angle": 100,
+      "qemuPct": 8,
+      "us": 1714,
+      "ticks": 87,
+      "realUs": 1699.21875,
+      "realPct": 8.49609375,
+      "modelPct": 8,
+      "match": true
+    },
+    {
+      "joint": "L3",
+      "angle": 180,
+      "qemuPct": 12,
+      "us": 2500,
+      "ticks": 128,
+      "realUs": 2500,
+      "realPct": 12.5,
+      "modelPct": 12,
+      "match": true
+    },
+    {
+      "joint": "L3",
+      "angle": 100,
+      "qemuPct": 8,
+      "us": 1714,
+      "ticks": 87,
+      "realUs": 1699.21875,
+      "realPct": 8.49609375,
+      "modelPct": 8,
+      "match": true
+    },
+    {
+      "joint": "L3",
+      "angle": 180,
+      "qemuPct": 12,
+      "us": 2500,
+      "ticks": 128,
+      "realUs": 2500,
+      "realPct": 12.5,
+      "modelPct": 12,
+      "match": true
+    },
+    {
+      "joint": "L3",
+      "angle": 100,
+      "qemuPct": 8,
+      "us": 1714,
+      "ticks": 87,
+      "realUs": 1699.21875,
+      "realPct": 8.49609375,
+      "modelPct": 8,
+      "match": true
+    },
+    {
+      "joint": "L3",
+      "angle": 180,
+      "qemuPct": 12,
+      "us": 2500,
+      "ticks": 128,
+      "realUs": 2500,
+      "realPct": 12.5,
+      "modelPct": 12,
+      "match": true
+    },
+    {
+      "joint": "L3",
+      "angle": 100,
+      "qemuPct": 8,
+      "us": 1714,
+      "ticks": 87,
+      "realUs": 1699.21875,
+      "realPct": 8.49609375,
+      "modelPct": 8,
+      "match": true
+    },
+    {
+      "joint": "R1",
+      "angle": 135,
+      "qemuPct": 10,
+      "us": 2058,
+      "ticks": 105,
+      "realUs": 2050.78125,
+      "realPct": 10.25390625,
+      "modelPct": 10,
+      "match": true
+    },
+    {
+      "joint": "R2",
+      "angle": 45,
+      "qemuPct": 5,
+      "us": 1174,
+      "ticks": 60,
+      "realUs": 1171.875,
+      "realPct": 5.859375,
+      "modelPct": 5,
+      "match": true
+    },
+    {
+      "joint": "L1",
+      "angle": 45,
+      "qemuPct": 5,
+      "us": 1174,
+      "ticks": 60,
+      "realUs": 1171.875,
+      "realPct": 5.859375,
+      "modelPct": 5,
+      "match": true
+    },
+    {
+      "joint": "L2",
+      "angle": 135,
+      "qemuPct": 10,
+      "us": 2058,
+      "ticks": 105,
+      "realUs": 2050.78125,
+      "realPct": 10.25390625,
+      "modelPct": 10,
+      "match": true
+    },
+    {
+      "joint": "R4",
+      "angle": 0,
+      "qemuPct": 3,
+      "us": 732,
+      "ticks": 37,
+      "realUs": 722.65625,
+      "realPct": 3.61328125,
+      "modelPct": 3,
+      "match": true
+    },
+    {
+      "joint": "R3",
+      "angle": 180,
+      "qemuPct": 12,
+      "us": 2500,
+      "ticks": 128,
+      "realUs": 2500,
+      "realPct": 12.5,
+      "modelPct": 12,
+      "match": true
+    },
+    {
+      "joint": "L3",
+      "angle": 0,
+      "qemuPct": 3,
+      "us": 732,
+      "ticks": 37,
+      "realUs": 722.65625,
+      "realPct": 3.61328125,
+      "modelPct": 3,
+      "match": true
+    },
+    {
+      "joint": "L4",
+      "angle": 180,
+      "qemuPct": 12,
+      "us": 2500,
+      "ticks": 128,
+      "realUs": 2500,
+      "realPct": 12.5,
+      "modelPct": 12,
+      "match": true
+    }
+  ]
+}
