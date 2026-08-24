@@ -1,6 +1,6 @@
 version: 1
 project: "Sesame Lab"
-updated: 2026-08-23
+updated: 2026-08-24
 issues:
 
   # ---------------------------------------------------------------- OPEN: emulation
@@ -299,6 +299,47 @@ issues:
         note: "Found during pre-evaluation verification, not by the agent that wrote the script. First attributed to a bogus --help argument; that was wrong - the QEMU args are fully hardcoded with no argv passthrough. A controlled 5-run test showed 1 bare failure, 2 bare successes, and a success WITH --help, isolating the cause to run-to-run nondeterminism."
       - timestamp: 2026-08-23T00:00:00Z
         note: "Q2: root-caused to QEMU's ESP32 cache/DPORT model, not to anything in this repo. The measurement lesson repeats the one this issue already taught: the reported 1-in-5 was itself an under-measurement, because a panic that reboots and then works looks like a pass unless you check for the panic. 20+ runs per configuration, and a success criterion that names the failure signature rather than only its symptom."
+
+  - id: ISSUE-20260824-024
+    title: "QEMU's LEDC produces no waveform, so the instrumented firmware hook is load-bearing"
+    category: verification
+    severity: medium
+    priority: p2
+    confidence: high
+    scope: emulator
+    observed: |
+      Q3 verified QEMU's ESP32 LEDC model against the ESP32 TRM. It IS a real device at the real
+      address (misc.esp32.ledc, 0x3FF59000-0x3FF59193) and its duty RATIO is arithmetically
+      correct - all 29 servo writes in a boot match the TRM formula applied to the pulse
+      ESP32Servo actually programmed, 29/29. But all 1616 bytes of the model contain no
+      timer_new/timer_mod, no qemu_irq, no qdev_init_gpio_out; DIV_NUM is stored and never read;
+      the duty value's only consumer is a trace event and one byte with zero call sites; and
+      LEDC_HSTIMER0_VALUE reads back byte-identical to LEDC_HSTIMER0_CONF because nothing is
+      counting. No pulse, no edge, no 50 Hz frame is produced.
+      Consequence: the project's ONLY per-joint, per-angle servo evidence is the R6
+      instrumentation hook at setServoAngle(), which sits ABOVE the peripheral. The QEMU trace
+      event carries a bare percentage with no channel, no pin and no joint name.
+    expected: |
+      Either the emulated peripheral produces a waveform that can corroborate the hook, or the
+      project states plainly that it does not and that the hook cannot be retired by better
+      emulation.
+    trace_link: "docs/findings/Q3-ledc-fidelity.md sections 1, 2, 4, 5.1; emulator/qemu/probe-ledc.mjs; emulator/qemu/logs/ledc.json; packages/sesame-qemu/src/config.ts (ELIDED_SUBSYSTEMS 'ledc-waveform', PERIPHERAL_FIDELITY)"
+    status: open
+    next_action: |
+      Checklist step V6-14b (docs/findings/V6-hardware-verification-checklist.md) - a logic
+      analyser or scope on one servo signal pin, 15 min on a bare board with one loose servo.
+      It is the ONLY route: patching QEMU's esp32_ledc.c to run a QEMUTimer and drive a
+      qemu_irq was costed at 3-6 d plus a QEMU build toolchain this repo does not have, and
+      would only prove that QEMU's arithmetic agrees with QEMU's arithmetic (Q3 section 5.2).
+      Renode is wont_fix and never modelled LEDC either. Confirm four things: a pulse exists;
+      frame period 20.000 ms; high time 722.7 / 1601.6 / 2500.0 us at 0 / 90 / 180 deg; and that
+      commanding 89 then 90 does NOT change the high time. Record the result in
+      hardware/hardware-map.json servos.servoConfig.attachPulseClamp / pulseQuantisation.
+    resolution: null
+    lesson: null
+    history:
+      - timestamp: 2026-08-24T00:00:00Z
+        note: "Opened by the Q3 LEDC-corrections propagation. Q3 itself could not touch packages/sesame-qemu/; 'ledc-waveform' is now in ELIDED_SUBSYSTEMS and a PERIPHERAL_FIDELITY note states the limit in words, both pinned by honesty.test.ts, so the backend can no longer imply a fidelity it does not have. This issue tracks the remaining gap, which is not closable from inside any emulator."
 
   - id: ISSUE-20260823-023
     title: "3D world appears to jump during motion: the ground plane slides instead of the robot"

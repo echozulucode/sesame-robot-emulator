@@ -126,10 +126,55 @@ map.servos.joints.forEach((j, i) => {
     check(boardIds.has(id), `servos.joints[${i}] references unknown board id "${id}"`);
   }
 });
+const servoConfig = map.servos.servoConfig;
 check(
-  map.servos.servoConfig.attachMinPulseUs < map.servos.servoConfig.attachMaxPulseUs,
+  servoConfig.attachMinPulseUs < servoConfig.attachMaxPulseUs,
   'servoConfig attach pulse range is inverted'
 );
+
+// The requested-vs-effective attach window (Q3 §6.2). attachMaxPulseUs is the
+// EFFECTIVE pulse — what the peripheral is actually asked for — and
+// attachMaxPulseRequestedUs is what the firmware's attach() call passes.
+// Collapsing the two back into one number is the exact error being corrected,
+// so it is checked rather than trusted.
+const clamp = servoConfig.attachPulseClamp;
+if (clamp) {
+  check(clamp.effectiveMaxUs === servoConfig.attachMaxPulseUs,
+    `attachPulseClamp.effectiveMaxUs (${clamp.effectiveMaxUs}) must equal attachMaxPulseUs (${servoConfig.attachMaxPulseUs}) — attachMaxPulseUs records the EFFECTIVE pulse`);
+  check(clamp.effectiveMinUs === servoConfig.attachMinPulseUs,
+    `attachPulseClamp.effectiveMinUs (${clamp.effectiveMinUs}) must equal attachMinPulseUs (${servoConfig.attachMinPulseUs})`);
+  check(clamp.requestedMaxUs === servoConfig.attachMaxPulseRequestedUs,
+    `attachPulseClamp.requestedMaxUs (${clamp.requestedMaxUs}) must equal attachMaxPulseRequestedUs (${servoConfig.attachMaxPulseRequestedUs})`);
+  check(clamp.maxClamped === clamp.requestedMaxUs > clamp.effectiveMaxUs,
+    `attachPulseClamp.maxClamped=${clamp.maxClamped} contradicts requested ${clamp.requestedMaxUs} vs effective ${clamp.effectiveMaxUs}`);
+  check(clamp.minClamped === clamp.requestedMinUs < clamp.effectiveMinUs,
+    `attachPulseClamp.minClamped=${clamp.minClamped} contradicts requested ${clamp.requestedMinUs} vs effective ${clamp.effectiveMinUs}`);
+  if (typeof clamp.libraryMaxPulseWidthUs === 'number') {
+    check(clamp.effectiveMaxUs <= clamp.libraryMaxPulseWidthUs,
+      `effective max pulse ${clamp.effectiveMaxUs} exceeds the library's MAX_PULSE_WIDTH ${clamp.libraryMaxPulseWidthUs}`);
+  }
+}
+
+// 10-bit quantisation (Q3 §6.4). Recomputed, not trusted: the aliasing count is
+// the fact a simulator would otherwise silently over-claim.
+const q = servoConfig.pulseQuantisation;
+if (q) {
+  check(q.timerWidthTicks === 2 ** q.timerWidthBits,
+    `pulseQuantisation: ${q.timerWidthBits} bits is ${2 ** q.timerWidthBits} ticks, not ${q.timerWidthTicks}`);
+  check(Math.abs(q.usPerTick - q.frameUs / q.timerWidthTicks) < 1e-9,
+    `pulseQuantisation.usPerTick ${q.usPerTick} != frameUs/ticks ${q.frameUs / q.timerWidthTicks}`);
+  check(q.maxTick - q.minTick + 1 === q.distinctReachablePulseValues,
+    `pulseQuantisation: ticks ${q.minTick}..${q.maxTick} is ${q.maxTick - q.minTick + 1} values, not ${q.distinctReachablePulseValues}`);
+  check(q.commandableAngles - q.distinctReachablePulseValues === q.aliasedAngleCount,
+    `pulseQuantisation: ${q.commandableAngles} angles onto ${q.distinctReachablePulseValues} pulses aliases ${q.commandableAngles - q.distinctReachablePulseValues}, not ${q.aliasedAngleCount}`);
+  check(q.commandableAngles === map.servos.servoConfig.angleClamp.max - map.servos.servoConfig.angleClamp.min + 1,
+    `pulseQuantisation.commandableAngles ${q.commandableAngles} does not match the firmware clamp ${servoConfig.angleClamp.min}..${servoConfig.angleClamp.max}`);
+}
+
+if (typeof servoConfig.pwmTimersProgrammed === 'number') {
+  check(servoConfig.pwmTimersProgrammed <= servoConfig.pwmTimersAllocated.length,
+    `pwmTimersProgrammed (${servoConfig.pwmTimersProgrammed}) exceeds pwmTimersAllocated (${servoConfig.pwmTimersAllocated.length})`);
+}
 
 // boot order
 map.bootOrder.forEach((s, i) => check(s.order === i + 1, `bootOrder[${i}].order is ${s.order}, expected ${i + 1}`));

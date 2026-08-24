@@ -254,6 +254,24 @@ I could not observe the I²C bus directly: QEMU's trace backend is a no-op in th
 known-firing events). `[RAN]` So "does any I²C transaction actually reach the controller model" is
 **unanswered**; it does not affect the conclusion, which rests on the source and on the ladder.
 
+> **Corrected 2026-08-24 (Q3, `docs/findings/Q3-ledc-fidelity.md` §6.1):** the paragraph above is
+> wrong about the *cause*. **The trace backend is not a no-op in this build — it works.**
+> `-d trace:led_set_intensity` and `-trace led_set_intensity` both fire, producing **37
+> `led_set_intensity` and 23 `led_change_intensity` events** over a full boot, and the disassembly
+> shows the `qemu_loglevel & LOG_TRACE` path intact. `[RAN]` `[SRC]`
+>
+> The **observation** stands and the corrected statement is narrower and more useful: enabling
+> `-trace 'i2c_*' -trace 'esp32_*' -trace 'led_*'` over a whole boot fires **zero `i2c_*` and zero
+> `esp32_*`** — not because the backend is dead, but because **Espressif's device models never call
+> those trace points.** The events exist in `-trace help`; nothing invokes them. Espressif's I²C
+> model does not call the generic `hw/i2c/core.c` trace points, and defines no `esp32_*` ones of its
+> own. `[RAN]`
+>
+> Consequence: "does any I²C transaction reach the controller" is **still unanswered**, so §5's
+> conclusion is untouched — but the route to answering it is a device-model or GDB-stub question,
+> not a broken-tooling one, and `-trace` is a usable instrument rather than a dead end. Q3 used it
+> as one.
+
 ---
 
 ## 6. The real wall — Wi-Fi, and only Wi-Fi
@@ -482,7 +500,7 @@ Read out of the shipped binary's symbol table. `[SRC]`
 | **Wi-Fi MAC / PHY / modem clock** | nothing. This is the wall (§6) |
 | **SSD1306** | no OLED slave — costs nothing to boot past (§5), costs visibility |
 | **`esp32s2` machine** | the S2 Mini has no platform (§12) |
-| **Working trace backend** (this Windows build) | `-trace`/`-d trace:` emit nothing |
+| ~~**Working trace backend** (this Windows build)~~ | ~~`-trace`/`-d trace:` emit nothing~~ — **corrected 2026-08-24 (Q3 §6.1): the trace backend WORKS.** `led_*` events fire (37 + 23 over a boot). `i2c_*` and `esp32_*` produce nothing because Espressif's models never call those trace points, not because the backend is inert. This row belonged under *Present*, with that qualifier. See §5 |
 
 ---
 
@@ -695,11 +713,19 @@ not committed artefacts — the same convention F3 used.
   produces the right duty cycle for `attach(pin, 732, 2929)`. **This is the first thing to verify
   if QEMU is adopted**, because it is the difference between "the firmware thinks it moved" and
   "the peripheral was actually driven".
+
+  > **Answered 2026-08-24 (Q3, `docs/findings/Q3-ledc-fidelity.md`):** checked. The duty ratio is
+  > **correct**, 29 of 29 writes against the ESP32 TRM — and the peripheral was **not** "actually
+  > driven": QEMU's LEDC model has no timer, no GPIO connection and no consumer, so it produces no
+  > pulse, no edge and no 50 Hz frame. Both halves of the sentence above turn out to be true at
+  > once. The hook stays load-bearing permanently (ISSUE-20260824-024). Note also that the pulse
+  > window in this bullet is the *call*: ESP32Servo clamps the maximum to 2500 µs, so the effective
+  > window is 732…2500 (Q3 §6.2).
 - **It does not claim determinism.** The servo stream was byte-stable across three runs (§7), but
   the *stock* image alternates between two failure modes at step 7 (§6), so the emulator is
   demonstrably timing-sensitive somewhere. Nobody has checked whether `-icount` makes QEMU
   deterministic here; it probably would, and that would matter for CI. `[INFER]`
-- **The I²C bus was never observed**, because this build's trace backend is inert (§5).
+- **The I²C bus was never observed.** Still true. The stated reason — "this build's trace backend is inert" — is **corrected 2026-08-24 (Q3 §6.1)**: the backend works; Espressif's I²C model simply never calls a trace point (§5).
 - **The S3 investigation was one afternoon's worth and stops at a ROM address.** It is a lead, not
   a conclusion.
 - **No timing fidelity claim of any kind.** `motorCurrentDelay`, `delayWithFace()` and the 50 Hz

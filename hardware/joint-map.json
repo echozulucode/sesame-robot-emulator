@@ -4,7 +4,7 @@
     "schemaVersion": "1.0.0",
     "jointMapVersion": "1.1.0",
     "task": "F6 — joint map + sesame-model package (geometry promoted by Phase 1 task V0)",
-    "generatedAt": "2026-08-23T00:00:00Z",
+    "generatedAt": "2026-08-24T00:00:00Z",
     "generatedBy": "scripts/build-joint-map.mjs (asset-pipeline agent, Sesame Lab Phase 0)",
     "regenerateWith": "node scripts/build-joint-map.mjs",
     "validateWith": "pnpm validate:joint-map",
@@ -14,7 +14,7 @@
       {
         "id": "hardware-map",
         "path": "hardware/hardware-map.json",
-        "sha256": "6be27b69cab00e72d074405ac9822823143a8fcf19d8e4f373f57f1beb65d659",
+        "sha256": "fb2aec0e468bdf4fc1bb73de433dbb59613cc55e4b3901146ef90dd9a578094c",
         "role": "F4 boundary inventory — firmware order, per-board GPIO, servo clamp/subtrim, 21 movement functions",
         "producedBy": "F4"
       },
@@ -28,7 +28,7 @@
       {
         "id": "assembly-map",
         "path": "hardware/assembly-map.json",
-        "sha256": "6804a874cc6e0d9ed3392aa515a7b80ea0266d98bbc3e79b461bb43882616e59",
+        "sha256": "f48f9f55a6303cb09a62a273722bf92d1b11f7e3219455a00ba5fc97e49b2ed0",
         "role": "V0 CAD assembly reconstruction — the STL/CAD frame map, per-instance poses in the canonical robot frame, the femur/foot mate graph, the servo shaft datums and the absolute rotation sense",
         "producedBy": "V0"
       },

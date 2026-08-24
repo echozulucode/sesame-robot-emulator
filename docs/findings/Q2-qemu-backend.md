@@ -471,6 +471,18 @@ that arm.
   and it remains unverified: `esp32.ledc` exists, but nobody has checked that it produces the right
   duty cycle for `attach(pin, 732, 2929)`. The servo evidence is the firmware's own hook, *above* the
   peripheral. **This is still the largest open fidelity question.**
+
+  > **Answered 2026-08-24 (Q3, `docs/findings/Q3-ledc-fidelity.md`):** the duty *ratio* is correct —
+  > 29 of 29 servo writes match the ESP32 TRM formula — and **no pulse, edge or 50 Hz frame is
+  > produced at all**: QEMU's LEDC model has no timer, no output wire and no consumer of the duty
+  > value. So the bullet above splits in two. *Duty-cycle correctness* is verified as far as a
+  > register file can verify it; *pulse existence* is not verifiable under any emulator available to
+  > this project, and only a logic analyser (checklist V6-14b, ISSUE-20260824-024) can settle it.
+  > The sentence "the servo evidence is the firmware's own hook, above the peripheral" is now a
+  > permanent property rather than a temporary gap. Two corrections fell out of the same work:
+  > `attach(pin, 732, 2929)` yields a **2500 µs** maximum, not 2929 (ESP32Servo clamps it), and the
+  > channels are 10-bit, so 89 of the 181 commandable angles alias. **Timing fidelity (the last
+  > bullet but one) is untouched and remains open.**
 - **It does not claim anything about the S2 or S3.** §6. The S3 boots and never reaches `setup()`;
   the S2 has no QEMU machine at all.
 - **It does not claim timing fidelity.** `motorCurrentDelay`, `delayWithFace()` and the 50 Hz servo

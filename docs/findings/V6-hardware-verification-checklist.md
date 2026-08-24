@@ -521,7 +521,8 @@ latest version, the pin can be relaxed and F3's note should say so.
 
 **Do, 13a (bench, no robot):** Fit a horn to a loose servo at a known position.
 Power-cycle the board with firmware that attaches the servo (`attach(pin, 732,
-2929)`) and issues no command — which is exactly what `setup()` does. Measure
+2929)` — the call as written; the library clamps the max to 2500 µs, V6-14) and
+issues no command — which is exactly what `setup()` does. Measure
 where the horn ends up, with a protractor. Repeat three times from three
 different starting positions.
 
@@ -548,24 +549,61 @@ problem:
 
 ---
 
-### V6-14 · Angle gain — does 732…2929 µs really mean 0…180°?
+### V6-14 · Angle gain — does 732…2500 µs really mean 0…180°? (and is there a pulse at all?)
 
 | | |
 |---|---|
-| **Needs** | + servo, horn, protractor · **20 min** |
-| **Settles** | `robot.angleGainDegPerCommandedDeg` |
-| **Closes** | `unresolved:servo-angle-gain` |
+| **Needs** | + servo, horn, protractor · **20 min** · **+ logic analyser or scope for 14b, 15 min** |
+| **Settles** | `robot.angleGainDegPerCommandedDeg`; **ISSUE-20260824-024** |
+| **Closes** | `unresolved:servo-angle-gain`; **ISSUE-20260824-024** |
 
-**Do:** Command 0, then 90, then 180. Measure the horn angle at each with a
-protractor mounted against the servo case.
+> **Corrected 2026-08-24 (Q3, `docs/findings/Q3-ledc-fidelity.md` §6.2):** this step was titled
+> "does 732…**2929** µs really mean 0…180°". **2929 µs is never emitted.** `ESP32Servo::attach()`
+> clamps the requested maximum to `MAX_PULSE_WIDTH` 2500 (`ESP32Servo.h:98`, applied at
+> `ESP32Servo.cpp:126`) before storing it, so the effective window is **732…2500 µs**, and after
+> 10-bit quantisation the pulses actually emitted are **722.65625…2500 µs** in 19.53125 µs steps.
+> Measure against 2500, not 2929, or the gain will come out ~17 % low and be recorded as a servo
+> property.
+
+**Do, 14a (gain):** Command 0, then 90, then 180. Measure the horn angle at each
+with a protractor mounted against the servo case.
 
 **Observe:** the total swept angle, and whether 90 lands halfway.
 
 **Our value:** exactly **1.0** shaft degree per commanded degree. This is an
 *assumption*, and V0 states it explicitly as one of the two things its
-absolute-rotation-sense fit depends on. The pulse window `attach(pin, 732, 2929)`
-is unusual — the common library default is 500…2500 µs — so it is worth
+absolute-rotation-sense fit depends on. The **effective** pulse window
+`732…2500 µs` is still not the library default (500…2500 µs), so it is worth
 checking rather than assuming somebody calibrated it.
+
+**Do, 14b (the pulse itself — the only step in this document that can settle
+ISSUE-20260824-024):** Put a logic analyser or scope on one servo signal pin
+with the firmware attached and holding an angle. This is the **only** available
+route to a waveform: Q3 established that QEMU's LEDC device models the duty
+*ratio* correctly and has no timer, no output wire and no consumer — no pulse,
+no edge, no 50 Hz — so nothing under emulation can confirm one, and no emulator
+known to this project generates real LEDC waveforms.
+
+**Observe, 14b:** four things, each of which is currently an inference:
+- **A pulse exists at all** on the pin. Everything downstream of
+  `setServoAngle()` assumes it.
+- **Frame period ≈ 20.000 ms** (50.000 Hz). The register file says the firmware
+  configured `REF_TICK` 1 MHz ÷ 19.53125 ÷ 2¹⁰ = 50.000 Hz exactly; nothing has
+  seen it happen.
+- **High time at 0° / 90° / 180° = 722.7 / 1601.6 / 2500.0 µs**, ±19.53 µs.
+  Anything near 2929 µs at 180° falsifies the clamp finding; anything near
+  732 µs at 0° rather than 722.7 µs falsifies the quantisation finding.
+- **Two adjacent commands are indistinguishable.** Command 89° and then 90° and
+  confirm the high time does not change — 89 of the 181 commandable angles alias
+  onto a neighbour (`quantiseCommandedAngle()` in `@sesame-lab/sesame-model`
+  says which). If they *do* differ, the 10-bit resolution finding is wrong.
+
+**If 14b contradicts us:** any of the four is a first-class finding. A pulse at
+2929 µs would mean the library clamp was misread; distinguishable neighbours
+would mean the timer width is not 10 bits on this build. Record the trace, and
+update `hardware/hardware-map.json` → `servos.servoConfig.attachPulseClamp` /
+`pulseQuantisation` — those fields exist precisely so this measurement has
+somewhere to land.
 
 **If it contradicts us:** If the sweep is, say, 172° rather than 180°, the gain
 is 0.956 and *every* body-relative angle the project computes is off by up to 4°

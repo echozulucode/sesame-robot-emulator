@@ -72,6 +72,25 @@ export {
 } from './calibration.js';
 
 export {
+  ATTACH_MAX_PULSE_REQUESTED_US,
+  ATTACH_MAX_PULSE_US,
+  ATTACH_MIN_PULSE_US,
+  COMMANDED_ANGLE_MAX_DEG,
+  COMMANDED_ANGLE_MIN_DEG,
+  LIBRARY_MAX_PULSE_WIDTH_US,
+  LIBRARY_MIN_PULSE_WIDTH_US,
+  SERVO_FRAME_US,
+  SERVO_PULSE_QUANTISATION,
+  SERVO_TIMER_WIDTH_BITS,
+  SERVO_TIMER_WIDTH_TICKS,
+  SERVO_US_PER_TICK,
+  anglesIndistinguishableFrom,
+  quantiseCommandedAngle,
+  reachablePulses,
+  type QuantisedServoPulse,
+} from './servo-pulse.js';
+
+export {
   JointMapValidationError,
   JointMapView,
   SEMANTIC_NAME_IS_A_GUESS,

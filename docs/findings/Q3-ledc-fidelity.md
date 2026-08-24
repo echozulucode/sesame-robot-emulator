@@ -267,6 +267,14 @@ in `packages/sesame-qemu/src/config.ts`:
 
 And `honesty.test.ts` should pin it, the same way it pins `httpApi: false`.
 
+> **Done 2026-08-24 (`ledc-corrections`):** both landed. `'ledc-waveform'` is in
+> `ELIDED_SUBSYSTEMS`, and the note went into a new `PERIPHERAL_FIDELITY` export (not
+> `firmwareDeviations` — Q3 was right that it is not a firmware deviation) surfaced on
+> `QemuCapabilities.peripheralFidelity`. Three cases in `honesty.test.ts` pin the elided entry, the
+> wording of the fidelity note, and its presence on the capability record. The remaining gap —
+> that only a logic analyser can show a pulse — is now **ISSUE-20260824-024**, cross-referenced to
+> checklist step **V6-14b**.
+
 ### 5.2 What it would take to verify duty cycle *properly*
 
 | Route | Cost | What it would actually prove | Verdict |
@@ -327,6 +335,20 @@ This is a property of the real robot, not of QEMU. It affects:
 
 Neither the firmware's instrumentation hook nor any amount of QEMU work would have surfaced this —
 it took looking at the peripheral. That is the concrete value Q3 delivered beyond its verdict.
+
+> **Propagated 2026-08-24 (`ledc-corrections`):** all three, plus four places Q3 did not list.
+> `hardware/hardware-map.json` now carries `attachMaxPulseUs: 2500` (the **effective** pulse — the
+> number every angle↔pulse calculation must use), `attachMaxPulseRequestedUs: 2929` (the call), and
+> an `attachPulseClamp` block with the ESP32Servo provenance, so both facts stand side by side and a
+> reader can see why they differ; `pulseQuantisation` records the 10-bit facts from §6.4, and
+> `pwmTimersProgrammed` / `ledcSpeedGroupsUsed` record §6.3 and §2.3. `calibration.ts:269`,
+> `hardware/calibration.json` (via `scripts/build-calibration.mjs`), `F4 §3`,
+> `V6-calibration-and-hardware-checklist.md` row 14 and checklist step **V6-14** are corrected in
+> place with dated notes. `@sesame-lab/sesame-model` gained
+> `quantiseCommandedAngle()` / `anglesIndistinguishableFrom()` / `reachablePulses()`, which derive
+> the 92-and-89 counts from the library's own arithmetic rather than asserting them, and a test
+> holds them against the numbers `hardware-map.json` publishes. ESP32Servo is cited as
+> library+version+path+line (pinned in `reproducibility.json`) because `tools/` is gitignored.
 
 ### 6.3 Four timers are allocated; two are used
 

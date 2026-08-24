@@ -265,8 +265,20 @@ export interface CalibrationRobotEntry {
   /** Output-spline tooth count. Sets the horn quantum: `360 / teeth`. */
   readonly hornSplineTeeth: CalibratedValue<number>;
   /**
-   * Shaft degrees per commanded degree over the firmware's `0..180` domain,
-   * given `attach(pin, 732, 2929)`. Assumed exactly 1.0; never measured.
+   * Shaft degrees per commanded degree over the firmware's `0..180` domain.
+   * Assumed exactly 1.0; never measured.
+   *
+   * **Corrected 2026-08-24 (Q3):** this previously said "given `attach(pin,
+   * 732, 2929)`", and the top of that window is not reachable.
+   * `ESP32Servo::attach()` clamps the requested maximum to `MAX_PULSE_WIDTH`
+   * (2500 µs, `ESP32Servo.h:98`) before storing it, so the effective window is
+   * **732…2500 µs**, and after 10-bit quantisation the pulses actually emitted
+   * run **722.65625…2500 µs** in 19.53125 µs steps. See
+   * {@link ATTACH_MAX_PULSE_US} and {@link quantiseCommandedAngle} in
+   * `./servo-pulse.js`, and `docs/findings/Q3-ledc-fidelity.md` §6.2.
+   *
+   * The gain itself is unaffected — it is a property of the servo, not of the
+   * window — but the window it is a gain *over* was recorded wrongly.
    */
   readonly angleGainDegPerCommandedDeg: CalibratedValue<number>;
   /** Servo slew for `simulatedDeg`, °/s, or `null` for instantaneous. */

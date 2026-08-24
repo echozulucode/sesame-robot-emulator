@@ -20,6 +20,7 @@ import {
 import {
   ELIDED_SUBSYSTEMS,
   FIRMWARE_DEVIATIONS,
+  PERIPHERAL_FIDELITY,
   POWER_ON_ANGLE_DEG,
   QEMU_CAPABILITIES,
   QEMU_CAPABILITIES_FULL,
@@ -66,6 +67,37 @@ describe('capabilities are truthful', () => {
 
   it('surfaces the known flakiness with its issue id', () => {
     expect(QEMU_CAPABILITIES_FULL.knownFlakiness).toMatch(/ISSUE-20260823-022/);
+  });
+});
+
+describe('the LEDC peripheral is not claimed to produce a waveform (Q3)', () => {
+  // QEMU's esp32 machine really does contain an LEDC device, its duty ratio is
+  // arithmetically correct, and it has no timer, no output wire and no
+  // consumer. "The registers hold plausible values" is not "a pulse was
+  // produced", and this backend must not imply otherwise.
+  it('elides the LEDC waveform, so its silence is negative evidence rather than an idle pin', () => {
+    expect(ELIDED_SUBSYSTEMS).toContain('ledc-waveform');
+    expect(QEMU_ORIGIN.elided).toContain('ledc-waveform');
+    expect(QEMU_CAPABILITIES_FULL.elided).toContain('ledc-waveform');
+  });
+
+  it('states the fidelity limit in words, not only as an absent list entry', () => {
+    const fidelity = PERIPHERAL_FIDELITY.join(' ');
+    // Duty ratio: modelled and correct.
+    expect(fidelity).toMatch(/duty ratio is modelled and correct/i);
+    // Frequency, GPIO and waveform: not modelled at all.
+    expect(fidelity).toMatch(/frequency, GPIO output and waveform are not modelled/i);
+    // And therefore the firmware hook is the source of servo evidence.
+    expect(fidelity).toMatch(/instrumentation hook/i);
+    expect(fidelity).toMatch(/Q3-ledc-fidelity\.md/);
+    expect(QEMU_CAPABILITIES_FULL.peripheralFidelity).toEqual(PERIPHERAL_FIDELITY);
+  });
+
+  it('never lets "LEDC is modelled" stand alone as a claim about the servo signal', () => {
+    // A regression guard with teeth: if someone drops the elided entry, the
+    // capability record would say only that a peripheral exists.
+    expect(QEMU_CAPABILITIES_FULL.peripheralFidelity.length).toBeGreaterThan(0);
+    expect(QEMU_CAPABILITIES.realHardware).toBe(false);
   });
 });
 

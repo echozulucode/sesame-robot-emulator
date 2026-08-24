@@ -88,7 +88,9 @@ export interface SimulatedRobotOptions {
    * `commandedDeg` for a channel that has not been written yet. Default `90`.
    *
    * **Simulation choice, and a genuinely undetermined one.** `setup()` calls
-   * `servos[i].attach(pin, 732, 2929)` and then deliberately does *not* command
+   * `servos[i].attach(pin, 732, 2929)` — the call, not the pulse: ESP32Servo
+   * clamps the max to 2500 µs, `@sesame-lab/sesame-model` `ATTACH_MAX_PULSE_US`
+   * — and then deliberately does *not* command
    * an angle — the comment at `sesame-firmware-main.ino:746` reads "Show rest
    * face on startup without moving motors". Where a horn actually sits at that
    * moment depends on the servo's own power-on behaviour and on where the

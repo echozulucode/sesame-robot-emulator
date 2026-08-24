@@ -219,15 +219,17 @@ const robot = {
   }),
 
   angleGainDegPerCommandedDeg: carried(1, {
-    source: 'firmware/sesame-firmware-main.ino:742 — servos[i].attach(servoPins[i], 732, 2929)',
+    source:
+      'firmware/sesame-firmware-main.ino:742 — servos[i].attach(servoPins[i], 732, 2929), with ESP32Servo 3.0.9 src/ESP32Servo.cpp:126 clamping the max to 2500 us',
     method:
-      'Assumed exactly 1.0. The firmware maps 0..180 commanded degrees onto 732..2929 us of pulse width; whether a real servo sweeps exactly 180 mechanical degrees over that window is a property of the servo, not of the firmware. V0\'s absolute-sense fit states this assumption explicitly rather than hiding it.',
+      'Assumed exactly 1.0. The firmware maps 0..180 commanded degrees onto an EFFECTIVE 732..2500 us of pulse width; whether a real servo sweeps exactly 180 mechanical degrees over that window is a property of the servo, not of the firmware. V0\'s absolute-sense fit states this assumption explicitly rather than hiding it.',
     wouldBeConfirmedBy: [
       'Commanding 0 and 180 on a bench servo with a horn and a protractor and measuring the swept angle (checklist V6-14). One loose servo; no robot.',
     ],
     checklistStep: 'V6-14',
     closesIssues: [ISSUE_JOINT_MAP],
-    note: '732..2929 us is an unusual window - the common default is 500..2500 - so the assumption is worth checking rather than assuming it is the library default.',
+    note:
+      'CORRECTED 2026-08-24 (Q3, docs/findings/Q3-ledc-fidelity.md section 6.2). This note previously read "732..2929 us is an unusual window". The 2929 is real as a CALL and unreachable as a PULSE: ESP32Servo::attach() clamps the requested max to MAX_PULSE_WIDTH 2500 (src/ESP32Servo.h:98) before storing it, confirmed independently by measurement - 180 deg produced 12% duty at a 20 ms frame, which is 2500 us, where 2929 us would have been 14.6%. The effective window is 732..2500 us, and after 10-bit quantisation the pulses actually emitted are 722.65625..2500 us in 19.53125 us steps: only 92 distinct values for 181 commandable angles. 732..2500 is still not the library default of 500..2500, so the assumption is still worth a bench check.',
   }),
 
   slewDegPerSec: carried(600, {
@@ -420,10 +422,10 @@ const document = {
     },
     {
       id: 'servo-angle-gain',
-      subject: 'Whether 732..2929 us really maps to 0..180 mechanical degrees',
+      subject: 'Whether the effective 732..2500 us window really maps to 0..180 mechanical degrees',
       status: 'open',
       reason:
-        'An assumption V0\'s absolute-sense fit rests on, stated but never checked. The window is unusual enough to be worth a bench test.',
+        'An assumption V0\'s absolute-sense fit rests on, stated but never checked. The window is unusual enough to be worth a bench test. The upper endpoint is 2500 us, not the 2929 the attach() call passes: ESP32Servo clamps it (Q3 section 6.2).',
       resolvedBy: 'A bench servo, a horn and a protractor.',
       checklistStep: 'V6-14',
       issues: [],

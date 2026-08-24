@@ -69,7 +69,33 @@ export const ELIDED_SUBSYSTEMS: readonly string[] = Object.freeze([
   'mdns',
   'ssd1306-panel',
   'servo-load',
+  // Q3: QEMU's `misc.esp32.ledc` is a real device at the real address and its
+  // duty *ratio* is arithmetically correct, but it has no timer, no clock, no
+  // GPIO connection and no output. No pulse, no edge, no 50 Hz. Elided rather
+  // than merely "unverified", because the absence of LEDC events means "there
+  // is no waveform generator", not "the pin was idle" — which is exactly the
+  // negative evidence this field exists to carry.
+  'ledc-waveform',
   'usb-cdc',
+]);
+
+/**
+ * Peripherals that ARE modelled, and how far the model actually goes.
+ *
+ * Distinct from {@link FIRMWARE_DEVIATIONS} (which is about the *image*) and
+ * from {@link ELIDED_SUBSYSTEMS} (which is about what is absent). This is the
+ * awkward middle: a device that exists, answers reads, and is still not doing
+ * the thing its name implies. Left unstated, "the LEDC is modelled" reads as
+ * "the servo signal is emulated", and it is not.
+ */
+export const PERIPHERAL_FIDELITY: readonly string[] = Object.freeze([
+  'LEDC duty ratio is modelled and correct — all 29 servo writes in a boot match the ESP32 TRM ' +
+    'formula applied to the pulse ESP32Servo actually programmed (Q3, 29/29, ±1% because the ' +
+    "model's arithmetic is integer). LEDC frequency, GPIO output and waveform are not modelled " +
+    'at all: there is no timer, no output wire and no consumer of the duty value. Servo evidence ' +
+    "therefore comes from the firmware's own instrumentation hook, ABOVE the peripheral — the " +
+    'hook is load-bearing and no amount of emulator work retires it. Only a logic analyser on ' +
+    'real hardware (checklist V6-14) can show a pulse. See docs/findings/Q3-ledc-fidelity.md.',
 ]);
 
 /**
@@ -158,6 +184,12 @@ export interface QemuCapabilities extends SesameCapabilities {
   readonly firmwareDeviations: readonly string[];
   /** Subsystems not modelled; their silence is not evidence. */
   readonly elided: readonly string[];
+  /**
+   * Peripherals that are modelled, and the limit of that model. See
+   * {@link PERIPHERAL_FIDELITY} — a device answering reads is not a device
+   * doing its job.
+   */
+  readonly peripheralFidelity: readonly string[];
   /** Known non-determinism, measured. See `docs/findings/Q2-qemu-backend.md`. */
   readonly knownFlakiness: string;
 }
@@ -179,6 +211,7 @@ export const QEMU_CAPABILITIES_FULL: QemuCapabilities = Object.freeze({
   commandChannel: COMMAND_CHANNEL,
   firmwareDeviations: FIRMWARE_DEVIATIONS,
   elided: ELIDED_SUBSYSTEMS,
+  peripheralFidelity: PERIPHERAL_FIDELITY,
   knownFlakiness:
     'ISSUE-20260823-022: 30 of 107 measured cold boots (28%, and bursty) panic with "Cache disabled but ' +
     'cached memory region accessed" inside the dual-core cache/flash dance in nvs_flash_init ' +
@@ -195,7 +228,9 @@ export const QEMU_CAPABILITIES_FULL: QemuCapabilities = Object.freeze({
  * `RobotState.commandedDeg` is not optional, and the contract requires every
  * one of the eight to be inside the firmware clamp — so a number has to go
  * here. The honest one is 90: `servos[i].attach(pin, 732, 2929)` at
- * `sesame-firmware-main.ino:742` puts the channel at its mid-point default, and
+ * `sesame-firmware-main.ino:742` — the call as written; ESP32Servo clamps the
+ * requested max to 2500 µs, so the effective window is 732…2500 (Q3 §6.2) —
+ * puts the channel at its mid-point default, and
  * setup() deliberately does not write any of them ("Show rest face on startup
  * without moving motors", `:746`).
  *

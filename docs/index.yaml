@@ -95,6 +95,9 @@ docs:
   - file: docs/findings/Q2-qemu-backend.md
     type: findings
     status: complete
+  - file: docs/findings/Q3-ledc-fidelity.md
+    type: findings
+    status: complete
   - file: docs/findings/V2-gltf-pipeline.md
     type: findings
     status: complete

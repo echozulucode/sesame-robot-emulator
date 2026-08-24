@@ -62,7 +62,7 @@ value changed *before* V6.
 | 11 | `spinQuantumMs` | V1 simulation choice, 1 ms | **no firmware period exists** (`pressingCheck()` spins on bare `yield()`) | `sesame-sim` scheduler | V6-08 |
 | 12 | `loopQuantumMs` | V1 simulation choice, 1 ms | same | `sesame-sim` scheduler | V6-08 |
 | 13 | `hornSplineTeeth` | MG90S spec, 20 → 18° quantum, ±9° | specification | the "±9°" caveat in F6, V0 and the joint map | V6-16 |
-| 14 | `angleGainDegPerCommandedDeg` | **assumed 1.0**, from `attach(pin, 732, 2929)` | assumption, stated by V0 but never listed as an open item | V0's absolute-sense fit; every body-relative conversion | V6-14 |
+| 14 | `angleGainDegPerCommandedDeg` | **assumed 1.0**, over the effective `732…2500 µs` window (`attach(pin, 732, 2929)` *requests* 2929; ESP32Servo clamps it) | assumption, stated by V0 but never listed as an open item | V0's absolute-sense fit; every body-relative conversion | V6-14 |
 | 15 | `servoModel` | BOM says MG90S; CAD models SG90 | **contested** | V0's servo datum (SG90); the slew figure (MG90S) | V6-04 |
 | 16 | `oledActivePlaneMm` | 23.60 mm CAD reading × **11.80 mm V2 decision** | inferred | **GLB `oled_screen` quad geometry (baked)**, `apps/web` AssetPanel | V6-05 |
 | 17 | `walkDirectionMatchesDrawnFront` | unknown | unknown | the second `wouldBeConfirmedBy` on all eight semantic names | V6-24 |
@@ -71,10 +71,20 @@ Rows 1–9 are per joint (8 each, 9 for row 9 counting the whole-robot fallback)
 rows 10–17 are whole-robot. **8 × 9 + 9 = 81.**
 
 Row 14 is the one nobody had on a list. `servos[i].attach(servoPins[i], 732,
-2929)` maps 0–180 commanded degrees onto an unusual pulse window — the common
-library default is 500–2500 µs — and *every* angular claim in the project
-assumes that window sweeps exactly 180 mechanical degrees. V0 states the
-assumption; no artefact tracked it.
+2929)` maps 0–180 commanded degrees onto an unusual pulse window, and *every*
+angular claim in the project assumes that window sweeps exactly 180 mechanical
+degrees. V0 states the assumption; no artefact tracked it.
+
+> **Corrected 2026-08-24 (Q3, `docs/findings/Q3-ledc-fidelity.md` §6.2, §6.4):** this paragraph read
+> "an unusual pulse window — the common library default is 500–2500 µs". The window is unusual, but
+> not at the top end and not by that much: **`ESP32Servo::attach()` clamps the requested 2929 µs to
+> `MAX_PULSE_WIDTH` 2500 (`ESP32Servo.h:98`, applied at `ESP32Servo.cpp:126`) before storing it**,
+> so the effective window is **732…2500 µs** — the same top as the library default, only the bottom
+> is unusual. Confirmed by measurement: 180° produced 12 % duty at a 20 ms frame (= 2500 µs), not
+> the 14.6 % 2929 µs would give. The assumption in row 14 is unaffected — a gain is a property of
+> the servo — but it is a gain over 732…2500, and a bench measurement referenced to 2929 would come
+> out ~17 % low. Separately, the channels are 10-bit, so the pulses actually emitted are
+> **722.65625…2500 µs in 19.53125 µs steps: 92 distinct values for 181 commandable angles.**
 
 ### 2.2 Deliberately **not** made calibratable
 

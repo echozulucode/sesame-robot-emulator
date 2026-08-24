@@ -39,7 +39,7 @@
       ]
     },
     "verifiedFlagPolicy": "Every fact in this file was read directly out of firmware source unless it carries an explicit \"*Verified\": false (or a \"*Note\" naming a non-source origin such as firmware/README.md). Absence of a verified flag means \"extracted from source at the cited file:line\". Facts that could not be established from source are null AND listed in `unresolved` — they are never guessed. Anything sourced only from documentation is marked unverified because F4 also found the documentation to be wrong in several places (see docs/findings/F4-doc-drift.md).",
-    "provenanceContract": "Every extracted fact carries a `source` (or `*Source`) object of the form {\"file\": \"<path relative to the upstream repo root>\", \"line\": <1-based line number>}. A fact without provenance is a bug.",
+    "provenanceContract": "Every extracted fact carries a `source` (or `*Source`) object of the form {\"file\": \"<path relative to the upstream repo root>\", \"line\": <1-based line number>}. A fact without provenance is a bug. ONE EXCEPTION, added 2026-08-24 by the Q3 LEDC corrections: a handful of servo facts are properties of the ESP32Servo LIBRARY rather than of Sesame's own source, and the library lives under the gitignored tools/ tree. Those carry a `librarySource`-shaped object — {library, version, file (relative to the LIBRARY root), line, text, versionPin, obtainWith, installedAtNote} — which is deliberately not two-key {file,line} so `pnpm validate:hardware-map --check-lines` does not try to resolve it against the firmware tree. The citable identity is library+version+path+line, which survives a clean clone; the machine-local install path is recorded in installedAtNote only.",
     "consumers": [
       "F6 — hardware/joint-map.json and packages/sesame-model (JOINT_ORDER, per-board pins)",
       "R4 — Renode boot probe milestone ladder (bootOrder[])",
@@ -580,13 +580,97 @@
         }
       ],
       "pwmTimerAllocationCall": "ESP32PWM::allocateTimer(n)",
+      "pwmTimersProgrammed": 2,
+      "pwmTimersProgrammedNote": "MEASURED, not read from firmware source: only HSTIMER0 and LSTIMER0 — one per LEDC speed group — are ever written. arduino-esp32 3.3.11's find_matching_timer() reuses a hardware timer whenever frequency AND resolution match within a speed group, and all eight servos are 50 Hz / 10-bit, so each group collapses onto its own timer 0. pwmTimersAllocated above is a correct record of the four allocateTimer() CALLS; two of the four reservations have no hardware effect. Source: docs/findings/Q3-ledc-fidelity.md §2.3, §6.3 (LEDC register file read back over QEMU's gdbstub).",
+      "ledcSpeedGroupsUsed": [
+        "high-speed",
+        "low-speed"
+      ],
+      "ledcChannelsProgrammed": [
+        "HSCH0",
+        "HSCH1",
+        "HSCH2",
+        "HSCH3",
+        "LSCH0",
+        "LSCH1",
+        "LSCH2",
+        "LSCH3"
+      ],
+      "ledcSpeedGroupNote": "MEASURED, not read from firmware source: the eight servos occupy BOTH LEDC speed groups, four channels each — not one group of eight. ESP32PWM::timerAndIndexToChannel() hands out channels {0,1,8,9} for its timer 0 and {2,3,10,11} for its timer 1; arduino-esp32 3.3.11 esp32-hal-ledc.c:222 maps group = channel / SOC_LEDC_CHANNEL_NUM, so 0-7 are high-speed and 8-15 low-speed. Exactly these eight CONF0 registers read back non-zero, and the four LS ones carry the LS-only PARA_UP bit. Original ESP32 only: the S2/S3 have no high-speed group. Source: docs/findings/Q3-ledc-fidelity.md §2.3.",
       "attachMinPulseUs": 732,
-      "attachMaxPulseUs": 2929,
+      "attachMaxPulseUs": 2500,
+      "attachMaxPulseRequestedUs": 2929,
       "attachSource": {
         "file": "firmware/sesame-firmware-main.ino",
         "line": 742
       },
       "attachCall": "servos[i].attach(servoPins[i], 732, 2929)",
+      "attachPulseClamp": {
+        "requestedMinUs": 732,
+        "requestedMaxUs": 2929,
+        "effectiveMinUs": 732,
+        "effectiveMaxUs": 2500,
+        "minClamped": false,
+        "maxClamped": true,
+        "libraryMinPulseWidthUs": 500,
+        "libraryMaxPulseWidthUs": 2500,
+        "constantSource": {
+          "library": "ESP32Servo",
+          "version": "3.0.9",
+          "file": "src/ESP32Servo.h",
+          "line": 98,
+          "text": "#define MAX_PULSE_WIDTH      2500     // the longest pulse sent to a servo",
+          "versionPin": "reproducibility.json -> libraries.ESP32Servo",
+          "obtainWith": "scripts/setup-firmware-toolchain.ps1 (or .sh)",
+          "installedAtNote": "tools/arduino-data/data/internal/ESP32Servo_3.0.9_442075ee231ab4b5/ESP32Servo/src/ESP32Servo.h on this machine. tools/ is gitignored and absent from a clean clone, so the citable identity is library+version+path-within-library+line, not a repo path — the same problem ISSUE-20260823-020 fixed for the upstream tree."
+        },
+        "clampSource": {
+          "library": "ESP32Servo",
+          "version": "3.0.9",
+          "file": "src/ESP32Servo.cpp",
+          "line": 126,
+          "text": "if (max > MAX_PULSE_WIDTH) max = MAX_PULSE_WIDTH;  — inside Servo::attach() at :126-:127, BEFORE this->max = max at :129",
+          "versionPin": "reproducibility.json -> libraries.ESP32Servo",
+          "obtainWith": "scripts/setup-firmware-toolchain.ps1 (or .sh)",
+          "installedAtNote": "tools/arduino-data/data/internal/ESP32Servo_3.0.9_442075ee231ab4b5/ESP32Servo/src/ESP32Servo.cpp on this machine; gitignored, cite by library+version+line."
+        },
+        "note": "BOTH FACTS ARE TRUE AND THEY DIFFER. The firmware really does call attach(pin, 732, 2929) at sesame-firmware-main.ino:742 — attachMaxPulseRequestedUs and attachCall record that verbatim. ESP32Servo::attach() then clamps the requested max to MAX_PULSE_WIDTH before storing it, so the widest pulse the peripheral is ever asked for is 2500 us — attachMaxPulseUs records THAT, because it is the number every angle-to-pulse calculation must use. The minimum is NOT clamped (732 > MIN_PULSE_WIDTH 500), which is why only the top end moved. Confirmed independently by measurement: 180 deg produced 12% duty at a 20 ms frame = 2500 us; 2929 us would have been 14.6%. Source: docs/findings/Q3-ledc-fidelity.md §3, §6.2."
+      },
+      "pulseQuantisation": {
+        "timerWidthBits": 10,
+        "timerWidthTicks": 1024,
+        "frameUs": 20000,
+        "usPerTick": 19.53125,
+        "minTick": 37,
+        "maxTick": 128,
+        "quantisedMinPulseUs": 722.65625,
+        "quantisedMaxPulseUs": 2500,
+        "commandableAngles": 181,
+        "distinctReachablePulseValues": 92,
+        "aliasedAngleCount": 89,
+        "degreesPerTick": 1.978021978021978,
+        "resolutionSource": {
+          "library": "ESP32Servo",
+          "version": "3.0.9",
+          "file": "src/ESP32Servo.h",
+          "line": 91,
+          "text": "#define DEFAULT_TIMER_WIDTH 10   (the #else branch; the ARDUINO_ESP32C3_DEV branch at :87 also defines 10, so the value is 10 either way)",
+          "versionPin": "reproducibility.json -> libraries.ESP32Servo",
+          "obtainWith": "scripts/setup-firmware-toolchain.ps1 (or .sh)",
+          "installedAtNote": "tools/arduino-data/data/internal/ESP32Servo_3.0.9_442075ee231ab4b5/ESP32Servo/src/ESP32Servo.h on this machine; gitignored, cite by library+version+line. Confirmed at runtime: the LEDC timer config register read back duty_res = 10 (Q3 §2.1)."
+        },
+        "tickConversionSource": {
+          "library": "ESP32Servo",
+          "version": "3.0.9",
+          "file": "src/ESP32Servo.cpp",
+          "line": 260,
+          "text": "int Servo::usToTicks(int usec) — usec / (REFRESH_USEC / timer_width_ticks) = usec / (20000 / 1024), truncated to int",
+          "versionPin": "reproducibility.json -> libraries.ESP32Servo",
+          "obtainWith": "scripts/setup-firmware-toolchain.ps1 (or .sh)",
+          "installedAtNote": "tools/arduino-data/data/internal/ESP32Servo_3.0.9_442075ee231ab4b5/ESP32Servo/src/ESP32Servo.cpp on this machine; gitignored, cite by library+version+line."
+        },
+        "note": "THE SERVO CHANNELS ARE 10-BIT, SO COMMANDED ANGLES ALIAS. Servo::write() maps 0..180 onto 732..2500 us with Arduino integer map(), then usToTicks() truncates to a 1024-step, 20 ms frame. Only ticks 37..128 are reachable across the whole 0..180 range: 92 distinct pulse values for 181 distinct commands, so 89 of the 181 angles produce a pulse identical to a neighbour's at the pin. This is a property of REAL HARDWARE, not a QEMU artefact — anything in the UI or the simulator implying 1 deg of servo resolution is over-claiming. Derived by enumerating all 181 angles through the library's own arithmetic (Q3 §6.4, re-derived independently here); helper: quantiseCommandedAngle() in @sesame-lab/sesame-model. Source: docs/findings/Q3-ledc-fidelity.md §6.4."
+      },
       "attachLoopSource": {
         "from": {
           "file": "firmware/sesame-firmware-main.ino",
@@ -708,7 +792,7 @@
           },
           {
             "order": 3,
-            "description": "servos[channel].write(adjustedAngle) — ESP32Servo maps 0..180 deg onto the 732..2929 us pulse range configured at attach().",
+            "description": "servos[channel].write(adjustedAngle) — ESP32Servo maps 0..180 deg onto the EFFECTIVE 732..2500 us pulse range, then quantises it to 10-bit LEDC ticks. attach() requested 732..2929 but the library clamped the max to MAX_PULSE_WIDTH 2500; see servoConfig.attachPulseClamp and servoConfig.pulseQuantisation.",
             "source": {
               "file": "firmware/sesame-firmware-main.ino",
               "line": 1054
@@ -9320,7 +9404,7 @@
         }
       },
       "bootBlocker": false,
-      "note": "All four LEDC timers reserved before any attach()."
+      "note": "All four LEDC timers reserved before any attach(). Only two are ever programmed — HSTIMER0 and LSTIMER0, one per speed group — because all eight servos share 50 Hz / 10-bit (servoConfig.pwmTimersProgrammed)."
     },
     {
       "order": 17,
@@ -9341,7 +9425,7 @@
         }
       },
       "bootBlocker": false,
-      "note": "Servo attach happens LAST of the peripherals — after WiFi and the web server, not before."
+      "note": "Servo attach happens LAST of the peripherals — after WiFi and the web server, not before. The 2929 in `operation` is the value the CALL passes; ESP32Servo clamps it to 2500 us inside attach(), so the effective window is 732..2500 (servoConfig.attachPulseClamp)."
     },
     {
       "order": 18,

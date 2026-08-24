@@ -285,7 +285,7 @@ assumed.
 | Distro V2 pins `{4,5,6,7,15,16,17,18}` | report `:160`, `firmware/README.md:770`–`:777` | **exact match**, `:104` |
 | Distro V1 pins `{15,2,23,19,4,16,17,18}`, I²C 21/22 | report `:160`, `firmware/README.md:740`–`:749` | **exact match**, `:107` / `:35`–`:36` |
 | All four README HAL tables' joint labels | `firmware/README.md:723`–`:779` | **exact match** with the enum order, index-for-index |
-| 4 PWM timers, 50 Hz, attach 732–2929 µs | report `:177`, `firmware/README.md:144`–`:145` | **exact match**, `:734`–`:742` |
+| 4 PWM timers, 50 Hz, attach 732–2929 µs | report `:177`, `firmware/README.md:144`–`:145` | **exact match with the CALL**, `:734`–`:742` — but see the correction below: the library overrides both the top of the pulse window and the timer count |
 | `motorCurrentDelay` default 20 ms | report `:179`, `firmware/README.md:146` | **exact match**, `:119` |
 | 0–180 clamp with subtrim added first | report `:179` | **exact match**, `:1053` |
 | SSD1306 128×64 at `0x3C`, reset `-1` | report `:169`/`:194` | **exact match**, `:25`–`:28` |
@@ -303,6 +303,41 @@ assumed.
 | `/api/command` parses the body by hand, no JSON lib | report `:258` | **confirmed**, `:315`–`:362` (`indexOf`/`substring` only) |
 | `runWavePose` = stand → adjust → delay → alternate one joint | report `:227` | **confirmed** — 4× alternation of `L3` between 180 and 100 |
 | `sesame-motor-tester.ino` uses the same pins and pulse range | — | **consistent**: same active `{1,2,4,6,8,10,13,14}`, same 3 commented alternates, `MIN_PULSE`/`MAX_PULSE` = 732/2929 |
+
+> **Corrected 2026-08-24 (Q3, `docs/findings/Q3-ledc-fidelity.md` §6.2–§6.4):** two rows in the
+> table above are exact matches between the report and the **call**, and F4 recorded them as though
+> they described the **hardware**. They do not, and the difference is load-bearing because the
+> maximum pulse width is what maps a commanded angle to a physical position.
+>
+> - **attach 732–2929 µs.** `ESP32Servo.h:98` defines `MAX_PULSE_WIDTH 2500`, and
+>   `ESP32Servo::attach()` applies `if (max > MAX_PULSE_WIDTH) max = MAX_PULSE_WIDTH;`
+>   (`ESP32Servo.cpp:126`) **before storing it**. `[SRC]` The requested 2 929 µs is silently
+>   discarded; the widest pulse ever emitted is **2 500 µs**. Confirmed independently by
+>   measurement: 180° produced **12 % duty** at a 20 ms frame, which is 2 500 µs — 2 929 µs would
+>   have been 14.6 %. `[RAN]` The minimum is *not* clamped (732 > `MIN_PULSE_WIDTH` 500), so only
+>   the top end moved. Both facts are now recorded side by side in
+>   `hardware/hardware-map.json` → `servos.servoConfig` as `attachMaxPulseRequestedUs: 2929`,
+>   `attachMaxPulseUs: 2500` and an `attachPulseClamp` block carrying the library provenance.
+>   The same 732/2929 constants in `sesame-motor-tester.ino` are clamped identically — the
+>   consistency F4 reported is real, and so is the override.
+> - **4 PWM timers.** `ESP32PWM::allocateTimer(0..3)` really is called four times. Only **two**
+>   hardware timers are ever programmed — `HSTIMER0` and `LSTIMER0`, one per LEDC speed group —
+>   because arduino-esp32 3.3.11's `find_matching_timer()` shares a timer across channels with
+>   identical frequency and resolution, and all eight servos are 50 Hz / 10-bit. `[RAN]`
+>
+> A third fact F4 never had: the channels are **10-bit** (`DEFAULT_TIMER_WIDTH 10`), so a 20 ms
+> frame is 1024 ticks of 19.53125 µs and only ticks 37…128 are reachable across 0–180°. That is
+> **92 distinct pulse values for 181 commandable angles — 89 of them alias onto a neighbour at the
+> pin.** True on real hardware, not a QEMU artefact.
+>
+> ESP32Servo citations are library-relative (`ESP32Servo` **3.0.9**, pinned in
+> `reproducibility.json` → `libraries.ESP32Servo`, installed by `scripts/setup-firmware-toolchain.*`
+> under the gitignored `tools/` tree), because a repo path to it would not survive a clean clone —
+> the same constraint ISSUE-20260823-020 settled for the upstream firmware tree.
+>
+> **F4's method was not at fault.** F4 read the firmware, and the firmware really does say 2929.
+> What F4 could not see was a third-party library silently overriding it, which is exactly the class
+> of drift F4 exists to catch — one layer further down than it was scoped to look.
 
 ---
 

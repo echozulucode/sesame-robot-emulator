@@ -157,8 +157,14 @@ entirely from `QemuSesameRobot.capabilities()` — the app asserts none of it:
   the one you were told to buy."* `s2mini` (no `esp32s2` machine exists) and `distro-v3-s3` (boots
   ROM and bootloader, never reaches `setup()`). The harness fails if the string `s2mini` is not in
   the rendered text.
-- **`elided`** — eight chips, with the sentence that makes them mean something: *silence from these
+- **`elided`** — nine chips, with the sentence that makes them mean something: *silence from these
   is not evidence of anything.*
+
+  > **Corrected 2026-08-24 (Q3 LEDC corrections):** this read "eight chips". A ninth,
+  > `ledc-waveform`, was added to `ELIDED_SUBSYSTEMS` after Q3 established that QEMU's LEDC device
+  > models the duty *ratio* and produces no waveform, no edge and no 50 Hz frame. The panel renders
+  > whatever the backend declares, so no `apps/web` change was needed; only the count in this
+  > sentence was stale. See `docs/findings/Q3-ledc-fidelity.md` §4.
 - **`mode`** — `qemu`, explained from `MODE_MEANING`, a `Record<RobotMode, string>` with **an arm for
   every `RobotMode`** (`real`, `simulated`, `renode`, `qemu`). A `Record` rather than a `switch`
   with a default, so a fifth mode is a compile error rather than a silent fallthrough. The backend

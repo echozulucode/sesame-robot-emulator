@@ -32,7 +32,7 @@
       {
         "id": "hardware-map",
         "path": "hardware/hardware-map.json",
-        "sha256": "6be27b69cab00e72d074405ac9822823143a8fcf19d8e4f373f57f1beb65d659",
+        "sha256": "fb2aec0e468bdf4fc1bb73de433dbb59613cc55e4b3901146ef90dd9a578094c",
         "role": "F4 firmware boundary: runStandPose commanded angles, used as the anchor that identifies which pose the CAD is drawn in"
       }
     ],
