@@ -42,9 +42,15 @@ importers:
         specifier: ^0.185.1
         version: 0.185.1
     devDependencies:
+      '@sesame-lab/sesame-api':
+        specifier: workspace:*
+        version: link:../../packages/sesame-api
       '@sesame-lab/sesame-bridge':
         specifier: workspace:*
         version: link:../../emulator/bridge
+      '@sesame-lab/sesame-qemu':
+        specifier: workspace:*
+        version: link:../../packages/sesame-qemu
       '@types/node':
         specifier: ^24.10.1
         version: 24.13.3
@@ -107,6 +113,9 @@ importers:
         specifier: workspace:*
         version: link:../sesame-sim
     devDependencies:
+      '@sesame-lab/sesame-qemu':
+        specifier: workspace:*
+        version: link:../sesame-qemu
       '@types/node':
         specifier: ^24.10.1
         version: 24.13.3

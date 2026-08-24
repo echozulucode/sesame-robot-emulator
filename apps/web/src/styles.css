@@ -277,6 +277,74 @@ code,
   font-size: 11px;
 }
 
+/* ------------------------------------------------------------------ origin
+   The second axis. Provenance is coloured by epistemic weight; origin is
+   coloured by which boundary was crossed, and `emulator` deliberately does NOT
+   share a colour with `observed` — the whole point of the field is that the two
+   are not the same claim. */
+
+.prov-counts {
+  flex-wrap: wrap;
+}
+
+.origin {
+  font-style: normal;
+  border-style: dashed;
+}
+
+.origin-physical-robot {
+  color: var(--observed);
+  border-style: solid;
+}
+
+.origin-emulator {
+  color: #d8a657;
+}
+
+.origin-host-model {
+  color: var(--simulated);
+}
+
+.origin-replay {
+  color: var(--inferred);
+}
+
+.origin-unknown {
+  color: var(--muted);
+}
+
+.chip {
+  display: inline-block;
+  margin: 2px 4px 2px 0;
+  padding: 1px 5px;
+  border-radius: 4px;
+  background: var(--panel-2);
+  border: 1px solid var(--line);
+  font-size: 10px;
+}
+
+ul.tight {
+  margin: 6px 0 0;
+  padding-left: 18px;
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+ul.tight li {
+  margin-bottom: 4px;
+}
+
+details.note summary {
+  cursor: pointer;
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+details.note p {
+  margin: 6px 0 0;
+}
+
 /* --------------------------------------------------------------- commands */
 
 .cmd-grid {

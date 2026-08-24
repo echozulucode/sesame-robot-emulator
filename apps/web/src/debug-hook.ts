@@ -14,10 +14,10 @@
  * user could not do with the buttons.
  */
 import { JOINT_ORDER, type JointName } from '@sesame-lab/sesame-model';
-import type { Provenance } from '@sesame-lab/sesame-protocol';
+import type { OriginKind, Provenance, TelemetryOrigin } from '@sesame-lab/sesame-protocol';
 import { Mesh, Quaternion, Vector3 } from 'three';
 
-import type { BackendId, BackendStatus } from './backends/types.js';
+import type { BackendId, BackendStatus, EmulatorFacts } from './backends/types.js';
 import type { TelemetryStore } from './state/telemetry-store.js';
 import type { WorldFrameReading } from './three/RobotScene.js';
 import {
@@ -39,6 +39,16 @@ export interface SceneJointReading {
   readonly sceneCommandedDeg: number;
   /** What the store thinks, for comparison. `null` = never commanded. */
   readonly storeCommandedDeg: number | null;
+  /** Provenance of the event that last moved this node. */
+  readonly storeProvenance: Provenance | null;
+  /**
+   * Which boundary that event crossed — `'emulator'` when real firmware under
+   * QEMU produced it. This is what makes "a browser button drove real firmware"
+   * assertable rather than merely screenshot-able.
+   */
+  readonly storeOriginKind: OriginKind | null;
+  /** `isPhysicallyObserved()` on that event. Never true in this project. */
+  readonly storePhysicallyObserved: boolean;
   /** World position of the node's origin, in canonical millimetres. */
   readonly pivotWorldMm: [number, number, number];
 }
@@ -66,6 +76,8 @@ export interface SesameDebugApi {
   readonly ready: boolean;
   backendId(): BackendId;
   status(): BackendStatus;
+  /** The backend's emulator qualifiers, or `null` if it is not an emulator. */
+  emulatorFacts(): EmulatorFacts | null;
   setBackend(id: BackendId, url?: string): Promise<void>;
   run(command: string): Promise<void>;
   setFace(name: string): Promise<void>;
@@ -99,6 +111,16 @@ export interface SesameDebugApi {
     textureFlipY: boolean | null;
   };
   provenance(): { driving: Provenance | null; counts: Record<Provenance, number>; totalEvents: number };
+  /**
+   * The second axis, exposed separately so a harness cannot accidentally assert
+   * "observed" and believe it proved "measured".
+   */
+  origin(): {
+    driving: TelemetryOrigin | null;
+    counts: Record<OriginKind, number>;
+    /** `isPhysicallyObserved()` was true this many times. Must be 0. */
+    physicallyObservedEvents: number;
+  };
   assetFacts(): AssetFacts | null;
   /** Frames drawn and pose version applied — proof the render loop is alive. */
   renderStats(): { frames: number; appliedPoseVersion: number; storePoseVersion: number } | null;
@@ -115,6 +137,7 @@ export interface DebugHookWiring {
   oledCanvas(): HTMLCanvasElement;
   backendId(): BackendId;
   status(): BackendStatus;
+  emulatorFacts(): EmulatorFacts | null;
   setBackend(id: BackendId, url?: string): Promise<void>;
   run(command: string): Promise<void>;
   setFace(name: string): Promise<void>;
@@ -135,6 +158,7 @@ export function installDebugHook(wiring: DebugHookWiring): () => void {
     },
     backendId: () => wiring.backendId(),
     status: () => wiring.status(),
+    emulatorFacts: () => wiring.emulatorFacts(),
     setBackend: (id, url) => wiring.setBackend(id, url),
     run: (command) => wiring.run(command),
     setFace: (name) => wiring.setFace(name),
@@ -148,6 +172,7 @@ export function installDebugHook(wiring: DebugHookWiring): () => void {
       const world = new Vector3();
       return JOINT_ORDER.map((joint) => {
         const entry = rig[joint];
+        const view = wiring.store.joints[joint];
         entry.node.updateWorldMatrix(true, false);
         entry.node.getWorldPosition(world);
         const q = entry.node.quaternion;
@@ -156,7 +181,10 @@ export function installDebugHook(wiring: DebugHookWiring): () => void {
           firmwareIndex: entry.firmwareIndex,
           quaternion: [q.x, q.y, q.z, q.w],
           sceneCommandedDeg: commandedDegFromNode(entry),
-          storeCommandedDeg: wiring.store.joints[joint].commandedDeg,
+          storeCommandedDeg: view.commandedDeg,
+          storeProvenance: view.provenance,
+          storeOriginKind: view.origin?.kind ?? null,
+          storePhysicallyObserved: view.physicallyObserved,
           pivotWorldMm: [world.x * MM_PER_UNIT, world.y * MM_PER_UNIT, world.z * MM_PER_UNIT],
         };
       });
@@ -310,6 +338,14 @@ export function installDebugHook(wiring: DebugHookWiring): () => void {
       };
     },
 
+    origin() {
+      return {
+        driving: wiring.store.drivingOrigin,
+        counts: { ...wiring.store.originCounts },
+        physicallyObservedEvents: wiring.store.physicallyObservedEvents,
+      };
+    },
+
     assetFacts: () => wiring.facts(),
 
     renderStats() {
@@ -328,6 +364,8 @@ export function installDebugHook(wiring: DebugHookWiring): () => void {
         worldFrame: api.worldFrame(),
         oled: api.oled(),
         provenance: api.provenance(),
+        origin: api.origin(),
+        emulatorFacts: wiring.emulatorFacts(),
         face: wiring.store.face,
         canvasPixels: canvasPixelCount(),
       };

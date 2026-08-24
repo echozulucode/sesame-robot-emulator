@@ -15,6 +15,15 @@
 > fed by firmware genuinely executing under QEMU — and even there, "observed"
 > means *bytes crossed a UART*, not *a robot moved*.
 
+> **Superseded in two places by `docs/findings/V7-browser-drives-qemu.md`.**
+> This document describes an app with **two** backends, of which only the
+> simulator can be commanded. It now has **three**, and the QEMU one is
+> commandable: a browser button posts to the firmware's own `/api/command` and
+> real firmware moves. And the paragraph above is now enforced rather than
+> promised — the app branches on `isPhysicallyObserved()` and renders
+> `describeOrigin()` beside every provenance badge, so "observed" can no longer
+> be read as "measured" anywhere on screen.
+
 ---
 
 ## 1. Result in one paragraph

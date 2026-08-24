@@ -71,5 +71,32 @@ export default defineConfig({
       // so source maps into the workspace packages resolve in dev.
       allow: [REPO],
     },
+    /**
+     * `vite dev` in front of the lab host.
+     *
+     * The QEMU backend talks to `apps/web/server/lab-host.mjs`, which cannot
+     * live in the browser bundle — it spawns `qemu-system-xtensa`. In a
+     * production capture the lab host serves `dist/` itself and everything is
+     * one origin; in dev, Vite serves the app and these five prefixes are
+     * forwarded so the origin stays one anyway. That matters more than
+     * convenience: an `EventSource` and a `POST` to a *different* origin drag
+     * CORS into a lab tool, and the loopback-only posture would then have to be
+     * relaxed to work around it.
+     *
+     * `/cmd`, `/getSettings` and `/setSettings` are firmware routes, not
+     * inventions — `hardware-map.json → network.http.routes`. `/lab/*` is the
+     * only pair that is ours.
+     */
+    proxy: Object.fromEntries(
+      ['/api', '/lab', '/cmd', '/getSettings', '/setSettings'].map((prefix) => [
+        prefix,
+        {
+          target: process.env.SESAME_LAB_HOST ?? 'http://127.0.0.1:8099',
+          changeOrigin: false,
+          // Server-sent events must not be buffered into oblivion.
+          ws: false,
+        },
+      ]),
+    ),
   },
 });

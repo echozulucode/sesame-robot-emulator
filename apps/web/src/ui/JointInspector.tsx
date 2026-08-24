@@ -20,7 +20,7 @@ import type { ReactElement } from 'react';
 import type { JointView } from '../state/telemetry-store.js';
 import type { JointRig } from '../three/rig.js';
 import { commandedDegFromNode } from '../three/rig.js';
-import { ProvenanceTag } from './ProvenanceTag.js';
+import { OriginTag, ProvenanceTag } from './ProvenanceTag.js';
 
 export interface JointInspectorProps {
   readonly joints: Record<JointName, JointView>;
@@ -55,6 +55,7 @@ export function JointInspector(props: JointInspectorProps): ReactElement {
             <th>simulated</th>
             <th>measured</th>
             <th>prov</th>
+            <th>origin</th>
           </tr>
         </thead>
         <tbody>
@@ -80,12 +81,22 @@ export function JointInspector(props: JointInspectorProps): ReactElement {
                   null
                 </td>
                 <td>{view.provenance === null ? <span className="muted">—</span> : <ProvenanceTag value={view.provenance} />}</td>
+                <td data-physically-observed={String(view.physicallyObserved)}>
+                  {view.origin === null ? <span className="muted">—</span> : <OriginTag origin={view.origin} />}
+                </td>
               </tr>
             );
           })}
         </tbody>
       </table>
 
+      {/*
+        The origin column is not decoration. `provenance` is `observed` for both
+        an emulated UART and a real robot — the same word for two very different
+        claims — so the column beside it is what tells a reader which of the two
+        produced the number in the `commanded` column. `physicallyObserved` on
+        the cell is `isPhysicallyObserved()`, not a string comparison.
+      */}
       <div className="feedback-note" data-testid="no-feedback-note">
         <strong>`measuredDeg` is null on every joint, always.</strong>
         <p>
@@ -111,6 +122,13 @@ export function JointInspector(props: JointInspectorProps): ReactElement {
               ) : (
                 <>
                   {detail.commandedDeg}° <span className="muted">post-subtrim, post-clamp</span>
+                  <br />
+                  <OriginTag origin={detail.origin} />{' '}
+                  <span className="muted">
+                    {detail.physicallyObserved
+                      ? 'measured on physical hardware'
+                      : 'not a measurement — see the origin badge for what produced it'}
+                  </span>
                 </>
               )}
             </dd>

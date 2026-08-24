@@ -39,8 +39,19 @@
  *      existed.
  *   5. BRIDGE BACKEND (QEMU) — optional, and only when Q1's toolchain is
  *      present: real Sesame firmware executing under Espressif QEMU, UART0 on a
- *      TCP socket, the same unmodified bridge, the same unmodified app. This is
- *      the one phase whose telemetry is `observed`.
+ *      TCP socket, the same unmodified bridge, the same unmodified app. The
+ *      bridge is receive-only, so this phase WATCHES firmware; it cannot drive
+ *      it, and the envelopes carry no `TelemetryOrigin` at all.
+ *   6. QEMU, COMMANDED FROM THE BROWSER — the one that matters. The app is
+ *      served by `apps/web/server/lab-host.mjs`, which puts the firmware's own
+ *      ten HTTP routes in front of `QemuSesameRobot`. The harness CLICKS the
+ *      `wave` button in the DOM, and then asserts that the eight joint
+ *      quaternions in the THREE.js scene graph moved, that every one of them
+ *      was last written by an event with `provenance: 'observed'` AND
+ *      `origin.kind === 'emulator'`, and that `isPhysicallyObserved()` was
+ *      never true for anything. It re-runs the ISSUE-20260823-023 world-frame
+ *      check across that wave, because that bug was found by a human on the
+ *      simulator path and a new driving path is a new chance for it to return.
  *
  * Usage: node scripts/capture-web-screenshots.mjs [--out <dir>] [--skip-qemu]
  * Exit 0 pass · 1 fail · 3 no browser found.
@@ -67,6 +78,17 @@ const BRIDGE_CLI = path.join(REPO, 'emulator/bridge/dist/cli.js');
 const WAVE_FIXTURE = path.join(REPO, 'emulator/bridge/fixtures/wave-pose.replay.jsonl');
 const QEMU_EXE = path.join(REPO, 'tools/qemu/qemu/bin/qemu-system-xtensa.exe');
 const QEMU_IMAGE = path.join(REPO, 'emulator/qemu/images/distro-v1-esp32-nowifi.flash.bin');
+const LAB_HOST = path.join(REPO, 'apps/web/server/lab-host.mjs');
+/**
+ * The image `QemuSesameRobot` boots by default.
+ *
+ * Not the `nowifi` one phase 5 uses: that build injects `currentCommand =
+ * "wave"` into `setup()` because nothing could ask the robot to move. Phase 6
+ * exists precisely because something can now, so it needs the image that boots
+ * IDLE — otherwise "the joints moved after the click" would be indistinguishable
+ * from "the joints were already moving".
+ */
+const QEMU_CLI_IMAGE = path.join(REPO, 'emulator/qemu/images/distro-v1-esp32-cli.flash.bin');
 
 const JOINT_ORDER = ['R1', 'R2', 'L1', 'L2', 'R4', 'R3', 'L3', 'L4'];
 
@@ -181,6 +203,50 @@ async function startBridge({ replay = null, uartPort = null, provenance = null, 
   });
 
   return { proc, url, wsPort, output: () => output };
+}
+
+// ------------------------------------------------------------------ lab host
+/**
+ * Start `apps/web/server/lab-host.mjs`, serving the built app itself.
+ *
+ * One origin, exactly as the bridge's `--viewer-dir` gives phases 1-5: the page
+ * that posts `/api/command` is served by the process that answers it, so there
+ * is no CORS question and no port to type. The host begins listening before the
+ * emulator has booted, on purpose — that is what lets the browser observe the
+ * boot rather than only its outcome.
+ */
+async function startLabHost({ backend = 'qemu' } = {}) {
+  const port = await freePort();
+  const proc = spawn(
+    process.execPath,
+    [LAB_HOST, '--backend', backend, '--port', String(port), '--dist', APP_DIST],
+    { cwd: REPO, stdio: ['ignore', 'pipe', 'pipe'] },
+  );
+  children.push(proc);
+  let output = '';
+  proc.stdout.on('data', (d) => (output += d.toString()));
+  proc.stderr.on('data', (d) => (output += d.toString()));
+
+  const url = await new Promise((resolve, reject) => {
+    const timeout = setTimeout(
+      () => reject(new Error(`lab host printed no URL:\n${output}`)),
+      20000,
+    );
+    const poll = setInterval(() => {
+      const match = /lab-host\s+(http:\/\/\S+)/.exec(output);
+      if (match) {
+        clearInterval(poll);
+        clearTimeout(timeout);
+        resolve(match[1]);
+      }
+      if (proc.exitCode !== null) {
+        clearInterval(poll);
+        clearTimeout(timeout);
+        reject(new Error(`lab host exited ${proc.exitCode}:\n${output}`));
+      }
+    }, 100);
+  });
+  return { proc, url, port, output: () => output };
 }
 
 // ------------------------------------------------------------------ browser
@@ -947,11 +1013,24 @@ if (SKIP_QEMU) {
       true,
     );
     const driven = observed.sceneJoints.filter((j) => j.storeCommandedDeg !== null);
+    // `provenance === 'observed'` is CORRECT here and is NOT sufficient: bytes
+    // really crossed a UART out of executing firmware. What it must never imply
+    // is a measurement, and on this path the bridge stamps no TelemetryOrigin
+    // at all — its envelope's `origin` field means 'uart' | 'bridge', a
+    // different question. So the app sees `unknown`, and unknown must resolve to
+    // NOT-physical rather than to physical-by-default. That is the whole reason
+    // phase 6 uses a transport that carries the origin from the party that
+    // knows it.
+    const originReading = observed.origin ?? { physicallyObservedEvents: null, counts: {} };
     const ok =
-      observed.provenance.driving === 'observed' && driven.length > 0 && observed.canvasPixels > 2000;
+      observed.provenance.driving === 'observed' &&
+      originReading.physicallyObservedEvents === 0 &&
+      driven.length > 0 &&
+      observed.canvasPixels > 2000;
     if (!ok) {
       notes.push(
         `QEMU phase ran but did not fully satisfy its checks: driving=${observed.provenance.driving}, ` +
+          `physicallyObserved=${originReading.physicallyObservedEvents}, ` +
           `${driven.length} joints driven, ${observed.canvasPixels} canvas pixels.`,
       );
     }
@@ -965,12 +1044,14 @@ if (SKIP_QEMU) {
       ran: true,
       ok,
       provenance: observed.provenance,
+      origin: observed.origin ?? null,
       jointsDriven: driven.map((j) => ({ joint: j.joint, deg: j.storeCommandedDeg })),
       canvasPixels: observed.canvasPixels,
       note:
-        'This is the only phase whose telemetry is `observed`: the bytes came out of firmware that ' +
-        'really executed. The bridge was not modified for it — a live --uart-port socket is what it ' +
-        'was built for.',
+        'Telemetry here is `observed`: the bytes came out of firmware that really executed. The ' +
+        'bridge was not modified for it — a live --uart-port socket is what it was built for. It ' +
+        'is receive-only, and it stamps no TelemetryOrigin, so the app reports origin `unknown` ' +
+        'and refuses to treat that as physical. Phase 6 is the commandable, origin-carrying path.',
     };
   } catch (error) {
     // Q1 is explicitly off the critical path and its toolchain is gitignored,
@@ -992,6 +1073,465 @@ if (SKIP_QEMU) {
   }
 }
 
+// ===========================================================================
+// PHASE 6: a browser button driving real firmware
+// ===========================================================================
+//
+// Every earlier phase either drove a MODEL (1-3), or WATCHED firmware without
+// being able to touch it (4-5). This one closes the loop, and it is the claim
+// the whole project is for, so it is asserted rather than demonstrated:
+//
+//   a real <button> in a real browser
+//     -> POST /api/command {"command":"wave"}        the firmware's own route
+//     -> SesameApiAdapter -> QemuSesameRobot -> "rn wv" on UART0
+//     -> real Xtensa instructions -> @SESAME servo lines back
+//     -> SSE -> TelemetryStore -> Object3D.quaternion
+//
+// Two assertions carry it. First, the eight quaternions must move, and every
+// one of them must have been last written by an event that is BOTH
+// `provenance: 'observed'` AND `origin.kind === 'emulator'` — a screenshot of a
+// moving robot proves neither. Second, `isPhysicallyObserved()` must never have
+// been true, because no physical Sesame exists and an emulator must not be able
+// to pass for one.
+//
+// And the ISSUE-20260823-023 world-frame check runs again here. That bug was
+// found by a human looking at the simulator path while the harness was green; a
+// second driving path is a second chance for the floor to start sliding.
+if (SKIP_QEMU) {
+  phases.qemuCommanded = { ran: false, reason: '--skip-qemu' };
+} else if (!fs.existsSync(QEMU_EXE) || !fs.existsSync(QEMU_CLI_IMAGE)) {
+  phases.qemuCommanded = {
+    ran: false,
+    reason:
+      `the QEMU toolchain or the idle CLI image is missing ` +
+      `(${path.relative(REPO, QEMU_CLI_IMAGE).replaceAll('\\', '/')}). Run ` +
+      `node emulator/qemu/fetch-qemu.mjs and node emulator/qemu/build-qemu-images.mjs cli.`,
+  };
+  notes.push('QEMU-commanded phase skipped: tools/qemu and/or the cli image are absent.');
+} else {
+  console.log('[web] phase 6: a browser button driving real firmware under QEMU');
+  let lab = null;
+  let labPage = null;
+  const before6 = problems.length;
+  try {
+    lab = await startLabHost({ backend: 'qemu' });
+    console.log(`[web] lab host serving apps/web/dist at ${lab.url}`);
+
+    labPage = await launchBrowser(lab.url);
+    const evaluate = labPage.evaluate;
+    await waitFor(
+      evaluate,
+      'typeof window.__sesame !== "undefined" && window.__sesame.ready',
+      (v) => v === true,
+      'the app to load under the lab host',
+      60000,
+    );
+
+    await evaluate('window.__sesame.setBackend("qemu")');
+
+    // Best effort: if the emulator is still booting when the page arrives,
+    // capture the progress UI. It is allowed to be missed — QEMU boots in about
+    // 2.5 s and a cold Chromium takes longer than that — but when it is caught
+    // it is the evidence that a 17 s connect reads as progress and not as a
+    // hang.
+    const bootPhase = await evaluate('window.__sesame.status()');
+    let bootShot = null;
+    if (bootPhase.connection === 'connecting') {
+      bootShot = await labPage.shoot(
+        'v3-browser-qemu-booting.png',
+        'the 2-17 s QEMU boot, surfaced as progress with the attempt count rather than as a frozen page',
+      );
+    }
+
+    // 12 boot attempts x ~2 s detection, plus one slow success, plus the poll
+    // interval. Q2 measured a 17.4 s worst case for one connect.
+    const connected = await waitFor(
+      evaluate,
+      'window.__sesame.status()',
+      (v) => v !== null && v.connection === 'connected',
+      'the app to reach the QEMU lab host and see the firmware finish setup()',
+      120000,
+    );
+    console.log(
+      `[web] emulator ready after ${connected.attempts} boot attempt(s), ${connected.elapsedMs} ms`,
+    );
+    check(
+      typeof connected.attempts === 'number' && connected.attempts >= 1,
+      `the app did not surface a boot attempt count (got ${JSON.stringify(connected.attempts)}); ` +
+        `a connect that needed several tries is ISSUE-20260823-022 and hiding it recreates the ` +
+        `under-measurement Q2 had to undo`,
+    );
+    check(
+      typeof connected.elapsedMs === 'number',
+      'the app did not surface how long the boot took',
+    );
+
+    // ------------------------------------------------- the honesty surface
+    const facts = await evaluate('window.__sesame.emulatorFacts()');
+    check(facts !== null, 'the QEMU backend reported no emulator facts at all');
+    if (facts !== null) {
+      check(
+        facts.origin?.kind === 'emulator',
+        `the backend's origin kind is ${JSON.stringify(facts.origin?.kind)}, expected "emulator"`,
+      );
+      check(
+        facts.board === 'distro-v1-esp32',
+        `the emulated board is reported as ${JSON.stringify(facts.board)}; this backend runs the ` +
+          `LEGACY V1 board and saying anything else would let it pass for the current one`,
+      );
+      check(facts.mode === 'qemu', `RobotState.mode came back ${JSON.stringify(facts.mode)}`);
+      check(
+        facts.oledFramebuffer === false,
+        'the backend claims an OLED framebuffer; QEMU attaches no SSD1306 to this machine',
+      );
+      check(
+        Array.isArray(facts.elided) && facts.elided.includes('ssd1306-panel'),
+        `the elided list does not mention the panel: ${JSON.stringify(facts.elided)}`,
+      );
+      for (const board of ['s2mini', 'distro-v3-s3']) {
+        check(
+          typeof facts.unsupportedBoards?.[board] === 'string',
+          `unsupportedBoards does not explain ${board}. The S2 Mini is the board this project ` +
+            `RECOMMENDS and QEMU cannot emulate it at all; a learner must not conclude they are ` +
+            `watching their own hardware`,
+        );
+      }
+    }
+
+    // The facts have to be ON SCREEN, not merely in an object. This reads the
+    // rendered DOM text, which is what a learner actually sees.
+    //
+    // `readRenderedHonesty` is called twice: once now, and again after the wave.
+    // The provenance banner reports the event that last MOVED something, so
+    // before the first command it correctly says "nothing yet" — asserting the
+    // verdict line here would be asserting against an idle robot.
+    const readRenderedHonesty = async () =>
+      JSON.parse(
+        await evaluate(
+          `JSON.stringify({
+             emulator: document.querySelector('[data-testid="emulator"]')?.innerText ?? '',
+             verdict: document.querySelector('#measurement-verdict')?.innerText ?? '',
+             originBanner: document.querySelector('#origin-banner')?.innerText ?? '',
+             unsupported: document.querySelector('[data-testid="unsupported-boards"]')?.innerText ?? '',
+             notAMeasurement: document.querySelector('[data-testid="not-a-measurement"]')?.innerText ?? '',
+           })`,
+        ),
+      );
+    const renderedIdle = await readRenderedHonesty();
+    check(
+      /distro-v1-esp32/.test(renderedIdle.emulator),
+      'the emulator panel does not name the board it is actually running',
+    );
+    check(
+      /s2mini/.test(renderedIdle.unsupported),
+      'the UI does not tell the reader that the recommended DIY board cannot be emulated',
+    );
+    check(
+      /isPhysicallyObserved/.test(renderedIdle.notAMeasurement),
+      'the emulator panel does not name the predicate that separates emulated from measured, ' +
+        'before a single joint has moved',
+    );
+
+    // --------------------------------------------- nothing has moved yet
+    //
+    // The `cli` image boots idle on purpose: Q1's `nowifi` build injected
+    // `currentCommand = "wave"` into setup() because nothing could ask the robot
+    // to move. If any joint were already commanded here, "the joints moved after
+    // the click" would prove nothing.
+    const rest6 = await evaluate('window.__sesame.sceneJoints()');
+    const preCommanded = rest6.filter((j) => j.storeCommandedDeg !== null);
+    check(
+      preCommanded.length === 0,
+      `${preCommanded.length} joint(s) were already commanded before the button was clicked ` +
+        `(${preCommanded.map((j) => j.joint).join(', ')}) — the image is not booting idle, so the ` +
+        `post-click assertion would not be attributable to the click`,
+    );
+
+    const worldFrames6 = [];
+    const sample6 = async (label) => {
+      const frame = await evaluate('window.__sesame.worldFrame()');
+      if (frame === null) {
+        problems.push(`worldFrame() returned null at "${label}" during the QEMU wave`);
+        return;
+      }
+      worldFrames6.push({ label, ...frame });
+    };
+    await sample6('rest, real firmware idle, nothing clicked');
+
+    const idleShot = await labPage.shoot(
+      'v3-browser-qemu-idle.png',
+      'real firmware booted under QEMU and sitting idle: no joint has been commanded, and the UI says the origin is an emulator on the legacy V1 board',
+    );
+
+    // ------------------------------------------------------- CLICK THE BUTTON
+    //
+    // `element.click()`, not `__sesame.run()`. The debug hook would exercise the
+    // same code path, but the claim being evidenced is "the buttons work", and
+    // a disabled button, a missing handler or a `canCommand: false` backend are
+    // exactly the failures a direct call would step over.
+    const clicked = await evaluate(`(() => {
+      const button = document.querySelector('[data-command="wave"]');
+      if (button === null) return { ok: false, why: 'no [data-command="wave"] button in the DOM' };
+      if (button.disabled) return { ok: false, why: 'the wave button is disabled' };
+      button.click();
+      return { ok: true, why: button.textContent };
+    })()`);
+    check(clicked.ok, `could not click the wave button: ${clicked.why}`);
+    console.log('[web] clicked the wave button');
+
+    const startVersion = (await evaluate(RENDER_STATS)).storePoseVersion;
+    // runWavePose is 29 servo events over ~3.9 s of real firmware timing.
+    await waitFor(
+      evaluate,
+      RENDER_STATS,
+      (v) => v !== null && v.storePoseVersion > startVersion + 8,
+      'servo telemetry to come back out of the firmware the button just commanded',
+      60000,
+    );
+    for (let i = 0; i < 6; i++) {
+      await sample6(`wave sample ${i + 1}`);
+      await sleep(220);
+    }
+    await waitFor(
+      evaluate,
+      RENDER_STATS,
+      (v) => v !== null && v.appliedPoseVersion === v.storePoseVersion,
+      'the render loop to apply the firmware’s telemetry',
+    );
+
+    const after6 = await evaluate('window.__sesame.sceneJoints()');
+    const delta6 = maxQuaternionDelta(rest6, after6);
+    check(
+      delta6 > 1e-3,
+      `clicking wave changed nothing in the scene graph (max quaternion component delta ` +
+        `${delta6.toExponential(3)}). The button did not drive the firmware, or the firmware's ` +
+        `telemetry did not reach three.js.`,
+    );
+
+    const driven6 = after6.filter((j) => j.storeCommandedDeg !== null);
+    check(
+      driven6.length === 8,
+      `only ${driven6.length}/8 joints were driven by the commanded wave`,
+    );
+    for (const joint of driven6) {
+      check(
+        joint.storeProvenance === 'observed',
+        `${joint.joint} was last written by a ${joint.storeProvenance} event; firmware that really ` +
+          `executed must not be downgraded`,
+      );
+      check(
+        joint.storeOriginKind === 'emulator',
+        `${joint.joint} carries origin.kind ${JSON.stringify(joint.storeOriginKind)}, expected ` +
+          `"emulator" — the scene must be attributable to the emulator that produced it`,
+      );
+      check(
+        joint.storePhysicallyObserved === false,
+        `${joint.joint} reports isPhysicallyObserved() === true. No physical Sesame exists; an ` +
+          `emulator must never pass for one`,
+      );
+      check(
+        Math.abs(joint.sceneCommandedDeg - joint.storeCommandedDeg) < 1e-4,
+        `${joint.joint}: the scene graph says ${joint.sceneCommandedDeg}° but the firmware said ` +
+          `${joint.storeCommandedDeg}°`,
+      );
+    }
+
+    // Now that firmware-driven telemetry HAS moved a joint, the banner has
+    // something to describe — and what it must describe is an emulator.
+    const renderedMoving = await readRenderedHonesty();
+    check(
+      /Not a measurement/i.test(renderedMoving.verdict),
+      `the provenance banner's verdict line reads ${JSON.stringify(renderedMoving.verdict.slice(0, 140))}; ` +
+        `an emulated servo angle must be labelled as not a measurement`,
+    );
+    check(
+      /emulated/i.test(renderedMoving.originBanner),
+      `describeOrigin() is not rendered beside the provenance badge (banner text: ` +
+        `${JSON.stringify(renderedMoving.originBanner.slice(0, 140))})`,
+    );
+    check(
+      // Case-insensitive: `.prov-banner-head` is `text-transform: uppercase`,
+      // and `innerText` reflects rendered case rather than source case.
+      /distro-v1-esp32/i.test(renderedMoving.originBanner),
+      `the origin badge beside the provenance badge does not name the board: ` +
+        `${JSON.stringify(renderedMoving.originBanner.slice(0, 140))}`,
+    );
+
+    const originReading6 = await evaluate('window.__sesame.origin()');
+    check(
+      originReading6.counts.emulator > 0,
+      `no events were attributed to an emulator boundary: ${JSON.stringify(originReading6.counts)}`,
+    );
+    check(
+      originReading6.physicallyObservedEvents === 0,
+      `${originReading6.physicallyObservedEvents} event(s) satisfied isPhysicallyObserved(). That ` +
+        `predicate is the one thing standing between an emulator and a measurement`,
+    );
+    check(
+      originReading6.driving?.board === 'distro-v1-esp32',
+      `the driving origin names board ${JSON.stringify(originReading6.driving?.board)}`,
+    );
+
+    // ------------------------------------- ISSUE-20260823-023, on a new path
+    const EPS6 = 1e-6;
+    const drift6 = (a, b) => {
+      if (!Array.isArray(a) || !Array.isArray(b)) return Number.NaN;
+      let worst = 0;
+      for (let i = 0; i < 3; i++) worst = Math.max(worst, Math.abs(a[i] - b[i]));
+      return worst;
+    };
+    const worstDrift6 = {};
+    let contactSpread6 = 0;
+    const first6 = worldFrames6[0];
+    if (first6 === undefined) {
+      problems.push('no world-frame samples were taken during the QEMU-driven wave');
+    } else {
+      for (const [key, what] of [
+        ['groundWorldMm', 'the ground plane / grid'],
+        ['robotRootWorldMm', 'the robot root'],
+        ['cameraTargetMm', 'the OrbitControls target'],
+        ['cameraPositionMm', 'the camera'],
+      ]) {
+        let worst = 0;
+        let worstAt = '';
+        for (const sample of worldFrames6.slice(1)) {
+          const d = drift6(first6[key], sample[key]);
+          if (!(d >= 0)) {
+            problems.push(`${what}: worldFrame().${key} was unreadable at "${sample.label}"`);
+            continue;
+          }
+          if (d > worst) {
+            worst = d;
+            worstAt = sample.label;
+          }
+        }
+        worstDrift6[key] = worst;
+        check(
+          worst <= EPS6,
+          `${what} moved ${worst.toFixed(3)} mm in world space between "${first6.label}" and ` +
+            `"${worstAt}" while firmware-driven telemetry played. ISSUE-20260823-023 was found by a ` +
+            `human on the simulator path; it must not reappear on the QEMU one.`,
+        );
+      }
+      const contacts6 = worldFrames6.map((f) => f.footContactMm).filter((v) => typeof v === 'number');
+      contactSpread6 = contacts6.length === 0 ? 0 : Math.max(...contacts6) - Math.min(...contacts6);
+      check(
+        contactSpread6 > 1,
+        `the pose-dependent foot-contact height varied by only ${contactSpread6.toFixed(3)} mm ` +
+          `across the firmware-driven wave, so the world-stability assertions above proved nothing`,
+      );
+    }
+
+    // ------------------------------------------------------- the OLED, honestly
+    const oled6 = await evaluate('window.__sesame.oled()');
+    const elidedNote = await evaluate(
+      `document.querySelector('[data-testid="oled-elided"]')?.innerText ?? ''`,
+    );
+    check(
+      oled6.source.pixelProvenance === null || oled6.source.pixelProvenance === 'inferred',
+      `the OLED claims its pixels are ${JSON.stringify(oled6.source.pixelProvenance)}. QEMU ` +
+        `transmits no framebuffer, so any pixels on screen were drawn host-side and are inferred`,
+    );
+    check(
+      /did not come from the emulator/i.test(elidedNote),
+      'the OLED panel does not say that its pixels were not produced by the emulator, even though ' +
+        'ssd1306-panel is in the elided list',
+    );
+
+    const snapshot6 = await evaluate('window.__sesame.snapshot()');
+    check(
+      typeof snapshot6.canvasPixels === 'number' && snapshot6.canvasPixels > 2000,
+      `only ${snapshot6.canvasPixels} non-background pixels came out of the WebGL drawing buffer`,
+    );
+    check(
+      snapshot6.renderStats !== null && snapshot6.renderStats.frames > 10,
+      `the render loop drew ${snapshot6.renderStats?.frames} frames — every reading above is stale`,
+    );
+
+    await evaluate(`void document.querySelector('.sidebar')?.scrollTo(0, 0)`);
+    await sleep(400);
+    const waveShot = await labPage.shoot(
+      'v3-browser-qemu-commanded-wave.png',
+      'a browser button drove real Sesame firmware: POST /api/command -> the firmware’s serial console under QEMU -> 29 @SESAME servo events -> these quaternions. Labelled emulated, on the legacy V1 board, not a measurement.',
+    );
+    await evaluate(
+      `void document.querySelector('[data-testid="oled"]')?.scrollIntoView({ block: 'start' })`,
+    );
+    await sleep(400);
+    await labPage.shoot(
+      'v4-browser-qemu-oled-inferred.png',
+      'the OLED under QEMU: the firmware emitted a face NAME and no pixels (ssd1306-panel is elided), so the framebuffer is drawn host-side and labelled inferred rather than presented as the emulator’s output',
+    );
+
+    const labErrors = labPage.errors();
+    check(
+      labErrors.length === 0,
+      `the QEMU-commanded page logged ${labErrors.length} error(s): ${labErrors.slice(0, 3).join(' | ')}`,
+    );
+
+    phases.qemuCommanded = {
+      ran: true,
+      ok: problems.length === before6,
+      transport:
+        'apps/web/server/lab-host.mjs — @sesame-lab/sesame-api SesameApiAdapter (unmodified) over ' +
+        'QemuSesameRobot, plus /lab/stream (SSE) for telemetry the firmware’s HTTP contract has no ' +
+        'way to express',
+      clickedSelector: '[data-command="wave"]',
+      boot: {
+        attempts: connected.attempts,
+        elapsedMs: connected.elapsedMs,
+        progressShotCaptured: bootShot !== null,
+      },
+      emulatorFacts: facts,
+      renderedBanner: renderedMoving.originBanner,
+      renderedVerdict: renderedMoving.verdict,
+      jointsBeforeClick: preCommanded.length,
+      jointsDriven: driven6.map((j) => ({
+        joint: j.joint,
+        deg: j.storeCommandedDeg,
+        provenance: j.storeProvenance,
+        originKind: j.storeOriginKind,
+        physicallyObserved: j.storePhysicallyObserved,
+      })),
+      maxQuaternionDelta: delta6,
+      origin: originReading6,
+      worldFrame: {
+        toleranceMm: EPS6,
+        worstDriftMm: worstDrift6,
+        footContactSpreadMm: contactSpread6,
+        samples: worldFrames6,
+      },
+      oled: {
+        pixelProvenance: oled6.source.pixelProvenance,
+        kind: oled6.source.kind,
+        litPixels: oled6.litPixels,
+        elidedNoteShown: /did not come from the emulator/i.test(elidedNote),
+      },
+      canvasPixels: snapshot6.canvasPixels,
+      shots: [idleShot.name, waveShot.name],
+    };
+  } catch (error) {
+    // Unlike phase 5, a failure here IS a failure: this phase is the project's
+    // headline claim, and the toolchain check above already covers the only
+    // legitimate reason to skip it.
+    problems.push(`the QEMU-commanded phase failed: ${error.message ?? error}`);
+    phases.qemuCommanded = {
+      ran: true,
+      ok: false,
+      error: String(error.message ?? error),
+      labHostOutput: lab === null ? null : lab.output().slice(-1200),
+    };
+  } finally {
+    labPage?.close();
+    try {
+      lab?.proc.kill();
+    } catch {
+      /* gone */
+    }
+    await sleep(600);
+  }
+}
+
 // ---------------------------------------------------------------- summary
 const summary = {
   capturedAt: new Date().toISOString(),
@@ -1003,6 +1543,9 @@ const summary = {
     'Runtime.evaluate; ground plane recomputed in-browser from the posed foot mesh vertices; ' +
     'images via Page.captureScreenshot',
   jointOrderAssertedInBrowser: JOINT_ORDER,
+  honesty:
+    'Emulated is never presented as physical. The app branches on isPhysicallyObserved(), not on ' +
+    'provenance === "observed", and renders describeOrigin() beside every provenance badge.',
   phases,
   shots,
   notes,
@@ -1022,6 +1565,10 @@ if (problems.length > 0) {
 for (const note of notes) console.log(`NOTE  ${note}`);
 console.log(
   `OK    ${shots.length} real-browser captures; joint rotations read back from the scene graph; ` +
-    `stand pose verified in-browser; both backends drove the same scene`,
+    `stand pose verified in-browser; all three backends drove the same scene` +
+    (phases.qemuCommanded?.ran === true
+      ? `; a clicked button drove real firmware under QEMU and every joint it moved carries ` +
+        `origin.kind="emulator" with isPhysicallyObserved() false`
+      : ''),
 );
 process.exit(0);

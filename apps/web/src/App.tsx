@@ -10,7 +10,7 @@
  * Data flow, once:
  *
  * ```text
- * backend (sim in-process | bridge WebSocket)
+ * backend (sim in-process | bridge WebSocket | QEMU over the lab host)
  *    -> SesameTelemetry
  *    -> TelemetryStore.ingest()      one reduction, provenance preserved
  *    -> useFrame reads store.poseVersion -> Object3D.quaternion   (60 Hz, no React)
@@ -22,6 +22,7 @@ import { OLED_HEIGHT, OLED_WIDTH } from '@sesame-lab/sesame-protocol';
 import { Suspense, useCallback, useEffect, useMemo, useRef, useState, type ReactElement } from 'react';
 
 import { BridgeBackend, sameOriginBridgeUrl } from './backends/bridge-backend.js';
+import { defaultLabBaseUrl, QemuBackend } from './backends/qemu-backend.js';
 import { SimBackend } from './backends/sim-backend.js';
 import type { BackendId, BackendStatus, TelemetryBackend } from './backends/types.js';
 import { installDebugHook } from './debug-hook.js';
@@ -30,6 +31,7 @@ import { RobotScene, type SceneHandles } from './three/RobotScene.js';
 import type { AssetFacts, JointRig } from './three/rig.js';
 import { AssetPanel } from './ui/AssetPanel.js';
 import { Controls } from './ui/Controls.js';
+import { EmulatorPanel } from './ui/EmulatorPanel.js';
 import { JointInspector } from './ui/JointInspector.js';
 import { OledPanel } from './ui/OledPanel.js';
 
@@ -68,6 +70,7 @@ export function App(): ReactElement {
 
   const [backendId, setBackendId] = useState<BackendId>('sim');
   const [bridgeUrl, setBridgeUrl] = useState(sameOriginBridgeUrl());
+  const [labUrl, setLabUrl] = useState(defaultLabBaseUrl());
   const [status, setStatus] = useState<BackendStatus>({
     connection: 'idle',
     detail: 'starting',
@@ -93,8 +96,20 @@ export function App(): ReactElement {
   // ----------------------------------------------------------- backend swap
   useEffect(() => {
     let disposed = false;
-    const next: TelemetryBackend =
-      backendId === 'sim' ? new SimBackend() : new BridgeBackend({ url: bridgeUrl });
+    // Every `BackendId` gets an arm. A `switch` over the union rather than a
+    // ternary chain, so a fourth backend is a compile error here instead of a
+    // silent fall-through to the bridge.
+    const build = (): TelemetryBackend => {
+      switch (backendId) {
+        case 'sim':
+          return new SimBackend();
+        case 'bridge':
+          return new BridgeBackend({ url: bridgeUrl });
+        case 'qemu':
+          return new QemuBackend({ baseUrl: labUrl });
+      }
+    };
+    const next: TelemetryBackend = build();
 
     // A backend switch is a different robot, not a continuation of the same
     // one. Keeping the previous joint angles would attribute one backend's
@@ -119,7 +134,7 @@ export function App(): ReactElement {
       offStatus();
       void next.stop();
     };
-  }, [backendId, bridgeUrl, store]);
+  }, [backendId, bridgeUrl, labUrl, store]);
 
   // ------------------------------------------------- model-state pump (rAF)
   useEffect(() => {
@@ -216,8 +231,12 @@ export function App(): ReactElement {
         oledCanvas: () => oledCanvas,
         backendId: () => backendId,
         status: () => backendRef.current?.status ?? status,
+        emulatorFacts: () => backendRef.current?.emulatorFacts() ?? null,
         setBackend: async (id, url) => {
-          if (url !== undefined) setBridgeUrl(url);
+          if (url !== undefined) {
+            if (id === 'qemu') setLabUrl(url);
+            else setBridgeUrl(url);
+          }
           setBackendId(id);
           // Give the effect a turn of the event loop to tear down and rebuild.
           await new Promise((resolve) => setTimeout(resolve, 0));
@@ -232,6 +251,14 @@ export function App(): ReactElement {
   );
 
   const canDriveFromSimulated = JOINT_ORDER.some((j) => store.joints[j].simulatedDeg !== null);
+  const emulatorFacts = backend?.emulatorFacts() ?? null;
+  // The panel is elided when the backend says so — never inferred from the
+  // backend's identity. `oledFramebuffer: false` and `ssd1306-panel` in
+  // `elided` are two independent statements of the same fact, and either one is
+  // enough to stop host-drawn pixels being presented as the emulator's.
+  const oledElided =
+    emulatorFacts !== null &&
+    (!emulatorFacts.oledFramebuffer || emulatorFacts.elided.includes('ssd1306-panel'));
 
   return (
     <div className="app">
@@ -266,7 +293,9 @@ export function App(): ReactElement {
             onBridgeUrlChange={setBridgeUrl}
             status={status}
             drivingProvenance={store.drivingProvenance}
+            drivingOrigin={store.drivingOrigin}
             provenanceCounts={store.provenanceCounts}
+            originCounts={store.originCounts}
             totalEvents={store.totalEvents}
             busy={busy}
             error={error}
@@ -275,6 +304,12 @@ export function App(): ReactElement {
             onStop={stopMotion}
           />
         )}
+
+        <EmulatorPanel
+          facts={emulatorFacts}
+          status={status}
+          physicallyObservedEvents={store.physicallyObservedEvents}
+        />
 
         <JointInspector
           joints={store.joints}
@@ -291,6 +326,7 @@ export function App(): ReactElement {
           face={store.face}
           source={store.oledSource}
           emptyFace={store.emptyFace}
+          panelElided={oledElided}
           version={store.version}
           onRedraw={() => {
             oledDirty.current += 1;

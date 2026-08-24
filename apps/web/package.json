@@ -14,7 +14,8 @@
     "test:watch": "vitest",
     "build:face-bitmaps": "node scripts/build-face-bitmaps.mjs",
     "validate:face-bitmaps": "node scripts/build-face-bitmaps.mjs --check",
-    "clean": "node -e \"import('node:fs').then(fs => fs.rmSync('dist', { recursive: true, force: true }))\""
+    "clean": "node -e \"import('node:fs').then(fs => fs.rmSync('dist', { recursive: true, force: true }))\"",
+    "lab:qemu": "node server/lab-host.mjs"
   },
   "dependencies": {
     "@react-three/fiber": "^9.7.0",
@@ -26,7 +27,9 @@
     "three": "^0.185.1"
   },
   "devDependencies": {
+    "@sesame-lab/sesame-api": "workspace:*",
     "@sesame-lab/sesame-bridge": "workspace:*",
+    "@sesame-lab/sesame-qemu": "workspace:*",
     "@types/node": "^24.10.1",
     "@types/react": "^19.2.0",
     "@types/react-dom": "^19.2.0",

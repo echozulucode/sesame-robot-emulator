@@ -43,7 +43,12 @@ import type { SesameTelemetry } from '@sesame-lab/sesame-protocol';
 import type { TelemetryEnvelope } from '@sesame-lab/sesame-bridge';
 import type { SimulatedRobotState } from '@sesame-lab/sesame-sim';
 
-import { BackendReadOnlyError, type BackendStatus, type TelemetryBackend } from './types.js';
+import {
+  BackendReadOnlyError,
+  type BackendStatus,
+  type EmulatorFacts,
+  type TelemetryBackend,
+} from './types.js';
 
 /** The bridge's default. `--ws-port` moves it. */
 export const DEFAULT_BRIDGE_URL = 'ws://127.0.0.1:8787/telemetry';
@@ -200,6 +205,21 @@ export class BridgeBackend implements TelemetryBackend {
 
   capabilities(): Promise<SesameCapabilities | null> {
     return Promise.resolve(null);
+  }
+
+  /**
+   * `null` — and this is the honest answer, not a gap.
+   *
+   * The bridge is a pipe. Whatever is on the far end of `--uart-port` may well
+   * be an emulator, but the bridge cannot know that and neither can this class:
+   * the envelope's `origin` field is `'uart' | 'bridge'`, which says which
+   * *socket* a frame came from, not which boundary the robot crossed. Asserting
+   * "emulator" here on the strength of a guess would be the app claiming
+   * evidence it does not have, which is exactly what `TelemetryOrigin` exists to
+   * prevent. Events that carry a real `origin` are rendered from the event.
+   */
+  emulatorFacts(): EmulatorFacts | null {
+    return null;
   }
 
   #open(): void {

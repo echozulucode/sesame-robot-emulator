@@ -15,7 +15,7 @@ import { useEffect, useRef, useState, type ReactElement } from 'react';
 
 import type { EmptyFaceEvent, FaceView, OledSource } from '../state/telemetry-store.js';
 import { FACE_PIXEL_SOURCE, type VirtualOledPanel } from '../oled/framebuffer.js';
-import { ProvenanceTag } from './ProvenanceTag.js';
+import { OriginTag, ProvenanceTag } from './ProvenanceTag.js';
 
 /** Logical pixel -> screen pixel. 8 keeps 1024x512, which is still a sane texture. */
 export const OLED_SCALE = 8;
@@ -34,10 +34,25 @@ export interface OledPanelProps {
   /** Bumped whenever the panel contents may have changed. */
   readonly version: number;
   readonly onRedraw: () => void;
+  /**
+   * Set when the backend's origin lists the panel among the subsystems it does
+   * not model — `ssd1306-panel` is in QEMU's `elided` list, and
+   * `oledFramebuffer` is `false`.
+   *
+   * This is the one place in the app where a truthful UI could quietly become a
+   * lying one. The firmware under QEMU really does emit `face.expression`
+   * events, so there is a face name to draw and the bitmaps to draw it with —
+   * and drawing it is *useful*, because the 3D robot needs a screen. What must
+   * not happen is those host-rendered pixels being presented as though the
+   * emulator produced them. They are already tagged `inferred` by the store;
+   * this flag is what lets the panel say the harder part out loud: no pixels
+   * crossed any boundary, because there is no panel on the far side.
+   */
+  readonly panelElided: boolean;
 }
 
 export function OledPanel(props: OledPanelProps): ReactElement {
-  const { panel, textureCanvas, face, source, emptyFace, version, onRedraw } = props;
+  const { panel, textureCanvas, face, source, emptyFace, version, onRedraw, panelElided } = props;
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [hover, setHover] = useState<{ x: number; y: number; on: boolean } | null>(null);
 
@@ -145,7 +160,8 @@ export function OledPanel(props: OledPanelProps): ReactElement {
             <span className="muted">none yet</span>
           ) : (
             <>
-              <code>{face.name}</code> frame {face.frame} <ProvenanceTag value={face.provenance} />
+              <code>{face.name}</code> frame {face.frame} <ProvenanceTag value={face.provenance} />{' '}
+              <OriginTag origin={face.origin} />
             </>
           )}
         </dd>
@@ -168,6 +184,26 @@ export function OledPanel(props: OledPanelProps): ReactElement {
       </dl>
 
       <p className="note">{source.detail}</p>
+
+      {panelElided && (
+        <div className="warn" data-testid="oled-elided">
+          <strong>These pixels did not come from the emulator.</strong>
+          <p>
+            The backend’s origin lists <code>ssd1306-panel</code> among the subsystems it does not
+            model, and its <code>oledFramebuffer</code> capability is <code>false</code>: QEMU
+            attaches no SSD1306 to this machine, so <code>display.display()</code> inside the guest
+            writes to nothing observable. What the firmware <em>does</em> emit is the face{' '}
+            <em>name</em>, and that really did cross the UART.
+          </p>
+          <p className="muted">
+            So the image above is drawn here, on the host, from{' '}
+            <code>firmware/face-bitmaps.h</code> — the same arrays the firmware would have used. It
+            is shown because the 3D robot needs a screen, and it is labelled{' '}
+            <code>inferred</code> because nothing transmitted it. It is not a capture of the
+            emulator’s framebuffer, and there is no framebuffer to capture.
+          </p>
+        </div>
+      )}
 
       {emptyFace !== null && (
         <div className="warn" data-testid="empty-face-warning">

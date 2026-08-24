@@ -17,13 +17,29 @@
  *   is teaching the learner something false about the hardware.
  * - **It never upgrades provenance.** Whatever the event says is what gets
  *   stored and shown, per joint and in aggregate.
+ * - **It never lets `observed` stand in for "measured".** Every event's
+ *   `TelemetryOrigin` is kept beside its provenance, because
+ *   `provenance: 'observed'` covers three different claims — bytes crossed an
+ *   emulated UART, a firmware hook ran, *or* a physical robot moved. The
+ *   predicate a UI branches on is `isPhysicallyObserved()`, which is false for
+ *   an emulator and false again when no origin was stated at all: unknown is
+ *   *not known to be physical*, never physical by default.
  * - **It never invents a first value.** `commandedDeg` starts `null`, meaning
  *   "nothing has been commanded", which is a different statement from "90".
  *   The firmware's `setup()` attaches the servos and deliberately does not move
  *   them, so where a horn actually sits at power-on is genuinely unknown.
  */
 import { JOINT_ORDER, type JointName } from '@sesame-lab/sesame-model';
-import type { LogChannel, Provenance, SesameTelemetry, TelemetryWarning } from '@sesame-lab/sesame-protocol';
+import {
+  isPhysicallyObserved,
+  ORIGIN_KINDS,
+  type LogChannel,
+  type OriginKind,
+  type Provenance,
+  type SesameTelemetry,
+  type TelemetryOrigin,
+  type TelemetryWarning,
+} from '@sesame-lab/sesame-protocol';
 
 import { faceFrameCount, renderFace, VirtualOledPanel } from '../oled/framebuffer.js';
 
@@ -46,6 +62,18 @@ export interface JointView {
   readonly subtrimDeg: number | null;
   /** Provenance of the event that last set `commandedDeg`. */
   readonly provenance: Provenance | null;
+  /**
+   * Which boundary that event crossed. `null` = no event yet; an event that
+   * stated nothing is stored as `{ kind: 'unknown' }` rather than as `null`,
+   * because "nobody said" is itself a fact worth showing.
+   */
+  readonly origin: TelemetryOrigin | null;
+  /**
+   * `isPhysicallyObserved()` on that event. **The only field that licenses the
+   * word "measured".** False for the simulator, false for QEMU, false for a
+   * replay, and false for anything that did not state an origin.
+   */
+  readonly physicallyObserved: boolean;
   readonly lastSeq: number | null;
   readonly lastTraceId: string | null;
   readonly warnings: readonly TelemetryWarning[];
@@ -56,6 +84,7 @@ export interface FaceView {
   readonly name: string;
   readonly frame: number;
   readonly provenance: Provenance;
+  readonly origin: TelemetryOrigin | null;
   readonly seq: number;
 }
 
@@ -73,6 +102,8 @@ export interface OledSource {
   readonly pixelProvenance: Provenance | null;
   /** Provenance of the event that triggered the draw, when there was one. */
   readonly triggerProvenance: Provenance | null;
+  /** Origin of that trigger event, so "which panel is this?" has an answer. */
+  readonly triggerOrigin: TelemetryOrigin | null;
   readonly detail: string;
 }
 
@@ -97,6 +128,10 @@ export interface LogLine {
 
 const MAX_LOG_LINES = 300;
 
+function blankOriginCounts(): Record<OriginKind, number> {
+  return Object.fromEntries(ORIGIN_KINDS.map((k) => [k, 0])) as Record<OriginKind, number>;
+}
+
 function blankJoint(joint: JointName): JointView {
   return {
     joint,
@@ -105,6 +140,8 @@ function blankJoint(joint: JointName): JointView {
     measuredDeg: null,
     subtrimDeg: null,
     provenance: null,
+    origin: null,
+    physicallyObserved: false,
     lastSeq: null,
     lastTraceId: null,
     warnings: [],
@@ -124,9 +161,13 @@ export class TelemetryStore {
     kind: 'power-on',
     pixelProvenance: null,
     triggerProvenance: null,
+    triggerOrigin: null,
     detail: 'GDDRAM is zeroed. Nothing has called display.display() yet.',
   };
   #provenanceCounts: Record<Provenance, number> = { observed: 0, simulated: 0, inferred: 0 };
+  #originCounts: Record<OriginKind, number> = blankOriginCounts();
+  #physicallyObservedEvents = 0;
+  #lastOrigin: TelemetryOrigin | null = null;
   #typeCounts = new Map<string, number>();
   #log: LogLine[] = [];
   #unknownLines: string[] = [];
@@ -186,6 +227,31 @@ export class TelemetryStore {
     return this.#lastProvenance;
   }
 
+  /**
+   * Origin of that same event. Render it with `describeOrigin()` beside the
+   * provenance badge; the two answer different questions and only together do
+   * they say whether a number on screen is a measurement.
+   */
+  get drivingOrigin(): TelemetryOrigin | null {
+    return this.#lastOrigin;
+  }
+
+  /** How many events crossed each kind of boundary. */
+  get originCounts(): Readonly<Record<OriginKind, number>> {
+    return this.#originCounts;
+  }
+
+  /**
+   * Events for which `isPhysicallyObserved()` held.
+   *
+   * Nothing in this project can make this non-zero: there is no physical
+   * Sesame. It is counted rather than assumed so that the claim is checkable
+   * from the UI and from the headless harness instead of asserted in prose.
+   */
+  get physicallyObservedEvents(): number {
+    return this.#physicallyObservedEvents;
+  }
+
   get totalEvents(): number {
     return this.#totalEvents;
   }
@@ -217,9 +283,13 @@ export class TelemetryStore {
       kind: 'power-on',
       pixelProvenance: null,
       triggerProvenance: null,
+      triggerOrigin: null,
       detail: 'GDDRAM is zeroed. Nothing has called display.display() yet.',
     };
     this.#provenanceCounts = { observed: 0, simulated: 0, inferred: 0 };
+    this.#originCounts = blankOriginCounts();
+    this.#physicallyObservedEvents = 0;
+    this.#lastOrigin = null;
     this.#typeCounts = new Map();
     this.#log = [];
     this.#unknownLines = [];
@@ -233,6 +303,11 @@ export class TelemetryStore {
   ingest(event: SesameTelemetry): void {
     this.#totalEvents += 1;
     this.#provenanceCounts[event.provenance] += 1;
+    // An event with no origin counts as `unknown`, not as nothing. Dropping it
+    // would make "nobody said where this came from" indistinguishable from "no
+    // events arrived", and the first of those is the one a learner must see.
+    this.#originCounts[event.origin?.kind ?? 'unknown'] += 1;
+    if (isPhysicallyObserved(event)) this.#physicallyObservedEvents += 1;
     this.#typeCounts.set(event.type, (this.#typeCounts.get(event.type) ?? 0) + 1);
 
     switch (event.type) {
@@ -332,18 +407,27 @@ export class TelemetryStore {
       ...current,
       commandedDeg: event.angleDeg,
       provenance: event.provenance,
+      origin: event.origin ?? { kind: 'unknown' },
+      physicallyObserved: isPhysicallyObserved(event),
       lastSeq: event.seq,
       lastTraceId: event.traceId ?? null,
       warnings: event.warnings ?? [],
       updates: current.updates + 1,
     };
     this.#lastProvenance = event.provenance;
+    this.#lastOrigin = event.origin ?? { kind: 'unknown' };
     this.#poseVersion += 1;
   }
 
   #onFace(event: Extract<SesameTelemetry, { type: 'face.expression' }>): void {
     const frame = event.frame ?? 0;
-    this.#face = { name: event.name, frame, provenance: event.provenance, seq: event.seq };
+    this.#face = {
+      name: event.name,
+      frame,
+      provenance: event.provenance,
+      origin: event.origin ?? { kind: 'unknown' },
+      seq: event.seq,
+    };
 
     const rendered = renderFace(event.name, frame);
     if (rendered === null) {
@@ -372,6 +456,7 @@ export class TelemetryStore {
       // and it holds even when the face event itself was observed.
       pixelProvenance: 'inferred',
       triggerProvenance: event.provenance,
+      triggerOrigin: event.origin ?? { kind: 'unknown' },
       detail:
         `Rendered host-side: epd_bitmap_${event.name}${frame === 0 ? '' : `_${frame}`} from ` +
         'firmware/face-bitmaps.h, pushed through drawBitmap() into the SSD1306 page-ordered buffer, ' +
@@ -393,6 +478,7 @@ export class TelemetryStore {
       kind: 'wire',
       pixelProvenance: event.provenance,
       triggerProvenance: event.provenance,
+      triggerOrigin: event.origin ?? { kind: 'unknown' },
       detail: 'These 1024 bytes arrived as an oled.frame event. This is what reached the glass.',
     };
   }

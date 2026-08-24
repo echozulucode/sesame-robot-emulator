@@ -10,8 +10,28 @@
  * | `observed`  | something really happened across a real boundary   | yes                  |
  * | `simulated` | a host-side model computed what the robot *would* do | only when labelled |
  * | `inferred`  | constructed for explanation; nothing observed it   | only when labelled   |
+ *
+ * ## And the second axis, which is the one that matters here
+ *
+ * `observed` alone is ambiguous in the direction that misleads worst. The
+ * protocol's own v1 wording is "bytes crossed the emulated UART, **or** the
+ * physical robot really moved" — the same tag for both. So a QEMU run is
+ * `observed` and is *not* a measurement, and the app must never decide
+ * otherwise by comparing `provenance === 'observed'`.
+ *
+ * {@link OriginTag} renders `describeOrigin()`, and
+ * {@link isPhysicallyObserved} is the predicate to branch on. It returns false
+ * for an emulator, and false again when no origin was stated: unknown is *not
+ * known to be physical*.
  */
-import type { Provenance } from '@sesame-lab/sesame-protocol';
+import {
+  describeOrigin,
+  isPhysicallyObserved,
+  type OriginKind,
+  type Provenance,
+  type SesameTelemetry,
+  type TelemetryOrigin,
+} from '@sesame-lab/sesame-protocol';
 import type { ReactElement } from 'react';
 
 export const PROVENANCE_MEANING: Readonly<Record<Provenance, string>> = {
@@ -32,4 +52,78 @@ export function ProvenanceTag({ value, size }: { readonly value: Provenance; rea
       {value}
     </span>
   );
+}
+
+/** What each boundary means, in one sentence, for a tooltip. */
+export const ORIGIN_MEANING: Readonly<Record<OriginKind, string>> = {
+  'physical-robot':
+    'Real silicon, real servos. This is the only origin that makes a number on screen a ' +
+    'measurement. Nothing in this project produces it — there is no physical Sesame.',
+  emulator:
+    'Real firmware instructions on emulated silicon. The code really ran; the hardware did not ' +
+    'exist. Whole subsystems may be absent rather than merely quiet — see the elided list.',
+  'host-model':
+    'A host-side behaviour model computed what the robot would do. No firmware executed.',
+  replay: 'Recorded bytes played back. Whatever produced them originally is gone.',
+  unknown:
+    'Nobody stated where this came from. Treated as "not known to be physical", never as physical ' +
+    'by default.',
+};
+
+/**
+ * The origin badge. Always renders something: `describeOrigin()` never returns
+ * the empty string, precisely so a UI cannot end up showing a bare "observed".
+ */
+export function OriginTag({
+  origin,
+  size,
+}: {
+  readonly origin: TelemetryOrigin | null | undefined;
+  readonly size?: 'lg';
+}): ReactElement {
+  const kind: OriginKind = origin?.kind ?? 'unknown';
+  return (
+    <span
+      className={`prov origin origin-${kind}${size === 'lg' ? ' prov-lg' : ''}`}
+      title={ORIGIN_MEANING[kind]}
+      data-origin-kind={kind}
+    >
+      {describeOrigin(origin ?? undefined)}
+    </span>
+  );
+}
+
+/**
+ * One line that settles "is this a measurement?" for a whole stream.
+ *
+ * Deliberately phrased so that the answer for every backend this project has is
+ * "no", and so that the reason differs per backend rather than being a generic
+ * disclaimer nobody reads.
+ */
+export function measurementVerdict(
+  provenance: Provenance | null,
+  origin: TelemetryOrigin | null | undefined,
+): string {
+  if (provenance === null) return 'Nothing has driven this scene yet.';
+  const physical = isPhysicallyObserved({
+    provenance,
+    ...(origin === null || origin === undefined ? {} : { origin }),
+  } as Pick<SesameTelemetry, 'provenance'> & { origin?: TelemetryOrigin });
+  if (physical) return 'These numbers were measured on physical hardware.';
+  switch (origin?.kind) {
+    case 'emulator':
+      return (
+        'Not a measurement. The firmware really executed and really wrote these angles, but it did ' +
+        'so on emulated silicon — so this shows what the CODE does, not what a servo horn did.'
+      );
+    case 'host-model':
+      return 'Not a measurement. A host-side model computed this; no firmware executed.';
+    case 'replay':
+      return 'Not a measurement. These are recorded bytes; whatever produced them is gone.';
+    default:
+      return (
+        'Not a measurement. No origin was stated, and an unstated origin is treated as “not known ' +
+        'to be physical” rather than assumed to be a robot.'
+      );
+  }
 }

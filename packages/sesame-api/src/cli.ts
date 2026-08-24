@@ -1,24 +1,55 @@
 #!/usr/bin/env node
 /**
- * `sesame-api` — run the compatibility proxy in front of the behaviour model.
+ * `sesame-api` — run the compatibility proxy in front of a robot backend.
  *
- * This is the **only** file in the package that knows `SimulatedSesameRobot`
- * exists. The library, the adapter and the contract suite are all backend-blind
- * (`no-sim-coupling.test.ts` asserts it), so pointing this at a QEMU-backed or
- * physical robot later is a change to one `import` and one constructor call.
+ * This is the **only** file in the package that knows which backends exist. The
+ * library, the adapter and the contract suite are all backend-blind
+ * (`backend-agnostic.test.ts` asserts it), which is what made `--backend qemu`
+ * a change to this file and nothing else.
  *
  * ```
  * pnpm --filter @sesame-lab/sesame-api start -- --realtime
  * curl -s http://127.0.0.1:8080/api/status
  * curl -s -XPOST -d '{"command":"wave"}' http://127.0.0.1:8080/api/command
+ *
+ * # the same ten routes, in front of firmware that is actually executing:
+ * node packages/sesame-api/dist/cli.js --backend qemu
+ * curl -s -XPOST -d '{"command":"wave"}' http://127.0.0.1:8080/api/command
  * ```
+ *
+ * ## `--backend qemu`, and what it does not give you
+ *
+ * `QemuSesameRobot` satisfies the same `SesameRobot` contract, so every route
+ * works over it — but three things about the resulting server are different and
+ * a caller must not be left to discover them:
+ *
+ * - **It is not the robot's web server.** `capabilities().httpApi` is `false`
+ *   for that backend: the firmware's own HTTP server needs a radio, and QEMU
+ *   models none. This is a *host-side proxy* speaking to the firmware's serial
+ *   console. The banner says so.
+ * - **`connect()` takes 2–17 s and may retry**, past a QEMU cache-modelling bug
+ *   (ISSUE-20260823-022, 28% per boot). The banner reports how many attempts it
+ *   burned rather than hiding a slow start.
+ * - **Nothing it reports is a measurement.** Every event that backend emits
+ *   carries `origin.kind === 'emulator'` on the legacy `distro-v1-esp32` board,
+ *   and `isPhysicallyObserved()` is false for all of them.
+ *
+ * The import is dynamic so that the default path never loads a package that
+ * spawns processes and opens sockets.
  */
-import { SimulatedSesameRobot } from '@sesame-lab/sesame-sim';
+import type { SesameRobot } from '@sesame-lab/sesame-sim';
 
 import { startSesameApi } from './server.js';
 
 const USAGE = `sesame-api — Sesame-compatible HTTP proxy over a robot backend
 
+  --backend <name>    sim (default) | qemu. \`qemu\` puts the ten firmware
+                      routes in front of real Sesame firmware executing under
+                      Espressif QEMU, commanded over the firmware's own serial
+                      console. It is a HOST-SIDE PROXY: that backend reports
+                      httpApi:false because QEMU models no radio, so this is
+                      not the robot's own web server. Boot takes 2-17 s and may
+                      retry past ISSUE-20260823-022.
   --port <n>          listen port (default 8080; 0 asks the OS. The robot uses
                       80, which is privileged on most hosts — parity is about
                       paths and payloads, not port numbers)
@@ -41,7 +72,10 @@ const USAGE = `sesame-api — Sesame-compatible HTTP proxy over a robot backend
   --help              this text
 `;
 
+type BackendName = 'sim' | 'qemu';
+
 interface Args {
+  backend: BackendName;
   port: number;
   host: string;
   allowRemote: boolean;
@@ -56,6 +90,7 @@ interface Args {
 
 function parseArgs(argv: readonly string[]): Args | 'help' {
   const args: Args = {
+    backend: 'sim',
     port: 8080,
     host: '127.0.0.1',
     allowRemote: false,
@@ -78,6 +113,14 @@ function parseArgs(argv: readonly string[]): Args | 'help' {
       case '--help':
       case '-h':
         return 'help';
+      case '--backend': {
+        const value = next();
+        if (value !== 'sim' && value !== 'qemu') {
+          throw new Error(`--backend must be sim or qemu, got ${value}`);
+        }
+        args.backend = value;
+        break;
+      }
       case '--port':
         args.port = Number(next());
         break;
@@ -116,6 +159,46 @@ function parseArgs(argv: readonly string[]): Args | 'help' {
   return args;
 }
 
+/**
+ * Construct the requested backend.
+ *
+ * `describe()` is deferred rather than a string because the QEMU banner has to
+ * report `bootAttempts`, which does not exist until `connect()` has returned.
+ */
+async function makeBackend(
+  args: Args,
+): Promise<{ robot: SesameRobot; describe: () => string }> {
+  if (args.backend === 'qemu') {
+    const { QemuSesameRobot, QEMU_ORIGIN } = await import('@sesame-lab/sesame-qemu');
+    const robot = new QemuSesameRobot();
+    return {
+      robot,
+      describe: () => {
+        const attempts = robot.bootAttempts;
+        const failed = attempts.filter((a) => !a.ok).length;
+        return (
+          `QemuSesameRobot (${QEMU_ORIGIN.engine ?? 'qemu'}, board ${QEMU_ORIGIN.board ?? '?'}) ` +
+          `— booted after ${String(attempts.length)} attempt(s)` +
+          (failed === 0
+            ? ''
+            : `, ${String(failed)} of which panicked (ISSUE-20260823-022, a QEMU cache-modelling ` +
+              `bug this retries past rather than fixes)`)
+        );
+      },
+    };
+  }
+  const { SimulatedSesameRobot } = await import('@sesame-lab/sesame-sim');
+  const robot = new SimulatedSesameRobot(
+    args.realtime ? { timeMode: 'realtime' } : {},
+    args.realtime ? { speed: args.speed } : {},
+  );
+  return {
+    robot,
+    describe: () =>
+      `SimulatedSesameRobot (${args.realtime ? `realtime x${String(args.speed)}` : 'virtual time'})`,
+  };
+}
+
 async function main(): Promise<void> {
   const parsed = parseArgs(process.argv.slice(2));
   if (parsed === 'help') {
@@ -123,10 +206,7 @@ async function main(): Promise<void> {
     return;
   }
 
-  const robot = new SimulatedSesameRobot(
-    parsed.realtime ? { timeMode: 'realtime' } : {},
-    parsed.realtime ? { speed: parsed.speed } : {},
-  );
+  const { robot, describe } = await makeBackend(parsed);
   await robot.connect();
 
   const api = await startSesameApi({
@@ -144,10 +224,16 @@ async function main(): Promise<void> {
     process.stdout.write(
       [
         `sesame-api listening on ${String(api.url)}`,
-        `  backend    SimulatedSesameRobot (${parsed.realtime ? `realtime x${String(parsed.speed)}` : 'virtual time'})`,
+        `  backend    ${describe()}`,
         `  methods    ${parsed.strictMethods ? 'strict (DIVERGES: upstream is HTTP_ANY)' : 'any (upstream)'}`,
         `  commands   ${parsed.strictCommands ? 'strict (DIVERGES: upstream sinks unknown words)' : 'firmware (unknown words sink)'}`,
-        `  provenance every response is simulated; nothing here has touched hardware`,
+        `  provenance ${
+          parsed.backend === 'qemu'
+            ? 'emulated (qemu-system-xtensa, distro-v1-esp32 — the LEGACY V1 board). ' +
+              'Real firmware executed; no hardware did. isPhysicallyObserved() is false ' +
+              'for every event this backend emits.'
+            : 'every response is simulated; nothing here has touched hardware'
+        }`,
         '',
         `  try: curl -s ${String(api.url)}/api/status`,
         '',

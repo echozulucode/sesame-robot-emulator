@@ -18,7 +18,7 @@ import type { JointName, SesameCapabilities } from '@sesame-lab/sesame-model';
 import type { SesameTelemetry } from '@sesame-lab/sesame-protocol';
 import { SimulatedSesameRobot, type SimulatedRobotState } from '@sesame-lab/sesame-sim';
 
-import type { BackendStatus, TelemetryBackend } from './types.js';
+import type { BackendStatus, EmulatorFacts, TelemetryBackend } from './types.js';
 
 export interface SimBackendOptions {
   /** Wall-clock multiplier. 1 = the robot's own speed. */
@@ -117,6 +117,16 @@ export class SimBackend implements TelemetryBackend {
 
   capabilities(): Promise<SesameCapabilities | null> {
     return this.#robot.capabilities();
+  }
+
+  /**
+   * `null`. This is not an emulator and must not borrow an emulator's
+   * qualifiers — no silicon is being modelled, correctly or otherwise, so there
+   * is no board to name and no subsystem to call elided. What it *is* is stated
+   * per event: `provenance: 'simulated'`, `origin.kind: 'host-model'`.
+   */
+  emulatorFacts(): EmulatorFacts | null {
+    return null;
   }
 
   #setStatus(status: BackendStatus): void {

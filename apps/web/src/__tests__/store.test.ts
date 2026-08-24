@@ -134,3 +134,83 @@ describe('reset', () => {
     expect(store.provenanceCounts).toEqual({ observed: 0, simulated: 0, inferred: 0 });
   });
 });
+
+/**
+ * The distinction that keeps an emulator from passing for a robot.
+ *
+ * `provenance: 'observed'` is correct for a QEMU run — bytes really crossed a
+ * UART and the firmware's own hook really ran — and it is *not* a licence to
+ * say "measured". These tests pin the store's side of that: origin is kept
+ * beside provenance, `isPhysicallyObserved()` decides, and an absent origin
+ * resolves to not-physical rather than to physical-by-default.
+ */
+describe('origin is kept beside provenance, and only origin licenses "measured"', () => {
+  const QEMU_ORIGIN = {
+    kind: 'emulator',
+    engine: 'qemu-system-xtensa/9.2.2',
+    board: 'distro-v1-esp32',
+    elided: ['ssd1306-panel'],
+  } as const;
+
+  it('an observed emulator event is not physically observed', () => {
+    const store = new TelemetryStore();
+    store.ingest({
+      seq: next(),
+      provenance: 'observed',
+      origin: QEMU_ORIGIN,
+      type: 'servo.target',
+      joint: 'L3',
+      angleDeg: 180,
+    });
+
+    expect(store.joints.L3.provenance).toBe('observed');
+    expect(store.joints.L3.origin?.kind).toBe('emulator');
+    expect(store.joints.L3.physicallyObserved).toBe(false);
+    expect(store.physicallyObservedEvents).toBe(0);
+    expect(store.originCounts.emulator).toBe(1);
+    expect(store.drivingOrigin?.board).toBe('distro-v1-esp32');
+  });
+
+  it('an observed event with no origin at all counts as unknown, not physical', () => {
+    const store = new TelemetryStore();
+    store.ingest({ seq: next(), provenance: 'observed', type: 'servo.target', joint: 'R1', angleDeg: 90 });
+
+    expect(store.joints.R1.origin?.kind).toBe('unknown');
+    expect(store.joints.R1.physicallyObserved).toBe(false);
+    expect(store.originCounts.unknown).toBe(1);
+    expect(store.physicallyObservedEvents).toBe(0);
+  });
+
+  it('only a physical-robot origin flips the predicate', () => {
+    const store = new TelemetryStore();
+    store.ingest({
+      seq: next(),
+      provenance: 'observed',
+      origin: { kind: 'physical-robot' },
+      type: 'servo.target',
+      joint: 'R4',
+      angleDeg: 80,
+    });
+
+    expect(store.joints.R4.physicallyObserved).toBe(true);
+    expect(store.physicallyObservedEvents).toBe(1);
+  });
+
+  it('reset() clears the origin bookkeeping too', () => {
+    const store = new TelemetryStore();
+    store.ingest({
+      seq: next(),
+      provenance: 'observed',
+      origin: QEMU_ORIGIN,
+      type: 'servo.target',
+      joint: 'L3',
+      angleDeg: 180,
+    });
+    store.reset();
+
+    expect(store.originCounts.emulator).toBe(0);
+    expect(store.drivingOrigin).toBeNull();
+    expect(store.joints.L3.origin).toBeNull();
+    expect(store.joints.L3.physicallyObserved).toBe(false);
+  });
+});

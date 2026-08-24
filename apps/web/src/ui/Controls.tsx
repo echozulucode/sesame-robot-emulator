@@ -9,11 +9,22 @@
  * away from it — including the parts nobody would have typed, like the fact
  * that `forward`/`backward`/`left`/`right` never clear `currentCommand`.
  */
-import { COMMAND_VOCABULARY, FACE_CATALOG, type Provenance } from '@sesame-lab/sesame-protocol';
+import {
+  COMMAND_VOCABULARY,
+  FACE_CATALOG,
+  type OriginKind,
+  type Provenance,
+  type TelemetryOrigin,
+} from '@sesame-lab/sesame-protocol';
 import type { ReactElement } from 'react';
 
 import type { BackendId, BackendStatus, TelemetryBackend } from '../backends/types.js';
-import { PROVENANCE_MEANING, ProvenanceTag } from './ProvenanceTag.js';
+import {
+  measurementVerdict,
+  OriginTag,
+  PROVENANCE_MEANING,
+  ProvenanceTag,
+} from './ProvenanceTag.js';
 
 export interface ControlsProps {
   readonly backend: TelemetryBackend;
@@ -23,7 +34,10 @@ export interface ControlsProps {
   readonly onBridgeUrlChange: (url: string) => void;
   readonly status: BackendStatus;
   readonly drivingProvenance: Provenance | null;
+  /** Which boundary the driving event crossed. Rendered beside the provenance. */
+  readonly drivingOrigin: TelemetryOrigin | null;
   readonly provenanceCounts: Readonly<Record<Provenance, number>>;
+  readonly originCounts: Readonly<Record<OriginKind, number>>;
   readonly totalEvents: number;
   readonly busy: string | null;
   readonly error: string | null;
@@ -31,6 +45,18 @@ export interface ControlsProps {
   readonly onFace: (name: string) => void;
   readonly onStop: () => void;
 }
+
+/**
+ * The three backends, and one sentence each on what a button press reaches.
+ *
+ * Generated rather than hand-placed so the switch cannot grow a fourth arm in
+ * the markup and forget it here.
+ */
+const BACKEND_CHOICES: readonly { id: BackendId; label: string; sub: string }[] = [
+  { id: 'sim', label: 'Simulated model', sub: 'a host model, in this tab' },
+  { id: 'bridge', label: 'Bridge WebSocket', sub: 'receive-only' },
+  { id: 'qemu', label: 'QEMU firmware', sub: 'real firmware, commandable' },
+];
 
 /** Faces worth one click. The full 38 are in the model; these are the ones with pixels. */
 const FACE_SHORTLIST = ['happy', 'sad', 'angry', 'surprised', 'love', 'sleepy', 'confused', 'idle'];
@@ -44,7 +70,9 @@ export function Controls(props: ControlsProps): ReactElement {
     onBridgeUrlChange,
     status,
     drivingProvenance,
+    drivingOrigin,
     provenanceCounts,
+    originCounts,
     totalEvents,
     busy,
     error,
@@ -54,6 +82,13 @@ export function Controls(props: ControlsProps): ReactElement {
   } = props;
 
   const commands = COMMAND_VOCABULARY.filter((c) => c.command !== '' && c.command !== 'stop');
+
+  // A backend that has not finished connecting cannot run anything, and on the
+  // QEMU path saying so matters: the lab host answers a command posted mid-boot
+  // with 503, and a button that looks live but is not is worse than one that is
+  // visibly waiting. The emulator takes 2-17 s to boot.
+  const ready = status.connection === 'connected';
+  const commandsDisabled = !backend.canCommand || !ready || busy !== null;
 
   return (
     <section className="panel" data-testid="controls">
@@ -65,29 +100,41 @@ export function Controls(props: ControlsProps): ReactElement {
       </header>
 
       <div className="backend-switch" role="radiogroup" aria-label="telemetry backend">
-        <button
-          type="button"
-          role="radio"
-          aria-checked={backendId === 'sim'}
-          className={backendId === 'sim' ? 'active' : ''}
-          data-backend="sim"
-          onClick={() => onBackendChange('sim')}
-        >
-          Simulated model
-        </button>
-        <button
-          type="button"
-          role="radio"
-          aria-checked={backendId === 'bridge'}
-          className={backendId === 'bridge' ? 'active' : ''}
-          data-backend="bridge"
-          onClick={() => onBackendChange('bridge')}
-        >
-          Bridge WebSocket
-        </button>
+        {BACKEND_CHOICES.map((choice) => (
+          <button
+            key={choice.id}
+            type="button"
+            role="radio"
+            aria-checked={backendId === choice.id}
+            className={backendId === choice.id ? 'active' : ''}
+            data-backend={choice.id}
+            title={choice.sub}
+            onClick={() => onBackendChange(choice.id)}
+          >
+            {choice.label}
+          </button>
+        ))}
       </div>
 
       <p className="note">{backend.description}</p>
+
+      {backendId === 'qemu' && status.connection === 'connecting' && (
+        <div className="warn" data-testid="qemu-connecting">
+          <strong>Booting real firmware — this takes 2 to 17 seconds.</strong>
+          <p>
+            {status.detail}
+            {(status.attempts ?? 1) > 1 && (
+              <>
+                {' '}
+                <b>
+                  Attempt {status.attempts}: {(status.attempts ?? 1) - 1} earlier boot(s) panicked
+                  inside QEMU’s cache model and were relaunched (ISSUE-20260823-022).
+                </b>
+              </>
+            )}
+          </p>
+        </div>
+      )}
 
       {backendId === 'bridge' && (
         <label className="field">
@@ -102,10 +149,30 @@ export function Controls(props: ControlsProps): ReactElement {
         </label>
       )}
 
+      {backendId === 'qemu' && status.connection === 'error' && (
+        <div className="warn" data-testid="qemu-unreachable">
+          <strong>No lab host is answering.</strong>
+          <p>{status.detail}</p>
+          <p className="muted">
+            The emulator runs in a Node process, not in this tab: it spawns{' '}
+            <code>qemu-system-xtensa</code> and opens a TCP socket for UART0. Start it with{' '}
+            <code>node apps/web/server/lab-host.mjs</code>, which serves this page and puts the
+            firmware’s own ten HTTP routes in front of the running guest.
+          </p>
+        </div>
+      )}
+
       <p className="note muted" id="conn-detail">
         {status.detail}
       </p>
 
+      {/*
+        Two badges, never one. `provenance` says how much epistemic weight an
+        event carries; `origin` says which boundary it crossed. Only the second
+        distinguishes an emulated servo write from a measurement, which is why
+        the verdict line below is computed with `isPhysicallyObserved()` and
+        never by comparing `provenance === 'observed'`.
+      */}
       <div className={`prov-banner prov-${drivingProvenance ?? 'none'}`} id="prov-banner">
         <div className="prov-banner-head">
           <span>this scene is being driven by</span>
@@ -116,6 +183,11 @@ export function Controls(props: ControlsProps): ReactElement {
           )}
         </div>
         <p>{drivingProvenance === null ? 'No event has moved a joint yet.' : PROVENANCE_MEANING[drivingProvenance]}</p>
+        <div className="prov-banner-head" id="origin-banner">
+          <span>which crossed</span>
+          <OriginTag origin={drivingOrigin} />
+        </div>
+        <p id="measurement-verdict">{measurementVerdict(drivingProvenance, drivingOrigin)}</p>
         <div className="prov-counts" id="prov-counts">
           {(['observed', 'simulated', 'inferred'] as const).map((p) => (
             <span key={p} className={`prov prov-${p}${provenanceCounts[p] === 0 ? ' prov-zero' : ''}`}>
@@ -123,6 +195,16 @@ export function Controls(props: ControlsProps): ReactElement {
             </span>
           ))}
           <span className="dim">{totalEvents} events</span>
+        </div>
+        <div className="prov-counts" id="origin-counts">
+          {(['physical-robot', 'emulator', 'host-model', 'replay', 'unknown'] as const).map((k) => (
+            <span
+              key={k}
+              className={`prov origin origin-${k}${originCounts[k] === 0 ? ' prov-zero' : ''}`}
+            >
+              {k} {originCounts[k]}
+            </span>
+          ))}
         </div>
       </div>
 
@@ -138,6 +220,15 @@ export function Controls(props: ControlsProps): ReactElement {
         </div>
       )}
 
+      {backend.canCommand && !ready && (
+        <p className="note muted" data-testid="commands-not-ready">
+          Commands are disabled until the backend is connected — it is{' '}
+          <code>{status.connection}</code>. Posting a command to an emulator that has not finished
+          booting gets a <code>503</code>, and a button that looks live but is not teaches the wrong
+          thing about what is happening.
+        </p>
+      )}
+
       <div className="cmd-grid">
         {commands.map((c) => (
           <button
@@ -145,7 +236,7 @@ export function Controls(props: ControlsProps): ReactElement {
             type="button"
             className={`cmd${c.continuous ? ' cmd-continuous' : ''}`}
             data-command={c.command}
-            disabled={!backend.canCommand || busy !== null}
+            disabled={commandsDisabled}
             onClick={() => onCommand(c.command)}
             title={
               c.movementFunction === null
@@ -160,7 +251,7 @@ export function Controls(props: ControlsProps): ReactElement {
           type="button"
           className="cmd cmd-stop"
           data-command="stop"
-          disabled={!backend.canCommand}
+          disabled={!backend.canCommand || !ready}
           onClick={onStop}
           title="/cmd?stop= just clears currentCommand — and notably does NOT call exitIdle()"
         >
@@ -175,7 +266,7 @@ export function Controls(props: ControlsProps): ReactElement {
             type="button"
             className="cmd cmd-face"
             data-face={name}
-            disabled={!backend.canCommand || busy !== null}
+            disabled={commandsDisabled}
             onClick={() => onFace(name)}
           >
             {name}
@@ -187,7 +278,7 @@ export function Controls(props: ControlsProps): ReactElement {
             type="button"
             className="cmd cmd-face cmd-broken"
             data-face={name}
-            disabled={!backend.canCommand || busy !== null}
+            disabled={commandsDisabled}
             onClick={() => onFace(name)}
             title={`setFace("${name}") draws nothing — the bitmap is weak-undefined. ISSUE-20260823-004`}
           >
