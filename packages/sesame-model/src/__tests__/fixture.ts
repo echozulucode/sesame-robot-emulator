@@ -18,3 +18,11 @@ export const JOINT_MAP_PATH = resolve(here, '..', '..', '..', '..', 'hardware', 
 export function loadFixtureJointMap(): unknown {
   return JSON.parse(readFileSync(JOINT_MAP_PATH, 'utf8'));
 }
+
+/** `<repo>/hardware/calibration.json` */
+export const CALIBRATION_PATH = resolve(here, '..', '..', '..', '..', 'hardware', 'calibration.json');
+
+/** The parsed but *unvalidated* calibration document, as raw JSON. */
+export function loadFixtureCalibration(): unknown {
+  return JSON.parse(readFileSync(CALIBRATION_PATH, 'utf8'));
+}

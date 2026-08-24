@@ -1,0 +1,262 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://sesame-lab.invalid/schemas/calibration-1.0.0.json",
+  "title": "Sesame calibration layer",
+  "description": "Per-robot, hardware-gated values that layer OVER hardware/joint-map.json. Identity, geometry and the firmware clamp stay in the joint map and are not repeated here. Every value is either measured:false (a carried-forward default equal to today's value) or measured:true (with a timestamp, an operator, a robot serial, an instrument and a procedure step). The two variants are structurally incompatible: a carried-forward value MUST NOT carry any measurement attribution, and a measured value MUST carry all of it.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["meta", "session", "joints", "robot", "unresolved"],
+  "properties": {
+    "$schema": { "type": "string" },
+
+    "meta": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "schemaVersion", "calibrationVersion", "task", "robotId", "generatedAt", "generatedBy",
+        "regenerateWith", "validateWith", "layersOver", "epistemicContract", "calibrationStatus",
+        "measuredFieldCount", "totalFieldCount", "checklist", "consumers"
+      ],
+      "properties": {
+        "schemaVersion": { "type": "string", "const": "1.0.0" },
+        "calibrationVersion": { "type": "string", "pattern": "^\\d+\\.\\d+\\.\\d+$" },
+        "task": { "type": "string", "minLength": 1 },
+        "robotId": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Which robot this document describes. 'reference-uncalibrated' for the shipped one. Calibration is per-build, so a document with no robot identity is not calibration."
+        },
+        "generatedAt": { "type": "string", "format": "date-time" },
+        "generatedBy": { "type": "string", "minLength": 1 },
+        "regenerateWith": { "type": "string", "minLength": 1 },
+        "validateWith": { "type": "string", "minLength": 1 },
+        "layersOver": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["path", "jointMapVersion", "sha256", "note"],
+          "properties": {
+            "path": { "type": "string", "const": "hardware/joint-map.json" },
+            "jointMapVersion": { "type": "string", "pattern": "^\\d+\\.\\d+\\.\\d+$" },
+            "sha256": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+            "note": { "type": "string", "minLength": 1 }
+          }
+        },
+        "epistemicContract": { "type": "string", "minLength": 40 },
+        "calibrationStatus": { "enum": ["uncalibrated", "partial", "complete"] },
+        "measuredFieldCount": { "type": "integer", "minimum": 0 },
+        "totalFieldCount": { "type": "integer", "minimum": 1 },
+        "checklist": { "type": "string", "minLength": 1 },
+        "consumers": { "type": "array", "items": { "type": "string" }, "minItems": 1 }
+      }
+    },
+
+    "session": {
+      "description": "Null until somebody actually calibrates a robot. Any measured:true field requires this to be present.",
+      "oneOf": [
+        { "type": "null" },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["robotSerial", "performedBy", "startedAt", "location", "instruments", "firmwareProfile", "note"],
+          "properties": {
+            "robotSerial": { "type": "string", "minLength": 1 },
+            "performedBy": { "type": "string", "minLength": 1 },
+            "startedAt": { "type": "string", "format": "date-time" },
+            "location": { "type": "string" },
+            "instruments": { "type": "array", "items": { "type": "string" } },
+            "firmwareProfile": { "type": "string" },
+            "note": { "type": "string" }
+          }
+        }
+      ]
+    },
+
+    "joints": {
+      "type": "array",
+      "minItems": 8,
+      "maxItems": 8,
+      "items": { "$ref": "#/$defs/jointEntry" }
+    },
+
+    "robot": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "servoModel", "hornSplineTeeth", "angleGainDegPerCommandedDeg", "slewDegPerSec",
+        "powerOnCommandedDeg", "walkDirectionMatchesDrawnFront", "oledActivePlaneMm",
+        "spinQuantumMs", "loopQuantumMs"
+      ],
+      "properties": {
+        "servoModel": {
+          "$ref": "#/$defs/calibratedValue",
+          "description": "The CAD models an SG90; the BOM calls for MG90S. Contested, so 'unknown' rather than a pick."
+        },
+        "hornSplineTeeth": { "$ref": "#/$defs/calibratedValue" },
+        "angleGainDegPerCommandedDeg": { "$ref": "#/$defs/calibratedValue" },
+        "slewDegPerSec": { "$ref": "#/$defs/calibratedValue" },
+        "powerOnCommandedDeg": { "$ref": "#/$defs/calibratedValue" },
+        "walkDirectionMatchesDrawnFront": { "$ref": "#/$defs/calibratedValue" },
+        "oledActivePlaneMm": { "$ref": "#/$defs/calibratedValue" },
+        "spinQuantumMs": { "$ref": "#/$defs/calibratedValue" },
+        "loopQuantumMs": { "$ref": "#/$defs/calibratedValue" }
+      }
+    },
+
+    "unresolved": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["id", "subject", "status", "reason", "resolvedBy", "checklistStep", "issues"],
+        "properties": {
+          "id": { "type": "string", "minLength": 1 },
+          "subject": { "type": "string", "minLength": 1 },
+          "status": { "enum": ["open", "partially-resolved", "resolved"] },
+          "reason": { "type": "string", "minLength": 1 },
+          "resolvedBy": { "type": "string", "minLength": 1 },
+          "checklistStep": { "$ref": "#/$defs/checklistStep" },
+          "issues": { "type": "array", "items": { "type": "string" } }
+        }
+      }
+    }
+  },
+
+  "$defs": {
+    "checklistStep": {
+      "type": "string",
+      "pattern": "^V6-\\d{2}[a-z]?$",
+      "description": "A step id in docs/findings/V6-hardware-verification-checklist.md."
+    },
+
+    "calibratedValue": {
+      "description": "One hardware-gated value in exactly one of two epistemic states. The oneOf is the guess barrier: the two branches cannot both validate, and the measured branch costs five attributions.",
+      "type": "object",
+      "oneOf": [
+        { "$ref": "#/$defs/carriedForwardValue" },
+        { "$ref": "#/$defs/measuredValue" }
+      ]
+    },
+
+    "carriedForwardValue": {
+      "title": "Not measured",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["value", "measured", "source", "method", "wouldBeConfirmedBy", "checklistStep", "closesIssues"],
+      "properties": {
+        "value": {
+          "description": "Today's value, exactly. Loading this document must change no behaviour anywhere."
+        },
+        "measured": { "const": false },
+        "source": { "type": "string", "minLength": 1 },
+        "method": { "type": "string", "minLength": 1 },
+        "wouldBeConfirmedBy": { "type": "array", "minItems": 1, "items": { "type": "string", "minLength": 1 } },
+        "checklistStep": { "$ref": "#/$defs/checklistStep" },
+        "closesIssues": { "type": "array", "items": { "type": "string" } },
+        "note": { "type": "string" }
+      }
+    },
+
+    "measuredValue": {
+      "title": "Measured on a named physical robot",
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "value", "measured", "measuredAt", "measuredBy", "robotSerial", "instrument",
+        "method", "checklistStep", "closesIssues"
+      ],
+      "properties": {
+        "value": {},
+        "measured": { "const": true },
+        "measuredAt": { "type": "string", "format": "date-time" },
+        "measuredBy": { "type": "string", "minLength": 1 },
+        "robotSerial": {
+          "type": "string",
+          "minLength": 1,
+          "description": "WHICH robot. Horn offset and subtrim differ between two robots printed from the same files."
+        },
+        "instrument": { "type": "string", "minLength": 1 },
+        "method": { "type": "string", "minLength": 1 },
+        "checklistStep": { "$ref": "#/$defs/checklistStep" },
+        "closesIssues": { "type": "array", "items": { "type": "string" } },
+        "note": { "type": "string" }
+      }
+    },
+
+    "jointEntry": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "firmwareName", "firmwareIndex", "directionSign", "rotationSenseSign", "zeroReferenceDeg",
+        "servoSubtrimDeg", "hornSplineOffsetDeg", "mechanicalLimitsDeg", "safeTravelDeg",
+        "powerOnCommandedDeg", "partIdentity"
+      ],
+      "properties": {
+        "firmwareName": { "enum": ["R1", "R2", "L1", "L2", "R4", "R3", "L3", "L4"] },
+        "firmwareIndex": { "type": "integer", "minimum": 0, "maximum": 7 },
+        "directionSign": {
+          "allOf": [{ "$ref": "#/$defs/calibratedValue" }, { "type": "object", "properties": { "value": { "enum": [1, -1] } } }],
+          "description": "Bookkeeping sign for the body-relative formula. NOT a physical rotation direction."
+        },
+        "rotationSenseSign": {
+          "allOf": [{ "$ref": "#/$defs/calibratedValue" }, { "type": "object", "properties": { "value": { "enum": [1, -1] } } }],
+          "description": "Physical sense: childRotationDeg = sign * (commandedDeg - 90). What a protractor settles."
+        },
+        "zeroReferenceDeg": {
+          "allOf": [{ "$ref": "#/$defs/calibratedValue" }, { "type": "object", "properties": { "value": { "type": "number", "minimum": 0, "maximum": 180 } } }]
+        },
+        "servoSubtrimDeg": {
+          "allOf": [{ "$ref": "#/$defs/calibratedValue" }, { "type": "object", "properties": { "value": { "type": "number", "minimum": -90, "maximum": 90 } } }],
+          "description": "Applied BEFORE the firmware clamp. Range from sesame-firmware-main.ino:851."
+        },
+        "hornSplineOffsetDeg": {
+          "allOf": [{ "$ref": "#/$defs/calibratedValue" }, { "type": "object", "properties": { "value": { "type": "number" } } }]
+        },
+        "mechanicalLimitsDeg": {
+          "allOf": [{ "$ref": "#/$defs/calibratedValue" }, { "type": "object", "properties": { "value": { "$ref": "#/$defs/nullableDegreeRange" } } }],
+          "description": "The real travel of the linkage. NOT the firmware clamp, which is authoritative and lives in the joint map."
+        },
+        "safeTravelDeg": {
+          "allOf": [{ "$ref": "#/$defs/calibratedValue" }, { "type": "object", "properties": { "value": { "$ref": "#/$defs/nullableDegreeRange" } } }]
+        },
+        "powerOnCommandedDeg": {
+          "allOf": [{ "$ref": "#/$defs/calibratedValue" }, { "type": "object", "properties": { "value": { "type": ["number", "null"], "minimum": 0, "maximum": 180 } } }]
+        },
+        "partIdentity": {
+          "allOf": [{ "$ref": "#/$defs/calibratedValue" }, { "type": "object", "properties": { "value": { "$ref": "#/$defs/nullablePartIdentity" } } }],
+          "description": "The only thing that can promote a semanticName out of guess status - and it does so through CalibrationView.semanticNameFor(), never by editing joint-map.json."
+        }
+      }
+    },
+
+    "nullableDegreeRange": {
+      "oneOf": [
+        { "type": "null" },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["min", "max"],
+          "properties": {
+            "min": { "type": "number" },
+            "max": { "type": "number" }
+          }
+        }
+      ]
+    },
+
+    "nullablePartIdentity": {
+      "oneOf": [
+        { "type": "null" },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["matchesFirmwareName", "engravedName"],
+          "properties": {
+            "matchesFirmwareName": { "type": "boolean" },
+            "engravedName": { "type": ["string", "null"] }
+          }
+        }
+      ]
+    }
+  }
+}

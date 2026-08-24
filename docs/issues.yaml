@@ -245,14 +245,18 @@ issues:
     trace_link: "docs/findings/F6-joint-map.md (unresolved[] with wouldBeConfirmedBy per item)"
     status: open
     next_action: |
-      P1-0 hardware verification sprint, 1-2 d. Highest evidence-per-day item in the programme -
-      ten open unknowns reduce to putting the robot on a desk and looking at it. Do this BEFORE
-      writing the behaviour model.
+      Run docs/findings/V6-hardware-verification-checklist.md. Steps V6-02 and V6-03 alone are
+      25 minutes and close the last remaining gap in all eight semanticName entries. The full
+      robot track is 4 h 50 m. Every value lands in hardware/calibration.json, not in code.
     resolution: null
     lesson: LESSON-20260823-004
     history:
       - timestamp: 2026-08-23T00:00:00Z
         note: "Opened by F6. Every item carries a wouldBeConfirmedBy field. The type system makes an unverified semanticName structurally non-authoritative so a guess cannot be read as fact."
+      - timestamp: 2026-08-23T00:00:00Z
+        note: "V0 closed six of the nine geometric items from the CAD, plus the absolute rotation sense F6 said needed a robot. What remains is build-time and per-build, not design."
+      - timestamp: 2026-08-23T00:00:00Z
+        note: "V6 made every remaining item runtime-swappable data in hardware/calibration.json (81 fields, all measured:false) and wrote an ordered, costed script for settling them. Closing this is now a JSON edit plus `pnpm validate:calibration`, not a re-architecture."
 
   - id: ISSUE-20260823-008
     title: "Nothing has executed on physical silicon"
@@ -270,12 +274,17 @@ issues:
     expected: "Gate B verified on hardware, not only in the toolchain."
     trace_link: "docs/findings/GATE-B-servo-extraction.md; docs/findings/R6-R7-telemetry-bridge.md; docs/findings/EXP6-oled.md"
     status: open
-    next_action: "Fold into the P1-0 hardware sprint. Flash s2mini-instrumented, capture UART, run the existing parser against the real stream."
+    next_action: |
+      Run checklist steps V6-06 to V6-12 (docs/findings/V6-hardware-verification-checklist.md).
+      2 h 55 m, and NO ROBOT IS REQUIRED - a bare ESP32-S2, one loose servo and an OLED module
+      close every item in this issue except the end-to-end run at V6-26.
     resolution: null
     lesson: null
     history:
       - timestamp: 2026-08-23T00:00:00Z
         note: "Stated as a limit by R6/R7 rather than glossed; confirmed by the independent Gate B audit."
+      - timestamp: 2026-08-23T00:00:00Z
+        note: "V6 established that this issue does NOT need an assembled robot. Steps V6-06..V6-12 run on a bare board; the loop-quantum measurement at V6-08 also settles two sesame-sim simulation choices that have no firmware period behind them."
 
   # ---------------------------------------------------------------- OPEN: minor / hygiene
 

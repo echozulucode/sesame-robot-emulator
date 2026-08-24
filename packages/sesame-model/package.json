@@ -15,7 +15,8 @@
       "types": "./dist/node.d.ts",
       "import": "./dist/node.js"
     },
-    "./joint-map.json": "./dist/joint-map.json"
+    "./joint-map.json": "./dist/joint-map.json",
+    "./calibration.json": "./dist/calibration.json"
   },
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
@@ -23,7 +24,7 @@
     "dist"
   ],
   "scripts": {
-    "build": "tsc -p tsconfig.build.json && node scripts/copy-joint-map.mjs",
+    "build": "tsc -p tsconfig.build.json && node scripts/copy-hardware-data.mjs",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "test": "vitest run",
     "test:watch": "vitest",

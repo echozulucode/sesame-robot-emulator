@@ -18,6 +18,8 @@
     "validate:hardware-map": "node scripts/validate-hardware-map.mjs --check-lines",
     "validate:joint-map": "node scripts/validate-joint-map.mjs",
     "build:joint-map": "node scripts/build-joint-map.mjs",
+    "validate:calibration": "node scripts/validate-calibration.mjs",
+    "build:calibration": "node scripts/build-calibration.mjs",
     "build:replay-fixture": "node scripts/build-replay-fixture.mjs",
     "validate:replay-fixture": "node scripts/build-replay-fixture.mjs --check",
     "extract:telemetry-literals": "node scripts/extract-telemetry-literals.mjs",

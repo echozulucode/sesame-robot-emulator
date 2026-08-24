@@ -181,12 +181,37 @@ export interface ZeroReference {
   readonly standPoseDeg: number;
 }
 
+/**
+ * The **physical** rotation sense of a joint about its axis, recovered by V0
+ * from the CAD servo-horn occurrences.
+ *
+ * Distinct from {@link DirectionSign.value}, which is a bookkeeping convention
+ * for the body-relative formula and says nothing about which way anything
+ * turns. `rule` reads `childRotationDeg = ±1 * (commandedDeg - 90)`.
+ *
+ * This is the **design** sense. A built robot adds horn-spline quantisation and
+ * per-robot subtrim on top of it; both live in `hardware/calibration.json`.
+ */
+export interface AbsoluteRotationSense {
+  readonly status: 'inferred';
+  readonly frame: string;
+  readonly rule: string;
+  readonly axisUnitVector: Vec3;
+  readonly rotatesRelativeTo: string;
+  readonly source: string;
+  readonly method: string;
+  readonly dependsOn: string;
+  readonly caveat: string;
+}
+
 export interface DirectionSign {
   readonly value: 1 | -1;
   readonly status: 'inferred';
   readonly convention: string;
   readonly basis: readonly string[];
   readonly caveat: string;
+  /** Added by V0. Absent in joint-map v1.0.0 documents. */
+  readonly absoluteSense?: AbsoluteRotationSense;
 }
 
 export interface AngleLimits {
