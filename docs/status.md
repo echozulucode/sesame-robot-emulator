@@ -1,16 +1,60 @@
 ---
 type: status
-updated: 2026-08-23
-current_phase: "Phase 1 (Virtual MVP) complete - Phase 2 (Learning application) not started"
+updated: 2026-08-24
+current_phase: "Phase 1 complete + QEMU emulator backend adopted and wired end to end"
 blockers: []
 next_actions:
-  - "USER EVALUATION of the Virtual MVP (see the walkthrough in this entry)"
-  - "Decision: adopt QEMU as a QemuSesameRobot backend (~4-7 d, Q1 recommendation)"
-  - "Opportunistic: 13 checklist steps (4h25m) need only a bare ESP32-S2 + one servo + an OLED, no robot"
-  - "Then Phase 2: architecture graph, See the Signal traces, source explorer, first lessons"
+  - "USER EVALUATION: `pnpm demo:web` for the simulator, or the lab-host for real firmware"
+  - "Phase 2: architecture graph, See the Signal traces, source explorer, first lessons"
+  - "Opportunistic: 13 V6 checklist steps (4h25m) need only a bare ESP32-S2, one servo and an OLED"
+  - "ISSUE-024 / V6-14b: a logic analyser is the only way to verify the servo pulse"
 ---
 
 # Status Log
+
+## Session: 2026-08-24 - QEMU adopted as a real emulator backend
+
+**Trigger:** user chose the emulator over the simulator - *"The simulated is cool, but I want an
+emulator."* Six tasks, 7 commits, **776 tests / 9 validators green**.
+
+**Delivered:**
+
+- **Q2 `QemuSesameRobot`** - a commandable backend. Protocol v2 adds a host->device direction
+  that invents no wire format: it adopts the firmware's own serial console, modelling the
+  prefix-sensitive dispatcher line by line. All 15 contract cases pass.
+- **V7 browser drives real firmware.** DOM click on `wave` -> `POST /api/command` -> QEMU ->
+  8/8 joints move. Transport is the API adapter over `QemuSesameRobot`, chosen because the
+  bridge envelope's `origin` means `'uart'|'bridge'`, so the app would have had to assert
+  "emulator" on its own authority.
+- **Q3 answered the fidelity question.** QEMU's LEDC is modelled and its duty ratios are exactly
+  right (29/29 match the TRM formula, timer decodes to 50.000 Hz) but the **waveform is inert** -
+  no `timer_mod`, no `qemu_irq`, and `led_get_intensity` has zero call sites. The instrumented
+  firmware hook therefore stays load-bearing.
+- **ISSUE-023 fixed** (user-reported world-jump): the ground plane was being repositioned every
+  frame, so the floor slid under a robot pinned at the origin. Now pinned; regression test
+  confirmed red before green.
+
+**Three data corrections from Q3, propagated:**
+
+1. **`attach(pin, 732, 2929)` never produces 2929 us** - `ESP32Servo.h:98` clamps to **2500**.
+   Carried since F4 and inherited by every angle-to-pulse calculation. **No test anywhere
+   encoded it; the wrong number survived because nothing checked it.** Now checked.
+2. **10-bit channels mean 89 of 181 commandable angles alias** onto a neighbour at the pin, on
+   real hardware too. A simulator reporting 181 distinct positions claims precision the hardware
+   lacks. `servo-pulse.ts` now derives 92/89 rather than asserting them.
+3. Q1's claim that QEMU's trace backend is inert was wrong; corrected in place with a dated note.
+
+**Honesty machinery, since the emulator can now be mistaken for hardware:** `TelemetryOrigin` is
+orthogonal to provenance (epistemic weight vs which boundary); `isPhysicallyObserved()` is the
+predicate to branch on and is **false for everything QEMU produces**. An audit found the app
+branched on origin *nowhere*, so every emulated angle rendered as a bare green `observed`. The
+UI now names the board as *the legacy V1 board, not the S2 Mini in the pin diagram*.
+
+**Known and visible, not hidden:** QEMU panics on ~28% of boots (root-caused to its ESP32
+cache/DPORT model, unfixable from our side); `connect()` relaunches and the UI shows attempts
+while they happen. The recommended S2 Mini has **no QEMU machine at all**.
+
+---
 
 ## Session: 2026-08-23 (later) - Phase 1 executed end to end
 
