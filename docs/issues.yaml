@@ -198,6 +198,32 @@ issues:
       - timestamp: 2026-08-23T00:00:00Z
         note: "Found by F5 mesh-integrity check."
 
+  - id: ISSUE-20260823-021
+    title: "UPSTREAM: /api/status concatenates command and face names into JSON unescaped"
+    category: bug
+    severity: medium
+    priority: p2
+    confidence: high
+    scope: upstream
+    observed: |
+      handleGetStatus() at sesame-firmware-main.ino:291-292 concatenates currentCommand and
+      currentFaceName straight into the JSON response with no escaping, while jsonEscape() IS
+      correctly applied to SSIDs at :389 - so the helper exists and simply is not used here.
+      GET /cmd?pose=%22 makes the next /api/status emit invalid JSON; a longer payload injects
+      additional keys into the response object.
+    expected: |
+      String values interpolated into a JSON response are escaped, as they already are for SSIDs.
+    trace_link: "docs/findings/V5-api-adapter.md; firmware/sesame-firmware-main.ino:291-292 vs :389"
+    status: open
+    next_action: |
+      Add to the upstream report alongside ISSUE-20260823-004 and -005. Our adapter sanitises at
+      the boundary with no opt-out, so Sesame Lab is not exposed; this is purely an upstream fix.
+    resolution: null
+    lesson: null
+    history:
+      - timestamp: 2026-08-23T00:00:00Z
+        note: "Found by the V5 agent while reproducing the real route contract. Not covered by ISSUE-20260823-004 or -005; a distinct defect in the same family."
+
   # ---------------------------------------------------------------- OPEN: needs hardware
 
   - id: ISSUE-20260823-007

@@ -1,0 +1,39 @@
+{
+  "name": "@sesame-lab/web",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Sesame Lab browser robot: an articulated R3F Sesame driven by telemetry, with a joint inspector and a virtual 128x64 SSD1306 OLED",
+  "license": "Apache-2.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "test": "node scripts/build-face-bitmaps.mjs --check && vitest run",
+    "test:watch": "vitest",
+    "build:face-bitmaps": "node scripts/build-face-bitmaps.mjs",
+    "validate:face-bitmaps": "node scripts/build-face-bitmaps.mjs --check",
+    "clean": "node -e \"import('node:fs').then(fs => fs.rmSync('dist', { recursive: true, force: true }))\""
+  },
+  "dependencies": {
+    "@react-three/fiber": "^9.7.0",
+    "@sesame-lab/sesame-model": "workspace:*",
+    "@sesame-lab/sesame-protocol": "workspace:*",
+    "@sesame-lab/sesame-sim": "workspace:*",
+    "react": "^19.2.0",
+    "react-dom": "^19.2.0",
+    "three": "^0.185.1"
+  },
+  "devDependencies": {
+    "@sesame-lab/sesame-bridge": "workspace:*",
+    "@types/node": "^24.10.1",
+    "@types/react": "^19.2.0",
+    "@types/react-dom": "^19.2.0",
+    "@types/three": "^0.185.4",
+    "@vitejs/plugin-react": "^5.2.0",
+    "typescript": "^5.9.3",
+    "vite": "^7.3.6",
+    "vitest": "^3.2.4"
+  }
+}

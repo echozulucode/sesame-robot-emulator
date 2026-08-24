@@ -8,6 +8,15 @@
   ==========================================================================
   THIS IS A THROWAWAY.
 
+  SUPERSEDED, 2026-08-23, by apps/web (Phase 1, V3+V4). Everything below is
+  done better there: a real articulated robot from assets/sesame.glb, a joint
+  inspector, and a 128x64 SSD1306 panel. This file is still on disk for exactly
+  one reason -- emulator/bridge/src/__tests__/bridge-e2e.test.ts fetches it and
+  asserts on its contents ("serves the debug viewer from the same origin as the
+  socket"), and that test is out of scope for the agent that wrote apps/web.
+  See docs/findings/V3-V4-browser-robot.md for the two-line change that frees
+  this directory to be deleted.
+
   Phase-0 task R7. Its entire job is to prove that a telemetry stream can get
   from a UART socket, through the bridge, to a browser, and move something on
   screen. It is not the product frontend, it is not a design reference, and

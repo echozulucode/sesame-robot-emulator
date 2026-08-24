@@ -2,7 +2,7 @@
   "name": "sesame-lab",
   "version": "0.0.0",
   "private": true,
-  "description": "Sesame Lab — emulator, virtual robot, and interactive engineering learning platform",
+  "description": "Sesame Lab \u00e2\u20ac\u201d emulator, virtual robot, and interactive engineering learning platform",
   "license": "Apache-2.0",
   "packageManager": "pnpm@10.34.1",
   "engines": {
@@ -24,10 +24,13 @@
     "validate:telemetry-literals": "node scripts/extract-telemetry-literals.mjs --check",
     "verify:oled-hook": "node scripts/verify-oled-hook.mjs",
     "capture:viewer": "node scripts/capture-viewer-screenshots.mjs",
+    "capture:web": "node scripts/capture-web-screenshots.mjs",
     "validate:assets-inventory": "node scripts/validate-assets-inventory.mjs",
     "validate:assembly-map": "node scripts/validate-assembly-map.mjs",
     "validate:gltf": "node scripts/validate-gltf.mjs",
-    "demo:telemetry": "node emulator/bridge/dist/cli.js --replay emulator/bridge/fixtures/wave-pose.replay.jsonl --loop --serve-viewer"
+    "demo:telemetry": "node emulator/bridge/dist/cli.js --replay emulator/bridge/fixtures/wave-pose.replay.jsonl --loop --serve-viewer",
+    "dev:web": "pnpm --filter @sesame-lab/web dev",
+    "demo:web": "node emulator/bridge/dist/cli.js --replay emulator/bridge/fixtures/wave-pose.replay.jsonl --loop --serve-viewer --viewer-dir apps/web/dist"
   },
   "devDependencies": {
     "ajv": "^8.17.1",
