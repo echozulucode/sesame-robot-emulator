@@ -261,6 +261,39 @@ issues:
       - timestamp: 2026-08-23T00:00:00Z
         note: "Found during pre-evaluation verification, not by the agent that wrote the script. First attributed to a bogus --help argument; that was wrong - the QEMU args are fully hardcoded with no argv passthrough. A controlled 5-run test showed 1 bare failure, 2 bare successes, and a success WITH --help, isolating the cause to run-to-run nondeterminism."
 
+  - id: ISSUE-20260823-023
+    title: "3D world appears to jump during motion: the ground plane slides instead of the robot"
+    category: bug
+    severity: medium
+    priority: p1
+    confidence: high
+    scope: apps/web
+    observed: |
+      User-reported during evaluation: "for some of the motions, the 3d world seems to jump
+      around which seems like the world coordinates are moving or the camera is trying to keep
+      the robot centered."
+      Diagnosed: apps/web/src/three/RobotScene.tsx GroundPlane repositions itself EVERY FRAME to
+      computeGroundPlaneMm(rig). V2 flagged that value as pose-dependent (-68.650 mm at stand,
+      -31.115 mm at rest), so as the legs move the floor and grid slide vertically under a robot
+      whose root stays pinned at the world origin. The grid is the only visual reference, so the
+      whole world reads as jumping. The camera and OrbitControls are NOT at fault - the target is
+      static at (0, -0.012, -0.008).
+    expected: |
+      The floor stays put and the robot moves relative to it, as a real robot on a real desk
+      does - feet planted, body rising and falling.
+    trace_link: "apps/web/src/three/RobotScene.tsx:304-324 (GroundPlane); docs/findings/V2-gltf-pipeline.md (pose-dependent ground plane)"
+    status: open
+    next_action: |
+      Invert the relationship: pin the ground at y=0 and translate the robot root by
+      -groundPlaneMm so the lowest ground-contacting foot rests on it. Take care with poses where
+      a foot lifts (wave, shrug, dead) - the naive global minimum will pop as the lifted foot
+      stops being the lowest point.
+    resolution: null
+    lesson: null
+    history:
+      - timestamp: 2026-08-23T00:00:00Z
+        note: "Reported by the user on first visual evaluation. Not caught by the headless capture harness, which asserts joint rotations and pixel counts but nothing about world-space stability between frames."
+
   # ---------------------------------------------------------------- OPEN: needs hardware
 
   - id: ISSUE-20260823-007
