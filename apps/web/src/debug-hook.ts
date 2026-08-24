@@ -19,6 +19,7 @@ import { Mesh, Quaternion, Vector3 } from 'three';
 
 import type { BackendId, BackendStatus } from './backends/types.js';
 import type { TelemetryStore } from './state/telemetry-store.js';
+import type { WorldFrameReading } from './three/RobotScene.js';
 import {
   commandedDegFromNode,
   computeGroundPlaneMm,
@@ -73,8 +74,18 @@ export interface SesameDebugApi {
   reset(): void;
   /** Scene-graph readings for all eight joints. */
   sceneJoints(): SceneJointReading[];
-  /** Recomputed from the posed foot meshes. */
+  /** Recomputed from the posed foot meshes. Pose-dependent, by definition. */
   groundPlaneMm(): number | null;
+  /**
+   * The world frame, off `matrixWorld` — the things that must NOT move.
+   *
+   * `sceneJoints()` proves the pose reached three.js. It cannot prove the
+   * world stayed still while it did, and that gap is exactly what let
+   * ISSUE-20260823-023 ship: eight perfectly correct joint rotations and a
+   * floor sliding 37.5 mm underneath them. Poll this across a movement and
+   * every field except `footContactMm` must come back bit-identical.
+   */
+  worldFrame(): WorldFrameReading | null;
   verifyStandPose(): StandPoseVerification;
   oled(): {
     base64: string;
@@ -100,6 +111,7 @@ export interface DebugHookWiring {
   rig(): Record<JointName, JointRig> | null;
   facts(): AssetFacts | null;
   renderStats(): { frames: number; appliedPoseVersion: number } | null;
+  worldFrame(): WorldFrameReading | null;
   oledCanvas(): HTMLCanvasElement;
   backendId(): BackendId;
   status(): BackendStatus;
@@ -154,6 +166,8 @@ export function installDebugHook(wiring: DebugHookWiring): () => void {
       const rig = wiring.rig();
       return rig === null ? null : computeGroundPlaneMm(rig);
     },
+
+    worldFrame: () => wiring.worldFrame(),
 
     /**
      * The end-to-end check: choreography → sim → GLB → scene graph.
@@ -311,6 +325,7 @@ export function installDebugHook(wiring: DebugHookWiring): () => void {
         status: wiring.status(),
         sceneJoints: api.sceneJoints(),
         groundPlaneMm: api.groundPlaneMm(),
+        worldFrame: api.worldFrame(),
         oled: api.oled(),
         provenance: api.provenance(),
         face: wiring.store.face,

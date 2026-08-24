@@ -18,7 +18,12 @@
  *      reaches two DIFFERENT angles. A screenshot at each. The two images must
  *      differ byte-for-byte and the eight quaternions must differ numerically:
  *      one static frame does not prove motion, and neither does one that only
- *      differs by an anti-aliasing seed.
+ *      differs by an anti-aliasing seed. It also samples the WORLD FRAME - the
+ *      grid, the GLB root, the orbit target and the camera, off `matrixWorld` -
+ *      from before the first command through the wave, and requires all four to
+ *      hold to 1e-6 mm while the pose moves. Everything else here reads the
+ *      pose; nothing read the frame the pose is expressed in, which is how
+ *      ISSUE-20260823-023 shipped past a green harness.
  *   2. STAND POSE — `window.__sesame.verifyStandPose()`, which compares every
  *      joint node against the quaternion V2's own pose rule predicts for the
  *      reference pose stored in the GLB, and recomputes the ground plane from
@@ -139,6 +144,11 @@ if (!BROWSER) {
  */
 async function startBridge({ replay = null, uartPort = null, provenance = null, quiet = true } = {}) {
   const wsPort = await freePort();
+  // The bridge's UART listener defaults to 3456, and the checked-in Renode
+  // script and the QEMU work both use that port. A capture run has no UART peer
+  // at all in the replay phases, so give it a free port rather than letting an
+  // unrelated concurrent process on 3456 abort the whole harness.
+  if (uartPort === null) uartPort = await freePort();
   const args = [BRIDGE_CLI, '--ws-port', String(wsPort), '--serve-viewer', '--viewer-dir', APP_DIST];
   // `--quiet` suppresses the bridge's lifecycle lines on stderr, including
   // "uart connected" — which is the one line the QEMU phase needs to see.
@@ -408,6 +418,37 @@ console.log('[web] app loaded, rig built');
   const backend = await page.evaluate('window.__sesame.backendId()');
   check(backend === 'sim', `the default backend is "${backend}", expected "sim"`);
 
+  // ------------------------------------------- world-frame stability samples
+  //
+  // ISSUE-20260823-023. Everything above reads the POSE; nothing read the
+  // FRAME the pose is expressed in, and that is precisely how a user came to
+  // report "the 3d world seems to jump around" against a harness that was
+  // green. The eight quaternions were right the whole time — the floor was
+  // sliding under them, because the grid tracked the pose-dependent ground
+  // plane while the robot root stayed pinned at the canonical origin.
+  //
+  // So: sample the world frame from BEFORE anything is commanded (the rest
+  // pose, foot contact -31.115 mm) through the wave (-68.650 mm), and require
+  // every fixed thing in the scene to be still while the pose moves 37.5 mm of
+  // foot height underneath it. The first sample must be taken here, before the
+  // first `run("wave")`: the slide happens on the very first commanded pose,
+  // and a check that only samples mid-movement never sees it.
+  const worldFrames = [];
+  const sampleWorldFrame = async (label) => {
+    const frame = await page.evaluate('window.__sesame.worldFrame()');
+    if (frame === null) {
+      problems.push(`worldFrame() returned null at "${label}" - the scene did not expose its frame`);
+      return null;
+    }
+    worldFrames.push({ label, ...frame });
+    return frame;
+  };
+  await sampleWorldFrame('rest, nothing commanded');
+  const restShot = await page.shoot(
+    'v3-world-frame-rest.png',
+    'rest pose, nothing commanded - the fixed floor the wave is judged against',
+  );
+
   // Run waves back to back until told to stop.
   //
   // One wave is 3.68 s of real firmware timing, and SwiftShader renders this
@@ -436,15 +477,23 @@ console.log('[web] app loaded, rig built');
   // 100 and 180 are the two L3 angles runWavePose alternates between, read
   // from the choreography (and independently from the Phase-0 fixture).
   const down = await atL3(100);
+  await sampleWorldFrame('runWavePose, L3 at 100 deg');
   const downShot = await page.shoot(
     'v3-browser-wave-l3-100.png',
     'runWavePose, L3 down (100°) — simulated backend',
   );
   const up = await atL3(180);
+  await sampleWorldFrame('runWavePose, L3 at 180 deg');
   const upShot = await page.shoot(
     'v3-browser-wave-l3-180.png',
     'runWavePose, L3 up (180°) — simulated backend',
   );
+
+  // A few more, spread across the wave, so the check is not two lucky moments.
+  for (let i = 0; i < 6; i++) {
+    await sleep(180);
+    await sampleWorldFrame(`runWavePose, sample ${i + 1}`);
+  }
 
   await page.evaluate('window.__waving = false');
 
@@ -458,8 +507,92 @@ console.log('[web] app loaded, rig built');
     downShot.sha256 !== upShot.sha256,
     'the two screenshots are byte-identical — the second capture is the same frame',
   );
-  for (const shot of [downShot, upShot]) {
+  for (const shot of [downShot, upShot, restShot]) {
     check(shot.bytes > 8000, `${shot.name} is only ${shot.bytes} bytes — the page probably rendered blank`);
+  }
+
+  // ------------------------------------------ world-frame stability, asserted
+  //
+  // Tolerance is 1e-6 mm - a nanometre, well below float32 mesh-storage noise
+  // and seven orders of magnitude below the 37.5 mm slide this exists to catch.
+  // Nothing in the scene is animated, so exact equality would very nearly hold;
+  // the epsilon is only so OrbitControls' damping arithmetic cannot false-alarm.
+  const FRAME_EPS_MM = 1e-6;
+  const firstFrame = worldFrames[0];
+  const drift = (a, b) => {
+    if (!Array.isArray(a) || !Array.isArray(b)) return Number.NaN;
+    let worst = 0;
+    for (let i = 0; i < 3; i++) worst = Math.max(worst, Math.abs(a[i] - b[i]));
+    return worst;
+  };
+  const worstDrift = {};
+  let contactSpread = 0;
+  if (firstFrame === undefined) {
+    problems.push('no world-frame samples were taken');
+  } else {
+    for (const [key, what] of [
+      ['groundWorldMm', 'the ground plane / grid'],
+      ['robotRootWorldMm', 'the robot root'],
+      ['cameraTargetMm', 'the OrbitControls target'],
+      ['cameraPositionMm', 'the camera'],
+    ]) {
+      let worst = 0;
+      let worstAt = '';
+      for (const sample of worldFrames.slice(1)) {
+        const d = drift(firstFrame[key], sample[key]);
+        if (!(d >= 0)) {
+          problems.push(`${what}: worldFrame().${key} was unreadable at "${sample.label}"`);
+          continue;
+        }
+        if (d > worst) {
+          worst = d;
+          worstAt = sample.label;
+        }
+      }
+      worstDrift[key] = worst;
+      check(
+        worst <= FRAME_EPS_MM,
+        `${what} moved ${worst.toFixed(3)} mm in world space between "${firstFrame.label}" and ` +
+          `"${worstAt}". Nothing in this scene may translate while a movement plays: the robot ` +
+          `root is pinned at the canonical origin, so anything else that moves makes the whole ` +
+          `world appear to jump (ISSUE-20260823-023).`,
+      );
+    }
+
+    // Without this the checks above are vacuous: if the pose never changed, of
+    // course nothing moved. The foot-contact height is the pose-dependent value
+    // the grid used to chase, so a wide spread here is the proof that the wave
+    // really did put the scene through the condition that used to break it.
+    const contacts = worldFrames.map((f) => f.footContactMm).filter((v) => typeof v === 'number');
+    contactSpread = contacts.length === 0 ? 0 : Math.max(...contacts) - Math.min(...contacts);
+    check(
+      contactSpread > 1,
+      `the pose-dependent foot-contact height varied by only ${contactSpread.toFixed(3)} mm across ` +
+        `the wave, so the world-stability assertions above proved nothing`,
+    );
+
+    // And the floor is where the ASSET says the reference pose's floor is -
+    // read out of the GLB, not a number typed into the viewer.
+    const assetGround = await page.evaluate(
+      'window.__sesame.assetFacts().groundPlane.atRunStandPoseMm',
+    );
+    check(
+      Math.abs((firstFrame.groundWorldMm?.[1] ?? Number.NaN) - assetGround) <= FRAME_EPS_MM,
+      `the grid sits at ${firstFrame.groundWorldMm?.[1]} mm; the asset records the reference ` +
+        `pose's ground plane at ${assetGround} mm`,
+    );
+    check(
+      drift(firstFrame.robotRootWorldMm, [0, 0, 0]) <= FRAME_EPS_MM,
+      `the GLB root is at ${JSON.stringify(firstFrame.robotRootWorldMm)} mm, not the canonical ` +
+        `origin - every world-space number this app reports is measured from there`,
+    );
+    console.log(
+      `[web] world frame stable over ${worldFrames.length} samples: ground drift ` +
+        `${worstDrift.groundWorldMm.toExponential(2)} mm, root drift ` +
+        `${worstDrift.robotRootWorldMm.toExponential(2)} mm, orbit-target drift ` +
+        `${worstDrift.cameraTargetMm.toExponential(2)} mm, while the foot contact swept ` +
+        `${contactSpread.toFixed(3)} mm`,
+    );
   }
 
   // The scene must follow the telemetry, not lead it — checked once the render
@@ -499,6 +632,12 @@ console.log('[web] app loaded, rig built');
   phases.simWave = {
     ok: problems.length === 0,
     maxQuaternionDelta: delta,
+    worldFrame: {
+      toleranceMm: FRAME_EPS_MM,
+      worstDriftMm: worstDrift,
+      footContactSpreadMm: contactSpread,
+      samples: worldFrames,
+    },
     canvasPixels: snapshot.canvasPixels,
     l3Down: down.find((j) => j.joint === 'L3'),
     l3Up: up.find((j) => j.joint === 'L3'),

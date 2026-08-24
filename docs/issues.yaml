@@ -281,18 +281,50 @@ issues:
     expected: |
       The floor stays put and the robot moves relative to it, as a real robot on a real desk
       does - feet planted, body rising and falling.
-    trace_link: "apps/web/src/three/RobotScene.tsx:304-324 (GroundPlane); docs/findings/V2-gltf-pipeline.md (pose-dependent ground plane)"
-    status: open
-    next_action: |
-      Invert the relationship: pin the ground at y=0 and translate the robot root by
-      -groundPlaneMm so the lowest ground-contacting foot rests on it. Take care with poses where
-      a foot lifts (wave, shrug, dead) - the naive global minimum will pop as the lifted foot
-      stops being the lowest point.
-    resolution: null
+    trace_link: "apps/web/src/three/RobotScene.tsx (GroundPlane, WorldFrameReading); apps/web/src/three/rig.ts (groundReferenceMm); scripts/capture-web-screenshots.mjs phase 1; docs/findings/V3-V4-browser-robot.md section 12"
+    status: resolved
+    next_action: null
+    resolution: |
+      Confirmed the diagnosis in a real browser before changing anything: across nine
+      worldFrame() samples through runWavePose, the OrbitControls target and the GLB root drift
+      0.000e+0 mm while the grid drifts 37.535 mm. The camera was never involved.
+      Fix: the floor is pinned and the robot does not move. GroundPlane no longer has a useFrame
+      at all; its height comes from the new rig.ts groundReferenceMm(facts), which returns the
+      asset's own groundPlane.atRunStandPoseMm (-68.650046 mm) - still read from the GLB, never
+      typed in. The live pose-dependent value is still computed and still shown in the asset
+      panel, where a changing number is information rather than a wobble.
+      The robot root is deliberately NOT translated to settle onto the floor, against the
+      next_action originally logged, for three measured reasons. (1) World space IS V2's
+      canonical frame: pivotWorldMm, computeGroundPlaneMm and verifyStandPose all report
+      canonical coordinates straight off matrixWorld, so translating the root would silently
+      redefine every world-space number this app publishes, including the -68.650046 mm the
+      harness checks against V2. (2) The commanded stream is a step function, so any settle rule
+      reproduces exactly the 37.5 mm jump the user complained about, merely reattributed from the
+      floor to the robot. (3) In runShrugPose and runDeadPose all four feet leave the ground at
+      once and the real contact set is the chassis; a feet-only solver buries or floats the body
+      by ~36 mm, and resolving that is physics, which Gate E excludes.
+      A fixed plane is not a compromise here, it is exact: the hips are yaw joints (sweeping any
+      hip over 0-180 deg changes no foot's height at all, asserted in rig.test.ts), so foot height
+      is a function of the knees alone, and the deepest any knee can reach is -68.9233 mm against
+      a floor at -68.6500 mm. Worst case 0.27 mm of interpenetration on a 130 mm robot, at a
+      hand-dialled angle no movement uses; at every pose in the choreography the feet are flush.
+      Regression test: window.__sesame.worldFrame() reads the grid, the GLB root, the orbit target
+      and the camera off matrixWorld, and capture-web-screenshots.mjs phase 1 samples it nine
+      times from BEFORE anything is commanded through runWavePose, requiring every field to hold
+      to 1e-6 mm while the pose-dependent foot contact sweeps 37.535 mm - the last clause is what
+      stops the check being vacuous. Confirmed FAILING on the unfixed code ("the ground plane /
+      grid moved 37.535 mm ...") and passing after. Evidence in
+      docs/findings/assets/issue-023-world-frame.json and the six issue-023-ground-{before,after}
+      screenshots.
+      Also audited: GroundPlane was the only place in apps/web where a pose-dependent value
+      reached a world-space transform. Nothing else writes .position, .scale or a camera target
+      after construction.
     lesson: null
     history:
       - timestamp: 2026-08-23T00:00:00Z
         note: "Reported by the user on first visual evaluation. Not caught by the headless capture harness, which asserts joint rotations and pixel counts but nothing about world-space stability between frames."
+      - timestamp: 2026-08-23T00:00:00Z
+        note: "Resolved. Floor pinned at the asset's reference-pose ground plane; robot root left at the canonical origin rather than settled, because world space is the canonical frame and because contact with four feet lifted is a physics question. Harness extended with a world-frame stability check, confirmed red before the fix and green after; rig.test.ts now asserts the two geometric facts (hips are yaw, no knee reaches more than 0.27 mm below the plane) that make one fixed plane exact rather than approximate."
 
   # ---------------------------------------------------------------- OPEN: needs hardware
 

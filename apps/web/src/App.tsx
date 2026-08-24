@@ -212,6 +212,7 @@ export function App(): ReactElement {
         rig: () => handles.current?.rig ?? null,
         facts: () => handles.current?.facts ?? null,
         renderStats: () => handles.current?.renderStats() ?? null,
+        worldFrame: () => handles.current?.worldFrame() ?? null,
         oledCanvas: () => oledCanvas,
         backendId: () => backendId,
         status: () => backendRef.current?.status ?? status,

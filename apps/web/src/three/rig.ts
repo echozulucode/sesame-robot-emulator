@@ -276,6 +276,40 @@ export function computeGroundPlaneMm(rig: Record<JointName, JointRig>): number |
   return Number.isFinite(minY) ? minY * MM_PER_UNIT : null;
 }
 
+/**
+ * Where the **viewer** draws its floor, in canonical millimetres — a constant.
+ *
+ * `computeGroundPlaneMm` above is pose-dependent by design, and V2 is right
+ * that the *asset* must not bake it in. A viewer is a different consumer with a
+ * different need: it wants one fixed spatial reference. Driving the grid from
+ * the pose-dependent value made the only static object on screen slide
+ * vertically under a robot whose root never moves, and the whole world read as
+ * jumping — ISSUE-20260823-023.
+ *
+ * So the floor is pinned, at the reference pose's plane, read out of the asset
+ * rather than typed in. Two measurements make that the right constant:
+ *
+ * - `runStandPose` is the pose V2 built the asset around and the pose every
+ *   movement in V1's choreography begins and ends at. It is the floor this
+ *   robot stands on, and at that pose the feet are flush with it.
+ * - no reachable pose puts a foot meaningfully below it. The hips are **yaw**
+ *   joints — sweeping R1 over 0-180 deg does not change any foot's height by a
+ *   single micrometre — so foot height is a function of the knees alone, and
+ *   each knee bottoms out at -68.7355 mm (R3, L3) or -68.9233 mm (R4, L4)
+ *   against this plane's -68.6500 mm. Worst case 0.27 mm of interpenetration
+ *   on a 130 mm robot, and only at a hand-dialled knee angle no movement uses.
+ *
+ * The robot root is deliberately **not** translated to settle onto it. World
+ * space here *is* the canonical frame — `pivotWorldMm`, `computeGroundPlaneMm`
+ * and `verifyStandPose` all read canonical coordinates straight off
+ * `matrixWorld` — so moving the root would silently redefine every coordinate
+ * this app reports. And where a body whose feet have left the ground would
+ * settle is a physics question; Gate E says this app does not answer those.
+ */
+export function groundReferenceMm(facts: AssetFacts): number {
+  return facts.groundPlane.atRunStandPoseMm;
+}
+
 /** Read the asset-level facts V2 shipped inside the GLB. */
 export function readAssetFacts(assetExtras: unknown, oledNode: Object3D | undefined, topCover: Object3D | undefined): AssetFacts {
   const e = requireRecord(assetExtras, 'asset.extras');

@@ -15,7 +15,7 @@
  */
 import { Canvas, useFrame, useLoader, useThree, type ThreeEvent } from '@react-three/fiber';
 import { JOINT_ORDER, type JointName } from '@sesame-lab/sesame-model';
-import { useEffect, useMemo, useRef, type ReactElement } from 'react';
+import { useCallback, useEffect, useMemo, useRef, type ReactElement } from 'react';
 import {
   CanvasTexture,
   Color,
@@ -36,6 +36,7 @@ import {
   applyCommandedDeg,
   buildRig,
   computeGroundPlaneMm,
+  groundReferenceMm,
   MM_PER_UNIT,
   readAssetFacts,
   type AssetFacts,
@@ -67,6 +68,57 @@ export interface SceneHandles {
    * nastiest failure mode this app has. The browser harness asserts these move.
    */
   renderStats(): { frames: number; appliedPoseVersion: number };
+  /**
+   * Where the world's fixed things actually are, off `matrixWorld`.
+   *
+   * Every number in here is supposed to be a constant, and the reason this
+   * accessor exists is that one of them was not: the grid used to be driven
+   * from the pose-dependent ground plane and slid vertically under a robot
+   * whose root never moves (ISSUE-20260823-023). Joint readings alone cannot
+   * see that class of bug — the joints were perfectly correct the whole time —
+   * so the harness needs to be able to read the *frame* as well as the pose.
+   */
+  worldFrame(): WorldFrameReading;
+}
+
+/**
+ * The scene's world-space reference frame, in canonical millimetres.
+ *
+ * World space here **is** V2's canonical frame: the GLB root sits at the world
+ * origin and is never translated, which is what lets `pivotWorldMm` and
+ * `computeGroundPlaneMm` report canonical coordinates straight off
+ * `matrixWorld`. Everything below except `footContactMm` must therefore hold
+ * still for the entire life of the page unless the user drags the mouse.
+ */
+export interface WorldFrameReading {
+  /** The floor/grid group's world origin. Pinned; never posed. */
+  readonly groundWorldMm: readonly [number, number, number] | null;
+  /** The GLB root's world origin. The canonical origin, i.e. (0, 0, 0). */
+  readonly robotRootWorldMm: readonly [number, number, number] | null;
+  /** `OrbitControls.target`. Only a mouse drag may move it. */
+  readonly cameraTargetMm: readonly [number, number, number] | null;
+  readonly cameraPositionMm: readonly [number, number, number] | null;
+  /** Where the floor is pinned, as read out of the asset. */
+  readonly groundReferenceMm: number | null;
+  /**
+   * The pose-dependent foot contact height — reported, and deliberately
+   * applied to no transform at all. This is the value the grid used to chase.
+   */
+  readonly footContactMm: number | null;
+}
+
+/**
+ * The mutable handoff between the three pieces of the scene.
+ *
+ * `SesameRig`, `GroundPlane` and `CameraControls` are siblings under one
+ * `<Canvas>`; the debug surface needs to read all three. A plain object beats
+ * a React context here because nothing reading it should cause a re-render.
+ */
+interface SceneRefs {
+  ground: Object3D | null;
+  camera: PerspectiveCamera | null;
+  controls: OrbitControls | null;
+  groundReferenceMm: number | null;
 }
 
 export type DriveSource = 'commanded' | 'simulated';
@@ -91,6 +143,10 @@ export interface RobotSceneProps {
 }
 
 export function RobotScene(props: RobotSceneProps): ReactElement {
+  const refs = useMemo<SceneRefs>(
+    () => ({ ground: null, camera: null, controls: null, groundReferenceMm: null }),
+    [],
+  );
   return (
     <Canvas
       // Three-quarter view from IN FRONT of the robot. Forward is -Z, so a
@@ -112,13 +168,13 @@ export function RobotScene(props: RobotSceneProps): ReactElement {
       <hemisphereLight args={['#cfd8e6', '#1b1f27', 1.15]} />
       <directionalLight position={[0.4, 0.6, 0.5]} intensity={2.1} />
       <directionalLight position={[-0.5, 0.3, -0.4]} intensity={0.8} color="#9db4d8" />
-      <SesameRig {...props} />
-      <CameraControls />
+      <SesameRig {...props} refs={refs} />
+      <CameraControls refs={refs} />
     </Canvas>
   );
 }
 
-function CameraControls(): null {
+function CameraControls({ refs }: { readonly refs: SceneRefs }): null {
   const camera = useThree((s) => s.camera);
   const domElement = useThree((s) => s.gl.domElement);
   const controls = useRef<OrbitControls | null>(null);
@@ -127,16 +183,24 @@ function CameraControls(): null {
     const c = new OrbitControls(camera as PerspectiveCamera, domElement);
     c.enableDamping = true;
     c.dampingFactor = 0.08;
+    // Set once, at construction, and never written again. Nothing in this app
+    // re-aims the camera at the robot: if the view appears to drift, the cause
+    // is in the scene, not here — which is exactly how ISSUE-20260823-023 was
+    // traced to the grid. The harness reads this target back to keep it true.
     c.target.set(0, -0.012, -0.008);
     c.minDistance = 0.08;
     c.maxDistance = 1.5;
     c.update();
     controls.current = c;
+    refs.camera = camera as PerspectiveCamera;
+    refs.controls = c;
     return () => {
       c.dispose();
       controls.current = null;
+      refs.camera = null;
+      refs.controls = null;
     };
-  }, [camera, domElement]);
+  }, [camera, domElement, refs]);
 
   useFrame(() => controls.current?.update());
   return null;
@@ -145,8 +209,8 @@ function CameraControls(): null {
 const SELECTED_EMISSIVE = new Color('#3d6fd8');
 const BLACK = new Color('#000000');
 
-function SesameRig(props: RobotSceneProps): ReactElement {
-  const { store, selected, onSelect, oledCanvas, oledDirty, driveFrom, onReady, showTopCover } = props;
+function SesameRig(props: RobotSceneProps & { readonly refs: SceneRefs }): ReactElement {
+  const { store, selected, onSelect, oledCanvas, oledDirty, driveFrom, onReady, showTopCover, refs } = props;
   const gltf = useLoader(GLTFLoader, GLB_URL);
 
   const built = useMemo(() => {
@@ -234,6 +298,9 @@ function SesameRig(props: RobotSceneProps): ReactElement {
   }, [built.rig, selected]);
 
   // ------------------------------------------------------------------ ready
+  const floorMm = groundReferenceMm(built.facts);
+  refs.groundReferenceMm = floorMm;
+
   useEffect(() => {
     onReady({
       rig: built.rig,
@@ -241,8 +308,9 @@ function SesameRig(props: RobotSceneProps): ReactElement {
       root: built.root,
       groundPlaneMm: () => groundMm.current,
       renderStats: () => ({ frames: frames.current, appliedPoseVersion: appliedPose.current }),
+      worldFrame: () => readWorldFrame(refs, built.root, groundMm.current),
     });
-  }, [built, onReady]);
+  }, [built, onReady, refs]);
 
   // ----------------------------------------------------------------- drive
   useFrame(() => {
@@ -288,32 +356,51 @@ function SesameRig(props: RobotSceneProps): ReactElement {
   return (
     <group>
       <primitive object={built.root} onClick={handleClick} />
-      <GroundPlane groundMm={groundMm} />
+      <GroundPlane mm={floorMm} refs={refs} />
     </group>
   );
 }
 
 /**
- * A grid at the pose-dependent ground plane.
+ * The floor. One fixed plane, and the scene's only spatial reference.
  *
- * V2 is blunt about this: −68.650 mm at `runStandPose`, −31.115 mm at rest, and
- * "POSE-DEPENDENT: this is not a property of the frame and must not be baked in
- * as a constant". So the grid follows the recomputed value instead of sitting
- * at a number someone typed once.
+ * It used to chase `computeGroundPlaneMm(rig)` every frame, on the reasoning
+ * that V2 forbids baking the ground plane in as a constant. V2 forbids baking
+ * it into the **asset**, and it is right to: it is a property of a pose. But a
+ * *viewer* is a different consumer. The robot root is pinned at the canonical
+ * origin and never moves, so a grid that tracks the pose slides vertically
+ * under a stationary robot — 37.5 mm of it between the rest pose (−31.115 mm)
+ * and `runStandPose` (−68.650 mm), which happens the instant any movement is
+ * commanded. With nothing else static on screen, that reads as the whole world
+ * jumping. ISSUE-20260823-023.
+ *
+ * So: the floor is fixed and the robot's feet move relative to it, which is
+ * both what a robot on a desk does and what makes the grid usable as a ruler.
+ * The height comes from `groundReferenceMm`, which reads the reference pose's
+ * plane out of the asset — still not a number anyone typed, and see that
+ * function for why the robot is not translated to settle onto it.
+ *
+ * The live pose-dependent value is still computed and still displayed, in the
+ * asset panel, where a changing number is information rather than a wobble.
  */
-function GroundPlane({ groundMm }: { readonly groundMm: React.RefObject<number | null> }): ReactElement {
-  const group = useRef<Object3D>(null);
-  const shown = useRef<number | null>(null);
-
-  useFrame(() => {
-    const mm = groundMm.current;
-    if (mm === null || group.current === null || mm === shown.current) return;
-    shown.current = mm;
-    group.current.position.y = mm / MM_PER_UNIT;
-  });
+function GroundPlane({
+  mm,
+  refs,
+}: {
+  readonly mm: number;
+  readonly refs: SceneRefs;
+}): ReactElement {
+  // Stable identity: an inline callback ref is re-invoked with null on every
+  // re-render, and `worldFrame()` is polled from outside React.
+  const attach = useCallback(
+    (node: Object3D | null): void => {
+      refs.ground = node;
+    },
+    [refs],
+  );
 
   return (
-    <group ref={group} position={new Vector3(0, -0.0686, 0)}>
+    <group ref={attach} name="ground_reference" position={[0, mm / MM_PER_UNIT, 0]}>
       <gridHelper args={[0.5, 20, '#2c3444', '#1a2029']} />
       <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, -0.0002, 0]}>
         <planeGeometry args={[0.5, 0.5]} />
@@ -321,4 +408,49 @@ function GroundPlane({ groundMm }: { readonly groundMm: React.RefObject<number |
       </mesh>
     </group>
   );
+}
+
+/** Scratch vector — `worldFrame()` is polled, and must not allocate per call. */
+const WORLD = new Vector3();
+
+function toMm(node: Object3D | null): [number, number, number] | null {
+  if (node === null) return null;
+  node.updateWorldMatrix(true, false);
+  node.getWorldPosition(WORLD);
+  return [WORLD.x * MM_PER_UNIT, WORLD.y * MM_PER_UNIT, WORLD.z * MM_PER_UNIT];
+}
+
+/**
+ * Read the world frame back out of three.js.
+ *
+ * Deliberately not "return the constants we set": every number here is fetched
+ * from the live object — `matrixWorld` for the two groups, `OrbitControls`'
+ * own target vector for the camera — because the whole point is to catch code
+ * that moved something it should not have.
+ */
+function readWorldFrame(
+  refs: SceneRefs,
+  root: Object3D,
+  footContactMm: number | null,
+): WorldFrameReading {
+  const target = refs.controls?.target ?? null;
+  const camera = refs.camera ?? null;
+  return {
+    groundWorldMm: toMm(refs.ground),
+    robotRootWorldMm: toMm(root),
+    cameraTargetMm:
+      target === null
+        ? null
+        : [target.x * MM_PER_UNIT, target.y * MM_PER_UNIT, target.z * MM_PER_UNIT],
+    cameraPositionMm:
+      camera === null
+        ? null
+        : [
+            camera.position.x * MM_PER_UNIT,
+            camera.position.y * MM_PER_UNIT,
+            camera.position.z * MM_PER_UNIT,
+          ],
+    groundReferenceMm: refs.groundReferenceMm,
+    footContactMm,
+  };
 }

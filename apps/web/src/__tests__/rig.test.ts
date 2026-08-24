@@ -25,6 +25,7 @@ import {
   commandedDegFromNode,
   computeGroundPlaneMm,
   expectedQuaternion,
+  groundReferenceMm,
   quaternionAngleDeg,
   readAssetFacts,
   type AssetFacts,
@@ -196,5 +197,93 @@ describe('the oled_screen quad is what V4 needs', () => {
     const mesh = node as unknown as { geometry: { index: { count: number } | null; attributes: Record<string, unknown> } };
     expect(mesh.geometry.attributes['uv']).toBeDefined();
     expect(mesh.geometry.index?.count).toBe(6); // two triangles
+  });
+});
+
+/**
+ * The measurements behind the viewer's fixed floor — ISSUE-20260823-023.
+ *
+ * The bug was that `GroundPlane` drove the grid from `computeGroundPlaneMm`
+ * every frame, so the only static object on screen slid vertically under a
+ * robot root that never moves. The fix pins the floor at the reference pose's
+ * plane. These tests are the load-bearing half of that argument: they check the
+ * two geometric facts that make one fixed plane the *right* answer, so a future
+ * calibration that flips a hip axis or moves a pivot fails here rather than
+ * silently reintroducing feet that hover or sink.
+ *
+ * The stability of the rendered scene itself is asserted in a real browser, off
+ * `matrixWorld`, by scripts/capture-web-screenshots.mjs phase 1 — nothing in
+ * Node can see a React scene graph.
+ */
+describe('the viewer\u2019s floor is a constant, and the right one', () => {
+  const KNEES = ['R3', 'R4', 'L3', 'L4'] as const;
+  const HIPS = ['R1', 'R2', 'L1', 'L2'] as const;
+
+  const rest = (): void => {
+    for (const joint of JOINT_ORDER) applyCommandedDeg(rig[joint], 90);
+    root.updateMatrixWorld(true);
+  };
+
+  it('reads its height out of the asset rather than carrying a number', () => {
+    expect(groundReferenceMm(facts)).toBe(facts.groundPlane.atRunStandPoseMm);
+    expect(groundReferenceMm(facts)).toBeCloseTo(-68.650046, 6);
+  });
+
+  it('does not move while the pose-dependent ground plane moves 37 mm', () => {
+    const floor = groundReferenceMm(facts);
+    const contacts: number[] = [];
+    for (const pose of [
+      facts.referencePose.commandedDeg,
+      Object.fromEntries(JOINT_ORDER.map((j) => [j, 90])),
+      // Knees folded the other way: all four feet come off the reference plane
+      // at once, which is the shape of runShrugPose and runDeadPose.
+      { R1: 135, R2: 45, L1: 45, L2: 135, R3: 90, R4: 180, L3: 180, L4: 90 },
+    ] as Record<string, number>[]) {
+      for (const joint of JOINT_ORDER) applyCommandedDeg(rig[joint], pose[joint] ?? 90);
+      root.updateMatrixWorld(true);
+      contacts.push(computeGroundPlaneMm(rig) ?? Number.NaN);
+      // The whole point: the floor is not a function of the pose.
+      expect(groundReferenceMm(facts)).toBe(floor);
+    }
+    expect(Math.max(...contacts) - Math.min(...contacts)).toBeGreaterThan(30);
+    rest();
+  });
+
+  it('cannot be reached through by any knee angle, to better than 0.3 mm', () => {
+    // Foot height is a function of the knees alone (see the hip test below), and
+    // each leg is independent, so sweeping one knee at a time covers the space.
+    rest();
+    let deepest = Number.POSITIVE_INFINITY;
+    for (const knee of KNEES) {
+      for (let deg = 0; deg <= 180; deg += 1) {
+        applyCommandedDeg(rig[knee], deg);
+        root.updateMatrixWorld(true);
+        deepest = Math.min(deepest, computeGroundPlaneMm(rig) ?? Number.POSITIVE_INFINITY);
+      }
+      applyCommandedDeg(rig[knee], 90);
+    }
+    rest();
+    // −68.9233 mm (R4/L4) against a floor at −68.6500 mm: 0.27 mm of possible
+    // interpenetration on a 130 mm robot, and only at a hand-dialled angle no
+    // movement in the choreography uses.
+    expect(deepest).toBeGreaterThan(groundReferenceMm(facts) - 0.3);
+    expect(deepest).toBeLessThan(groundReferenceMm(facts));
+  });
+
+  it('is unaffected by the hips, because the hips are yaw joints', () => {
+    // If this ever fails, the hips have stopped being yaw and foot height is no
+    // longer a function of the knees alone — at which point the sweep above no
+    // longer covers the pose space and the fixed-floor argument needs redoing.
+    rest();
+    const flat = computeGroundPlaneMm(rig) ?? Number.NaN;
+    for (const hip of HIPS) {
+      for (let deg = 0; deg <= 180; deg += 15) {
+        applyCommandedDeg(rig[hip], deg);
+        root.updateMatrixWorld(true);
+        expect(computeGroundPlaneMm(rig) ?? Number.NaN).toBeCloseTo(flat, 9);
+      }
+      applyCommandedDeg(rig[hip], 90);
+    }
+    rest();
   });
 });

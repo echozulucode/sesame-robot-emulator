@@ -285,6 +285,10 @@ can be perfectly correct while three.js renders nothing.
 Machine summary, including every assertion's inputs:
 [`assets/v3-v4-browser-capture.json`](assets/v3-v4-browser-capture.json).
 
+Phase 1 also asserts **world-frame stability** and emits a seventh capture; that
+was added after the fact, and section 12 explains what it is for and what these
+five phases were blind to without it.
+
 | Phase | What it asserts | Result |
 |---|---|---|
 | **1 · sim wave** | Eight joints start at the asset's rest transform (`sceneCommandedDeg` 90, `storeCommandedDeg` null); `runWavePose` is commanded; the scene graph is polled to L3 = 100° and L3 = 180°; the two screenshots differ byte-for-byte; the max quaternion-component delta between them is **0.620**; the scene follows the wire on all eight; the WebGL drawing buffer contains **5 161** non-background pixels; the render loop drew >10 frames; the simulator emitted **zero** `observed` events | pass |
@@ -466,7 +470,7 @@ itself, not only from here.
 ```powershell
 pnpm install
 pnpm -r build                       # packages, bridge, then apps/web
-pnpm -r test                        # 52 web tests + the face-bitmap drift check
+pnpm -r test                        # 56 web tests + the face-bitmap drift check
 pnpm -r typecheck
 pnpm capture:web                    # six real-browser captures; add --skip-qemu to skip phase 5
 pnpm dev:web                        # http://127.0.0.1:5173
@@ -476,3 +480,124 @@ pnpm demo:web                       # the bridge serving apps/web/dist on one or
 Node 24.13.0 · pnpm 10.34.1 · Edge (headless, SwiftShader) · Windows 11.
 No package outside `apps/web` gained a dependency; nothing under `reference/` or
 `firmware/upstream/` was written to.
+
+---
+
+## 12. The floor was sliding — ISSUE-20260823-023
+
+A user watching the app said the 3D world "seems to jump around ... like the
+world coordinates are moving or the camera is trying to keep the robot centered".
+Neither, as it turned out, and the harness in section 6 was green throughout.
+
+### What was wrong
+
+`GroundPlane` repositioned itself **every frame** to `computeGroundPlaneMm(rig)`.
+V2 is emphatic that the ground plane is pose-dependent and must not be baked into
+the asset as a constant (−68.650 mm at `runStandPose`, −31.115 mm at rest), and
+this app dutifully did the recompute — then fed the result to a transform.
+
+The robot root, meanwhile, is pinned at the canonical origin and never moves. So
+the grid — the only static object on screen, and the thing the eye uses to know
+where "down" is — slid 37.5 mm vertically the instant any movement was commanded,
+under a robot that stayed exactly where it was. The brain reads that as the world
+moving, not the floor.
+
+The camera was innocent, and this was checked before anything was changed rather
+than assumed. Across nine `worldFrame()` samples through `runWavePose`:
+
+| | grid | GLB root | orbit target | camera |
+|---|---|---|---|---|
+| **before** | **37.535 mm** | 0.000e+0 mm | 0.000e+0 mm | 0.000e+0 mm |
+| **after** | 0.000e+0 mm | 0.000e+0 mm | 0.000e+0 mm | 0.000e+0 mm |
+
+### The fix: the floor is fixed, and the robot does not settle onto it
+
+`GroundPlane` has no `useFrame` any more. Its height comes from
+`groundReferenceMm(facts)` in `three/rig.ts`, which returns the asset's own
+`groundPlane.atRunStandPoseMm` — read out of the GLB, not typed in. The live
+pose-dependent value is still computed and still displayed in the asset panel,
+where a changing number is information rather than a wobble.
+
+The obvious other half — translate the root so the lowest foot rests on the
+floor, the way a real robot on a real desk rises and falls — was **not** done,
+and the reasons are worth recording because they are not obvious:
+
+- **World space here *is* V2's canonical frame.** `pivotWorldMm`,
+  `computeGroundPlaneMm` and `verifyStandPose` all report canonical millimetres
+  straight off `matrixWorld`, and phase 2 checks one of them against V2's
+  −68.650046 mm. Translating the root would silently redefine every world-space
+  number this app publishes.
+- **It would not remove the artefact, only reattribute it.** The commanded stream
+  is a step function: `runShrugPose` moves the foot contact 36 mm between two
+  consecutive telemetry events. Settling the body reproduces exactly the jump the
+  user complained about, with the robot doing the jumping instead of the floor.
+- **Contact is a physics question and Gate E excludes physics.** In
+  `runShrugPose` and `runDeadPose` all four feet fold off the ground at once and
+  the real contact set is the chassis. A feet-only solver floats or buries the
+  body by ~36 mm; a chassis-aware one is a collision solver.
+
+### One fixed plane is exact here, not a compromise
+
+Two measurements, both now asserted in `apps/web/src/__tests__/rig.test.ts`:
+
+- **The hips are yaw joints.** Sweeping R1, R2, L1 or L2 across 0–180° changes no
+  foot's height by so much as a nanometre. Foot height is therefore a function of
+  the four knees alone, and since the legs are independent, sweeping one knee at a
+  time covers the entire reachable pose space.
+- **No knee can reach through the floor.** Sweeping each knee 0–180° at 1° steps,
+  the deepest a foot goes is −68.7355 mm (R3, L3) or −68.9233 mm (R4, L4) against
+  a floor at −68.6500 mm. Worst case 0.27 mm of interpenetration on a 130 mm
+  robot, at a hand-dialled angle no movement in the choreography visits. At every
+  pose the firmware actually commands, the feet are flush with the plane.
+
+If a future calibration flips a hip axis, the first of those tests fails and the
+argument gets redone rather than quietly becoming false.
+
+### Why the harness did not catch it
+
+Everything in section 6 reads the **pose**. Nothing read the **frame the pose is
+expressed in** — and the eight quaternions were correct the entire time. That is
+the whole gap, and it is now closed:
+
+- `SceneHandles.worldFrame()` / `window.__sesame.worldFrame()` return the grid's
+  and the GLB root's world origins off `matrixWorld`, plus `OrbitControls.target`
+  and the camera position, in canonical millimetres.
+- Phase 1 samples it nine times, starting **before anything is commanded** — the
+  slide happened on the very first commanded pose, so a check that only sampled
+  mid-movement would have missed it — and requires every field to hold to
+  **1e-6 mm**.
+- The same block requires the pose-dependent foot contact to sweep **>1 mm**
+  across those samples (it sweeps 37.535 mm). Without that clause the stability
+  assertion would pass trivially on a scene that never moved.
+
+The check was confirmed **failing on the unfixed code** before the fix was
+applied, reporting `the ground plane / grid moved 37.535 mm in world space
+between "rest, nothing commanded" and "runWavePose, L3 at 100 deg"`. A check that
+has never been seen to fail is not known to work.
+
+### Evidence
+
+Sample-by-sample before/after readings:
+[`assets/issue-023-world-frame.json`](assets/issue-023-world-frame.json).
+
+| Screenshot | sha256 (first 16) |
+|---|---|
+| [`issue-023-ground-before-rest.png`](assets/issue-023-ground-before-rest.png) — rest, nothing commanded: grid riding up across the feet | `dfda1434cc8d6e16` |
+| [`issue-023-ground-after-rest.png`](assets/issue-023-ground-after-rest.png) — same pose, grid pinned at the reference plane | `6bc5b2ca2f8c45c0` |
+| [`issue-023-ground-before-wave-l3-100.png`](assets/issue-023-ground-before-wave-l3-100.png) — wave, L3 100° | `fc18de041eee8772` |
+| [`issue-023-ground-after-wave-l3-100.png`](assets/issue-023-ground-after-wave-l3-100.png) — wave, L3 100° | `7bfac1ff3369779f` |
+| [`issue-023-ground-before-wave-l3-180.png`](assets/issue-023-ground-before-wave-l3-180.png) — wave, L3 180° | `13a9c0902ea9979e` |
+| [`issue-023-ground-after-wave-l3-180.png`](assets/issue-023-ground-after-wave-l3-180.png) — wave, L3 180° | `4806d0a221bad413` |
+
+The rest pair is where the bug is visible: identical robot, identical camera, and
+a floor 37.5 mm apart. The two wave pairs are the control — by the time the wave
+is running the robot is standing, the old code had already slid the grid down to
+−68.650 mm, and the images agree. That is the point: the jump is a *transition*,
+which is exactly why a harness that only ever looked at settled poses missed it.
+
+### Audit
+
+`GroundPlane` was the only place in `apps/web` where a pose-dependent value
+reached a world-space transform. Nothing else writes `.position`, `.scale`, or a
+camera target after construction; the lights and the camera are literals in JSX
+and `OrbitControls.target` is set once in its constructor effect and never again.
