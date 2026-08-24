@@ -32,7 +32,11 @@
     "validate:gltf": "node scripts/validate-gltf.mjs",
     "demo:telemetry": "node emulator/bridge/dist/cli.js --replay emulator/bridge/fixtures/wave-pose.replay.jsonl --loop --serve-viewer",
     "dev:web": "pnpm --filter @sesame-lab/web dev",
-    "demo:web": "node emulator/bridge/dist/cli.js --replay emulator/bridge/fixtures/wave-pose.replay.jsonl --loop --serve-viewer --viewer-dir apps/web/dist"
+    "demo:web": "node emulator/bridge/dist/cli.js --replay emulator/bridge/fixtures/wave-pose.replay.jsonl --loop --serve-viewer --viewer-dir apps/web/dist",
+    "demo:qemu": "node packages/sesame-qemu/dist/cli.js --command wave",
+    "build:qemu-image": "node emulator/qemu/build-qemu-images.mjs cli",
+    "measure:qemu-connect": "node emulator/qemu/measure-connect.mjs --runs 25 --tag retry",
+    "measure:qemu-flake": "node emulator/qemu/run-flake-trial.mjs --runs 20 --tag baseline"
   },
   "devDependencies": {
     "ajv": "^8.17.1",

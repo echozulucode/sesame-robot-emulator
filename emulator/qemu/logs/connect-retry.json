@@ -1,0 +1,310 @@
+{
+  "tag": "retry",
+  "config": {
+    "runs": 25,
+    "bootAttempts": 8,
+    "command": ""
+  },
+  "connects": 25,
+  "connectFailures": 0,
+  "totalBootAttempts": 37,
+  "failedBootAttempts": 12,
+  "perBootFailureRate": 0.32432432432432434,
+  "maxAttemptsUsed": 7,
+  "orphanedProcesses": 0,
+  "detail": [
+    {
+      "run": 1,
+      "ok": true,
+      "error": null,
+      "ms": 6234,
+      "bootAttempts": 1,
+      "failedAttempts": [],
+      "servo": 0,
+      "pid": 41040,
+      "orphan": false
+    },
+    {
+      "run": 2,
+      "ok": true,
+      "error": null,
+      "ms": 2499,
+      "bootAttempts": 1,
+      "failedAttempts": [],
+      "servo": 0,
+      "pid": 37684,
+      "orphan": false
+    },
+    {
+      "run": 3,
+      "ok": true,
+      "error": null,
+      "ms": 4849,
+      "bootAttempts": 2,
+      "failedAttempts": [
+        "the guest panicked: Guru Meditation Error"
+      ],
+      "servo": 0,
+      "pid": 55260,
+      "orphan": false
+    },
+    {
+      "run": 4,
+      "ok": true,
+      "error": null,
+      "ms": 2481,
+      "bootAttempts": 1,
+      "failedAttempts": [],
+      "servo": 0,
+      "pid": 59536,
+      "orphan": false
+    },
+    {
+      "run": 5,
+      "ok": true,
+      "error": null,
+      "ms": 2686,
+      "bootAttempts": 1,
+      "failedAttempts": [],
+      "servo": 0,
+      "pid": 58556,
+      "orphan": false
+    },
+    {
+      "run": 6,
+      "ok": true,
+      "error": null,
+      "ms": 2650,
+      "bootAttempts": 1,
+      "failedAttempts": [],
+      "servo": 0,
+      "pid": 51916,
+      "orphan": false
+    },
+    {
+      "run": 7,
+      "ok": true,
+      "error": null,
+      "ms": 10713,
+      "bootAttempts": 3,
+      "failedAttempts": [
+        "the guest panicked: Guru Meditation Error",
+        "the guest panicked: Guru Meditation Error"
+      ],
+      "servo": 0,
+      "pid": 54040,
+      "orphan": false
+    },
+    {
+      "run": 8,
+      "ok": true,
+      "error": null,
+      "ms": 4857,
+      "bootAttempts": 2,
+      "failedAttempts": [
+        "the guest panicked: Guru Meditation Error"
+      ],
+      "servo": 0,
+      "pid": 45708,
+      "orphan": false
+    },
+    {
+      "run": 9,
+      "ok": true,
+      "error": null,
+      "ms": 2780,
+      "bootAttempts": 1,
+      "failedAttempts": [],
+      "servo": 0,
+      "pid": 59960,
+      "orphan": false
+    },
+    {
+      "run": 10,
+      "ok": true,
+      "error": null,
+      "ms": 17355,
+      "bootAttempts": 7,
+      "failedAttempts": [
+        "the guest panicked: Guru Meditation Error",
+        "the guest panicked: Guru Meditation Error",
+        "the guest panicked: Guru Meditation Error",
+        "the guest panicked: Guru Meditation Error",
+        "the guest panicked: Guru Meditation Error",
+        "the guest panicked: Guru Meditation Error"
+      ],
+      "servo": 0,
+      "pid": 42152,
+      "orphan": false
+    },
+    {
+      "run": 11,
+      "ok": true,
+      "error": null,
+      "ms": 2580,
+      "bootAttempts": 1,
+      "failedAttempts": [],
+      "servo": 0,
+      "pid": 59208,
+      "orphan": false
+    },
+    {
+      "run": 12,
+      "ok": true,
+      "error": null,
+      "ms": 2379,
+      "bootAttempts": 1,
+      "failedAttempts": [],
+      "servo": 0,
+      "pid": 36664,
+      "orphan": false
+    },
+    {
+      "run": 13,
+      "ok": true,
+      "error": null,
+      "ms": 2435,
+      "bootAttempts": 1,
+      "failedAttempts": [],
+      "servo": 0,
+      "pid": 10272,
+      "orphan": false
+    },
+    {
+      "run": 14,
+      "ok": true,
+      "error": null,
+      "ms": 3083,
+      "bootAttempts": 1,
+      "failedAttempts": [],
+      "servo": 0,
+      "pid": 18136,
+      "orphan": false
+    },
+    {
+      "run": 15,
+      "ok": true,
+      "error": null,
+      "ms": 2410,
+      "bootAttempts": 1,
+      "failedAttempts": [],
+      "servo": 0,
+      "pid": 2744,
+      "orphan": false
+    },
+    {
+      "run": 16,
+      "ok": true,
+      "error": null,
+      "ms": 2594,
+      "bootAttempts": 1,
+      "failedAttempts": [],
+      "servo": 0,
+      "pid": 39040,
+      "orphan": false
+    },
+    {
+      "run": 17,
+      "ok": true,
+      "error": null,
+      "ms": 2411,
+      "bootAttempts": 1,
+      "failedAttempts": [],
+      "servo": 0,
+      "pid": 59168,
+      "orphan": false
+    },
+    {
+      "run": 18,
+      "ok": true,
+      "error": null,
+      "ms": 2382,
+      "bootAttempts": 1,
+      "failedAttempts": [],
+      "servo": 0,
+      "pid": 59752,
+      "orphan": false
+    },
+    {
+      "run": 19,
+      "ok": true,
+      "error": null,
+      "ms": 2559,
+      "bootAttempts": 1,
+      "failedAttempts": [],
+      "servo": 0,
+      "pid": 45416,
+      "orphan": false
+    },
+    {
+      "run": 20,
+      "ok": true,
+      "error": null,
+      "ms": 2425,
+      "bootAttempts": 1,
+      "failedAttempts": [],
+      "servo": 0,
+      "pid": 43732,
+      "orphan": false
+    },
+    {
+      "run": 21,
+      "ok": true,
+      "error": null,
+      "ms": 2395,
+      "bootAttempts": 1,
+      "failedAttempts": [],
+      "servo": 0,
+      "pid": 43712,
+      "orphan": false
+    },
+    {
+      "run": 22,
+      "ok": true,
+      "error": null,
+      "ms": 4519,
+      "bootAttempts": 2,
+      "failedAttempts": [
+        "the guest panicked: Guru Meditation Error"
+      ],
+      "servo": 0,
+      "pid": 52040,
+      "orphan": false
+    },
+    {
+      "run": 23,
+      "ok": true,
+      "error": null,
+      "ms": 2358,
+      "bootAttempts": 1,
+      "failedAttempts": [],
+      "servo": 0,
+      "pid": 41104,
+      "orphan": false
+    },
+    {
+      "run": 24,
+      "ok": true,
+      "error": null,
+      "ms": 2467,
+      "bootAttempts": 1,
+      "failedAttempts": [],
+      "servo": 0,
+      "pid": 33456,
+      "orphan": false
+    },
+    {
+      "run": 25,
+      "ok": true,
+      "error": null,
+      "ms": 4593,
+      "bootAttempts": 2,
+      "failedAttempts": [
+        "the guest panicked: Guru Meditation Error"
+      ],
+      "servo": 0,
+      "pid": 47836,
+      "orphan": false
+    }
+  ]
+}

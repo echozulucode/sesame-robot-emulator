@@ -145,6 +145,31 @@ importers:
         specifier: ^3.2.4
         version: 3.2.7(@types/node@24.13.3)
 
+  packages/sesame-qemu:
+    dependencies:
+      '@sesame-lab/sesame-model':
+        specifier: workspace:*
+        version: link:../sesame-model
+      '@sesame-lab/sesame-protocol':
+        specifier: workspace:*
+        version: link:../sesame-protocol
+      '@sesame-lab/sesame-sim':
+        specifier: workspace:*
+        version: link:../sesame-sim
+    devDependencies:
+      '@sesame-lab/sesame-api':
+        specifier: workspace:*
+        version: link:../sesame-api
+      '@types/node':
+        specifier: ^24.10.1
+        version: 24.13.3
+      typescript:
+        specifier: ^5.9.3
+        version: 5.9.3
+      vitest:
+        specifier: ^3.2.4
+        version: 3.2.7(@types/node@24.13.3)
+
   packages/sesame-sim:
     dependencies:
       '@sesame-lab/sesame-model':

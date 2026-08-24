@@ -1,6 +1,7 @@
 # Sesame Telemetry Protocol — `@SESAME` v1
 
 **Status:** implemented · **Task:** R5 (Phase 0, Workstream R) · **Date:** 2026-08-23
+**Extended by:** `sesame-telemetry-v2.md` (host → device direction, and the `origin` field). Everything below is still current; v2 changes nothing on the device → host wire and does not bump `@SESAME hello`.
 **Reference implementation:** `packages/sesame-protocol` (`@sesame-lab/sesame-protocol`)
 **Audience:** anyone writing an emitter (C++ on ESP32, a Python replay harness, a host-side
 behaviour model) or a consumer (the bridge, the debug viewer, the Phase-1 frontend).
@@ -39,7 +40,7 @@ byte stream needs framing. Everything about the design is a consequence of two f
 |---|---|
 | Encoding | UTF-8. In practice ASCII; emitters SHOULD stay in `0x20`–`0x7E`. |
 | Framing | Line-oriented. `LF` (`0x0A`), `CRLF` (`0x0D 0x0A`) and lone `CR` (`0x0D`) are all accepted terminators. Emitters SHOULD use `LF`. |
-| Direction | Device → host only. v1 defines no host → device messages. |
+| Direction | Device → host only. v1 defines no host → device messages. **Superseded by v2**, which adds the host → device direction over the same UART0 using the firmware's own serial console — see `sesame-telemetry-v2.md` §2. The device → host wire below is unchanged by v2. |
 | Multiplexing | The telemetry stream shares UART0 with ordinary firmware logging. That is a feature: the log text is a telemetry channel (`log` events on channel `uart`). |
 | Renode setup | `emulation CreateServerSocketTerminal <port> "term" false` then `connector Connect uart0 term`. The third argument is `telnetMode` and **must** be `false`. |
 
@@ -274,6 +275,7 @@ Rules:
   model → `simulated`. The reference parser makes this an explicit option
   (`defaultProvenance`) with `observed` as the default.
 - An explicit `p=` tag always wins over the receiver's default.
+- **`observed` does not mean "on hardware".** The row above lists an emulated UART and a physical robot under the same tag, which is ambiguous in the one direction that matters most. v2 adds an orthogonal `origin` field to the decoded event, and `isPhysicallyObserved()` — not `provenance === 'observed'` — is what a UI must branch on before presenting a value as a measurement. See `sesame-telemetry-v2.md` §6.
 
 ### 7.2 `traceId`
 
@@ -459,7 +461,7 @@ tag exists to prevent.
 | 2 | A telnet IAC option byte that happens to be `0x0A` will split a line early, because framing happens before IAC stripping. | Use `telnetMode: false`, as R1 established. Framing-before-stripping is deliberate: it is what makes the output chunk-independent. |
 | 3 | `seq` is assigned by the receiver unless the emitter sends `s=`, so loss between emitter and receiver is invisible. | Emitters that care can send `s=`; the cost is a counter and ~5 bytes per line. |
 | 4 | An `oled` line is 1385 bytes at ~115200 baud ≈ 120 ms of wire time. Streaming frames at animation rate is not possible on UART0. | Frames are for stepping and inspection, not for live animation; use `face.expression` for motion. |
-| 5 | No host → device direction. | Commands go over HTTP or the Renode monitor, not this stream. |
+| 5 | No host → device direction. | **Fixed in v2** (`sesame-telemetry-v2.md`): commands go over this same UART as serial-CLI lines. Under QEMU the HTTP option does not exist at all — Wi-Fi is precisely what the emulator cannot model. |
 
 ---
 

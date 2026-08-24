@@ -1,0 +1,127 @@
+{
+  "tag": "no-retry",
+  "config": {
+    "runs": 10,
+    "bootAttempts": 1,
+    "command": "wave"
+  },
+  "connects": 10,
+  "connectFailures": 0,
+  "totalBootAttempts": 10,
+  "failedBootAttempts": 0,
+  "perBootFailureRate": 0,
+  "maxAttemptsUsed": 1,
+  "orphanedProcesses": 0,
+  "detail": [
+    {
+      "run": 1,
+      "ok": true,
+      "error": null,
+      "ms": 6147,
+      "bootAttempts": 1,
+      "failedAttempts": [],
+      "servo": 29,
+      "pid": 13736,
+      "orphan": false
+    },
+    {
+      "run": 2,
+      "ok": true,
+      "error": null,
+      "ms": 6097,
+      "bootAttempts": 1,
+      "failedAttempts": [],
+      "servo": 29,
+      "pid": 12116,
+      "orphan": false
+    },
+    {
+      "run": 3,
+      "ok": true,
+      "error": null,
+      "ms": 6135,
+      "bootAttempts": 1,
+      "failedAttempts": [],
+      "servo": 29,
+      "pid": 54120,
+      "orphan": false
+    },
+    {
+      "run": 4,
+      "ok": true,
+      "error": null,
+      "ms": 6067,
+      "bootAttempts": 1,
+      "failedAttempts": [],
+      "servo": 29,
+      "pid": 54264,
+      "orphan": false
+    },
+    {
+      "run": 5,
+      "ok": true,
+      "error": null,
+      "ms": 6112,
+      "bootAttempts": 1,
+      "failedAttempts": [],
+      "servo": 29,
+      "pid": 38820,
+      "orphan": false
+    },
+    {
+      "run": 6,
+      "ok": true,
+      "error": null,
+      "ms": 6103,
+      "bootAttempts": 1,
+      "failedAttempts": [],
+      "servo": 29,
+      "pid": 38872,
+      "orphan": false
+    },
+    {
+      "run": 7,
+      "ok": true,
+      "error": null,
+      "ms": 6105,
+      "bootAttempts": 1,
+      "failedAttempts": [],
+      "servo": 29,
+      "pid": 34156,
+      "orphan": false
+    },
+    {
+      "run": 8,
+      "ok": true,
+      "error": null,
+      "ms": 6495,
+      "bootAttempts": 1,
+      "failedAttempts": [],
+      "servo": 29,
+      "pid": 40416,
+      "orphan": false
+    },
+    {
+      "run": 9,
+      "ok": true,
+      "error": null,
+      "ms": 6131,
+      "bootAttempts": 1,
+      "failedAttempts": [],
+      "servo": 29,
+      "pid": 16648,
+      "orphan": false
+    },
+    {
+      "run": 10,
+      "ok": true,
+      "error": null,
+      "ms": 6312,
+      "bootAttempts": 1,
+      "failedAttempts": [],
+      "servo": 29,
+      "pid": 34548,
+      "orphan": false
+    }
+  ]
+}

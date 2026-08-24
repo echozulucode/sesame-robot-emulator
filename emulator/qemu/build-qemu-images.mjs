@@ -15,15 +15,20 @@
  * Three images are produced:
  *   distro-v1-esp32-dio      stock Sesame V1 firmware, DIO bootloader
  *   distro-v3-s3-dio         stock Sesame V3 firmware, DIO bootloader
- *   distro-v1-esp32-nowifi   V1 + R6 telemetry patch + the Wi-Fi elision
+ *   distro-v1-esp32-nowifi   V1 + R6 telemetry patch + the Wi-Fi elision, with
+ *                            `currentCommand = "wave"` injected at boot
  *                            (see make-nowifi-variant.mjs - NOT stock firmware)
+ *   distro-v1-esp32-cli      the same elision WITHOUT the injected movement.
+ *                            What QemuSesameRobot boots: it comes up idle and
+ *                            takes its orders from the firmware's own serial
+ *                            CLI on UART0 (Q2). NOT stock firmware either.
  *
  * Everything happens in gitignored scratch under tools/; firmware/ is untouched
  * and the repo's firmware/build/sketch.yaml is not modified - the extra
  * profiles are injected into the SCRATCH copy of sketch.yaml by this script, so
  * the profile text itself is version-controlled here.
  *
- * Usage: node emulator/qemu/build-qemu-images.mjs [v1|s3|nowifi|all]
+ * Usage: node emulator/qemu/build-qemu-images.mjs [v1|s3|nowifi|cli|all]
  */
 import { execFileSync, spawnSync } from 'node:child_process';
 import crypto from 'node:crypto';
@@ -38,7 +43,7 @@ const opts = parseArgs({
   name: 'build-qemu-images.mjs',
   summary: 'Assemble bootloader + partition table + app into QEMU-bootable flash images.',
   flags: {},
-  positional: ['all|dio|nowifi|s3'],
+  positional: ['all|v1|nowifi|cli|s3'],
 });
 const which = (opts._[0] ?? 'all').toLowerCase();
 
@@ -159,10 +164,25 @@ if (which === 's3' || which === 'all') {
   compile('qemu-s3-dio', 'distro-v3-s3-qemu', 'distro-v3-s3-dio');
 }
 if (which === 'nowifi' || which === 'all') {
-  console.log('\n=== distro-v1-esp32-nowifi (MODIFIED: telemetry + Wi-Fi elided) ===');
+  console.log('\n=== distro-v1-esp32-nowifi (MODIFIED: telemetry + Wi-Fi elided + boot wave) ===');
   const d = stage('qemu-nowifi', 'distro-v1-esp32');
   applyPatch(d, path.join(REPO, 'firmware', 'patches', 'telemetry-instrumentation.patch'));
   addProfile(d, 'distro-v1-esp32-qemu');
   execFileSync(process.execPath, [path.join(REPO, 'emulator', 'qemu', 'make-nowifi-variant.mjs')], { stdio: 'inherit' });
   compile('qemu-nowifi', 'distro-v1-esp32-qemu', 'distro-v1-esp32-nowifi');
+}
+if (which === 'cli' || which === 'all') {
+  // Q2: identical to `nowifi` except that nothing is injected into setup().
+  // The robot boots idle and every movement it performs is one the host asked
+  // for over the serial CLI, which is what makes QemuSesameRobot's event stream
+  // attributable to a command instead of to a boot-time side effect.
+  console.log('\n=== distro-v1-esp32-cli (MODIFIED: telemetry + Wi-Fi elided, serial CLI only) ===');
+  const d = stage('qemu-cli', 'distro-v1-esp32');
+  applyPatch(d, path.join(REPO, 'firmware', 'patches', 'telemetry-instrumentation.patch'));
+  addProfile(d, 'distro-v1-esp32-qemu');
+  execFileSync(process.execPath, [
+    path.join(REPO, 'emulator', 'qemu', 'make-nowifi-variant.mjs'),
+    '--scratch', 'qemu-cli', '--trigger', 'none',
+  ], { stdio: 'inherit' });
+  compile('qemu-cli', 'distro-v1-esp32-qemu', 'distro-v1-esp32-cli');
 }

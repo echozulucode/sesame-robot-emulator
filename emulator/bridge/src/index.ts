@@ -34,6 +34,12 @@ export {
 } from './config.js';
 export { Backoff } from './backoff.js';
 export {
+  decodeControlMessage,
+  isLoopbackPeer,
+  type ControlMessage,
+  type ControlOutcome,
+} from './control.js';
+export {
   WS_ENVELOPE_VERSION,
   isTelemetryEnvelope,
   type EnvelopeOrigin,

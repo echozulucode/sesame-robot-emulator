@@ -1,0 +1,33 @@
+@SESAME hello 1 sesame-fw-s2mini/0.1.0
+Guru Meditation Error: Core  / panic'ed (Cache error). 
+Cache disabled but cached memory region accessed
+
+Core  0 register dump:
+PC      : 0x40089ff6  PS      : 0x00060135  A0      : 0x8018f138  A1      : 0x3ffbd850  
+A2      : 0x00000000  A3      : 0x00060023  A4      : 0x00060020  A5      : 0x3f4291f8  
+A6      : 0x00000001  A7      : 0x00000160  A8      : 0x800e9c76  A9      : 0x3ffbd810  
+A10     : 0x00000000  A11     : 0x00000000  A12     : 0x3ffbe8b4  A13     : 0x00000000  
+A14     : 0x00060020  A15     : 0x3ffbd82f  SAR     : 0x00000019  EXCCAUSE: 0x00000007  
+EXCVADDR: 0x00000000  LBEG    : 0x00000000  LEND    : 0x00000000  LCOUNT  : 0x00000000  
+
+
+Backtrace: 0x40089ff3:0x3ffbd850 0x4018f135:0x3ffbd870 0x4008dd8f:0x3ffbd890 0x4008cd95:0x3ffbd8b0
+
+
+Core  1 register dump:
+PC      : 0x40089ff6  PS      : 0x00060b35  A0      : 0x8018f138  A1      : 0x3ffcc0e0  
+A2      : 0x00000000  A3      : 0x00000000  A4      : 0x00000001  A5      : 0x3ffc0acc  
+A6      : 0x00000003  A7      : 0x00060023  A8      : 0x00060021  A9      : 0x3f4291f8  
+A10     : 0x00000000  A11     : 0x00000000  A12     : 0x007bdec8  A13     : 0x3ffbdec8  
+A14     : 0x003fffff  A15     : 0x00000000  SAR     : 0x00000000  EXCCAUSE: 0x00000007  
+EXCVADDR: 0x00000000  LBEG    : 0x00000000  LEND    : 0x00000000  LCOUNT  : 0x00000000  
+
+
+Backtrace: 0x40089ff3:0x3ffcc0e0 0x4018f135:0x3ffcc100 0x4008dd8f:0x3ffcc120 0x4008cd95:0x3ffcc140
+
+
+
+
+ELF file SHA256: d2f43c750
+
+Adding SPI flash device

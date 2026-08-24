@@ -35,6 +35,16 @@ export interface WsHubOptions {
   /** Absolute path to serve statically, or null for WebSocket only. */
   readonly staticDir: string | null;
   readonly onClientCount?: (count: number) => void;
+  /**
+   * Host -> device control, **off unless this is provided**.
+   *
+   * Omit it and every client message is discarded exactly as it was in v1 —
+   * see `control.ts` for why that default is deliberate and why widening it is
+   * an explicit act. The hub does no policy of its own beyond handing over the
+   * peer address; the decision lives in one pure function so it can be tested
+   * without a socket.
+   */
+  readonly onControl?: (raw: string, remoteAddress: string | undefined) => void;
 }
 
 export class WsHub {
@@ -49,7 +59,7 @@ export class WsHub {
     this.#http = http.createServer((req, res) => this.#serveStatic(req, res));
     this.#wss = new WebSocketServer({ server: this.#http, path: '/telemetry' });
 
-    this.#wss.on('connection', (socket) => {
+    this.#wss.on('connection', (socket, request) => {
       this.#clients.add(socket);
       // Backlog first, then live. Both go through the same send path so a client
       // cannot tell them apart by anything except `tHostMs`.
@@ -65,9 +75,17 @@ export class WsHub {
         this.options.onClientCount?.(this.#clients.size);
       });
       socket.on('error', () => socket.terminate());
-      // v1 is device -> host only. Anything a client sends is discarded rather
-      // than interpreted: this port must not become an accidental control API.
-      socket.on('message', () => undefined);
+      // v1 was device -> host only and this discarded everything, on purpose:
+      // the telemetry port has no authentication and must not become an
+      // accidental control API. v2 gives the wire a host -> device direction,
+      // and that is still not a reason to change the DEFAULT — so the discard
+      // is exactly what happens unless a caller opted in with `onControl`.
+      const onControl = this.options.onControl;
+      const remoteAddress = request.socket.remoteAddress;
+      socket.on('message', (data) => {
+        if (onControl === undefined) return;
+        onControl(typeof data === 'string' ? data : data.toString(), remoteAddress);
+      });
     });
   }
 

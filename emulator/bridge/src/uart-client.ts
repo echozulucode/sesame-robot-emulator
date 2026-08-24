@@ -49,6 +49,25 @@ export class UartClient {
     return this.#connected;
   }
 
+  /**
+   * Write bytes back to the device — protocol v2's host -> device direction.
+   *
+   * v1 was device -> host only, and this client had no send path at all. It has
+   * one now because the firmware's serial console lives on the same UART0 the
+   * telemetry leaves by, so "the other direction" needs no second transport and
+   * no second socket: it is the same TCP connection, written to.
+   *
+   * Returns false when there is nothing connected. Deliberately not an error
+   * and not a queue: a command issued while the emulator is down is a command
+   * the robot never heard, and buffering it to deliver on reconnect would
+   * silently run a movement minutes after someone asked for it.
+   */
+  write(data: string | Uint8Array): boolean {
+    const socket = this.#socket;
+    if (socket === null || !this.#connected) return false;
+    return socket.write(data);
+  }
+
   start(): void {
     this.#stopped = false;
     this.#connect();

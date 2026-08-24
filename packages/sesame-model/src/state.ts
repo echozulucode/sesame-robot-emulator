@@ -9,8 +9,33 @@
  */
 import type { JointName } from './joints.js';
 
-/** Which backend produced this state. */
-export type RobotMode = 'real' | 'simulated' | 'renode';
+/**
+ * Which backend produced this state.
+ *
+ * `'qemu'` was added in Phase 1 (Q2) for `QemuSesameRobot`. It is not a
+ * synonym for `'renode'`: the two emulators model different things, reach
+ * different depths into the firmware, and — the part that matters to a reader
+ * of a state object — fail in different ways. Reusing `'renode'` for a QEMU run
+ * would have been the only alternative available at the time and it would have
+ * been false.
+ *
+ * Note what is still absent: there is no `'emulated'` catch-all. A consumer
+ * that wants "is this real silicon" should ask that question of the telemetry
+ * `origin`, which carries the board and the elided subsystems too; `mode` names
+ * the backend, and naming it precisely is the point.
+ */
+export type RobotMode = 'real' | 'simulated' | 'renode' | 'qemu';
+
+/**
+ * Every {@link RobotMode}, so a validator does not have to transcribe the union
+ * and then rot when it grows. Exactly what happened once already.
+ */
+export const ROBOT_MODES = ['real', 'simulated', 'renode', 'qemu'] as const;
+
+/** Narrowing guard for untrusted input. */
+export function isRobotMode(value: unknown): value is RobotMode {
+  return typeof value === 'string' && (ROBOT_MODES as readonly string[]).includes(value);
+}
 
 /**
  * Per-joint state.

@@ -39,7 +39,12 @@
  */
 import assert from 'node:assert/strict';
 
-import { JOINT_ORDER, type JointName, type RobotState } from '@sesame-lab/sesame-model';
+import {
+  JOINT_ORDER,
+  ROBOT_MODES,
+  type JointName,
+  type RobotState,
+} from '@sesame-lab/sesame-model';
 import type { SesameTelemetry, ServoTargetEvent } from '@sesame-lab/sesame-protocol';
 import type { SesameRobot } from '@sesame-lab/sesame-sim';
 
@@ -202,8 +207,14 @@ function indexOfWriteRun(
 }
 
 function assertCanonicalRobotState(state: RobotState): void {
+  // Checked against the union itself rather than against a copy of it. The
+  // copy that used to live here read `['real', 'simulated', 'renode']` and went
+  // stale the moment `RobotMode` gained `'qemu'` for `QemuSesameRobot` — at
+  // which point the case was rejecting a value the type permits, which is a
+  // different assertion from the one it claims to make. The requirement is
+  // unchanged: `mode` must be a `RobotMode`.
   assert.ok(
-    ['real', 'simulated', 'renode'].includes(state.mode),
+    (ROBOT_MODES as readonly string[]).includes(state.mode),
     `mode must be a RobotMode, got ${String(state.mode)}`,
   );
   for (const joint of JOINT_ORDER) {

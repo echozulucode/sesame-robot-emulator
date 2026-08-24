@@ -30,6 +30,37 @@
  */
 
 export {
+  BARRIER_COMMAND,
+  BARRIER_MARKER,
+  CLI_ACK_PREFIXES,
+  CLI_BRANCHES,
+  CLI_BUFFER_BYTES,
+  CLI_MOVEMENT_WORDS,
+  CLI_TERMINATOR,
+  COMMAND_CHANNEL,
+  CommandEncodeError,
+  MAX_CLI_LINE_BYTES,
+  SPEC_VERSION,
+  classifyCliLine,
+  encodeCommand,
+  safeCliToken,
+  type CliBranch,
+  type CommandEncodeErrorCode,
+  type EncodedCommand,
+  type SesameCommand,
+} from './commands.js';
+
+export {
+  ORIGIN_KINDS,
+  UNKNOWN_ORIGIN,
+  describeOrigin,
+  isOriginKind,
+  isPhysicallyObserved,
+  type OriginKind,
+  type TelemetryOrigin,
+} from './origin.js';
+
+export {
   isCoreTelemetry,
   isProvenance,
   LOG_CHANNELS,

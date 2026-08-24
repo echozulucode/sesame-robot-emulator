@@ -17,8 +17,14 @@
  *    `envelope.ts` for why.
  */
 import path from 'node:path';
-import { SesameTelemetryParser, type LogEvent, type SesameTelemetry } from '@sesame-lab/sesame-protocol';
+import {
+  CLI_TERMINATOR,
+  SesameTelemetryParser,
+  type LogEvent,
+  type SesameTelemetry,
+} from '@sesame-lab/sesame-protocol';
 import type { BridgeConfig } from './config.js';
+import { decodeControlMessage } from './control.js';
 import { WS_ENVELOPE_VERSION, type EnvelopeOrigin, type TelemetryEnvelope } from './envelope.js';
 import { UartClient } from './uart-client.js';
 import { WsHub } from './ws-hub.js';
@@ -79,6 +85,11 @@ export class SesameBridge {
       bufferSize: cfg.bufferSize,
       staticDir: cfg.serveViewer ? path.resolve(cfg.viewerDir) : null,
       onClientCount: (count) => this.#lifecycle(`${count} viewer client${count === 1 ? '' : 's'} connected`),
+      // Absent unless the operator asked for it, which is what keeps the v1
+      // discard as the default. See control.ts.
+      ...(cfg.allowControl
+        ? { onControl: (raw: string, from: string | undefined) => this.#control(raw, from) }
+        : {}),
     });
     this.#hub = hub;
     const wsPort = await hub.listen();
@@ -162,6 +173,31 @@ export class SesameBridge {
     await this.#hub?.close();
     this.#hub = null;
     this.#started = false;
+  }
+
+  /**
+   * One host -> device control message, from a WebSocket client.
+   *
+   * Announced on the telemetry stream either way. A command that moves a robot
+   * and a command that was refused are both facts about this session, and
+   * putting them in the same ordered stream as the movement is what makes the
+   * causal chain readable after the fact — for a learner watching "See the
+   * Signal", and for anyone asking why the robot just moved.
+   */
+  #control(raw: string, remoteAddress: string | undefined): void {
+    const outcome = decodeControlMessage(raw, remoteAddress);
+    if (!outcome.ok) {
+      this.#lifecycle(outcome.reason);
+      return;
+    }
+    const line = outcome.encoded.line;
+    const sent = this.#uart?.write(`${line}${CLI_TERMINATOR}`) ?? false;
+    this.#lifecycle(
+      sent
+        ? `control -> uart: ${JSON.stringify(line)} (branch ${outcome.encoded.branch}` +
+            `${outcome.encoded.derived ? ', derived' : ''})`
+        : `control dropped, no uart connection: ${JSON.stringify(line)}`,
+    );
   }
 
   #ingest(chunk: Buffer): void {

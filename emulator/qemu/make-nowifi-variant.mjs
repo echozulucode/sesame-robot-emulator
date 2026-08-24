@@ -28,9 +28,25 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { parseArgs } from './args.mjs';
 
 const REPO = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', '..');
-const SKETCH = path.join(REPO, 'tools', 'arduino-data', 'scratch', 'qemu-nowifi',
+// Q2: the scratch directory and the boot-time movement trigger are flags now.
+//
+// `--trigger none` is what QemuSesameRobot boots. Q1 injected
+// `currentCommand = "wave"` because nothing could ask the robot to move; Q2
+// drives the firmware's OWN serial CLI over the same UART0 the telemetry
+// leaves by, so a robot that waves the instant it powers on stopped being a
+// feature and became 29 servo events of noise in front of every host command.
+const opts = parseArgs({
+  name: 'make-nowifi-variant.mjs',
+  summary: 'Elide Wi-Fi from a staged scratch sketch so it can boot under QEMU.',
+  flags: {
+    scratch: { describe: 'scratch dir under tools/arduino-data/scratch', default: 'qemu-nowifi' },
+    trigger: { describe: 'command word injected at the end of setup(), or "none"', default: 'wave' },
+  },
+});
+const SKETCH = path.join(REPO, 'tools', 'arduino-data', 'scratch', String(opts.scratch),
   'sesame-firmware-main', 'sesame-firmware-main.ino');
 
 const src = fs.readFileSync(SKETCH, 'utf8');
@@ -91,9 +107,15 @@ for (const target of commentOut) {
 const endIdx = lines.findIndex((l) => l.trim() === 'Serial.println(F("HTTP server & Captive Portal started."));');
 if (endIdx < 1) throw new Error('could not find the end-of-setup banner');
 if (lines[endIdx - 1].trim() !== '') throw new Error(`expected a blank line at ${endIdx}, got: ${lines[endIdx - 1]}`);
-lines[endIdx - 1] = '  currentCommand = "wave"; // [Q1-NOWIFI] no HTTP server exists, so drive one movement directly';
+const trigger = String(opts.trigger);
+if (trigger !== 'none') {
+  lines[endIdx - 1] = `  currentCommand = "${trigger}"; // [Q1-NOWIFI] no HTTP server exists, so drive one movement directly`;
+}
 
 fs.writeFileSync(SKETCH, lines.join(eol));
+console.log(`[q1] scratch ${opts.scratch}`);
 console.log(`[q1] commented out ${changed.length} lines: ${changed.join(', ')}`);
-console.log(`[q1] injected movement trigger at line ${endIdx}`);
+console.log(trigger === 'none'
+  ? '[q2] no movement trigger injected - the serial CLI on UART0 is the command channel'
+  : `[q1] injected movement trigger "${trigger}" at line ${endIdx}`);
 console.log(`[q1] total lines ${lines.length} (unchanged count: ${lines.length === src.split(/\r?\n/).length})`);

@@ -30,6 +30,8 @@ export {
   type RobotMode,
   type RobotState,
   type SesameCapabilities,
+  ROBOT_MODES,
+  isRobotMode,
 } from './state.js';
 
 export {

@@ -42,6 +42,7 @@ import {
   type UnknownReason,
 } from './events.js';
 import { OLED_ENCODINGS, OLED_HEIGHT, OLED_WIDTH, isValidOledPayload } from './oled.js';
+import type { TelemetryOrigin } from './origin.js';
 
 /** The line prefix that marks a telemetry line. Chosen to be improbable in log text. */
 export const SENTINEL = '@SESAME';
@@ -93,6 +94,17 @@ export interface TelemetryParseOptions {
    */
   readonly defaultProvenance?: Provenance;
 
+  /**
+   * Origin stamped onto every event this parser produces.
+   *
+   * The v2 counterpart of {@link TelemetryParseOptions.defaultProvenance}, and
+   * a deployment decision in exactly the same way: a QEMU bridge must set
+   * `{ kind: 'emulator', board: 'distro-v1-esp32', ... }` or its events are
+   * indistinguishable from hardware measurements. There is no wire tag for it
+   * and no way for the emitter to override it. Default: absent.
+   */
+  readonly defaultOrigin?: TelemetryOrigin;
+
   /** First `seq` this parser hands out. Default 0. */
   readonly startSeq?: number;
 
@@ -135,6 +147,7 @@ interface FaceIndexEntry {
 export interface ResolvedParseOptions {
   readonly maxLineBytes: number;
   readonly defaultProvenance: Provenance;
+  readonly defaultOrigin: TelemetryOrigin | undefined;
   readonly startSeq: number;
   readonly faceIndex: ReadonlyMap<string, FaceIndexEntry> | null;
   readonly faceNameSet: ReadonlySet<string> | null;
@@ -168,6 +181,7 @@ export function resolveParseOptions(options: TelemetryParseOptions = {}): Resolv
   return {
     maxLineBytes: options.maxLineBytes ?? 65536,
     defaultProvenance: options.defaultProvenance ?? 'observed',
+    defaultOrigin: options.defaultOrigin,
     startSeq: options.startSeq ?? 0,
     faceIndex,
     faceNameSet,
@@ -225,6 +239,7 @@ interface Tags {
 interface Common {
   readonly seq: number;
   readonly provenance: Provenance;
+  readonly origin?: TelemetryOrigin;
   readonly simTimeUs?: number;
   readonly traceId?: string;
   readonly warnings?: readonly TelemetryWarning[];
@@ -250,6 +265,7 @@ function common(
   return {
     seq,
     provenance: tags.provenance ?? options.defaultProvenance,
+    ...(options.defaultOrigin === undefined ? {} : { origin: options.defaultOrigin }),
     ...(tags.simTimeUs === undefined ? {} : { simTimeUs: tags.simTimeUs }),
     ...(tags.traceId === undefined ? {} : { traceId: tags.traceId }),
     ...(warnings.length === 0 ? {} : { warnings }),
@@ -334,6 +350,12 @@ function pushPlainText(
     type: 'log',
     seq: state.nextSeq++,
     provenance: options.defaultProvenance,
+    // Plain boot logging comes off the same wire as the telemetry and must
+    // carry the same origin. This path does not go through `common()`, which
+    // is exactly how it ended up as the one event kind with no origin at all —
+    // caught by `lifecycle.test.ts` asserting that EVERY event has one, rather
+    // than sampling the interesting kinds.
+    ...(options.defaultOrigin === undefined ? {} : { origin: options.defaultOrigin }),
     channel: options.plainTextChannel,
     text: trimmed,
   });

@@ -92,6 +92,9 @@ docs:
   - file: docs/findings/Q1-qemu-spike.md
     type: findings
     status: complete
+  - file: docs/findings/Q2-qemu-backend.md
+    type: findings
+    status: complete
   - file: docs/findings/V2-gltf-pipeline.md
     type: findings
     status: complete
@@ -110,5 +113,8 @@ docs:
 
   # Interface specification
   - file: docs/protocol/sesame-telemetry-v1.md
+    type: specification
+    status: active
+  - file: docs/protocol/sesame-telemetry-v2.md
     type: specification
     status: active

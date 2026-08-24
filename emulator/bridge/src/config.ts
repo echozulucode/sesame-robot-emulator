@@ -59,6 +59,16 @@ export interface BridgeConfig {
   readonly serveViewer: boolean;
   /** Directory served when `serveViewer` is on. */
   readonly viewerDir: string;
+  /**
+   * Accept host -> device commands from WebSocket clients.
+   *
+   * **Off by default, and loopback-only when on.** The telemetry port has no
+   * authentication, so turning it into a control API is an explicit act with a
+   * warning, never a side effect of the protocol gaining a second direction.
+   * See `control.ts` for the full reasoning and the three properties that are
+   * enforced rather than assumed.
+   */
+  readonly allowControl: boolean;
   /** Print lifecycle lines to stderr. Off inside tests. */
   readonly verbose: boolean;
 }
@@ -86,6 +96,7 @@ export function defaultConfig(overrides: Partial<BridgeConfig> = {}): BridgeConf
     replay: null,
     serveViewer: false,
     viewerDir: 'debug-viewer',
+    allowControl: false,
     verbose: false,
     ...overrides,
   };
@@ -127,6 +138,13 @@ Semantics:
                          Defaults to 'observed' for a live socket and 'simulated'
                          when --replay is used, because a replayed stream did not
                          happen on any robot.
+
+Control (protocol v2, host -> device):
+  --allow-control        Accept {"v":2,"type":"command","command":{...}} messages
+                         from WebSocket clients and write the encoded serial-CLI
+                         line to the UART. OFF by default; loopback peers only;
+                         refused together with --allow-remote. Without it, every
+                         client message is discarded, as in v1.
 
 Other:
   --allow-remote         Bind to 0.0.0.0 instead of ${LOOPBACK}. Read the warning
@@ -173,6 +191,7 @@ export function parseArgs(argv: readonly string[]): BridgeConfig | 'help' {
       case '--serve-viewer': out.serveViewer = true; break;
       case '--viewer-dir': out.viewerDir = need(i, a); i++; break;
       case '--allow-remote': allowRemote = true; break;
+      case '--allow-control': out.allowControl = true; break;
       case '--quiet': quiet = true; break;
       case '--provenance': {
         const p = need(i, a) as Provenance;
@@ -186,6 +205,17 @@ export function parseArgs(argv: readonly string[]): BridgeConfig | 'help' {
 
   if (allowRemote) {
     out.wsHost = '0.0.0.0';
+  }
+
+  // Refused as a combination, not merely warned about. Every control message is
+  // re-checked against its peer address anyway, so this would be belt and
+  // braces — but an operator who asked for both has misunderstood what one of
+  // them does, and the useful moment to say so is now.
+  if (allowRemote && out.allowControl === true) {
+    throw new ConfigError(
+      '--allow-control cannot be combined with --allow-remote. The control channel is ' +
+        'unauthenticated; it is loopback-only by construction.',
+    );
   }
 
   return defaultConfig({

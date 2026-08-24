@@ -18,6 +18,8 @@
  */
 import type { JointName } from '@sesame-lab/sesame-model';
 
+import type { TelemetryOrigin } from './origin.js';
+
 /**
  * Where a telemetry event came from, epistemically.
  *
@@ -118,6 +120,23 @@ export interface TelemetryEventBase {
    * operation's path through the architecture diagram.
    */
   readonly traceId?: string;
+
+  /**
+   * What actually observed this, when the producer knows.
+   *
+   * Orthogonal to {@link Provenance}, and added in spec v2 for one reason:
+   * `observed` on its own cannot tell an emulator apart from real silicon, and
+   * v1's own definition of the tag lists both. A UI that draws a servo angle
+   * because the event says `observed` will draw an emulated one exactly as
+   * confidently as a physical one.
+   *
+   * Not a wire field. Stamped by whoever owns the transport — the firmware has
+   * no way to know it is running under QEMU and must not be asked to assert
+   * that it is not. Absent means {@link UNKNOWN_ORIGIN}: treat as *not known to
+   * be physical*, never as physical by default. `isPhysicallyObserved()` is the
+   * predicate to branch on.
+   */
+  readonly origin?: TelemetryOrigin;
 
   /** Present and non-empty only when the parser found something suspect. */
   readonly warnings?: readonly TelemetryWarning[];

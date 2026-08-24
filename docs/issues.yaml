@@ -249,17 +249,56 @@ issues:
     trace_link: "emulator/qemu/run-bridge-demo.mjs; emulator/qemu/logs/bridge-demo.qemu.log; docs/findings/Q1-qemu-spike.md"
     status: open
     next_action: |
-      Re-running succeeds, so this is an annoyance rather than a blocker for evaluation.
-      Before adopting QEMU as a supported backend, characterise it: suspects are a race
-      between QEMU's UART TCP server coming up and the fixed 1500 ms sleep before the bridge
-      attaches, and cache-init timing in the DIO bootloader path. Add snapshot=on to the
-      -drive argument regardless - Q1 flagged that if=mtd is read-write, and the demo script
-      does not apply the fix Q1 itself recommended.
-    resolution: null
+      Nothing further is available from this side. A real fix means correcting QEMU's ESP32
+      cache/DPORT model so that spi_flash_disable_interrupts_caches_and_other_cpu and its
+      inverse are tracked per core - upstream work on espressif/qemu. If that lands, drop the
+      retry loop in packages/sesame-qemu/src/session.ts and re-run
+      `node emulator/qemu/measure-connect.mjs --runs 25 --attempts 1`, which is the
+      retry-disabled measurement.
+    resolution: |
+      Q2 characterised it properly and could not fix it; connect() now retries past it.
+      Measured, not estimated (docs/findings/Q2-qemu-backend.md section 1):
+
+      ROOT CAUSE. Panic backtraces resolved with xtensa-esp32-elf-addr2line put core 0 in
+      cache_ll_l1_enable_bus <- cache_hal_resume <- spi_flash_restore_cache <-
+      spi_flash_enable_interrupts_caches_and_other_cpu <- esp_flash_read <-
+      nvs::Page::load <- nvs_flash_init <- initArduino, with core 1 parked in
+      spi_flash_op_block_func on the IPC task. That is the standard ESP-IDF dual-core
+      protocol for touching flash; QEMU does not model the per-core cache enable/disable
+      state through it. A second signature (both cores faulting in the FreeRTOS idle task)
+      and a third (core 1 in mask ROM at call_start_cpu1) are the same fault seen later or
+      earlier.
+
+      BEFORE: 8/20 cache errors on Q1's exact configuration; 30/107 (28%) pooled over every
+      configuration measured. The original "1 in 5" undercounted because 2 of 8 failures
+      self-recover via SW_CPU_RESET and were being scored as passes. The rate is also bursty:
+      the retry-disabled control arm gave 2 failures in 4 on one sitting and 0 in 10 twenty
+      minutes later, so an i.i.d. model of it is optimistic.
+
+      RULED OUT, each measured: snapshot=on (6/20 vs 8/20 - no effect on the rate, but added
+      anyway, since without it the guest's NVS and coredump writes mutate the image file);
+      the UART-attach race (the backtraces contain no UART code, and the client now
+      poll-connects at ~66 ms instead of sleeping 1500 ms, which is a detection improvement
+      not a fix); host CPU parallelism (pinned to one core it still panics, with a new
+      signature). Two QEMU knobs that would serialise the cores make the machine stop booting
+      entirely: -accel tcg,thread=single (20/20 runs, zero UART output) and -icount shift=0
+      (no ROM banner at all). -smp 1 likewise.
+
+      AFTER: QemuSesameRobot.connect() verifies boot against the firmware's own end-of-setup()
+      banner, fails an attempt on any panic pattern including a guest SW_CPU_RESET, and
+      relaunches. 25 connects: 0 failures, 37 boot attempts of which 12 failed (32.4% per
+      boot, unchanged), attempts-per-connect 1x19 2x4 3x1 7x1, 0 orphaned qemu processes.
+      The 7-attempt outlier is why the default budget is 12 rather than 8, and is weak
+      evidence that failures cluster rather than being independent.
+
+      This is a MITIGATION, not a fix. The QEMU bug is untouched and anything that boots QEMU
+      without this retry will still see roughly one failure in three.
     lesson: LESSON-20260823-011
     history:
       - timestamp: 2026-08-23T00:00:00Z
         note: "Found during pre-evaluation verification, not by the agent that wrote the script. First attributed to a bogus --help argument; that was wrong - the QEMU args are fully hardcoded with no argv passthrough. A controlled 5-run test showed 1 bare failure, 2 bare successes, and a success WITH --help, isolating the cause to run-to-run nondeterminism."
+      - timestamp: 2026-08-23T00:00:00Z
+        note: "Q2: root-caused to QEMU's ESP32 cache/DPORT model, not to anything in this repo. The measurement lesson repeats the one this issue already taught: the reported 1-in-5 was itself an under-measurement, because a panic that reboots and then works looks like a pass unless you check for the panic. 20+ runs per configuration, and a success criterion that names the failure signature rather than only its symptom."
 
   - id: ISSUE-20260823-023
     title: "3D world appears to jump during motion: the ground plane slides instead of the robot"
@@ -283,7 +322,7 @@ issues:
       does - feet planted, body rising and falling.
     trace_link: "apps/web/src/three/RobotScene.tsx (GroundPlane, WorldFrameReading); apps/web/src/three/rig.ts (groundReferenceMm); scripts/capture-web-screenshots.mjs phase 1; docs/findings/V3-V4-browser-robot.md section 12"
     status: resolved
-    next_action: null
+    next_action: "None - resolved; see resolution."
     resolution: |
       Confirmed the diagnosis in a real browser before changing anything: across nine
       worldFrame() samples through runWavePose, the OrbitControls target and the GLB root drift

@@ -185,7 +185,14 @@ export class SesameTelemetryParser {
     return {
       type: 'log',
       seq: this.#state.nextSeq++,
+      // `observed` because the parser really did count these bytes; the claim
+      // is about the harness, not about the robot. The origin is still the
+      // stream's, so a consumer filtering on it does not lose the one event
+      // that tells it data was dropped.
       provenance: 'observed',
+      ...(this.options.defaultOrigin === undefined
+        ? {}
+        : { origin: this.options.defaultOrigin }),
       channel: 'emulator',
       text:
         `oversized line discarded: ${totalBytes} bytes with no line terminator ` +

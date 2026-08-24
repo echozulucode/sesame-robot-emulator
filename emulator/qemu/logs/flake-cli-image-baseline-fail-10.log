@@ -1,0 +1,43 @@
+ets Jul 29 2019 12:21:46
+
+rst:0x1 (POWERON_RESET),boot:0x12 (SPI_FAST_FLASH_BOOT)
+configsip: 0, SPIWP:0xee
+clk_drv:0x00,q_drv:0x00,d_drv:0x00,cs0_drv:0x00,hd_drv:0x00,wp_drv:0x00
+mode:DIO, clock div:1
+load:0x3fff0030,len:4640
+load:0x40078000,len:15592
+load:0x40080400,len:3164
+entry 0x4008059c
+@SESAME hello 1 sesame-fw-s2mini/0.1.0
+Guru Meditation Error: Core  / panic'ed (Cache error). 
+Cache disabled but cached memory region accessed
+
+Core  0 register dump:
+PC      : 0x40089ff6  PS      : 0x00060835  A0      : 0x8018f12c  A1      : 0x3ffbd850  
+A2      : 0x00000000  A3      : 0x00060023  A4      : 0x00060020  A5      : 0x3f4291f8  
+A6      : 0x00000001  A7      : 0x00000160  A8      : 0x800e9c6a  A9      : 0x3ffbd810  
+A10     : 0x00000000  A11     : 0x00000000  A12     : 0x3ffbe8b4  A13     : 0x00000000  
+A14     : 0x00060020  A15     : 0x3ffbd82f  SAR     : 0x00000019  EXCCAUSE: 0x00000007  
+EXCVADDR: 0x00000000  LBEG    : 0x00000000  LEND    : 0x00000000  LCOUNT  : 0x00000000  
+
+
+Backtrace: 0x40089ff3:0x3ffbd850 0x4018f129:0x3ffbd870 0x4008dd8f:0x3ffbd890 0x4008cd95:0x3ffbd8b0
+
+
+Core  1 register dump:
+PC      : 0x40089ff6  PS      : 0x00060435  A0      : 0x8018f12c  A1      : 0x3ffcc0e0  
+A2      : 0x00000000  A3      : 0x00000000  A4      : 0x00000001  A5      : 0x3ffbad00  
+A6      : 0x40081998  A7      : 0x00000001  A8      : 0x00000000  A9      : 0x00000000  
+A10     : 0x00000000  A11     : 0x00000000  A12     : 0x3ffbad00  A13     : 0x3ffbacd0  
+A14     : 0x00000004  A15     : 0x00000000  SAR     : 0x00000000  EXCCAUSE: 0x00000007  
+EXCVADDR: 0x00000000  LBEG    : 0x00000000  LEND    : 0x00000000  LCOUNT  : 0x00000000  
+
+
+Backtrace: 0x40089ff3:0x3ffcc0e0 0x4018f129:0x3ffcc100 0x4008dd8f:0x3ffcc120 0x4008cd95:0x3ffcc140
+
+
+
+
+ELF file SHA256: 16efcabfd
+
+Adding SPI flash device
