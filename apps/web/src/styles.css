@@ -56,7 +56,7 @@ code,
    * aspect as the only thing that moves, and the harness re-asserts the world
    * frame with the pane mounted anyway.
    */
-  grid-template-rows: minmax(0, 1fr) minmax(0, 380px) auto;
+  grid-template-rows: minmax(0, 1fr) minmax(0, 380px) auto auto;
   height: 100%;
 }
 
@@ -2265,4 +2265,143 @@ ul.tight {
   font-size: 12px;
   margin: 6px 0;
   padding: 5px 8px;
+}
+
+
+/* ================================================================ Lab mode
+ *
+ * A FOURTH grid row. Same argument as the source explorer's and the lesson
+ * runner's: a column has to come out of the viewport's width, and the viewport
+ * is where ISSUE-20260823-023 lived. The panel is a two-line strip until it is
+ * opened, so the cost of Lab existing is a strip.
+ */
+.lab-panel {
+  grid-column: 1 / span 2;
+  grid-row: 4;
+  min-width: 0;
+  min-height: 0;
+  margin: 0 12px 12px;
+  padding: 10px 12px;
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  overflow-y: auto;
+  max-height: 96px;
+}
+
+.lab-panel.is-open {
+  max-height: 420px;
+}
+
+.lab-name {
+  background: var(--panel-2, #10151c);
+  color: inherit;
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  padding: 2px 6px;
+  font: inherit;
+  width: 160px;
+}
+
+.lab-tabs {
+  display: flex;
+  gap: 4px;
+  margin: 8px 0 6px;
+  border-bottom: 1px solid var(--line);
+}
+
+.lab-tab {
+  background: none;
+  border: 1px solid transparent;
+  border-bottom: none;
+  border-radius: 5px 5px 0 0;
+  color: var(--muted, #8b97a6);
+  cursor: pointer;
+  font: inherit;
+  padding: 4px 12px;
+}
+
+.lab-tab.is-active {
+  background: var(--panel-2, #10151c);
+  border-color: var(--line);
+  color: inherit;
+}
+
+.lab-body {
+  display: grid;
+  gap: 10px;
+}
+
+.lab-details > summary {
+  cursor: pointer;
+  color: var(--muted, #8b97a6);
+  font-size: 12px;
+  padding: 4px 0;
+}
+
+.lab-export {
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  padding: 8px 10px;
+}
+
+.lab-export h4 {
+  margin: 0 0 6px;
+  font-size: 13px;
+}
+
+.lab-code {
+  width: 100%;
+  box-sizing: border-box;
+  background: #0b0f14;
+  color: #cfe6dd;
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  padding: 6px 8px;
+  font-size: 11px;
+  line-height: 1.45;
+  resize: vertical;
+  white-space: pre;
+  overflow-x: auto;
+}
+
+.http-freeform {
+  flex: 1 1 220px;
+  min-width: 0;
+  background: var(--panel-2, #10151c);
+  color: inherit;
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  padding: 2px 6px;
+}
+
+/*
+ * The pose table carries eight columns of arithmetic. It scrolls on its own
+ * rather than widening the row, for the ISSUE-20260823-023 reason again.
+ */
+.pose-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 11px;
+  display: block;
+  overflow-x: auto;
+}
+
+.pose-table th {
+  text-align: left;
+  color: var(--muted, #8b97a6);
+  font-weight: 500;
+  padding: 2px 6px;
+  white-space: nowrap;
+}
+
+.pose-table td {
+  padding: 1px 6px;
+  white-space: nowrap;
+  vertical-align: middle;
+}
+
+.pose-table input[type='range'] {
+  width: 120px;
+  vertical-align: middle;
 }

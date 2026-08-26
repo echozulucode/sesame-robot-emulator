@@ -55,6 +55,7 @@ import {
 } from 'react';
 
 import { FaultInjector } from '../editors/FaultInjector.js';
+import { LabModifications } from '../editors/LabModifications.js';
 import { HttpConsole } from '../editors/HttpConsole.js';
 import { PixelEditor } from '../editors/PixelEditor.js';
 import { PwmInspector } from '../editors/PwmInspector.js';
@@ -268,7 +269,7 @@ export function LessonRunner(props: { readonly wiring: LessonWiring }): ReactEle
         onStep={setStepIndex}
         lock={lock}
       />
-      <LabModifications wiring={wiring} />
+      <LessonLabModifications wiring={wiring} />
       {outline ? (
         <OutlineBody lesson={open} locked={lock.locked} />
       ) : (
@@ -322,47 +323,25 @@ export function LessonRunner(props: { readonly wiring: LessonWiring }): ReactEle
 }
 
 /**
- * "Sesame Lab is interfering with this robot right now."
+ * "Sesame Lab is modifying this robot."
  *
- * Subtrim and injected faults are sticky, and they should be: they are state,
- * not a mode. But a `+40` left on R1 in lesson 2 is still there in lesson 4,
- * where `stand` then commands 175° instead of 135° and the pose check fails
- * for a reason that has nothing to do with the step. That is a genuinely
- * confusing five minutes, and the confusion is entirely the lab's fault, not
- * the firmware's.
- *
- * So whenever anything lab-side is modifying the robot, it is named on screen,
- * with the offer to put it back. The same banner covers injected faults, which
- * keeps the "is this robot broken, or did we break it?" question answerable
- * from any step rather than only from the fault catalogue.
+ * The banner itself lives in `src/editors/LabModifications.tsx`, beside the
+ * controls that create the state it names. Lab mode sets far more of that state
+ * than Learn does, and a banner implemented twice would eventually say two
+ * different things about the same robot. Learn passes what it can see: the
+ * runtime's subtrim and injected faults. It does not pass `panelAuthored`,
+ * because the lesson runner has no window onto the panel — that argument is
+ * Lab's, and its absence here is the honest reading rather than a `false`
+ * asserting the panel is clean.
  */
-function LabModifications(props: { readonly wiring: LessonWiring }): ReactElement | null {
+function LessonLabModifications(props: { readonly wiring: LessonWiring }): ReactElement | null {
   const { wiring } = props;
-  const trims = JOINT_ORDER.filter((joint) => wiring.runtime.subtrimDeg[joint] !== 0);
-  const faults = [...wiring.runtime.faults];
-  if (trims.length === 0 && faults.length === 0) return null;
   return (
-    <div className="lesson-labmods" data-testid="lab-modifications">
-      <b>Sesame Lab is modifying this robot.</b>{' '}
-      {trims.length > 0 && (
-        <span>
-          subtrim{' '}
-          {trims
-            .map((joint) => `${joint} ${wiring.runtime.subtrimDeg[joint] > 0 ? '+' : ''}${String(wiring.runtime.subtrimDeg[joint])}°`)
-            .join(', ')}
-          .{' '}
-        </span>
-      )}
-      {faults.length > 0 && <span>injected fault(s): {faults.join(', ')}. </span>}
-      <button
-        type="button"
-        className="linkish"
-        data-testid="lab-modifications-clear"
-        onClick={() => wiring.clearLabModifications()}
-      >
-        put it all back
-      </button>
-    </div>
+    <LabModifications
+      subtrimDeg={wiring.runtime.subtrimDeg}
+      faults={[...wiring.runtime.faults]}
+      onClear={() => wiring.clearLabModifications()}
+    />
   );
 }
 

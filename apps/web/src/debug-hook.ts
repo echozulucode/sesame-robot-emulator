@@ -274,6 +274,52 @@ export interface LessonReading {
   readonly journal: { readonly events: number; readonly actions: number; readonly visits: number };
 }
 
+/**
+ * Lab mode, read off the DOM.
+ *
+ * DOM and not React state, for the same reason `lessons()` is: the claim under
+ * test is that the *rendered* page says these things. Every field here is
+ * either a `data-*` attribute the Lab renders or the literal contents of an
+ * export box, so a harness assertion compares what a person would see against
+ * an artefact it recomputes for itself — never against the Lab's own opinion of
+ * what it is showing.
+ *
+ * `exportedCppRoundTripOk` is the sharpest of them: the Lab decides that value
+ * by parsing its own output, and the harness does NOT trust it — it parses the
+ * `exportedCpp` text independently and compares the pose sequence itself.
+ */
+export interface LabReading {
+  readonly present: boolean;
+  readonly open: boolean;
+  readonly tab: string | null;
+  /** `constrain(angle + subtrim, 0, 180)` per channel, as the table shows it. */
+  readonly poseAdjustedDeg: Readonly<Record<string, number | null>>;
+  readonly poseTicks: Readonly<Record<string, number | null>>;
+  /** The "robot reports" column — the telemetry store's commanded angle. */
+  readonly poseReported: Readonly<Record<string, string | null>>;
+  readonly frameRows: number;
+  readonly exportedCpp: string;
+  readonly exportedCppRoundTripOk: boolean | null;
+  readonly exportedCppWrites: number | null;
+  readonly exportedFace: string;
+  readonly exportedFaceRoundTripOk: boolean | null;
+  readonly routeOptions: readonly string[];
+  readonly httpLog: readonly string[];
+  /** The "Sesame Lab is modifying this robot" banner, or `null` when absent. */
+  readonly modifications: {
+    readonly trims: number;
+    readonly faults: number;
+    readonly panelAuthored: boolean;
+  } | null;
+  readonly savedText: string | null;
+  readonly storageBlocked: boolean | null;
+  /** Bytes under `sesame-lab.lab.v1`, or `null` if storage is unreadable. */
+  readonly storedBytes: number | null;
+  /** Route count in the generated architecture graph, for the harness to compare. */
+  readonly firmwareRouteCount: number;
+  readonly honestyNote: string | null;
+}
+
 export interface SesameDebugApi {
   readonly ready: boolean;
   backendId(): BackendId;
@@ -341,6 +387,8 @@ export interface SesameDebugApi {
   sourceExplorer(): SourceExplorerReading;
   /** Learn mode, read off the DOM. */
   lessons(): LessonReading;
+  /** Lab mode, read off the DOM. */
+  lab(): LabReading;
   /** The trace on screen, in causal order. `null` before any command. */
   trace(): TraceReading | null;
   assetFacts(): AssetFacts | null;
@@ -649,6 +697,83 @@ export function installDebugHook(wiring: DebugHookWiring): () => void {
       };
     },
 
+    lab(): LabReading {
+      const panel = document.querySelector('[data-testid="lab-panel"]');
+      const q = (selector: string): Element | null => panel?.querySelector(selector) ?? null;
+      const attr = (selector: string, name: string): string | null =>
+        q(selector)?.getAttribute(name) ?? null;
+      const textOf = (selector: string): string | null => q(selector)?.textContent?.trim() ?? null;
+      const valueOf = (selector: string): string =>
+        (q(selector) as HTMLTextAreaElement | null)?.value ?? '';
+      const numAttr = (selector: string, name: string): number | null => {
+        const raw = attr(selector, name);
+        if (raw === null) return null;
+        const value = Number(raw);
+        return Number.isFinite(value) ? value : null;
+      };
+
+      const adjusted: Record<string, number | null> = {};
+      const ticks: Record<string, number | null> = {};
+      const reported: Record<string, string | null> = {};
+      for (const joint of JOINT_ORDER) {
+        adjusted[joint] = numAttr(`[data-testid="pose-row-${joint}"]`, 'data-adjusted');
+        ticks[joint] = numAttr(`[data-testid="pose-row-${joint}"]`, 'data-ticks');
+        reported[joint] = textOf(`[data-testid="pose-reported-${joint}"]`);
+      }
+
+      const banner = q('[data-testid="lab-modifications"]');
+      let storedBytes: number | null = null;
+      try {
+        storedBytes = globalThis.localStorage?.getItem('sesame-lab.lab.v1')?.length ?? 0;
+      } catch {
+        storedBytes = null;
+      }
+
+      const roundTripFlag = attr('[data-testid="lab-cpp-roundtrip"]', 'data-ok');
+      const faceFlag = attr('[data-testid="lab-face-roundtrip"]', 'data-ok');
+      const blocked = attr('[data-testid="lab-saved"]', 'data-blocked');
+
+      return {
+        present: panel !== null,
+        open: panel?.getAttribute('data-open') === 'true',
+        tab: panel?.getAttribute('data-tab') ?? null,
+        poseAdjustedDeg: adjusted,
+        poseTicks: ticks,
+        poseReported: reported,
+        frameRows: panel === null ? 0 : panel.querySelectorAll('[data-testid^="sequence-frame-"]').length,
+        exportedCpp: valueOf('[data-testid="lab-cpp-source"]'),
+        exportedCppRoundTripOk: roundTripFlag === null ? null : roundTripFlag === 'true',
+        exportedCppWrites: numAttr('[data-testid="lab-cpp-roundtrip"]', 'data-writes'),
+        exportedFace: valueOf('[data-testid="lab-face-source"]'),
+        exportedFaceRoundTripOk: faceFlag === null ? null : faceFlag === 'true',
+        routeOptions:
+          panel === null
+            ? []
+            : [...panel.querySelectorAll('[data-testid="http-route"] option')].map(
+                (node) => (node as HTMLOptionElement).value,
+              ),
+        httpLog:
+          panel === null
+            ? []
+            : [...panel.querySelectorAll('[data-testid="http-log"] li')].map(
+                (node) => node.textContent?.trim() ?? '',
+              ),
+        modifications:
+          banner === null
+            ? null
+            : {
+                trims: Number(banner.getAttribute('data-trims') ?? '0'),
+                faults: Number(banner.getAttribute('data-faults') ?? '0'),
+                panelAuthored: banner.getAttribute('data-panel-authored') === 'true',
+              },
+        savedText: textOf('[data-testid="lab-saved"]'),
+        storageBlocked: blocked === null ? null : blocked === 'true',
+        storedBytes,
+        firmwareRouteCount: ARCH_NODES.filter((n) => n.kind === 'route').length,
+        honestyNote: textOf('[data-testid="lab-honesty"]'),
+      };
+    },
+
     lessons(): LessonReading {
       const panel = document.querySelector('[data-testid="lesson-runner"]');
       const q = (selector: string): Element | null => panel?.querySelector(selector) ?? null;
@@ -848,6 +973,7 @@ export function installDebugHook(wiring: DebugHookWiring): () => void {
         archGraph: api.archGraph(),
         sourceExplorer: api.sourceExplorer(),
         lessons: api.lessons(),
+        lab: api.lab(),
         trace: api.trace(),
         emulatorFacts: wiring.emulatorFacts(),
         face: wiring.store.face,

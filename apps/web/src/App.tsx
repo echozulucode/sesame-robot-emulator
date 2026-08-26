@@ -56,6 +56,8 @@ import { SERVO_PINS_BY_BOARD } from './generated/architecture-graph.js';
 import type { ModelReading } from './lessons/checks.js';
 import { LessonRuntime, runBootModel } from './lessons/runtime.js';
 import type { LessonWiring } from './lessons/wiring.js';
+import { LabMode } from './lab/LabMode.js';
+import type { LabWiring } from './lab/lab-wiring.js';
 import { LessonRunner } from './ui/LessonRunner.js';
 import {
   EMPTY_SELECTION,
@@ -697,6 +699,31 @@ export function App(): ReactElement {
   const traces = traceStore.traces;
   const shownTrace = traces.find((t) => t.id === shownTraceId) ?? traces[0] ?? null;
 
+  /**
+   * Put every lab-side modification back.
+   *
+   * Three kinds, and the third is Lab mode's: subtrim, injected faults, and an
+   * authored face sitting on the panel where the robot's own would be. The
+   * panel is restored by REDRAWING the face the robot last reported rather
+   * than by blanking it — a blank panel is itself a state no firmware
+   * produces, and `setFace()` early-returns on the same name (TN-013) so
+   * re-requesting it would emit nothing at all.
+   */
+  const clearLabModifications = useCallback((): void => {
+    for (const joint of JOINT_ORDER) setLessonSubtrim(joint, 0);
+    for (const fault of [...lessonRuntime.faults]) lessonRuntime.setFault(fault, false);
+    if (store.panelIsAuthored) {
+      store.repaintReportedFace();
+      oledDirty.current += 1;
+    }
+  }, [lessonRuntime, setLessonSubtrim, store, oledDirty]);
+
+  /** Stable across renders, so the Lab pane subscribes once and not per frame. */
+  const subscribeToLabState = useCallback(
+    (listener: () => void) => lessonRuntime.subscribe(listener),
+    [lessonRuntime],
+  );
+
   const lessonWiring: LessonWiring = {
     runtime: lessonRuntime,
     joints: store.joints,
@@ -714,10 +741,7 @@ export function App(): ReactElement {
     setFace: runFace,
     setSubtrim: setLessonSubtrim,
     setBoard: setLessonBoard,
-    clearLabModifications: () => {
-      for (const joint of JOINT_ORDER) setLessonSubtrim(joint, 0);
-      for (const fault of [...lessonRuntime.faults]) lessonRuntime.setFault(fault, false);
-    },
+    clearLabModifications,
     selectSymbol: selectSymbolFrom,
     followTraceRow: (symbolId) => {
       const symbol = SYMBOL_BY_ID.get(symbolId);
@@ -737,6 +761,42 @@ export function App(): ReactElement {
     sendHttp,
     runBoot,
     pushPixelFrame,
+  };
+
+  /**
+   * Lab mode's wiring.
+   *
+   * The same discipline as `lessonWiring`: the pane sees live readings off the
+   * stores every other pane reads, and everything it can DO is a function from
+   * here. Lab sets far more state than Learn does — eight sliders, subtrim,
+   * faults, an authored panel, arbitrary HTTP — which is exactly why it must
+   * not own any of it.
+   */
+  // One snapshot, not three: this object is rebuilt on every App render and
+  // `snapshot()` allocates.
+  const labSnapshot = lessonRuntime.snapshot();
+  const labWiring: LabWiring = {
+    commandedDeg: Object.fromEntries(
+      JOINT_ORDER.map((joint) => [joint, store.joints[joint].commandedDeg]),
+    ) as Record<JointName, number | null>,
+    subtrimDeg: lessonRuntime.subtrimDeg,
+    faults: lessonRuntime.faults,
+    httpExchanges: labSnapshot.http,
+    bootLog: labSnapshot.bootRuns.at(-1)?.log ?? [],
+    bootHaltedAt: labSnapshot.bootRuns.at(-1)?.haltedAt ?? null,
+    busy,
+    canSetSubtrim: backend instanceof SimBackend,
+    panelAuthored: store.panelIsAuthored,
+    setJoint: runSetJoint,
+    setSubtrim: setLessonSubtrim,
+    setFault: (id, on) => lessonRuntime.setFault(id, on),
+    runBoot,
+    runSequence,
+    sendHttp,
+    pushPixelFrame,
+    clearLabModifications,
+    selectSymbol: selectSymbolFrom,
+    subscribe: subscribeToLabState,
   };
 
   /**
@@ -829,6 +889,14 @@ export function App(): ReactElement {
         with it mounted.
       */}
       <LessonRunner wiring={lessonWiring} />
+
+      {/*
+        Lab mode. A FOURTH row, for the third time and the same reason: a
+        column would have to come out of the viewport's width, and the viewport
+        is where ISSUE-20260823-023 lived. Slim until it is opened, and the
+        harness re-asserts the world frame with it open and a tab selected.
+      */}
+      <LabMode wiring={labWiring} />
 
       <aside className="sidebar">
         {backend !== null && (

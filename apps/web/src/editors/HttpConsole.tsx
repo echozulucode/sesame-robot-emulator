@@ -15,7 +15,7 @@
  * wait. If the request completes after the robot stopped, the step has not been
  * demonstrated and the check says so.
  */
-import { useState, type ReactElement } from 'react';
+import { useState, type ReactElement, type ReactNode } from 'react';
 
 import { HTTP_COMMAND_ROUTE } from '../generated/architecture-graph.js';
 
@@ -34,28 +34,65 @@ export interface HttpConsoleProps {
   readonly defaultMethod?: string;
   readonly defaultBody?: string;
   readonly busy: boolean;
+  /**
+   * Routes to offer. Defaults to the five a lesson step ever names.
+   *
+   * Lab mode passes all ten the firmware registers, read out of the generated
+   * architecture graph rather than typed here, so the list cannot drift from
+   * `hardware/hardware-map.json`.
+   */
+  readonly routes?: readonly string[];
+  /**
+   * Let the learner type a route and a body the picker does not offer.
+   *
+   * Off in Learn, where a step names the route it is about and a free-text box
+   * would just be a way to fail the check. On in Lab, where poking at a route
+   * nobody suggested is the entire point — including the ones that 404.
+   */
+  readonly freeForm?: boolean;
+  /** Extra prose under the console. Lab uses it for ISSUE-20260823-021. */
+  readonly note?: ReactNode;
+  /** Report state changes so the caller can persist what was being poked at. */
+  readonly onDraftChange?: (method: string, route: string, body: string) => void;
 }
 
 const ROUTES = ['/api/status', '/api/command', '/cmd', '/getSettings', '/setSettings'];
 
 export function HttpConsole(props: HttpConsoleProps): ReactElement {
-  const { onSend, exchanges, defaultRoute = '/api/status', defaultMethod = 'GET', defaultBody = '', busy } = props;
+  const {
+    onSend,
+    exchanges,
+    defaultRoute = '/api/status',
+    defaultMethod = 'GET',
+    defaultBody = '',
+    busy,
+    routes = ROUTES,
+    freeForm = false,
+    note = null,
+    onDraftChange,
+  } = props;
   const [route, setRoute] = useState(defaultRoute);
   const [method, setMethod] = useState(defaultMethod);
   const [body, setBody] = useState(defaultBody);
+  const draft = (nextMethod: string, nextRoute: string, nextBody: string): void => {
+    setMethod(nextMethod);
+    setRoute(nextRoute);
+    setBody(nextBody);
+    onDraftChange?.(nextMethod, nextRoute, nextBody);
+  };
 
   return (
     <div className="editor editor-http" data-testid="http-console">
       <div className="editor-row">
-        <select className="lesson-select" data-testid="http-method" value={method} onChange={(e) => setMethod(e.target.value)}>
+        <select className="lesson-select" data-testid="http-method" value={method} onChange={(e) => draft(e.target.value, route, body)}>
           {['GET', 'POST', 'PUT', 'DELETE'].map((m) => (
             <option key={m} value={m}>
               {m}
             </option>
           ))}
         </select>
-        <select className="lesson-select mono" data-testid="http-route" value={route} onChange={(e) => setRoute(e.target.value)}>
-          {[...new Set([defaultRoute, ...ROUTES])].map((r) => (
+        <select className="lesson-select mono" data-testid="http-route" value={route} onChange={(e) => draft(method, e.target.value, body)}>
+          {[...new Set([defaultRoute, ...routes, ...(freeForm ? [route] : [])])].map((r) => (
             <option key={r} value={r}>
               {r}
             </option>
@@ -71,14 +108,27 @@ export function HttpConsole(props: HttpConsoleProps): ReactElement {
           send
         </button>
       </div>
-      {method !== 'GET' && (
+      {freeForm && (
+        <div className="editor-row">
+          <span className="muted small">or type one:</span>
+          <input
+            className="mono http-freeform"
+            type="text"
+            value={route}
+            data-testid="http-route-free"
+            placeholder="/cmd?pose=wave"
+            onChange={(e) => draft(method, e.target.value, body)}
+          />
+        </div>
+      )}
+      {(freeForm || method !== 'GET') && (
         <textarea
           className="mono http-body"
           rows={2}
           value={body}
           data-testid="http-body"
           placeholder={`{"command":"wave"}`}
-          onChange={(e) => setBody(e.target.value)}
+          onChange={(e) => draft(method, route, e.target.value)}
         />
       )}
       <p className="note muted small">
@@ -88,6 +138,7 @@ export function HttpConsole(props: HttpConsoleProps): ReactElement {
         page&rsquo;s own origin &mdash; if nothing is serving the robot&rsquo;s routes you will see
         the real failure, not a pretend reply.
       </p>
+      {note}
       <ol className="http-log" data-testid="http-log">
         {exchanges.slice(-6).map((exchange, index) => (
           <li key={index} className="mono small">

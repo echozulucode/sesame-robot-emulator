@@ -156,6 +156,17 @@ export class TelemetryStore {
 
   #face: FaceView | null = null;
   #emptyFace: EmptyFaceEvent | null = null;
+  /**
+   * True while the pixels on the panel are ones a PERSON drew in Sesame Lab.
+   *
+   * `oledSource.kind` cannot answer this on its own: a host-side render of one
+   * of the firmware's own face bitmaps is also `rendered`. The Lab's "Sesame
+   * Lab is modifying this robot" banner has to distinguish the two, because
+   * one of them is the robot's face and the other is ours sitting on top of it.
+   * Cleared by every other path that writes the panel, so the banner stops
+   * claiming it the moment the robot repaints.
+   */
+  #panelAuthored = false;
   #panel = new VirtualOledPanel();
   #oledSource: OledSource = {
     kind: 'power-on',
@@ -200,6 +211,11 @@ export class TelemetryStore {
 
   get oledSource(): OledSource {
     return this.#oledSource;
+  }
+
+  /** Are the pixels on the panel ones Sesame Lab drew, rather than the robot's? */
+  get panelIsAuthored(): boolean {
+    return this.#panelAuthored;
   }
 
   get provenanceCounts(): Readonly<Record<Provenance, number>> {
@@ -278,6 +294,7 @@ export class TelemetryStore {
     this.#joints = Object.fromEntries(JOINT_ORDER.map((j) => [j, blankJoint(j)])) as Record<JointName, JointView>;
     this.#face = null;
     this.#emptyFace = null;
+    this.#panelAuthored = false;
     this.#panel.reset();
     this.#oledSource = {
       kind: 'power-on',
@@ -377,6 +394,37 @@ export class TelemetryStore {
   }
 
   /**
+   * Undo an authored frame by redrawing the face the ROBOT last reported.
+   *
+   * The honest revert for "Sesame Lab drew on the panel" is not to blank it —
+   * a blank panel is itself a state no firmware produced — but to put the
+   * robot's own pixels back, through the same host-side render path they
+   * arrived by. Returns false when there is nothing to restore (no face event
+   * has been seen, or the face has no bitmap), which is a fact the banner
+   * shows rather than a failure it swallows.
+   */
+  repaintReportedFace(): boolean {
+    const face = this.#face;
+    if (face === null) return false;
+    const rendered = renderFace(face.name, face.frame);
+    if (rendered === null) return false;
+    this.#panelAuthored = false;
+    this.#emptyFace = null;
+    this.#panel.write(rendered.gddram);
+    this.#oledSource = {
+      kind: 'rendered',
+      pixelProvenance: 'inferred',
+      triggerProvenance: face.provenance,
+      triggerOrigin: face.origin,
+      detail:
+        `Redrawn host-side from epd_bitmap_${face.name}${face.frame === 0 ? '' : `_${String(face.frame)}`} ` +
+        'after Sesame Lab’s authored frame was cleared. No backend transmitted these bytes.',
+    };
+    this.#bump();
+    return true;
+  }
+
+  /**
    * Push a frame a *person* authored onto the panel.
    *
    * The pixel editor's output goes through `renderAuthoredBitmap()` — the same
@@ -389,6 +437,7 @@ export class TelemetryStore {
   writeAuthoredFrame(gddram: Uint8Array): void {
     this.#panel.write(gddram);
     this.#emptyFace = null;
+    this.#panelAuthored = true;
     this.#oledSource = {
       kind: 'rendered',
       pixelProvenance: 'inferred',
@@ -473,6 +522,7 @@ export class TelemetryStore {
     }
 
     this.#emptyFace = null;
+    this.#panelAuthored = false;
     this.#panel.write(rendered.gddram);
     this.#oledSource = {
       kind: 'rendered',
@@ -499,6 +549,7 @@ export class TelemetryStore {
       return;
     }
     this.#emptyFace = null;
+    this.#panelAuthored = false;
     this.#oledSource = {
       kind: 'wire',
       pixelProvenance: event.provenance,

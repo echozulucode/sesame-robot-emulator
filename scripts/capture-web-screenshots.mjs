@@ -84,6 +84,21 @@
  *      at all. A subtly wrong source view is worse than an honest error, so the
  *      branch is exercised rather than merely written.
  *
+ *  10. LEARN MODE — the lesson runner PLAYS lessons rather than rendering them:
+ *      real clicks and real `input` events drive the controls, and each success
+ *      condition is asserted to flip to `passed` only when the underlying state
+ *      is right. Several checks are driven to `failed` FIRST, because a check
+ *      that has never failed could be a constant.
+ *  11. LAB MODE — the unrestricted surface, under `lab-host --backend sim` so
+ *      the sliders, the console and the 3D scene all talk to ONE robot behind
+ *      the firmware's own routes. Nothing here has a check to wait on, so every
+ *      claim is asserted against something outside the Lab: the played
+ *      animation is read off `Object3D.quaternion`, the exported C++ is parsed
+ *      by a SECOND parser written in this file, the drawn face is decoded out
+ *      of the SSD1306's page-ordered GDDRAM pixel by pixel, `/api/status` is
+ *      parsed to prove our adapter does not reproduce ISSUE-20260823-021, and
+ *      the project is checked across a real `location.reload()`.
+ *
  * Usage: node scripts/capture-web-screenshots.mjs [--out <dir>] [--skip-qemu]
  * Exit 0 pass · 1 fail · 3 no browser found.
  */
@@ -1165,12 +1180,26 @@ await waitFor(
   // moments and comparing them would be a race, not a check. What must hold at
   // every moment is that the list a learner is looking at reads top to bottom
   // in causal order.
-  const domRows = await page.evaluate(
-    `Array.from(document.querySelectorAll('[data-trace-row]')).map((n) => ({
+  //
+  // Polled rather than read once. The store is ready — the `waitFor` above
+  // proved it — but the trace PANEL repaints on its own 260 ms tick, so a
+  // single read can legitimately catch a DOM that is one tick behind the store
+  // and report a seven-rung ladder for an eight-rung trace. That is a race in
+  // the reading, not a defect in the app, and it surfaces whenever anything
+  // else on the page makes a repaint arrive a little later. The loop keeps the
+  // LAST value, so a genuine missing layer still fails with the same message.
+  const DOM_ROWS_EXPR = `Array.from(document.querySelectorAll('[data-trace-row]')).map((n) => ({
        layer: n.getAttribute('data-layer'),
        rank: Number(n.getAttribute('data-rank')),
-     }))`,
-  );
+     }))`;
+  let domRows = [];
+  const domDeadline = Date.now() + 8000;
+  for (;;) {
+    domRows = await page.evaluate(DOM_ROWS_EXPR);
+    if (new Set(domRows.map((r) => r.layer)).size >= LADDER.length) break;
+    if (Date.now() >= domDeadline) break;
+    await sleep(120);
+  }
   check(
     domRows.length >= LADDER.length,
     `the trace panel rendered ${domRows.length} rows for an eight-layer ladder`,
@@ -3716,6 +3745,858 @@ if (SKIP_QEMU) {
     labPage?.close();
     try {
       lab?.proc.kill();
+    } catch {
+      /* gone */
+    }
+    await sleep(600);
+  }
+}
+
+// ===========================================================================
+// PHASE 11: LAB MODE — the unrestricted surface
+// ===========================================================================
+//
+// Learn mode is guided and every step of it ends on a check. Lab mode has no
+// checks at all, which removes the thing phase 10 leaned on: there is no
+// `checkStatus` to wait for and no evaluator whose verdict can be asserted. So
+// every claim here is asserted against something OUTSIDE the Lab's own opinion
+// of itself:
+//
+//   * the animation reaches its angles — read off `Object3D.quaternion`, not
+//     off the document that was authored;
+//   * the exported C++ round-trips — parsed by a SECOND parser written in this
+//     file, not by the one the Lab shows a verdict from;
+//   * the drawn face is on the panel — decoded out of the SSD1306's own
+//     page-ordered GDDRAM, pixel by pixel, not read back out of the editor;
+//   * the API console's reply is the real one — a real status from a real
+//     route, and `/api/status` is parsed to prove our adapter does NOT
+//     reproduce ISSUE-20260823-021 while the Lab says the defect is real;
+//   * the project survives a reload — the page is genuinely reloaded.
+//
+// It runs under `lab-host --backend sim`, with the browser on the lab-host
+// backend, so the console, the sliders and the 3D scene are all talking to ONE
+// robot behind the firmware's own routes. No QEMU is involved, so unlike
+// phases 5 and 6 this one always runs.
+{
+  console.log('[web] phase 11: lab mode');
+  const labShots = [];
+  const before11 = problems.length;
+  let labHost11 = null;
+  let page11 = null;
+  try {
+    labHost11 = await startLabHost({ backend: 'sim' });
+    console.log(`[web] lab host (sim behind the firmware routes) at ${labHost11.url}`);
+    page11 = await launchBrowser(labHost11.url);
+    const evaluate = page11.evaluate;
+
+    // ------------------------------------------------------------ helpers
+    const LAB_EXPR = 'window.__sesame.lab()';
+
+    const clickOn = (selector) =>
+      evaluate(`(() => {
+        const el = document.querySelector(${JSON.stringify(selector)});
+        if (el === null) return { ok: false, why: 'not on screen' };
+        if (typeof el.click === 'function') el.click();
+        else el.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+        return { ok: true };
+      })()`);
+
+    /** React installs its own value setter; go through the prototype's. */
+    const setValue = (selector, value, proto = 'HTMLInputElement') =>
+      evaluate(`(() => {
+        const el = document.querySelector(${JSON.stringify(selector)});
+        if (el === null) return { ok: false, why: 'not on screen' };
+        const setter = Object.getOwnPropertyDescriptor(window.${proto}.prototype, 'value').set;
+        setter.call(el, ${JSON.stringify(String(value))});
+        el.dispatchEvent(new Event('input', { bubbles: true }));
+        return { ok: true, value: el.value };
+      })()`);
+
+    const selectOption = (selector, value) =>
+      evaluate(`(() => {
+        const el = document.querySelector(${JSON.stringify(selector)});
+        if (el === null) return { ok: false, why: 'not on screen' };
+        const setter = Object.getOwnPropertyDescriptor(window.HTMLSelectElement.prototype, 'value').set;
+        setter.call(el, ${JSON.stringify(value)});
+        el.dispatchEvent(new Event('change', { bubbles: true }));
+        return { ok: true, value: el.value };
+      })()`);
+
+    const waitReady = (what, timeoutMs = 60000) =>
+      waitFor(
+        evaluate,
+        'typeof window.__sesame !== "undefined" && window.__sesame.ready',
+        (v) => v === true,
+        what,
+        timeoutMs,
+      );
+
+    const waitCaughtUp = (what) =>
+      waitFor(
+        evaluate,
+        'window.__sesame.renderStats()',
+        (s) => s !== null && s.appliedPoseVersion === s.storePoseVersion,
+        what,
+      );
+
+    const showLab = () =>
+      evaluate(`void document.querySelector('[data-testid="lab-panel"]')?.scrollIntoView({ block: 'end' })`);
+
+    /**
+     * A SECOND `setServoAngle()` parser, written here on purpose.
+     *
+     * The Lab renders its own round-trip verdict, and asserting that verdict
+     * would only prove the Lab agrees with itself. This one reads the exported
+     * text by the same rule the firmware's bodies are read under — writes
+     * accumulate, a wait closes the frame — and the phase compares its output
+     * against the frames THIS FILE authored through the sliders.
+     */
+    const parseExportedCpp = (source) => {
+      const text = source.replace(/\/\*[\s\S]*?\*\//g, ' ').replace(/\/\/[^\n]*/g, '');
+      const tokens = [];
+      const callRe = /setServoAngle\s*\(\s*([A-Za-z_][A-Za-z0-9_]*|\d+)\s*,\s*(-?\d+)\s*\)/g;
+      const delayRe = /\b(delayWithFace|delay)\s*\(\s*(\d+)\s*\)/g;
+      for (let m = callRe.exec(text); m !== null; m = callRe.exec(text)) {
+        tokens.push({ at: m.index, kind: 'servo', name: m[1], value: Number(m[2]) });
+      }
+      for (let m = delayRe.exec(text); m !== null; m = delayRe.exec(text)) {
+        tokens.push({ at: m.index, kind: 'delay', name: m[1], value: Number(m[2]) });
+      }
+      tokens.sort((a, b) => a.at - b.at);
+      const frames = [];
+      let current = {};
+      let order = [];
+      for (const token of tokens) {
+        if (token.kind === 'delay') {
+          if (order.length === 0 && token.value === 0) continue;
+          frames.push({ angles: current, order, delayMs: token.value });
+          current = {};
+          order = [];
+          continue;
+        }
+        current = { ...current, [token.name]: token.value };
+        order = [...order, token.name];
+      }
+      if (order.length > 0) frames.push({ angles: current, order, delayMs: 0 });
+      return frames;
+    };
+
+    /** Is pixel (x, y) lit in a page-ordered 1024-byte SSD1306 buffer? */
+    const gddramPixel = (bytes, x, y) => {
+      const index = x + (y >> 3) * 128;
+      return ((bytes[index] ?? 0) & (1 << (y & 7))) !== 0;
+    };
+
+    /** The 9 pixels one drag puts down, as (x, y) pairs. */
+    const STROKE = [];
+    for (let y = 20; y < 23; y += 1) for (let x = 40; x < 43; x += 1) STROKE.push([x, y]);
+
+    // ------------------------------------------- a clean start, by reloading
+    //
+    // The Lab reads its saved project ONCE, when it mounts. Clearing storage
+    // after that would leave the already-loaded project on screen, so the
+    // clear is followed by a real reload — which also exercises the reload
+    // path before the persistence assertion depends on it.
+    await waitReady('the app to load under the lab host');
+    await evaluate(
+      `(() => { try { localStorage.removeItem('sesame-lab.lab.v1'); } catch { /* blocked */ } })()`,
+    );
+    await evaluate('void location.reload()');
+    await sleep(500);
+    await waitReady('the app to come back after the pre-test reload');
+
+    await evaluate('window.__sesame.setBackend("qemu")');
+    const connected11 = await waitFor(
+      evaluate,
+      'window.__sesame.status()',
+      (v) => v !== null && v.connection === 'connected',
+      'the browser to reach the lab host’s simulated robot over the firmware routes',
+      60000,
+    );
+    check(
+      connected11.connection === 'connected',
+      `the lab-host backend did not connect: ${JSON.stringify(connected11)}`,
+    );
+
+    const closed = await evaluate(LAB_EXPR);
+    check(closed.present, 'the Lab pane is not in the DOM at all');
+    check(closed.open === false, 'the Lab opened itself rather than starting as a strip');
+
+    await clickOn('[data-testid="lab-open"]');
+    await sleep(300);
+    await showLab();
+
+    // ============================================================ the pose
+    //
+    // Eight sliders, firmware names, firmware channel order. The assertions
+    // that matter are about the ARITHMETIC between the slider and the pin, not
+    // about the slider.
+    const poseTabOpen = await evaluate(LAB_EXPR);
+    check(poseTabOpen.open === true, 'the Lab did not open');
+    check(poseTabOpen.tab === 'pose', `the Lab opened on the "${poseTabOpen.tab}" tab, not "pose"`);
+    for (const joint of JOINT_ORDER) {
+      check(
+        poseTabOpen.poseAdjustedDeg[joint] === 90,
+        `${joint} opened at ${poseTabOpen.poseAdjustedDeg[joint]}°, not the neutral 90° ` +
+          `runRestPose() writes`,
+      );
+    }
+
+    // `constrain(angle + subtrim, 0, 180)` with no subtrim is the identity, so
+    // the adjusted column has to follow the slider exactly.
+    await setValue('[data-testid="pose-slider-R1"]', 135);
+    await setValue('[data-testid="pose-slider-L4"]', 170);
+    await sleep(200);
+    const posed = await evaluate(LAB_EXPR);
+    check(
+      posed.poseAdjustedDeg.R1 === 135 && posed.poseAdjustedDeg.L4 === 170,
+      `the adjusted column reads R1=${posed.poseAdjustedDeg.R1} L4=${posed.poseAdjustedDeg.L4}, ` +
+        `not 135/170 — with no subtrim, constrain(angle + 0, 0, 180) is the identity`,
+    );
+
+    // Quantisation, checked WITHOUT reproducing ESP32Servo's arithmetic here:
+    // the claim is that 181 commands produce 92 distinct pulses, so two
+    // specific neighbouring angles must land on ONE tick, and the ends must
+    // not. Recomputing map()/usToTicks() in this file would only prove the
+    // formula was copied correctly.
+    await setValue('[data-testid="pose-slider-R2"]', 99);
+    await sleep(150);
+    const at99 = (await evaluate(LAB_EXPR)).poseTicks.R2;
+    await setValue('[data-testid="pose-slider-R2"]', 100);
+    await sleep(150);
+    const at100 = (await evaluate(LAB_EXPR)).poseTicks.R2;
+    await setValue('[data-testid="pose-slider-R2"]', 0);
+    await sleep(150);
+    const at0 = (await evaluate(LAB_EXPR)).poseTicks.R2;
+    await setValue('[data-testid="pose-slider-R2"]', 180);
+    await sleep(150);
+    const at180 = (await evaluate(LAB_EXPR)).poseTicks.R2;
+    check(
+      at99 !== null && at99 === at100,
+      `99° programmed tick ${at99} and 100° programmed tick ${at100}; the Lab is implying a 1° ` +
+        `resolution the 10-bit LEDC channels do not have`,
+    );
+    check(
+      at0 !== null && at180 !== null && at0 !== at180,
+      `0° and 180° both programmed tick ${at0}, which would make the whole readout meaningless`,
+    );
+    await setValue('[data-testid="pose-slider-R2"]', 90);
+    await sleep(150);
+
+    labShots.push(
+      await page11.shoot(
+        'lab-pose-and-quantisation.png',
+        'the eight sliders in firmware enum order, each showing constrain(angle + subtrim, 0, 180) ' +
+          'and the LEDC tick the adjusted angle actually programs — 99° and 100° share one',
+      ),
+    );
+
+    // ======================================================= the animation
+    //
+    // Sesame Studio's model: a pose is eight angles, a frame is a pose plus a
+    // wait. Two frames, captured from the sliders exactly as a person would.
+    const authored = [
+      { R1: 135, R2: 90, L1: 90, L2: 90, R4: 90, R3: 90, L3: 90, L4: 170 },
+      { R1: 45, R2: 90, L1: 90, L2: 90, R4: 90, R3: 90, L3: 90, L4: 120 },
+    ];
+    await clickOn('[data-testid="pose-capture"]');
+    await sleep(250);
+    await clickOn('[data-testid="lab-tab-pose"]');
+    await sleep(200);
+    await setValue('[data-testid="pose-slider-R1"]', 45);
+    await setValue('[data-testid="pose-slider-L4"]', 120);
+    await sleep(200);
+    await clickOn('[data-testid="pose-capture"]');
+    await sleep(300);
+    await showLab();
+
+    const withFrames = await evaluate(LAB_EXPR);
+    check(
+      withFrames.frameRows === 2,
+      `the animation holds ${withFrames.frameRows} frame(s) after two captures, not 2`,
+    );
+
+    // ------------------------------------------- the export, parsed here
+    const exported = withFrames.exportedCpp;
+    check(exported.length > 0, 'the C++ export box is empty');
+    check(
+      exported.includes('COMMANDED ANGLES') && exported.includes('89 of the 181'),
+      'the exported C++ does not carry the never-verified / aliasing warning in the code itself, ' +
+        'so the warning does not survive the clipboard',
+    );
+    check(
+      /setServoAngle\(R1, 135\);/.test(exported),
+      'the export does not use the firmware’s own call shape setServoAngle(R1, 135);',
+    );
+
+    const reparsed = parseExportedCpp(exported);
+    check(
+      reparsed.length === 2,
+      `parsing the exported C++ back gave ${reparsed.length} frame(s), not the 2 that were authored`,
+    );
+    let roundTripProblems = 0;
+    reparsed.forEach((frame, index) => {
+      const expected = authored[index] ?? {};
+      // Every channel, in firmware enum order — the export must not group,
+      // reorder or drop, because the firmware issues them one at a time.
+      if (JSON.stringify(frame.order) !== JSON.stringify(JOINT_ORDER)) {
+        roundTripProblems += 1;
+        problems.push(
+          `frame ${index + 1} of the exported C++ writes ${JSON.stringify(frame.order)}; the ` +
+            `firmware writes ${JSON.stringify(JOINT_ORDER)} and setServoAngle() is the only call it has`,
+        );
+      }
+      for (const joint of JOINT_ORDER) {
+        if (frame.angles[joint] !== expected[joint]) {
+          roundTripProblems += 1;
+          problems.push(
+            `the exported C++ says frame ${index + 1} commands ${joint} to ` +
+              `${frame.angles[joint]}°; the sliders authored ${expected[joint]}°`,
+          );
+        }
+      }
+    });
+    check(
+      withFrames.exportedCppRoundTripOk === true,
+      `the Lab’s own round-trip readout says ${withFrames.exportedCppRoundTripOk}; this harness ` +
+        `re-parsed the same text independently and found ${roundTripProblems} disagreement(s)`,
+    );
+    check(
+      withFrames.exportedCppWrites === 16,
+      `the Lab reports ${withFrames.exportedCppWrites} setServoAngle() calls in the export; two ` +
+        `full poses is 16`,
+    );
+
+    await evaluate(
+      `void document.querySelector('[data-testid="lab-cpp-export"]')?.scrollIntoView({ block: 'nearest' })`,
+    );
+    await sleep(350);
+    labShots.push(
+      await page11.shoot(
+        'lab-cpp-export.png',
+        'the Sesame-compatible C++ export — the firmware’s own setServoAngle(R1, 135); call shape, ' +
+          'the commanded-angles warning inside the generated code, and the read-back verdict',
+      ),
+    );
+
+    // --------------------------------------------- play it, read the scene
+    await clickOn('[data-testid="sequence-run"]');
+    await waitFor(
+      evaluate,
+      `(() => {
+        const button = document.querySelector('[data-testid="sequence-run"]');
+        return button === null ? null : button.disabled;
+      })()`,
+      (v) => v === false,
+      'the authored animation to finish playing',
+      40000,
+    );
+    await waitCaughtUp('the scene to apply the animation’s last frame');
+    const sceneAfter = await evaluate('window.__sesame.sceneJoints()');
+    const finalPose = authored[1];
+    let worstAngleErrorDeg = 0;
+    for (const reading of sceneAfter) {
+      const want = finalPose[reading.joint];
+      const error = Math.abs(reading.sceneCommandedDeg - want);
+      worstAngleErrorDeg = Math.max(worstAngleErrorDeg, error);
+      check(
+        error <= 0.5,
+        `after playing the animation the 3D scene draws ${reading.joint} at ` +
+          `${reading.sceneCommandedDeg.toFixed(3)}°; the animation's last frame commands ${want}°. ` +
+          `This is read off Object3D.quaternion, not off the document that was authored`,
+      );
+      check(
+        reading.storePhysicallyObserved === false,
+        `${reading.joint} was last written by an event claiming to be physically observed; there ` +
+          `is no physical robot in this project`,
+      );
+    }
+
+    // ============================================================ the face
+    //
+    // A DRAG, not a click. `PixelEditor` hands the parent one coordinate per
+    // pointermove and a drag delivers several before React re-renders, so a
+    // parent that computed the next frame from `props.frame` would keep only
+    // the last of them. Nine pixels go down in one stroke and all nine have to
+    // survive as far as the panel's GDDRAM.
+    await clickOn('[data-testid="lab-tab-face"]');
+    await sleep(250);
+    await showLab();
+    const drawn = await evaluate(`(() => {
+      const canvas = document.querySelector('[data-testid="pixel-canvas"]');
+      if (canvas === null) return { ok: false, why: 'no pixel canvas' };
+      const box = canvas.getBoundingClientRect();
+      const at = (px, py) => ({
+        clientX: box.left + ((px + 0.5) / 128) * box.width,
+        clientY: box.top + ((py + 0.5) / 64) * box.height,
+        bubbles: true,
+        isPrimary: true,
+        pointerId: 1,
+      });
+      canvas.dispatchEvent(new PointerEvent('pointerdown', at(40, 20)));
+      for (let y = 20; y < 23; y += 1) {
+        for (let x = 40; x < 43; x += 1) {
+          canvas.dispatchEvent(new PointerEvent('pointermove', at(x, y)));
+        }
+      }
+      canvas.dispatchEvent(new PointerEvent('pointerup', at(42, 22)));
+      return { ok: true };
+    })()`);
+    check(drawn.ok, `could not draw on the pixel canvas: ${drawn.why}`);
+    await sleep(250);
+
+    await clickOn('[data-testid="lab-face-push"]');
+    await sleep(500);
+
+    const oled11 = await evaluate('window.__sesame.oled()');
+    check(
+      oled11.litPixels === STROKE.length,
+      `the panel is showing ${oled11.litPixels} lit pixel(s) after a 3x3 drag. Nine went down in ` +
+        `one stroke; a parent computing the next frame from a stale props.frame keeps one`,
+    );
+    const panelBytes = Buffer.from(oled11.base64, 'base64');
+    check(
+      panelBytes.length === 1024,
+      `the panel buffer decoded to ${panelBytes.length} bytes, not the SSD1306's 1024`,
+    );
+    let panelMismatches = 0;
+    for (const [x, y] of STROKE) {
+      if (!gddramPixel(panelBytes, x, y)) panelMismatches += 1;
+    }
+    check(
+      panelMismatches === 0,
+      `${panelMismatches} of the 9 drawn pixels are not set in the panel's page-ordered GDDRAM ` +
+        `(index = x + (y>>3)*128, bit = y&7 from the LSB)`,
+    );
+    check(
+      gddramPixel(panelBytes, 43, 23) === false,
+      'a pixel outside the drawn square is lit on the panel',
+    );
+    check(
+      oled11.source.pixelProvenance === 'inferred',
+      `the drawn pixels are presented with provenance ${JSON.stringify(oled11.source.pixelProvenance)}; ` +
+        `pixels a person drew are inferred, never observed`,
+    );
+
+    // The exported header holds the OTHER layout — row-major, MSB first, which
+    // is what drawBitmap() reads. Same nine pixels, different bytes.
+    const faceReading = await evaluate(LAB_EXPR);
+    const faceBytes = [...(faceReading.exportedFace.match(/0x[0-9a-fA-F]{2}/g) ?? [])].map((b) =>
+      Number.parseInt(b, 16),
+    );
+    check(
+      faceBytes.length === 1024,
+      `the exported face-bitmaps.h array holds ${faceBytes.length} bytes, not 1024`,
+    );
+    let headerMismatches = 0;
+    for (const [x, y] of STROKE) {
+      const byte = faceBytes[y * 16 + (x >> 3)] ?? 0;
+      if ((byte & (0x80 >> (x & 7))) === 0) headerMismatches += 1;
+    }
+    check(
+      headerMismatches === 0,
+      `${headerMismatches} of the 9 drawn pixels are missing from the exported face-bitmaps.h ` +
+        `array's row-major bytes`,
+    );
+    check(
+      faceReading.exportedFace.includes('const unsigned char epd_bitmap_labface [] PROGMEM = {'),
+      'the face export is not shaped like the arrays already in firmware/face-bitmaps.h',
+    );
+    check(
+      faceReading.exportedFaceRoundTripOk === true,
+      `the Lab's own face read-back says ${faceReading.exportedFaceRoundTripOk}`,
+    );
+
+    // The banner has to notice. Lab mode sets far more state than Learn does,
+    // and an authored face sitting where the robot's own would be is exactly
+    // the "is this robot broken, or did we break it?" case it exists for.
+    check(
+      faceReading.modifications !== null && faceReading.modifications.panelAuthored === true,
+      `the "Sesame Lab is modifying this robot" banner does not name the authored panel: ` +
+        `${JSON.stringify(faceReading.modifications)}`,
+    );
+
+    // …and it has to STOP claiming it the moment the robot repaints. An
+    // authored frame is not sticky the way subtrim is: the next face event
+    // overwrites those pixels, and a banner that kept saying "Sesame Lab drew
+    // this" over the robot's own face would be exactly the kind of confident
+    // wrongness the banner exists to prevent. This is the falsification —
+    // `panelAuthored` is asserted true above and false here, so it is known
+    // not to be a constant.
+    await evaluate('void window.__sesame.setFace("happy")');
+    await sleep(700);
+    const afterRepaint = await evaluate(LAB_EXPR);
+    check(
+      (afterRepaint.modifications?.panelAuthored ?? false) === false,
+      `the banner still claims Sesame Lab drew the panel after the robot repainted it: ` +
+        `${JSON.stringify(afterRepaint.modifications)}`,
+    );
+
+    await evaluate(
+      `void document.querySelector('[data-testid="pixel-editor"]')?.scrollIntoView({ block: 'start' })`,
+    );
+    await sleep(350);
+    labShots.push(
+      await page11.shoot(
+        'lab-face-editor.png',
+        'a 3x3 square drawn in one drag, pushed to the panel through the same drawBitmap() path a ' +
+          'real face takes, and exported as a face-bitmaps.h array',
+      ),
+    );
+
+    // ============================================================== the API
+    await clickOn('[data-testid="lab-tab-api"]');
+    await sleep(250);
+    await showLab();
+
+    const apiReading = await evaluate(LAB_EXPR);
+    check(
+      apiReading.routeOptions.includes('/api/status') &&
+        apiReading.routeOptions.includes('/api/wifi/scan') &&
+        apiReading.routeOptions.includes('/getSettings'),
+      `the Lab's route picker offers ${JSON.stringify(apiReading.routeOptions)}; it should carry ` +
+        `the routes hardware-map.json records, not the five a lesson names`,
+    );
+    check(
+      apiReading.firmwareRouteCount === 10,
+      `the generated architecture graph holds ${apiReading.firmwareRouteCount} routes, not the 10 ` +
+        `hardware-map.json records`,
+    );
+
+    await selectOption('[data-testid="http-method"]', 'POST');
+    await sleep(150);
+    await setValue('[data-testid="http-route-free"]', '/api/command');
+    await setValue('[data-testid="http-body"]', '{"command":"stand"}', 'HTMLTextAreaElement');
+    await sleep(150);
+    await clickOn('[data-testid="http-send"]');
+    const posted = await waitFor(
+      evaluate,
+      LAB_EXPR,
+      (v) => v !== null && v.httpLog.length > 0,
+      'the API console to record a reply',
+    );
+    check(
+      /\/api\/command\s*→\s*200/.test(posted.httpLog.at(-1) ?? ''),
+      `POST /api/command came back as ${JSON.stringify(posted.httpLog.at(-1))}; this page is served ` +
+        `by the lab host, so the firmware's own route is really there`,
+    );
+
+    await selectOption('[data-testid="http-method"]', 'GET');
+    await setValue('[data-testid="http-route-free"]', '/api/status');
+    await sleep(150);
+    await clickOn('[data-testid="http-send"]');
+    const statusRead = await waitFor(
+      evaluate,
+      LAB_EXPR,
+      (v) => v !== null && v.httpLog.some((line) => line.includes('/api/status')),
+      'the API console to record /api/status',
+    );
+    const statusLine = statusRead.httpLog.find((line) => line.includes('/api/status')) ?? '';
+    check(/→\s*200/.test(statusLine), `GET /api/status came back as ${JSON.stringify(statusLine)}`);
+    check(
+      /currentCommand/.test(statusLine),
+      `GET /api/status did not return the firmware's own status document: ${JSON.stringify(statusLine)}`,
+    );
+
+    // ISSUE-20260823-021 is real, the Lab says so, and our adapter does NOT
+    // reproduce it. Store a command word containing a quotation mark — the
+    // exact input that makes upstream emit invalid JSON — and the reply has to
+    // still parse.
+    await selectOption('[data-testid="http-method"]', 'POST');
+    await setValue('[data-testid="http-route-free"]', '/api/command');
+    await setValue('[data-testid="http-body"]', '{"command":"x\\"y"}', 'HTMLTextAreaElement');
+    await sleep(200);
+    await clickOn('[data-testid="http-send"]');
+    await sleep(700);
+    const injected = await evaluate(`(async () => {
+      const response = await fetch('/api/status', { cache: 'no-store' });
+      const text = await response.text();
+      let parsed = null;
+      let error = null;
+      try { parsed = JSON.parse(text); } catch (e) { error = String(e && e.message ? e.message : e); }
+      return { status: response.status, text, parsed, error };
+    })()`);
+    check(
+      injected.error === null,
+      `/api/status returned JSON this harness could not parse after a quotation mark was stored ` +
+        `(${injected.error}). Upstream does exactly that — ISSUE-20260823-021 — and our adapter ` +
+        `sanitises with no opt-out precisely so it cannot: ${String(injected.text).slice(0, 160)}`,
+    );
+    check(
+      typeof injected.parsed?.currentCommand === 'string' &&
+        !injected.parsed.currentCommand.includes('"') &&
+        !injected.parsed.currentCommand.includes('@'),
+      `currentCommand came back as ${JSON.stringify(injected.parsed?.currentCommand)}; the ` +
+        `boundary reduces every name to [A-Za-z0-9_.-]`,
+    );
+    const issueNoteShown = await evaluate(
+      `(document.querySelector('[data-testid="lab-api-issue-021"]')?.textContent ?? '')`,
+    );
+    check(
+      /ISSUE-20260823-021/.test(issueNoteShown) && /not reproduced here/i.test(issueNoteShown),
+      'the API console does not tell the learner that the defect is real upstream and deliberately ' +
+        'not reproduced by the thing they are talking to',
+    );
+
+    labShots.push(
+      await page11.shoot(
+        'lab-api-console.png',
+        'free-form requests against the routes hardware-map.json records, with the HTTP_ANY note ' +
+          'and ISSUE-20260823-021 described but not reproduced',
+      ),
+    );
+
+    // ========================================= the banner, and putting it back
+    await clickOn('[data-testid="lab-tab-faults"]');
+    await sleep(250);
+    const faultToggled = await evaluate(`(() => {
+      const panel = document.querySelector('[data-testid="lab-panel"]');
+      const box = panel?.querySelector('[data-testid="fault-injector"] input[type="checkbox"]');
+      if (box == null) return { ok: false, why: 'no injectable fault switch on screen' };
+      box.click();
+      return { ok: true };
+    })()`);
+    check(faultToggled.ok, `could not inject a fault: ${faultToggled.why}`);
+    await sleep(400);
+    const withFault = await evaluate(LAB_EXPR);
+    check(
+      withFault.modifications !== null && withFault.modifications.faults >= 1,
+      `the banner reports ${JSON.stringify(withFault.modifications)} after a fault was injected`,
+    );
+
+    // Both kinds at once, so "put it all back" has two things to put back:
+    // an injected fault, which is sticky, and a drawn face, which is not.
+    await clickOn('[data-testid="lab-tab-face"]');
+    await sleep(300);
+    await clickOn('[data-testid="lab-face-push"]');
+    await sleep(500);
+    const bothModified = await evaluate(LAB_EXPR);
+    check(
+      (bothModified.modifications?.faults ?? 0) >= 1 &&
+        bothModified.modifications?.panelAuthored === true,
+      `the banner reports ${JSON.stringify(bothModified.modifications)} with a fault injected AND ` +
+        `a drawn face on the panel; it has to name both`,
+    );
+
+    await clickOn('[data-testid="lab-modifications-clear"]');
+    await sleep(600);
+    const cleared = await evaluate(LAB_EXPR);
+    check(
+      cleared.modifications === null,
+      `"put it all back" left ${JSON.stringify(cleared.modifications)} in place`,
+    );
+    const oledAfterClear = await evaluate('window.__sesame.oled()');
+    check(
+      oledAfterClear.litPixels !== STROKE.length,
+      'putting it back left the drawn face on the panel; the robot’s own face should have been ' +
+        'redrawn (a blank panel would be a state no firmware produces)',
+    );
+
+    // ========================================================= persistence
+    const beforeReload = await evaluate(LAB_EXPR);
+    check(
+      beforeReload.storedBytes !== null && beforeReload.storedBytes > 0,
+      `nothing is stored under sesame-lab.lab.v1 (${beforeReload.storedBytes} bytes)`,
+    );
+    check(
+      beforeReload.storageBlocked === false,
+      `the Lab reports storage blocked: ${JSON.stringify(beforeReload.savedText)}`,
+    );
+
+    await evaluate('void location.reload()');
+    await sleep(700);
+    await waitReady('the app to come back after the persistence reload');
+    const afterReload = await evaluate(LAB_EXPR);
+    check(
+      afterReload.open === false,
+      'the Lab reopened itself after a reload; only the PROJECT is persisted, not the pane state',
+    );
+    const restoredNote = await evaluate(
+      `(document.querySelector('[data-testid="lab-restored"]')?.textContent ?? '')`,
+    );
+    check(
+      /2 frame\(s\)/.test(restoredNote),
+      `the closed Lab reports "${restoredNote}" after a reload; two frames were authored`,
+    );
+
+    await clickOn('[data-testid="lab-open"]');
+    await sleep(300);
+    await clickOn('[data-testid="lab-tab-animation"]');
+    await sleep(400);
+    await showLab();
+    const reloaded = await evaluate(LAB_EXPR);
+    check(
+      reloaded.frameRows === 2,
+      `the animation came back with ${reloaded.frameRows} frame(s) after a reload, not 2`,
+    );
+    check(
+      reloaded.exportedCpp === exported,
+      'the C++ exported after a reload is not byte-identical to the one exported before it',
+    );
+    const reloadedFrames = parseExportedCpp(reloaded.exportedCpp);
+    check(
+      JSON.stringify(reloadedFrames.map((f) => f.angles)) ===
+        JSON.stringify(reparsed.map((f) => f.angles)),
+      'the pose sequence changed across the reload',
+    );
+    await clickOn('[data-testid="lab-tab-face"]');
+    await sleep(400);
+    const reloadedFace = await evaluate(LAB_EXPR);
+    const reloadedFaceBytes = [
+      ...(reloadedFace.exportedFace.match(/0x[0-9a-fA-F]{2}/g) ?? []),
+    ].map((b) => Number.parseInt(b, 16));
+    let reloadedFaceMismatches = 0;
+    for (const [x, y] of STROKE) {
+      const byte = reloadedFaceBytes[y * 16 + (x >> 3)] ?? 0;
+      if ((byte & (0x80 >> (x & 7))) === 0) reloadedFaceMismatches += 1;
+    }
+    check(
+      reloadedFaceMismatches === 0,
+      `${reloadedFaceMismatches} of the 9 drawn pixels did not survive the reload`,
+    );
+
+    // ============================ ISSUE-20260823-023, with the Lab mounted
+    //
+    // That bug was a sliding ground plane, found by a person, on a green
+    // harness, after a layout change. Lab mode is a FOURTH grid row and a tall
+    // one when open, so it gets the same re-check the source explorer and the
+    // lesson runner did — with the pane open and a tab being switched under it.
+    const EPS11 = 1e-6;
+    await evaluate('window.__sesame.setBackend("qemu")');
+    await waitFor(
+      evaluate,
+      'window.__sesame.status()',
+      (v) => v !== null && v.connection === 'connected',
+      'the lab-host backend to reconnect for the world-frame check',
+      60000,
+    );
+    await evaluate('void window.__sesame.run("rest")');
+    await sleep(1400);
+    await waitCaughtUp('the scene to reach the rest pose for the phase 11 frame check');
+    const frames11 = [];
+    const restFrame11 = await evaluate('window.__sesame.worldFrame()');
+    if (restFrame11 === null) problems.push('worldFrame() returned null at the phase 11 rest pose');
+    else frames11.push({ label: 'phase 11, rest pose, Lab pane open', ...restFrame11 });
+
+    for (let i = 0; i < 6; i++) {
+      await evaluate(`void window.__sesame.run(${i % 2 === 0 ? '"stand"' : '"rest"'})`);
+      await sleep(450);
+      // Keep the Lab working while the scene moves: a re-render that nudged the
+      // world frame is exactly the bug class being re-tested.
+      await clickOn(`[data-testid="lab-tab-${i % 2 === 0 ? 'pose' : 'animation'}"]`);
+      const sample = await evaluate('window.__sesame.worldFrame()');
+      if (sample === null) problems.push('worldFrame() returned null during phase 11');
+      else frames11.push({ label: `phase 11, sample ${i + 1}`, ...sample });
+    }
+
+    const first11 = frames11[0];
+    const worst11 = {};
+    for (const key of ['groundWorldMm', 'robotRootWorldMm', 'cameraTargetMm', 'cameraPositionMm']) {
+      let worst = 0;
+      for (const sample of frames11.slice(1)) {
+        const a = first11?.[key];
+        const b = sample[key];
+        if (!Array.isArray(a) || !Array.isArray(b)) continue;
+        for (let i = 0; i < 3; i++) worst = Math.max(worst, Math.abs(a[i] - b[i]));
+      }
+      worst11[key] = worst;
+      check(
+        worst <= EPS11,
+        `${key} moved ${worst.toFixed(6)} mm in world space with LAB MODE open as a fourth grid ` +
+          `row, a pose table and two export boxes rendering (ISSUE-20260823-023)`,
+      );
+    }
+    const contacts11 = frames11.map((f) => f.footContactMm).filter((v) => typeof v === 'number');
+    const spread11 = contacts11.length === 0 ? 0 : Math.max(...contacts11) - Math.min(...contacts11);
+    check(
+      spread11 > 1,
+      `the foot contact varied by only ${spread11.toFixed(3)} mm in phase 11, so the ` +
+        `world-stability re-check proved nothing`,
+    );
+
+    const honesty11 = await evaluate(LAB_EXPR);
+    check(
+      /claims a servo moved/i.test(honesty11.honestyNote ?? ''),
+      `the Lab does not carry its "nothing claims a servo moved" line: ` +
+        `${JSON.stringify(honesty11.honestyNote)}`,
+    );
+    const origin11 = await evaluate('window.__sesame.origin()');
+    check(
+      origin11.physicallyObservedEvents === 0,
+      `isPhysicallyObserved() was true for ${origin11.physicallyObservedEvents} event(s) in Lab mode`,
+    );
+
+    const errors11 = page11.errors();
+    check(
+      errors11.length === 0,
+      `the Lab page logged ${errors11.length} error(s): ${errors11.slice(0, 3).join(' | ')}`,
+    );
+
+    phases.labMode = {
+      ok: problems.length === before11,
+      servedBy: 'apps/web/server/lab-host.mjs --backend sim (the firmware’s own routes, no QEMU)',
+      browserBackend: 'lab host',
+      authoredFrames: authored,
+      cppRoundTrip: {
+        assertedBy: 'a second setServoAngle() parser written in this harness',
+        framesParsedBack: reparsed.length,
+        writes: withFrames.exportedCppWrites,
+        labOwnVerdict: withFrames.exportedCppRoundTripOk,
+        callShape: 'setServoAngle(R1, 135); — firmware/movement-sequences.h:80',
+      },
+      playback: { worstAngleErrorDeg, readFrom: 'Object3D.quaternion' },
+      quantisation: { at0, at99, at100, at180 },
+      face: {
+        strokePixels: STROKE.length,
+        panelLitPixels: oled11.litPixels,
+        panelLayout: 'page-ordered GDDRAM, index = x + (y>>3)*128, bit = y&7 from the LSB',
+        exportLayout: 'row-major MSB first, 16 bytes per row — what drawBitmap() reads',
+        pixelProvenance: oled11.source.pixelProvenance,
+      },
+      api: {
+        routeOptions: apiReading.routeOptions,
+        commandStatusLine: posted.httpLog.at(-1),
+        statusLine,
+        issue021: {
+          describedInUi: true,
+          reproducedByOurAdapter: false,
+          currentCommandAfterQuote: injected.parsed?.currentCommand ?? null,
+        },
+      },
+      persistence: {
+        key: 'sesame-lab.lab.v1',
+        storedBytes: beforeReload.storedBytes,
+        survivedReload: reloaded.frameRows === 2 && reloadedFaceMismatches === 0,
+      },
+      labModifications: {
+        namedAuthoredPanel: faceReading.modifications?.panelAuthored ?? null,
+        stoppedClaimingAfterRobotRepainted:
+          (afterRepaint.modifications?.panelAuthored ?? false) === false,
+        namedInjectedFault: withFault.modifications?.faults ?? null,
+        namedBothAtOnce:
+          (bothModified.modifications?.faults ?? 0) >= 1 &&
+          bothModified.modifications?.panelAuthored === true,
+        clearedToNull: cleared.modifications === null,
+      },
+      worldFrame: {
+        toleranceMm: EPS11,
+        worstDriftMm: worst11,
+        footContactSpreadMm: spread11,
+        samples: frames11.length,
+      },
+      shots: labShots.map((s) => s.name),
+    };
+  } catch (error) {
+    problems.push(`the Lab mode phase failed: ${error.message ?? error}`);
+    phases.labMode = {
+      ok: false,
+      error: String(error.message ?? error),
+      labHostOutput: labHost11 === null ? null : labHost11.output().slice(-1200),
+    };
+  } finally {
+    page11?.close();
+    try {
+      labHost11?.proc.kill();
     } catch {
       /* gone */
     }
