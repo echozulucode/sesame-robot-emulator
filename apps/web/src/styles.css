@@ -37,57 +37,173 @@ code,
   font-size: 0.92em;
 }
 
-/*
- * The report's three-pane engineering workbench: 3D | architecture + trace |
- * inspector. The middle column is the Phase-2 addition and is deliberately the
- * widest of the two panels, because a causal trace with its witness text is
- * unreadable in a 300px gutter.
- */
-.app {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(0, 520px) 400px;
-  /*
-   * The source explorer gets its own row rather than a fourth column.
-   *
-   * A fourth column would have to come out of the viewport's width, and the
-   * viewport is where ISSUE-20260823-023 lived: a sliding ground plane found by
-   * a user, on the simulator path, after a layout change. Squeezing the
-   * renderer's column is the same class of change. A row leaves the camera's
-   * aspect as the only thing that moves, and the harness re-asserts the world
-   * frame with the pane mounted anyway.
-   */
-  grid-template-rows: minmax(0, 1fr) minmax(0, 380px) auto auto;
+/* ==========================================================================
+ * THE SHELL — rail | stage | dock
+ *
+ * What was here before: `.app` as a `minmax(0,1fr) minmax(0,520px) 400px` grid
+ * with a fixed 380 px source row, and not one `@media` query in 2,407 lines. On
+ * a 1440x900 laptop that left the 3D viewport roughly 500x280 — about 13% of
+ * the screen — and the robot is the product. Every one of the 26 harness
+ * captures ran at 1440x900 or wider and none of them asserted how much space
+ * the viewport got, which is exactly why it shipped.
+ *
+ * Three zones now, and three breakpoints keyed to what fits rather than to
+ * device names:
+ *
+ *   Compact  <  900 px   dock hidden; opens as a full-height sheet over the stage
+ *   Medium   900-1440    dock collapsed to a 44 px icon strip; opens as an OVERLAY
+ *   Wide     > 1440 px   dock in flow at 320-520 px, resizable, persisted
+ *
+ * **The rule that fixes the laptop is that below Wide the dock overlays rather
+ * than pushes.** It is `position: absolute` there, so it is out of flow and the
+ * stage's measured width is identical with the dock shut and with it open. The
+ * harness asserts precisely that, by measuring the stage twice.
+ * ========================================================================== */
+.shell {
+  position: relative;
+  display: flex;
+  align-items: stretch;
   height: 100%;
+  overflow: hidden;
 }
 
-/*
- * Split in half, each half scrolling on its own.
+/* ------------------------------------------------------------- left rail
  *
- * One tall scrolling column looked simpler and was worse: the graph pushed the
- * trace below the fold, so the cross-highlight — the thing the report says is
- * worth more than any amount of gamification — was never visible at the same
- * time as the thing it highlights. Two fixed halves mean clicking R4 in the
- * graph and watching R4's trace rows light up is one glance, not one scroll.
+ * 56 px, and it never collapses at any width. That is a product-honesty
+ * requirement rather than decoration: the provenance chip lives here, and a
+ * zone that can be closed is a zone that can hide whether what is on screen was
+ * measured, simulated or inferred.
  */
-.workbench {
-  grid-column: 2;
-  grid-row: 1;
+.rail {
+  flex: 0 0 56px;
+  width: 56px;
+  min-width: 56px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 4px;
+  border-right: 1px solid var(--line);
+  background: #0b0e13;
+  overflow: hidden;
+}
+
+.rail-group {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  width: 100%;
+  align-items: center;
+}
+
+.rail-spacer {
+  flex: 1 1 auto;
+  min-height: 0;
+}
+
+.rail-btn {
+  width: 44px;
+  padding: 5px 2px;
+  background: var(--panel-2);
+  color: var(--dim);
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  cursor: pointer;
+  font: inherit;
+  font-size: 10px;
+  line-height: 1.15;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+}
+
+.rail-btn:hover {
+  color: var(--text);
+  border-color: #35455c;
+}
+
+.rail-btn.active {
+  border-color: var(--accent);
+  background: #1d2938;
+  color: #cfe0fb;
+}
+
+.rail-glyph {
+  font-size: 15px;
+  line-height: 1;
+}
+
+.rail-label {
+  letter-spacing: 0.02em;
+}
+
+.rail-backend {
+  font-family: ui-monospace, 'Cascadia Code', 'Consolas', monospace;
+  letter-spacing: 0.04em;
+}
+
+.rail-status {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  width: 100%;
+  padding-bottom: 2px;
+}
+
+.rail-conn {
+  font-size: 12px;
+  line-height: 1;
+}
+
+/* The rail's two badges are a SUMMARY of the banner in the inspector — same
+   two values, read from the same store — so they cannot disagree with it. */
+.rail-prov {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 3px;
+  width: 100%;
+  font-size: 9px;
+  text-align: center;
+}
+
+.rail-prov .prov,
+.rail-prov .origin {
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 9px;
+  padding: 1px 3px;
+}
+
+.rail-events {
+  font-size: 9px;
+}
+
+/* ----------------------------------------------------------- center stage */
+.stage {
+  flex: 1 1 auto;
   min-width: 0;
   min-height: 0;
+  display: flex;
+  flex-direction: column;
   overflow: hidden;
-  border-left: 1px solid var(--line);
-  background: #0f1319;
-  padding: 12px;
-  display: grid;
-  grid-template-rows: minmax(0, 1fr) minmax(0, 1fr);
-  gap: 12px;
 }
 
+/*
+ * The floor. `45vh` and `480px` are the plan's numbers, and phase 12 measures
+ * the CANVAS rather than this box — a container that is tall while the drawing
+ * buffer is not would be exactly the kind of green-but-wrong the old harness
+ * had.
+ */
 .viewport {
   position: relative;
-  min-width: 0;
-  grid-column: 1;
-  grid-row: 1;
+  flex: 1 1 auto;
+  min-width: min(480px, 100%);
+  min-height: 45vh;
 }
 
 .viewport canvas {
@@ -104,6 +220,44 @@ code,
   text-shadow: 0 1px 3px #000;
 }
 
+/*
+ * The stage strip: the command vocabulary and the OLED, under the robot.
+ *
+ * Fixed height and scrolled horizontally rather than wrapped. A strip that grew
+ * a second row at 900 px would take back exactly the height this whole change
+ * exists to give the viewport, and it would do it only at the width where the
+ * viewport can least afford it.
+ */
+.stage-strip {
+  flex: 0 0 auto;
+  height: clamp(120px, 20vh, 176px);
+  display: flex;
+  align-items: stretch;
+  gap: 8px;
+  padding: 8px 10px;
+  border-top: 1px solid var(--line);
+  background: #0f1319;
+  overflow-x: auto;
+  overflow-y: hidden;
+}
+
+.stage-strip > .panel {
+  flex: 0 0 auto;
+  min-width: 0;
+  max-width: 640px;
+  overflow-y: auto;
+  padding: 8px 10px;
+}
+
+.stage-strip .command-bar {
+  flex: 1 1 420px;
+  min-width: 320px;
+}
+
+.stage-strip .panel-header {
+  margin: 0 0 6px;
+}
+
 .loading {
   display: grid;
   place-items: center;
@@ -111,16 +265,284 @@ code,
   color: var(--dim);
 }
 
-.sidebar {
-  grid-column: 3;
-  grid-row: 1 / span 3;
-  overflow-y: auto;
+/* ------------------------------------------------------------ right dock */
+.dock {
+  flex: 0 0 var(--dock-w, 460px);
+  width: var(--dock-w, 460px);
+  min-width: 0;
+  display: flex;
+  align-items: stretch;
+  position: relative;
   border-left: 1px solid var(--line);
   background: #10141a;
-  padding: 12px;
+  overflow: hidden;
+}
+
+/*
+ * Closed at Wide: the 44 px icon strip is all that is left, and every pane is
+ * still one click away. `flex-basis` is what shrinks, so the stage grows into
+ * the space — at Wide the dock IS in flow and pushing is the correct behaviour.
+ */
+.dock[data-open='false'] {
+  flex-basis: 44px;
+  width: 44px;
+}
+
+.dock-strip {
+  flex: 0 0 44px;
+  width: 44px;
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  align-items: center;
+  gap: 4px;
+  padding: 8px 2px;
+  border-right: 1px solid var(--line);
+  background: #0d1117;
+}
+
+.dock-strip-btn {
+  position: relative;
+  width: 34px;
+  height: 30px;
+  background: transparent;
+  color: var(--dim);
+  border: 1px solid transparent;
+  border-radius: 6px;
+  cursor: pointer;
+  font: inherit;
+  font-size: 14px;
+  line-height: 1;
+}
+
+.dock-strip-btn:hover {
+  color: var(--text);
+  border-color: var(--line);
+}
+
+.dock-strip-btn.active {
+  border-color: var(--accent);
+  background: #1d2938;
+  color: #cfe0fb;
+}
+
+/* §5.1 again, at icon size: a selection that landed in a closed section is
+   still announced, here as a dot on the strip button. */
+.dock-strip-dot {
+  position: absolute;
+  top: 3px;
+  right: 3px;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--accent);
+}
+
+.dock-body {
+  flex: 1 1 auto;
+  min-width: 0;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  overflow-y: auto;
+  padding: 8px;
+  gap: 8px;
+}
+
+.dock[data-open='false'] .dock-body {
+  display: none;
+}
+
+.dock-section {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--panel);
+  overflow: hidden;
+}
+
+/*
+ * An OPEN section shares the dock's height with the other open ones rather than
+ * stacking to its natural height. That is what keeps V8's requirement true at
+ * Wide: the architecture graph and the Signal trace are both open by default
+ * and both on screen at once, because the cross-highlight between them is the
+ * feature and a scroll between them destroys it.
+ */
+.dock-section.is-open {
+  flex: 1 1 0;
+  min-height: 220px;
+}
+
+.dock-section-header {
+  margin: 0;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.dock-section-toggle {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 7px 9px;
+  background: var(--panel-2);
+  color: var(--dim);
+  border: 0;
+  border-bottom: 1px solid var(--line);
+  cursor: pointer;
+  font: inherit;
+  font-size: 12px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  text-align: left;
+}
+
+.dock-section.is-open .dock-section-toggle {
+  color: var(--text);
+}
+
+.dock-caret {
+  color: var(--muted);
+  font-size: 10px;
+}
+
+.dock-section-label {
+  flex: 0 0 auto;
+}
+
+/*
+ * §5.1 — the badge on a collapsed header.
+ *
+ * Clicking `R4` in the 3D scene highlights it in the graph, the trace and the
+ * inspector. If those sections are collapsed the highlight happens where nobody
+ * can see it and the app appears to do nothing, which would be a regression in
+ * the feature Phase 2 spent the most effort on. So a collapsed header carries a
+ * dot and a summary — `Modules ● R4` — and the selection is still visible, just
+ * summarised.
+ */
+.dock-badge {
+  margin-left: auto;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  max-width: 55%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 10px;
+  letter-spacing: 0;
+  text-transform: none;
+  color: var(--muted);
+}
+
+.dock-badge.is-selection {
+  color: #cfe0fb;
+}
+
+.dock-badge-dot {
+  flex: 0 0 auto;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--accent);
+}
+
+.dock-section-body {
+  flex: 1 1 auto;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  overflow-y: auto;
+  padding: 10px;
+}
+
+/* Collapsed is `hidden`, never an unmount: four separate harness invariants
+   depend on these panes staying mounted and live while they are shut. See the
+   module comment in ui/Shell.tsx. */
+.dock-section-body[hidden] {
+  display: none;
+}
+
+.dock-resizer {
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: 6px;
+  cursor: col-resize;
+  background: transparent;
+  touch-action: none;
+}
+
+.dock-resizer:hover {
+  background: #253247;
+}
+
+.dock-scrim {
+  position: absolute;
+  inset: 0;
+  z-index: 4;
+  border: 0;
+  padding: 0;
+  background: rgba(6, 9, 13, 0.55);
+  cursor: pointer;
+}
+
+/* ================================================================ MEDIUM
+ *
+ * 900-1440 px, the laptop. The dock comes out of flow entirely, so the stage
+ * keeps every pixel it had with the dock shut. This is the whole fix.
+ */
+@media (max-width: 1440px) {
+  .dock {
+    position: absolute;
+    z-index: 5;
+    top: 0;
+    right: 0;
+    bottom: 0;
+    flex: 0 0 auto;
+    width: min(var(--dock-w, 460px), 92vw);
+    box-shadow: -14px 0 34px rgba(0, 0, 0, 0.5);
+  }
+
+  /* Shut, the dock is the 44 px icon strip and nothing else — still absolute,
+     so it costs the stage nothing there either. */
+  .dock[data-open='false'] {
+    width: 44px;
+    box-shadow: none;
+  }
+
+  /* The stage reserves the strip's width and no more. A margin rather than a
+     flex column, because the strip must never become a resizable column that
+     could grow into the viewport. */
+  .stage {
+    margin-right: 44px;
+  }
+
+  .dock-resizer {
+    display: none;
+  }
+}
+
+/* =============================================================== COMPACT
+ *
+ * Below 900 px the dock cannot sit beside the stage at all, so it opens as a
+ * full-height sheet. Every pane is still reachable; none of them is hidden.
+ */
+@media (max-width: 899px) {
+  .dock[data-open='true'] {
+    width: min(420px, 100vw);
+  }
+
+  .stage-strip {
+    height: clamp(112px, 18vh, 150px);
+  }
+
+  .stage-strip .command-bar {
+    min-width: 260px;
+  }
 }
 
 .panel {
@@ -613,10 +1035,20 @@ ul.tight {
 
 /* ============================================================ architecture */
 
+/*
+ * The graph and the trace are two dock sections now rather than two halves of
+ * one `.workbench` column, and V8's argument for keeping them apart is
+ * unchanged: one tall scrolling column pushed the trace below the fold, so the
+ * cross-highlight was never visible at the same time as the thing it
+ * highlights. At Wide they are both open by default and `.dock-section.is-open`
+ * makes them share the dock's height, so clicking R4 in the graph and watching
+ * R4's trace rows light up is still one glance and not one scroll.
+ */
 .arch-panel,
 .trace-panel {
   display: flex;
   flex-direction: column;
+  flex: 1 1 auto;
   min-height: 0;
   overflow: hidden;
 }
@@ -974,16 +1406,23 @@ ul.tight {
 
 /* =========================================================== source explorer
  *
- * Three sub-columns: the outline a learner scans, the code they read, and the
- * context that explains it. The whole strip spans the viewport and the
- * workbench, so the 3D view keeps its width (see `.app`).
+ * WAS three sub-columns spanning the viewport and the workbench — the outline a
+ * learner scans, the code they read, and the context that explains it, side by
+ * side. That needed roughly 700 px, and the dock is 320-520.
+ *
+ * So the three columns become three STACKED regions, each scrolling on its own,
+ * and nothing is hidden: the outline keeps its own scroller at the top, the
+ * code takes the space that is left, and the context sits underneath. This is
+ * the one pane the responsive shell genuinely costs something, and it is
+ * recorded rather than quietly dropped — L4's assertions all still hold,
+ * because they are about `.source-code`'s own scroll container, the painted
+ * line numbers and the three registers' computed styles, none of which is about
+ * the columns being beside one another.
  */
 .source-panel {
-  grid-column: 1 / span 2;
-  grid-row: 2;
+  flex: 1 1 auto;
   min-height: 0;
   min-width: 0;
-  margin: 0 12px 12px;
   display: flex;
   flex-direction: column;
   overflow: hidden;
@@ -1015,10 +1454,28 @@ ul.tight {
 
 .source-body {
   display: grid;
-  grid-template-columns: 190px minmax(0, 1fr) minmax(0, 330px);
+  /* One column in the dock. See `.source-panel`. */
+  grid-template-columns: minmax(0, 1fr);
+  /*
+   * Three bounded rows, each scrolling on its own. The bounds are the load-
+   * bearing part: L4 asserts that selecting a joint SCROLLS the code view to
+   * the symbol's first line, measured against `.source-code`'s own
+   * `clientHeight`. An auto row would let the code region grow to all 429 lines
+   * of `movement-sequences.h`, and then the pane would never scroll and the
+   * assertion would pass without meaning anything.
+   */
+  grid-template-rows: minmax(0, 130px) minmax(200px, 1fr) minmax(0, 220px);
   gap: 10px;
   min-height: 0;
   flex: 1;
+}
+
+/* Enough room for those three rows to exist at their minimums; the dock's own
+   scroller takes the overflow when several sections are open at once, and the
+   code region gets the whole remainder when the source section has the dock to
+   itself. */
+.dock-section[data-dock-section='source'].is-open {
+  min-height: 480px;
 }
 
 .source-outline,
@@ -1489,27 +1946,20 @@ ul.tight {
 
 /* ============================================================== Learn mode
  *
- * A THIRD grid row, not a fourth column. Same argument as the source
- * explorer's: a column has to come out of the viewport's width, and the
- * viewport is where ISSUE-20260823-023 lived. The row is a slim strip until a
- * lesson is opened, so the browsing state costs the 3D view almost nothing.
+ * A dock section now, not a third grid row. The old argument — a column has to
+ * come out of the viewport's width, and the viewport is where
+ * ISSUE-20260823-023 lived — is answered by the overlay rule instead: below
+ * Wide the dock is out of flow, so opening Learn takes nothing from the stage,
+ * and at Wide the stage is 1,900 px or more. The world-frame check is re-run at
+ * every breakpoint anyway, which is the part of that argument that was ever
+ * evidence.
  */
 .lesson-panel {
-  grid-column: 1 / span 2;
-  grid-row: 3;
   min-width: 0;
   min-height: 0;
-  margin: 0 12px 12px;
-  padding: 10px 12px;
-  background: var(--panel);
-  border: 1px solid var(--line);
-  border-radius: 8px;
+  padding: 2px;
   overflow-y: auto;
-  max-height: 128px;
-}
-
-.lesson-panel.is-open {
-  max-height: 360px;
+  max-height: none;
 }
 
 .lesson-list {
@@ -2270,27 +2720,19 @@ ul.tight {
 
 /* ================================================================ Lab mode
  *
- * A FOURTH grid row. Same argument as the source explorer's and the lesson
- * runner's: a column has to come out of the viewport's width, and the viewport
- * is where ISSUE-20260823-023 lived. The panel is a two-line strip until it is
- * opened, so the cost of Lab existing is a strip.
+ * A dock section now, not a fourth grid row — same reasoning as Learn's above.
+ * The panel's OWN closed strip is untouched and still matters for a different
+ * reason: while it is closed it does not subscribe to `LessonRuntime` at all,
+ * and losing that once turned phase 7's trace into a seven-rung ladder missing
+ * `visual.joint`. Collapsing the dock section around it does not change that
+ * state either way.
  */
 .lab-panel {
-  grid-column: 1 / span 2;
-  grid-row: 4;
   min-width: 0;
   min-height: 0;
-  margin: 0 12px 12px;
-  padding: 10px 12px;
-  background: var(--panel);
-  border: 1px solid var(--line);
-  border-radius: 8px;
+  padding: 2px;
   overflow-y: auto;
-  max-height: 96px;
-}
-
-.lab-panel.is-open {
-  max-height: 420px;
+  max-height: none;
 }
 
 .lab-name {

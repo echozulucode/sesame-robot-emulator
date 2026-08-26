@@ -26,6 +26,7 @@ import { LESSONS, POLISHED_LESSON_IDS } from './generated/lessons.js';
 import { IMPLEMENTED_CHECKS, IMPLEMENTED_CONTROLS, UNIMPLEMENTED_CONTROLS } from './lessons/registry.js';
 import type { LessonRuntime } from './lessons/runtime.js';
 import type { SelectionState } from './state/selection.js';
+import type { Breakpoint, SectionId } from './ui/shell-state.js';
 import type { TelemetryStore } from './state/telemetry-store.js';
 import { traceBadge, type TraceStore } from './state/trace-store.js';
 import type { WorldFrameReading } from './three/RobotScene.js';
@@ -320,6 +321,52 @@ export interface LabReading {
   readonly honestyNote: string | null;
 }
 
+/**
+ * The responsive shell, measured rather than asserted.
+ *
+ * This exists because of the gap that let a 13%-of-screen robot ship: the
+ * harness had 26 captures and **not one of them asked how much space the
+ * viewport got**. Every number here is read off the live DOM with
+ * `getBoundingClientRect` — the CANVAS, not the container that holds it, since
+ * a container can be tall while the drawing buffer is not, and that would be
+ * exactly the sort of green-but-wrong the old harness produced.
+ *
+ * `stageWidthPx` is the one the overlay rule is asserted against: measure it
+ * with the dock shut, open the dock, measure it again, and below Wide the two
+ * must be identical.
+ */
+export interface ShellReading {
+  readonly breakpoint: Breakpoint;
+  readonly windowWidthPx: number;
+  readonly windowHeightPx: number;
+  readonly dockOpen: boolean;
+  readonly dockOverlays: boolean;
+  readonly dockWidthPx: number;
+  /** The dock's measured width on screen, 0 when it is not laid out. */
+  readonly dockRectWidthPx: number;
+  readonly stageWidthPx: number;
+  readonly stageHeightPx: number;
+  /** The WebGL canvas itself, on screen. */
+  readonly canvasWidthPx: number;
+  readonly canvasHeightPx: number;
+  /** `canvasHeightPx / innerHeight`, as a percentage. The plan's floor is 45. */
+  readonly viewportHeightSharePct: number;
+  readonly viewportWidthSharePct: number;
+  readonly openSections: readonly SectionId[];
+  /**
+   * One entry per section, in draw order: what its header says while it is
+   * collapsed, and whether that badge is about the current selection (§5.1).
+   */
+  readonly sections: readonly {
+    readonly id: SectionId;
+    readonly open: boolean;
+    readonly badge: string | null;
+    readonly badgeIsSelection: boolean;
+    /** The header's rendered text, which is what a reader actually sees. */
+    readonly headerText: string;
+  }[];
+}
+
 export interface SesameDebugApi {
   readonly ready: boolean;
   backendId(): BackendId;
@@ -394,6 +441,14 @@ export interface SesameDebugApi {
   assetFacts(): AssetFacts | null;
   /** Frames drawn and pose version applied — proof the render loop is alive. */
   renderStats(): { frames: number; appliedPoseVersion: number; storePoseVersion: number } | null;
+  /** The responsive shell, measured off the DOM. */
+  shell(): ShellReading;
+  /** Open or close one dock section, as clicking its header would. */
+  setSection(id: SectionId, open: boolean): void;
+  /** Show or hide the dock itself, as clicking the strip's chevron would. */
+  setDockOpen(open: boolean): void;
+  /** Wide only. Clamped to [320, 520], exactly as the drag handle is. */
+  setDockWidth(px: number): void;
   /** Everything at once, for a single CDP round trip. */
   snapshot(): Record<string, unknown>;
 }
@@ -423,6 +478,15 @@ export interface DebugHookWiring {
   setJoint(joint: JointName, deg: number): Promise<void>;
   stop(): void;
   reset(): void;
+  /** The shell controller, for the three layout accessors above. */
+  shellBreakpoint(): Breakpoint;
+  shellDockOpen(): boolean;
+  shellDockOverlays(): boolean;
+  shellDockWidthPx(): number;
+  shellOpenSections(): readonly SectionId[];
+  setSection(id: SectionId, open: boolean): void;
+  setDockOpen(open: boolean): void;
+  setDockWidth(px: number): void;
 }
 
 declare global {
@@ -951,6 +1015,66 @@ export function installDebugHook(wiring: DebugHookWiring): () => void {
 
     assetFacts: () => wiring.facts(),
 
+    shell(): ShellReading {
+      const rectOf = (selector: string): { width: number; height: number } => {
+        const el = document.querySelector(selector);
+        if (el === null) return { width: 0, height: 0 };
+        const rect = el.getBoundingClientRect();
+        return { width: rect.width, height: rect.height };
+      };
+      const stage = rectOf('[data-testid="stage"]');
+      const dock = rectOf('[data-testid="dock"]');
+      // The renderer's canvas is found by asking each `<canvas>` for a WebGL
+      // context, exactly as `canvasPixelCount()` does: the OLED panel's canvas
+      // is a 2D one and answers `null`, so there is no dependence on a class
+      // name R3F may or may not forward.
+      let canvas: HTMLCanvasElement | null = null;
+      for (const candidate of document.querySelectorAll('canvas')) {
+        if ((candidate.getContext('webgl2') ?? candidate.getContext('webgl')) !== null) {
+          canvas = candidate;
+          break;
+        }
+      }
+      const canvasRect = canvas?.getBoundingClientRect() ?? null;
+      const canvasWidthPx = canvasRect?.width ?? 0;
+      const canvasHeightPx = canvasRect?.height ?? 0;
+      const w = globalThis.innerWidth;
+      const h = globalThis.innerHeight;
+      const sections = [...document.querySelectorAll('[data-dock-section]')].map((el) => {
+        const id = (el.getAttribute('data-dock-section') ?? '') as SectionId;
+        const badge = el.querySelector('[data-dock-badge]');
+        const header = el.querySelector('.dock-section-toggle');
+        return {
+          id,
+          open: el.getAttribute('data-open') === 'true',
+          badge: badge === null ? null : (badge.textContent ?? '').trim(),
+          badgeIsSelection: badge?.getAttribute('data-selection') === 'true',
+          headerText: (header?.textContent ?? '').trim(),
+        };
+      });
+      return {
+        breakpoint: wiring.shellBreakpoint(),
+        windowWidthPx: w,
+        windowHeightPx: h,
+        dockOpen: wiring.shellDockOpen(),
+        dockOverlays: wiring.shellDockOverlays(),
+        dockWidthPx: wiring.shellDockWidthPx(),
+        dockRectWidthPx: dock.width,
+        stageWidthPx: stage.width,
+        stageHeightPx: stage.height,
+        canvasWidthPx,
+        canvasHeightPx,
+        viewportHeightSharePct: h === 0 ? 0 : (canvasHeightPx / h) * 100,
+        viewportWidthSharePct: w === 0 ? 0 : (canvasWidthPx / w) * 100,
+        openSections: wiring.shellOpenSections(),
+        sections,
+      };
+    },
+
+    setSection: (id, open) => wiring.setSection(id, open),
+    setDockOpen: (open) => wiring.setDockOpen(open),
+    setDockWidth: (px) => wiring.setDockWidth(px),
+
     renderStats() {
       const stats = wiring.renderStats();
       return stats === null ? null : { ...stats, storePoseVersion: wiring.store.poseVersion };
@@ -977,6 +1101,7 @@ export function installDebugHook(wiring: DebugHookWiring): () => void {
         trace: api.trace(),
         emulatorFacts: wiring.emulatorFacts(),
         face: wiring.store.face,
+        shell: api.shell(),
         canvasPixels: canvasPixelCount(),
       };
     },

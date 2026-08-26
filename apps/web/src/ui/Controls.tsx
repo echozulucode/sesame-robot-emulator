@@ -1,6 +1,25 @@
 /**
  * Backend switch, provenance banner, and the command vocabulary.
  *
+ * ## Two components, one panel's worth of markup
+ *
+ * This was one `<Controls>` panel in the old third column. The responsive
+ * shell splits it in two WITHOUT changing a word of what either half says:
+ *
+ *  - {@link BackendPanel} — the switch, the connection detail and the
+ *    provenance banner (`#prov-banner`, `#origin-banner`,
+ *    `#measurement-verdict`). It lives in the dock's inspector section, and a
+ *    summary of the same two badges is pinned to the rail, which never
+ *    collapses.
+ *  - {@link CommandBar} — the command and face vocabulary. It lives on the
+ *    STAGE, under the robot, and is therefore reachable at every breakpoint
+ *    without opening anything. A button that drives the robot belongs beside
+ *    the robot, and `[data-command="wave"]` is what the harness clicks in four
+ *    separate phases.
+ *
+ * Every id, `data-*` attribute and class name below is the one it was before.
+ * The split is layout; the provenance surfaces are correctness.
+ *
  * Every button on this panel is generated from `COMMAND_VOCABULARY` and
  * `FACE_CATALOG` in `@sesame-lab/sesame-protocol`, which are themselves a
  * checked mirror of `hardware/hardware-map.json` (`catalog-drift.test.ts`
@@ -39,6 +58,12 @@ export interface ControlsProps {
   readonly provenanceCounts: Readonly<Record<Provenance, number>>;
   readonly originCounts: Readonly<Record<OriginKind, number>>;
   readonly totalEvents: number;
+}
+
+/** What the stage's command bar needs, and nothing else. */
+export interface CommandBarProps {
+  readonly backend: TelemetryBackend;
+  readonly status: BackendStatus;
   readonly busy: string | null;
   readonly error: string | null;
   readonly onCommand: (name: string) => void;
@@ -61,7 +86,7 @@ const BACKEND_CHOICES: readonly { id: BackendId; label: string; sub: string }[] 
 /** Faces worth one click. The full 38 are in the model; these are the ones with pixels. */
 const FACE_SHORTLIST = ['happy', 'sad', 'angry', 'surprised', 'love', 'sleepy', 'confused', 'idle'];
 
-export function Controls(props: ControlsProps): ReactElement {
+export function BackendPanel(props: ControlsProps): ReactElement {
   const {
     backend,
     backendId,
@@ -74,21 +99,7 @@ export function Controls(props: ControlsProps): ReactElement {
     provenanceCounts,
     originCounts,
     totalEvents,
-    busy,
-    error,
-    onCommand,
-    onFace,
-    onStop,
   } = props;
-
-  const commands = COMMAND_VOCABULARY.filter((c) => c.command !== '' && c.command !== 'stop');
-
-  // A backend that has not finished connecting cannot run anything, and on the
-  // QEMU path saying so matters: the lab host answers a command posted mid-boot
-  // with 503, and a button that looks live but is not is worse than one that is
-  // visibly waiting. The emulator takes 2-17 s to boot.
-  const ready = status.connection === 'connected';
-  const commandsDisabled = !backend.canCommand || !ready || busy !== null;
 
   return (
     <section className="panel" data-testid="controls">
@@ -208,6 +219,32 @@ export function Controls(props: ControlsProps): ReactElement {
         </div>
       </div>
 
+    </section>
+  );
+}
+
+/**
+ * The command vocabulary, on the stage.
+ *
+ * Generated from `COMMAND_VOCABULARY` and `FACE_CATALOG`, exactly as before —
+ * a hand-typed list cannot drift away from `hardware/hardware-map.json`, and
+ * that includes the parts nobody would have typed, like the fact that the two
+ * ⚠ faces have zero frames and draw nothing at all.
+ */
+export function CommandBar(props: CommandBarProps): ReactElement {
+  const { backend, status, busy, error, onCommand, onFace, onStop } = props;
+
+  const commands = COMMAND_VOCABULARY.filter((c) => c.command !== '' && c.command !== 'stop');
+
+  // A backend that has not finished connecting cannot run anything, and on the
+  // QEMU path saying so matters: the lab host answers a command posted mid-boot
+  // with 503, and a button that looks live but is not is worse than one that is
+  // visibly waiting. The emulator takes 2-17 s to boot.
+  const ready = status.connection === 'connected';
+  const commandsDisabled = !backend.canCommand || !ready || busy !== null;
+
+  return (
+    <section className="panel command-bar" data-testid="command-bar">
       <header className="panel-header">
         <h2>Commands</h2>
         <span className="panel-sub">from hardware-map.json, not hardcoded</span>

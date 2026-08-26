@@ -1,19 +1,30 @@
 /**
  * V3 + V4 (the browser robot) and V8 (the architecture graph + "See the Signal").
  *
- * Layout is the research report's three-pane engineering workbench: the 3D
- * scene on the left, the architecture graph and the causal trace in the middle,
- * and the state inspector on the right.
+ * Layout is the responsive three-zone shell: a 56 px rail that never collapses,
+ * a stage that gets every pixel nothing else claimed, and a right dock of
+ * accordion sections.
  *
  * ```text
- * +--------------------+---------------------------+------------------+
- * | Interactive 3D     | Architecture / Signal     | State inspector  |
- * | click any joint    | trace                     | OLED, assets     |
- * +--------------------+---------------------------+                  |
- * | Source explorer — real source at pinned line   | (full height)    |
- * | numbers, symbol <-> node <-> part <-> event    |                  |
- * +------------------------------------------------+------------------+
+ * +--+------------------------------------+------------------+
+ * |  |                                    |  RIGHT DOCK      |
+ * |R |          CENTER STAGE              |  v Inspector     |
+ * |A |       3D robot (>= 45vh)           |  > Modules       |
+ * |I |                                    |  > Signal        |
+ * |L +------------------------------------+  > Source        |
+ * |  |  commands + OLED (stage strip)     |  > Learn  > Lab  |
+ * +--+------------------------------------+------------------+
+ *  56px          flexible, never < 45vh      0 / 320-520 px
  * ```
+ *
+ * It replaced a `minmax(0,1fr) minmax(0,520px) 400px` grid with a fixed 380 px
+ * source row, which on a 1440x900 laptop left the 3D viewport about 500x280 —
+ * 13% of the screen, on the machine the product was being evaluated on. The
+ * rule that fixes that case is in `ui/shell.ts` and `styles.css`: **below 1441
+ * px the dock overlays the stage instead of pushing it**, so opening a pane
+ * costs the robot nothing. `capture-web-screenshots.mjs` phase 12 measures the
+ * canvas at four window sizes and asserts the share, which is the assertion
+ * whose absence let the old layout ship.
  *
  * Data flow, once:
  *
@@ -73,12 +84,16 @@ import { RobotScene, type SceneHandles } from './three/RobotScene.js';
 import { commandedDegFromNode, type AssetFacts, type JointRig } from './three/rig.js';
 import { ArchitectureGraph } from './ui/ArchitectureGraph.js';
 import { AssetPanel } from './ui/AssetPanel.js';
-import { Controls } from './ui/Controls.js';
+import { BackendPanel, CommandBar } from './ui/Controls.js';
 import { EmulatorPanel } from './ui/EmulatorPanel.js';
 import { JointInspector } from './ui/JointInspector.js';
 import { OledPanel } from './ui/OledPanel.js';
 import { SignalTrace } from './ui/SignalTrace.js';
 import { SourceExplorer } from './ui/SourceExplorer.js';
+import { Dock, Rail, useShell, type DockSectionSpec } from './ui/Shell.js';
+import { sectionForSelection } from './ui/shell-state.js';
+import { lessonProgress, loadProgress } from './lessons/progress.js';
+import { LESSON_BY_ID, LESSONS } from './generated/lessons.js';
 
 /**
  * Re-render the panels at a fixed low rate instead of per event.
@@ -138,6 +153,15 @@ export function App(): ReactElement {
   const backendRef = useRef<TelemetryBackend | null>(null);
   const [backend, setBackend] = useState<TelemetryBackend | null>(null);
 
+  /**
+   * The responsive shell: breakpoint, open dock sections, dock width.
+   *
+   * Declared here rather than inside `<Dock>` because two things outside the
+   * dock read it — the rail's mode buttons, and the selection path below, which
+   * has to be able to put a highlighted pane back on screen.
+   */
+  const shell = useShell();
+
   const [selection, setSelection] = useState<SelectionState>(EMPTY_SELECTION);
   const [expanded, setExpanded] = useState<ReadonlySet<string>>(NO_EXPANSIONS);
   const [shownTraceId, setShownTraceId] = useState<string | null>(null);
@@ -169,18 +193,39 @@ export function App(): ReactElement {
   // Every pane routes through here. `expansionsFor` is additive: selecting a
   // joint in the 3D view opens whatever chain is needed to show `joint.R4`, and
   // never closes something the learner opened on purpose.
-  const applySelection = useCallback((next: SelectionState) => {
-    setSelection(next);
-    const needed = next.nodeId === null ? [] : expansionsFor(next.nodeId);
-    if (needed.length > 0) {
-      setExpanded((previous) => {
-        if (needed.every((id) => previous.has(id))) return previous;
-        const union = new Set(previous);
-        for (const id of needed) union.add(id);
-        return union;
-      });
-    }
-  }, []);
+  const applySelection = useCallback(
+    (next: SelectionState) => {
+      setSelection(next);
+      const needed = next.nodeId === null ? [] : expansionsFor(next.nodeId);
+      if (needed.length > 0) {
+        setExpanded((previous) => {
+          if (needed.every((id) => previous.has(id))) return previous;
+          const union = new Set(previous);
+          for (const id of needed) union.add(id);
+          return union;
+        });
+      }
+      // §5.2 of the plan, and the reason the whole change is not a regression.
+      //
+      // Clicking `R4` in the 3D scene highlights it in the graph, the trace and
+      // the inspector. Below Wide those sections are collapsed one at a time,
+      // so without this the highlight would happen where nobody can see it and
+      // the app would appear to do nothing — a genuine regression in the
+      // feature Phase 2 spent the most effort on.
+      //
+      // Restricted to selections that came FROM THE SCENE on purpose. A click
+      // inside a pane that is already open needs no help, and a lesson step
+      // that selects a symbol must not yank the dock out from under the learner
+      // playing it: `LessonRunner` calls `selectSymbol` with origin `source`,
+      // and hijacking the accordion there would break Learn at Medium to fix a
+      // problem Learn does not have.
+      if (shell.dockOverlays && next.origin === 'scene') {
+        const target = sectionForSelection(next);
+        if (target !== null) shell.reveal(target);
+      }
+    },
+    [shell.dockOverlays, shell.reveal],
+  );
 
   const selectJointFrom = useCallback(
     (joint: JointName | null, from: 'scene' | 'inspector') => applySelection(selectJoint(joint, from)),
@@ -666,8 +711,17 @@ export function App(): ReactElement {
         selectSymbol: (symbolId) => selectSymbolFrom(symbolId),
         expanded: () => [...expanded],
         toggleNode: (id) => toggleExpanded(id),
+        shellBreakpoint: () => shell.breakpoint,
+        shellDockOpen: () => shell.dockVisible,
+        shellDockOverlays: () => shell.dockOverlays,
+        shellDockWidthPx: () => shell.state.dockWidthPx,
+        shellOpenSections: () => shell.state.open[shell.breakpoint],
+        setSection: (id, open) => shell.setSection(id, open),
+        setDockOpen: (open) => shell.setDockOpen(open),
+        setDockWidth: (px) => shell.setDockWidth(px),
       }),
     [
+      shell,
       applySelection,
       backendId,
       expanded,
@@ -823,30 +877,98 @@ export function App(): ReactElement {
     [activeKey],
   );
 
-  return (
-    <div className="app">
-      <div className="viewport">
-        <Suspense fallback={<div className="loading">loading assets/sesame.glb…</div>}>
-          <RobotScene
-            store={store}
-            litJoints={litJoints}
-            onSelect={(joint) => selectJointFrom(joint, 'scene')}
-            oledCanvas={oledCanvas}
-            oledDirty={oledDirty}
-            driveFrom={driveFromSimulated && canDriveFromSimulated ? 'simulated' : 'commanded'}
-            onReady={onReady}
-            showTopCover={showTopCover}
-          />
-        </Suspense>
-        <div className="viewport-caption">
-          <b>Sesame Lab</b> · kinematics only, no physics · click a joint to inspect it ·{' '}
-          {driveFromSimulated && canDriveFromSimulated
-            ? 'showing the model’s slew estimate (simulatedDeg)'
-            : 'showing commanded angles'}
-        </div>
-      </div>
+  // ------------------------------------------------- collapsed-section state
+  //
+  // Section 5.1, and the other half of section 4's "collapsing costs no
+  // awareness". A closed header still says what its pane holds: which joint is
+  // selected, how many trace rows the selection hit, how far the open lesson
+  // has got, and whether Sesame Lab is currently modifying this robot. Every
+  // one of these is read from state that already existed - `SelectionState`,
+  // the trace store, the lesson progress record and the lesson runtime - so a
+  // badge cannot say something its own pane would contradict.
+  const hitRowCount = (shownTrace?.rows ?? EMPTY_ROWS).filter(
+    (row) =>
+      (selection.joint !== null && row.joint === selection.joint) ||
+      (selection.nodeId !== null && row.nodeId === selection.nodeId),
+  ).length;
 
-      <div className="workbench">
+  const learnBadge = useMemo(() => {
+    const progress = loadProgress();
+    const open = progress.openLessonId === null ? undefined : LESSON_BY_ID.get(progress.openLessonId);
+    if (open !== undefined) {
+      const p = lessonProgress(progress, open);
+      return `${open.title} ${String(p.passed)}/${String(p.total)}`;
+    }
+    const passed = LESSONS.reduce((n, lesson) => n + lessonProgress(progress, lesson).passed, 0);
+    return passed === 0 ? `${String(LESSONS.length)} lessons` : `${String(passed)} steps passed`;
+    // Recomputed on the panel tick, which is also the rate the lesson runner
+    // repaints at. Progress lives in localStorage and nothing else notifies.
+  }, [tick]);
+
+  const labModificationCount =
+    JOINT_ORDER.filter((joint) => lessonRuntime.subtrimDeg[joint] !== 0).length +
+    lessonRuntime.faults.size +
+    (store.panelIsAuthored ? 1 : 0);
+
+  const sections: readonly DockSectionSpec[] = [
+    {
+      id: 'inspector',
+      label: 'Inspector',
+      glyph: '◈',
+      badge: selected ?? `${String(store.totalEvents)} events`,
+      badgeIsSelection: selected !== null,
+      body: (
+        <>
+          {backend !== null && (
+            <BackendPanel
+              backend={backend}
+              backendId={backendId}
+              onBackendChange={setBackendId}
+              bridgeUrl={bridgeUrl}
+              onBridgeUrlChange={setBridgeUrl}
+              status={status}
+              drivingProvenance={store.drivingProvenance}
+              drivingOrigin={store.drivingOrigin}
+              provenanceCounts={store.provenanceCounts}
+              originCounts={store.originCounts}
+              totalEvents={store.totalEvents}
+            />
+          )}
+
+          <EmulatorPanel
+            facts={emulatorFacts}
+            status={status}
+            physicallyObservedEvents={store.physicallyObservedEvents}
+          />
+
+          <JointInspector
+            joints={store.joints}
+            rig={rig}
+            selected={selected}
+            onSelect={(joint) => selectJointFrom(joint, 'inspector')}
+            canCommand={backend?.canCommand ?? false}
+            onSetJoint={(joint, deg) => void runSetJoint(joint, deg)}
+          />
+
+          <AssetPanel
+            facts={facts}
+            groundPlaneMm={groundPlaneMm}
+            showTopCover={showTopCover}
+            onToggleTopCover={setShowTopCover}
+            driveFromSimulated={driveFromSimulated}
+            onDriveFromSimulated={setDriveFromSimulated}
+            canDriveFromSimulated={canDriveFromSimulated}
+          />
+        </>
+      ),
+    },
+    {
+      id: 'modules',
+      label: 'Modules',
+      glyph: '⌗',
+      badge: selection.nodeId ?? `${String(expanded.size)} expanded`,
+      badgeIsSelection: selection.nodeId !== null,
+      body: (
         <ArchitectureGraph
           expanded={expanded}
           onToggle={toggleExpanded}
@@ -854,7 +976,18 @@ export function App(): ReactElement {
           onSelect={(nodeId) => applySelection(selectNode(nodeId, 'graph'))}
           activeNodeIds={activeNodeIds}
         />
-
+      ),
+    },
+    {
+      id: 'signal',
+      label: 'Signal',
+      glyph: '∿',
+      badge:
+        hitRowCount > 0
+          ? `${String(hitRowCount)} rows`
+          : `${String(shownTrace?.rows.length ?? 0)} rows · ${String(store.totalEvents)} events`,
+      badgeIsSelection: hitRowCount > 0,
+      body: (
         <SignalTrace
           trace={shownTrace}
           traces={traces}
@@ -862,102 +995,134 @@ export function App(): ReactElement {
           onSelectRow={selectTraceRow}
           onSelectTrace={setShownTraceId}
         />
-      </div>
+      ),
+    },
+    {
+      id: 'source',
+      label: 'Source',
+      glyph: '‹›',
+      badge: selection.symbolId,
+      badgeIsSelection: selection.symbolId !== null,
+      body: (
+        <SourceExplorer
+          selection={selection}
+          onSelectSymbol={selectSymbolFrom}
+          onSelectNode={(nodeId) => applySelection(selectNode(nodeId, 'source'))}
+          onSelectJoint={(joint) => selectJointFrom(joint, 'inspector')}
+          traceRows={shownTrace?.rows ?? EMPTY_ROWS}
+          onSelectRow={selectTraceRow}
+        />
+      ),
+    },
+    {
+      id: 'learn',
+      label: 'Learn',
+      glyph: '◪',
+      badge: learnBadge,
+      badgeIsSelection: false,
+      body: <LessonRunner wiring={lessonWiring} />,
+    },
+    {
+      id: 'lab',
+      label: 'Lab',
+      glyph: '⚙',
+      badge:
+        labModificationCount === 0
+          ? 'robot unmodified'
+          : `${String(labModificationCount)} modification${labModificationCount === 1 ? '' : 's'}`,
+      badgeIsSelection: labModificationCount > 0,
+      body: <LabMode wiring={labWiring} />,
+    },
+  ];
 
-      {/*
-        The fourth pane. It sits on its own row under the 3D view and the
-        workbench rather than inside either, for one reason: the viewport keeps
-        its width. ISSUE-20260823-023 was a sliding ground plane, and squeezing
-        the column the renderer lives in is the same class of change that
-        produced it. This adds a row and leaves the camera's aspect the only
-        thing that moves.
-      */}
-      <SourceExplorer
-        selection={selection}
-        onSelectSymbol={selectSymbolFrom}
-        onSelectNode={(nodeId) => applySelection(selectNode(nodeId, 'source'))}
-        onSelectJoint={(joint) => selectJointFrom(joint, 'inspector')}
-        traceRows={shownTrace?.rows ?? EMPTY_ROWS}
-        onSelectRow={selectTraceRow}
+  return (
+    <div
+      className="shell"
+      data-testid="shell"
+      data-breakpoint={shell.breakpoint}
+      data-dock-open={String(shell.dockVisible)}
+      data-dock-overlay={String(shell.dockOverlays)}
+    >
+      <Rail
+        shell={shell}
+        backendId={backendId}
+        onBackendChange={setBackendId}
+        status={status}
+        drivingProvenance={store.drivingProvenance}
+        drivingOrigin={store.drivingOrigin}
+        totalEvents={store.totalEvents}
       />
 
       {/*
-        Learn mode. A THIRD row, for the same reason the source explorer took a
-        second one: a column would have to come out of the viewport's width, and
-        the viewport is where ISSUE-20260823-023 lived. The pane is a slim strip
-        until a lesson is opened, and the harness re-asserts the world frame
-        with it mounted.
-      */}
-      <LessonRunner wiring={lessonWiring} />
+        The stage. Its width is what this whole change is about, so nothing is
+        allowed to take a column out of it below Wide: the dock floats over it
+        instead (`.dock[data-overlay="true"]` in styles.css), and the harness
+        asserts the measured width is identical with the dock shut and with it
+        open.
 
-      {/*
-        Lab mode. A FOURTH row, for the third time and the same reason: a
-        column would have to come out of the viewport's width, and the viewport
-        is where ISSUE-20260823-023 lived. Slim until it is opened, and the
-        harness re-asserts the world frame with it open and a tab selected.
+        ISSUE-20260823-023 was a sliding ground plane found by a user AFTER a
+        layout change, and this is a layout change, so phase 12 re-runs the
+        world-frame check at every breakpoint and across a dock resize - the one
+        remaining path that still resizes the renderer's canvas.
       */}
-      <LabMode wiring={labWiring} />
+      <main className="stage" data-testid="stage">
+        <div className="viewport" data-testid="viewport">
+          <Suspense fallback={<div className="loading">loading assets/sesame.glb…</div>}>
+            <RobotScene
+              store={store}
+              litJoints={litJoints}
+              onSelect={(joint) => selectJointFrom(joint, 'scene')}
+              oledCanvas={oledCanvas}
+              oledDirty={oledDirty}
+              driveFrom={driveFromSimulated && canDriveFromSimulated ? 'simulated' : 'commanded'}
+              onReady={onReady}
+              showTopCover={showTopCover}
+            />
+          </Suspense>
+          <div className="viewport-caption">
+            <b>Sesame Lab</b> · kinematics only, no physics · click a joint to inspect it ·{' '}
+            {driveFromSimulated && canDriveFromSimulated
+              ? 'showing the model’s slew estimate (simulatedDeg)'
+              : 'showing commanded angles'}
+          </div>
+        </div>
 
-      <aside className="sidebar">
-        {backend !== null && (
-          <Controls
-            backend={backend}
-            backendId={backendId}
-            onBackendChange={setBackendId}
-            bridgeUrl={bridgeUrl}
-            onBridgeUrlChange={setBridgeUrl}
-            status={status}
-            drivingProvenance={store.drivingProvenance}
-            drivingOrigin={store.drivingOrigin}
-            provenanceCounts={store.provenanceCounts}
-            originCounts={store.originCounts}
-            totalEvents={store.totalEvents}
-            busy={busy}
-            error={error}
-            onCommand={(name) => void runCommand(name)}
-            onFace={(name) => void runFace(name)}
-            onStop={stopMotion}
+        {/*
+          The stage strip: the command vocabulary and the OLED, beside the robot
+          they are about. Fixed height and horizontally scrollable rather than
+          wrapping, so its cost to the viewport is the same at every width - a
+          strip that grew a second row at 900 px would eat exactly the height
+          this change exists to give back.
+        */}
+        <div className="stage-strip" data-testid="stage-strip">
+          {backend !== null && (
+            <CommandBar
+              backend={backend}
+              status={status}
+              busy={busy}
+              error={error}
+              onCommand={(name) => void runCommand(name)}
+              onFace={(name) => void runFace(name)}
+              onStop={stopMotion}
+            />
+          )}
+
+          <OledPanel
+            panel={store.panel}
+            textureCanvas={oledCanvas}
+            face={store.face}
+            source={store.oledSource}
+            emptyFace={store.emptyFace}
+            panelElided={oledElided}
+            version={store.version}
+            onRedraw={() => {
+              oledDirty.current += 1;
+            }}
           />
-        )}
+        </div>
+      </main>
 
-        <EmulatorPanel
-          facts={emulatorFacts}
-          status={status}
-          physicallyObservedEvents={store.physicallyObservedEvents}
-        />
-
-        <JointInspector
-          joints={store.joints}
-          rig={rig}
-          selected={selected}
-          onSelect={(joint) => selectJointFrom(joint, 'inspector')}
-          canCommand={backend?.canCommand ?? false}
-          onSetJoint={(joint, deg) => void runSetJoint(joint, deg)}
-        />
-
-        <OledPanel
-          panel={store.panel}
-          textureCanvas={oledCanvas}
-          face={store.face}
-          source={store.oledSource}
-          emptyFace={store.emptyFace}
-          panelElided={oledElided}
-          version={store.version}
-          onRedraw={() => {
-            oledDirty.current += 1;
-          }}
-        />
-
-        <AssetPanel
-          facts={facts}
-          groundPlaneMm={groundPlaneMm}
-          showTopCover={showTopCover}
-          onToggleTopCover={setShowTopCover}
-          driveFromSimulated={driveFromSimulated}
-          onDriveFromSimulated={setDriveFromSimulated}
-          canDriveFromSimulated={canDriveFromSimulated}
-        />
-      </aside>
+      <Dock shell={shell} sections={sections} />
     </div>
   );
 }

@@ -99,6 +99,26 @@
  *      parsed to prove our adapter does not reproduce ISSUE-20260823-021, and
  *      the project is checked across a real `location.reload()`.
  *
+ *  12. THE RESPONSIVE SHELL — the assertion whose ABSENCE let a 13%-of-screen
+ *      robot ship. Phases 1-11 run at ONE window and none of them ever asked
+ *      how much space the 3D viewport got, so a fixed three-column grid passed
+ *      every check while leaving a 1440x900 laptop about 500x280 for the thing
+ *      the product is about. This phase opens four windows — 880x900, 1280x800,
+ *      1440x900 and 2560x1440, one per breakpoint plus the two the plan names —
+ *      and at each one measures the CANVAS rather than its container: at least
+ *      45% of the window's height and at least 480 px wide, with the robot
+ *      actually drawn in the middle of the drawing buffer. It asserts that
+ *      below Wide the dock OVERLAYS the stage instead of pushing it, by
+ *      measuring the stage's width with the dock shut and again with it open;
+ *      that a collapsed section whose content just became selected says so on
+ *      its header and that `selectJoint` auto-expands the graph below Wide;
+ *      that the collapse state survives a real reload; and it re-runs
+ *      ISSUE-20260823-023 at every breakpoint AND across a dock resize, because
+ *      that bug was found by a user after a layout change and this is a layout
+ *      change. Learn plays lesson 2 end to end at Medium and the Lab's C++
+ *      export is re-parsed at Compact, so a collapsed accordion cannot break a
+ *      whole mode without being noticed.
+ *
  * Usage: node scripts/capture-web-screenshots.mjs [--out <dir>] [--skip-qemu]
  * Exit 0 pass · 1 fail · 3 no browser found.
  */
@@ -302,7 +322,38 @@ async function startLabHost({ backend = 'qemu' } = {}) {
 }
 
 // ------------------------------------------------------------------ browser
-async function launchBrowser(url) {
+/**
+ * The window every phase but 12 runs in.
+ *
+ * It was 1440x860, which the responsive shell classifies as **Medium** — where
+ * the dock is a 44 px icon strip and holds one open section at a time, by
+ * design. Phases 7, 8, 10 and 11 each need a specific pane laid out and
+ * measurable, and phase 7 needs the architecture graph and the Signal trace on
+ * screen AT ONCE, which below Wide is physically impossible and is the whole
+ * reason §5 of the plan exists. So the default session runs at Wide, and phase
+ * 12 is the one that visits every breakpoint on purpose.
+ *
+ * This is a change to the framing of all 26 existing captures. It is not a
+ * change to what any of them assert.
+ */
+const DEFAULT_WINDOW = { width: 1600, height: 1000 };
+
+/**
+ * The four windows phase 12 measures.
+ *
+ * The plan names three (1280x800, 1440x900, 2560x1440) and all three land in
+ * Medium or Wide, so a fourth is added below 900 px: "every breakpoint"
+ * includes Compact, and Compact is where the Lab's C++ export has to keep
+ * round-tripping.
+ */
+const RESPONSIVE_WINDOWS = [
+  { label: 'compact', width: 880, height: 900, breakpoint: 'compact' },
+  { label: 'laptop-small', width: 1280, height: 800, breakpoint: 'medium' },
+  { label: 'laptop', width: 1440, height: 900, breakpoint: 'medium' },
+  { label: 'desktop', width: 2560, height: 1440, breakpoint: 'wide' },
+];
+
+async function launchBrowser(url, window = DEFAULT_WINDOW) {
   const cdpPort = await freePort();
   const profile = fs.mkdtempSync(path.join(os.tmpdir(), 'sesame-web-'));
   const proc = spawn(
@@ -311,7 +362,7 @@ async function launchBrowser(url) {
       '--headless=new',
       `--remote-debugging-port=${cdpPort}`,
       `--user-data-dir=${profile}`,
-      '--window-size=1440,860',
+      `--window-size=${window.width},${window.height}`,
       '--hide-scrollbars',
       '--no-first-run',
       '--no-default-browser-check',
@@ -462,6 +513,45 @@ async function waitFor(evaluate, expression, predicate, what, timeoutMs = 30000,
   return last;
 }
 
+/**
+ * A SECOND `setServoAngle()` parser, written here on purpose.
+ *
+ * The Lab renders its own round-trip verdict, and asserting that verdict
+ * would only prove the Lab agrees with itself. This one reads the exported
+ * text by the same rule the firmware's bodies are read under — writes
+ * accumulate, a wait closes the frame — and the phase compares its output
+ * against the frames THIS FILE authored through the sliders.
+ */
+const parseExportedCpp = (source) => {
+  const text = source.replace(/\/\*[\s\S]*?\*\//g, ' ').replace(/\/\/[^\n]*/g, '');
+  const tokens = [];
+  const callRe = /setServoAngle\s*\(\s*([A-Za-z_][A-Za-z0-9_]*|\d+)\s*,\s*(-?\d+)\s*\)/g;
+  const delayRe = /\b(delayWithFace|delay)\s*\(\s*(\d+)\s*\)/g;
+  for (let m = callRe.exec(text); m !== null; m = callRe.exec(text)) {
+    tokens.push({ at: m.index, kind: 'servo', name: m[1], value: Number(m[2]) });
+  }
+  for (let m = delayRe.exec(text); m !== null; m = delayRe.exec(text)) {
+    tokens.push({ at: m.index, kind: 'delay', name: m[1], value: Number(m[2]) });
+  }
+  tokens.sort((a, b) => a.at - b.at);
+  const frames = [];
+  let current = {};
+  let order = [];
+  for (const token of tokens) {
+    if (token.kind === 'delay') {
+      if (order.length === 0 && token.value === 0) continue;
+      frames.push({ angles: current, order, delayMs: token.value });
+      current = {};
+      order = [];
+      continue;
+    }
+    current = { ...current, [token.name]: token.value };
+    order = [...order, token.name];
+  }
+  if (order.length > 0) frames.push({ angles: current, order, delayMs: 0 });
+  return frames;
+};
+
 const maxQuaternionDelta = (a, b) => {
   let worst = 0;
   for (const joint of JOINT_ORDER) {
@@ -542,6 +632,60 @@ await waitFor(
   60000,
 );
 console.log('[web] app loaded, rig built');
+
+/**
+ * Put a dock section on screen before a phase reads its geometry.
+ *
+ * The panes are ALWAYS MOUNTED — collapsing a dock section is `hidden` on its
+ * body, never an unmount, precisely so that phase 9's "zero `.src-line` nodes"
+ * cannot pass vacuously and phase 10's 250 ms check evaluator keeps running.
+ * But a hidden element has no rect, so anything that measures a scroll position
+ * or clicks a React Flow node at real coordinates has to open its section
+ * first, and saying so here is better than a phase that silently depended on a
+ * default.
+ *
+ * Wide opens `inspector`, `modules` and `signal` by default and holds a set, so
+ * this only ever ADDS; it never closes what another phase opened.
+ */
+/**
+ * Give one dock section the whole dock, so a CAPTURE shows what its caption
+ * claims.
+ *
+ * The panes used to be grid rows and columns, all on screen at once. They are
+ * accordion sections in a scrolling dock now, and with four of them open the
+ * dock holds more content than it can show — a screenshot taken without this
+ * frames whichever section happens to be at the top of the scroller rather than
+ * the pane the phase just proved something about.
+ *
+ * It changes no assertion. Collapsing a section is `hidden`, never an unmount:
+ * every pane stays mounted and live, `querySelector` still finds its nodes,
+ * `HTMLElement.click()` still reaches its buttons, and L6's 250 ms check
+ * evaluator keeps running against real telemetry throughout. The one thing a
+ * collapsed section does not have is a laid-out box, which is why anything
+ * measuring geometry calls this (or `openSection`) FIRST rather than after.
+ */
+const focusSection = async (evaluate, id) => {
+  await evaluate(`(() => {
+    const shell = window.__sesame.shell();
+    for (const open of shell.openSections) {
+      if (open !== ${JSON.stringify(id)}) window.__sesame.setSection(open, false);
+    }
+    window.__sesame.setDockOpen(true);
+    window.__sesame.setSection(${JSON.stringify(id)}, true);
+  })()`);
+  // A repaint, plus React Flow's resize observer, plus the dock's own scroller
+  // back to the top now that there is only one section in it.
+  await sleep(500);
+  await evaluate(`void document.querySelector('[data-testid="dock-body"]')?.scrollTo(0, 0)`);
+  await sleep(250);
+};
+
+const openSection = async (evaluate, id) => {
+  await evaluate(`window.__sesame.setDockOpen(true); window.__sesame.setSection(${JSON.stringify(id)}, true)`);
+  // One repaint plus React Flow's own resize observer, which needs a laid-out
+  // box before it will place nodes at real coordinates.
+  await sleep(450);
+};
 
 // `ready` means the rig exists, which is set from a `useEffect` — and that can
 // fire before the render loop's first `useFrame`. The pose-dependent foot
@@ -976,9 +1120,10 @@ await waitFor(
   const delta = maxQuaternionDelta(before, after);
   check(delta > 1e-3, `nothing moved as bridge telemetry arrived (delta ${delta.toExponential(3)})`);
 
-  // Back to the top of the sidebar: this shot's evidence is the backend switch
-  // and the provenance banner, not the OLED.
-  await page.evaluate(`void document.querySelector('.sidebar')?.scrollTo(0, 0)`);
+  // Back to the top of the dock: this shot's evidence is the backend switch and
+  // the provenance banner, both of which live in the inspector section now.
+  // (`.sidebar` was the old third column; the dock's scroller replaced it.)
+  await page.evaluate(`void document.querySelector('[data-testid="dock-body"]')?.scrollTo(0, 0)`);
   await sleep(400);
   await page.shoot(
     'v3-browser-bridge-backend.png',
@@ -1016,6 +1161,22 @@ await waitFor(
     'window.__sesame.status().connection',
     (c) => c === 'connected',
     'the simulator backend to come back up for the architecture/trace phase',
+  );
+
+  // The graph and the trace, open TOGETHER. V8's argument for splitting the
+  // workbench in half was that the cross-highlight is the feature and a scroll
+  // between them destroys it; the dock's Wide defaults keep that true, and
+  // asserting it here rather than assuming it is the point.
+  await openSection(page.evaluate, 'modules');
+  await openSection(page.evaluate, 'signal');
+  const bothOpen = await page.evaluate('window.__sesame.shell()');
+  check(
+    bothOpen.breakpoint === 'wide',
+    `phases 1-11 must run at Wide so the graph and the trace fit at once; got "${bothOpen.breakpoint}"`,
+  );
+  check(
+    bothOpen.openSections.includes('modules') && bothOpen.openSections.includes('signal'),
+    `the architecture graph and the Signal trace are not open together: ${JSON.stringify(bothOpen.openSections)}`,
   );
 
   // ------------------------------------------------- the collapsed top level
@@ -1069,8 +1230,11 @@ await waitFor(
     'the MG90S node is not marked unresolved — hardware-map.json records no torque, slew or travel',
   );
 
-  await page.evaluate(`void document.querySelector('.workbench')?.scrollTo(0, 0)`);
+  // `.workbench` was the middle column that held the graph above the trace.
+  // Both are dock sections now and the dock's own scroller is what moves.
+  await page.evaluate(`void document.querySelector('[data-testid="dock-body"]')?.scrollTo(0, 0)`);
   await sleep(700);
+  await focusSection(page.evaluate, 'modules');
   const graphCollapsedShot = await page.shoot(
     'v8-architecture-collapsed.png',
     'the architecture graph at the report’s collapsed top level: ESP32 and its four setup() branches, every node projected from hardware-map.json',
@@ -1119,6 +1283,7 @@ await waitFor(
   for (const id of CHAIN) {
     check(domNodes.includes(id), `${id} is in the layout but not in the DOM — React Flow did not draw it`);
   }
+  await focusSection(page.evaluate, 'modules');
   const graphExpandedShot = await page.shoot(
     'v8-architecture-servos-expanded.png',
     'Servos expanded: movement → setServoAngle → ESP32Servo → LEDC → GPIO → MG90S → eight joints, every node backed by a hardware-map.json path and a firmware file:line',
@@ -1299,10 +1464,11 @@ await waitFor(
       `enum order R1 R2 L1 L2 R4 R3 L3 L4, in which R4 really does come before R3`,
   );
 
-  // The workbench is two fixed halves, so the trace is already on screen; what
-  // needs scrolling is the row list inside it, down to the row this feature is
-  // really about.
+  // The graph and the trace are two dock sections open together, so the trace is
+  // already on screen; what needs scrolling is the row list inside it, down to
+  // the row this feature is really about.
   await sleep(350);
+  await focusSection(page.evaluate, 'signal');
   const traceShot = await page.shoot(
     'v8-see-the-signal.png',
     'the causal trace for one Wave: eight layers, each with its own provenance, origin and a witness clause — and pwm.output marked INFERRED FOR EXPLANATION with the real ESP32Servo-quantised pulse beside it',
@@ -1310,6 +1476,11 @@ await waitFor(
 
   // The row the whole feature exists for, brought into view: this is where
   // "the code said 180 deg" and "a servo would have gone there" separate.
+  //
+  // The section is given the dock BEFORE the row list is scrolled, not after: a
+  // collapsed section has no laid-out box, so `offsetTop` would be 0 for every
+  // row and the scroll would be a no-op.
+  await focusSection(page.evaluate, 'signal');
   await page.evaluate(`(() => {
     const rows = document.querySelector('[data-testid="trace-rows"]');
     const pwm = document.querySelector('[data-layer="pwm.output"]');
@@ -1521,6 +1692,10 @@ await waitFor(
 {
   const sourceShots = [];
 
+  // The source pane is a dock section now rather than the second grid row, and
+  // everything below measures a real scroll position, so it has to be laid out.
+  await openSection(page.evaluate, 'source');
+
   // ---------------------------------------------------- the integrity gate
   const initial = await page.evaluate('window.__sesame.sourceExplorer()');
   check(
@@ -1620,6 +1795,7 @@ await waitFor(
 
   await page.evaluate(`void document.querySelector('.source-code')?.scrollTo(0, 0)`);
   await sleep(400);
+  await focusSection(page.evaluate, 'source');
   sourceShots.push(
     await page.shoot(
       'l4-source-explorer-wave.png',
@@ -1744,6 +1920,7 @@ await waitFor(
     return true;
   })()`);
   await sleep(350);
+  await focusSection(page.evaluate, 'source');
   sourceShots.push(
     await page.shoot(
       'l4-source-teaching-notes.png',
@@ -1995,6 +2172,8 @@ await waitFor(
   const lessonShots = [];
   const LESSONS_EXPR = 'window.__sesame.lessons()';
 
+  await openSection(page.evaluate, 'learn');
+
   /** A real click. SVG modules are `<g>`, which has no `HTMLElement.click()`. */
   const clickOn = (selector) =>
     page.evaluate(`(() => {
@@ -2128,6 +2307,7 @@ await waitFor(
     conceptualOpen.outlineMode === true,
     'a locked, outline module rendered as playable',
   );
+  await focusSection(page.evaluate, 'learn');
   lessonShots.push(
     await page.shoot(
       'l6-lesson-conceptual-badge.png',
@@ -2366,10 +2546,24 @@ await waitFor(
   );
 
   // --- step 5: the whole ladder --------------------------------------------
+  //
+  // Waiting for `checkStatus === "passed"` alone is not enough here, and the
+  // reason is worth writing down: lesson 1's `run-stand` left a COMPLETE trace
+  // on screen, so the check is already passed when this step opens. A bare
+  // `waitCheck('passed')` therefore returns on the previous trace and the read
+  // that follows it lands somewhere inside the new one — "7 of 8", with
+  // `visual.joint` still a `useFrame` sample away. So wait for the observed
+  // string that only the PASSED branch produces, on the trace this click
+  // opened, which is a strictly stronger condition than the status alone.
   await openStep(4);
   await clickOn('[data-testid="trace-run-stand"]');
-  await waitCheck('passed', 'one command producing a row on every rung', 25000);
-  const ladder = await page.evaluate(LESSONS_EXPR);
+  const ladder = await waitFor(
+    page.evaluate,
+    LESSONS_EXPR,
+    (v) => v !== null && v.checkStatus === 'passed' && (v.checkObserved ?? '').includes('visual.joint'),
+    'one command producing a row on every rung, the last of them read off Object3D.quaternion',
+    30000,
+  );
   check(
     (ladder.checkObserved ?? '').includes('visual.joint'),
     `the ladder check passed without the last rung: ${ladder.checkObserved}`,
@@ -2407,6 +2601,7 @@ await waitFor(
       `${JSON.stringify(lesson2.challenges)}`,
   );
 
+  await focusSection(page.evaluate, 'learn');
   lessonShots.push(
     await page.shoot(
       'l6-lesson-two-complete.png',
@@ -2746,6 +2941,7 @@ await waitFor(
   await sleep(350);
   await openStep(3);
 
+  await focusSection(page.evaluate, 'learn');
   lessonShots.push(
     await page.shoot(
       'l6-lesson-fault-injector.png',
@@ -2900,6 +3096,11 @@ await sleep(400);
     60000,
   );
 
+  // Open the section BEFORE asserting it drew nothing. The panes stay mounted
+  // when a dock section collapses, so `.src-line` would already be 0 here — but
+  // a refusal asserted against a pane nobody could see would be exactly the
+  // vacuous check this phase exists to avoid.
+  await openSection(badPage.evaluate, 'source');
   await badPage.evaluate('window.__sesame.selectSymbol("runWavePose")');
   const refused = await waitFor(
     badPage.evaluate,
@@ -2936,6 +3137,7 @@ await sleep(400);
     `the refusal does not show both hashes: ${JSON.stringify(shownHashes)}`,
   );
 
+  await focusSection(badPage.evaluate, 'source');
   const refusalShot = await badPage.shoot(
     'l4-source-integrity-refusal.png',
     'one byte changed in the bundled movement-sequences.h: the pane refuses to render any source at ' +
@@ -3140,7 +3342,7 @@ if (SKIP_QEMU) {
           `${driven.length} joints driven, ${observed.canvasPixels} canvas pixels.`,
       );
     }
-    await qemuPage.evaluate(`void document.querySelector('.sidebar')?.scrollTo(0, 0)`);
+    await qemuPage.evaluate(`void document.querySelector('[data-testid="dock-body"]')?.scrollTo(0, 0)`);
     await sleep(400);
     await qemuPage.shoot(
       'v3-browser-qemu-observed.png',
@@ -3536,6 +3738,7 @@ if (SKIP_QEMU) {
         if (rows !== null && pwm !== null) rows.scrollTop = pwm.offsetTop - rows.offsetTop - 8;
       })()`);
       await sleep(350);
+      await focusSection(evaluate, 'signal');
       await labPage.shoot(
         'v8-see-the-signal-qemu.png',
         'the same causal trace driven by real firmware under QEMU: servo.target is OBSERVED FROM EMULATOR, pwm.output is still INFERRED FOR EXPLANATION, and the rows are matched to the click by arrival time because the firmware has no trace-id field',
@@ -3668,7 +3871,7 @@ if (SKIP_QEMU) {
       `the render loop drew ${snapshot6.renderStats?.frames} frames — every reading above is stale`,
     );
 
-    await evaluate(`void document.querySelector('.sidebar')?.scrollTo(0, 0)`);
+    await evaluate(`void document.querySelector('[data-testid="dock-body"]')?.scrollTo(0, 0)`);
     await sleep(400);
     const waveShot = await labPage.shoot(
       'v3-browser-qemu-commanded-wave.png',
@@ -3842,45 +4045,6 @@ if (SKIP_QEMU) {
     const showLab = () =>
       evaluate(`void document.querySelector('[data-testid="lab-panel"]')?.scrollIntoView({ block: 'end' })`);
 
-    /**
-     * A SECOND `setServoAngle()` parser, written here on purpose.
-     *
-     * The Lab renders its own round-trip verdict, and asserting that verdict
-     * would only prove the Lab agrees with itself. This one reads the exported
-     * text by the same rule the firmware's bodies are read under — writes
-     * accumulate, a wait closes the frame — and the phase compares its output
-     * against the frames THIS FILE authored through the sliders.
-     */
-    const parseExportedCpp = (source) => {
-      const text = source.replace(/\/\*[\s\S]*?\*\//g, ' ').replace(/\/\/[^\n]*/g, '');
-      const tokens = [];
-      const callRe = /setServoAngle\s*\(\s*([A-Za-z_][A-Za-z0-9_]*|\d+)\s*,\s*(-?\d+)\s*\)/g;
-      const delayRe = /\b(delayWithFace|delay)\s*\(\s*(\d+)\s*\)/g;
-      for (let m = callRe.exec(text); m !== null; m = callRe.exec(text)) {
-        tokens.push({ at: m.index, kind: 'servo', name: m[1], value: Number(m[2]) });
-      }
-      for (let m = delayRe.exec(text); m !== null; m = delayRe.exec(text)) {
-        tokens.push({ at: m.index, kind: 'delay', name: m[1], value: Number(m[2]) });
-      }
-      tokens.sort((a, b) => a.at - b.at);
-      const frames = [];
-      let current = {};
-      let order = [];
-      for (const token of tokens) {
-        if (token.kind === 'delay') {
-          if (order.length === 0 && token.value === 0) continue;
-          frames.push({ angles: current, order, delayMs: token.value });
-          current = {};
-          order = [];
-          continue;
-        }
-        current = { ...current, [token.name]: token.value };
-        order = [...order, token.name];
-      }
-      if (order.length > 0) frames.push({ angles: current, order, delayMs: 0 });
-      return frames;
-    };
-
     /** Is pixel (x, y) lit in a page-ordered 1024-byte SSD1306 buffer? */
     const gddramPixel = (bytes, x, y) => {
       const index = x + (y >> 3) * 128;
@@ -3904,6 +4068,11 @@ if (SKIP_QEMU) {
     await evaluate('void location.reload()');
     await sleep(500);
     await waitReady('the app to come back after the pre-test reload');
+
+    // Lab is a dock section now. Everything below drags a pointer across the
+    // pixel canvas at real coordinates, so the section has to be laid out —
+    // `LabMode`'s own closed strip is a separate state and is left alone.
+    await openSection(evaluate, 'lab');
 
     await evaluate('window.__sesame.setBackend("qemu")');
     const connected11 = await waitFor(
@@ -3983,6 +4152,7 @@ if (SKIP_QEMU) {
     await setValue('[data-testid="pose-slider-R2"]', 90);
     await sleep(150);
 
+    await focusSection(evaluate, 'lab');
     labShots.push(
       await page11.shoot(
         'lab-pose-and-quantisation.png',
@@ -4071,6 +4241,7 @@ if (SKIP_QEMU) {
       `void document.querySelector('[data-testid="lab-cpp-export"]')?.scrollIntoView({ block: 'nearest' })`,
     );
     await sleep(350);
+    await focusSection(evaluate, 'lab');
     labShots.push(
       await page11.shoot(
         'lab-cpp-export.png',
@@ -4236,6 +4407,7 @@ if (SKIP_QEMU) {
       `void document.querySelector('[data-testid="pixel-editor"]')?.scrollIntoView({ block: 'start' })`,
     );
     await sleep(350);
+    await focusSection(evaluate, 'lab');
     labShots.push(
       await page11.shoot(
         'lab-face-editor.png',
@@ -4338,6 +4510,7 @@ if (SKIP_QEMU) {
         'not reproduced by the thing they are talking to',
     );
 
+    await focusSection(evaluate, 'lab');
     labShots.push(
       await page11.shoot(
         'lab-api-console.png',
@@ -4604,6 +4777,731 @@ if (SKIP_QEMU) {
   }
 }
 
+
+// ===========================================================================
+// PHASE 12: THE RESPONSIVE SHELL
+// ===========================================================================
+//
+// The assertion whose ABSENCE let a 13%-of-screen robot ship.
+//
+// The harness had 26 captures before this one and not a single one of them
+// asked how much space the 3D viewport actually got. Every phase ran at one
+// fixed window, that window was wide, and the layout was fine there — so a
+// `minmax(0,1fr) minmax(0,520px) 400px` grid with a fixed 380 px source row
+// passed every check while leaving a 1440x900 laptop roughly 500x280 for the
+// thing the product is about.
+//
+// So this phase visits four windows — one per breakpoint, plus the two the plan
+// names inside Medium — and at each one it asserts:
+//
+//   * the CANVAS (not the container that holds it) is at least 45% of the
+//     window's height and at least 480 px wide;
+//   * the robot is actually drawn there, by reading non-background pixels back
+//     out of the middle of the WebGL drawing buffer;
+//   * ISSUE-20260823-023 — the ground plane, the GLB root, the orbit target and
+//     the camera hold to 1e-6 mm while the foot contact sweeps 37.5 mm. A user
+//     found that bug after a layout change and this IS a layout change, so it is
+//     re-run at every breakpoint AND across a dock resize, which is now the one
+//     remaining path that resizes the renderer's canvas;
+//   * the dock OVERLAYS rather than pushes below Wide — the stage's measured
+//     width is identical with the dock shut and with it open, which is the rule
+//     that gives the laptop its robot back;
+//   * a collapsed section whose content just became selected shows a header
+//     badge, and `selectJoint` auto-expands its target section below Wide (§5);
+//   * the collapse state survives a real reload;
+//   * Learn still plays lesson 2 end to end at Medium, and the Lab's C++ export
+//     still round-trips at Compact — the two places a collapsed accordion could
+//     have broken a whole mode rather than a pixel count.
+// ===========================================================================
+{
+  console.log('[web] phase 12: the responsive shell');
+  const shellShots = [];
+  const before12 = problems.length;
+  const measured = [];
+
+  // Its own server: `replayBridge` was killed after phase 10, and every page
+  // below is a fresh browser at a different window size rather than a resize of
+  // an existing one. A real window is what the media queries and `innerWidth`
+  // see; a CDP metrics override would be measuring the emulator rather than the
+  // layout.
+  const shellBridge = await startBridge({ replay: WAVE_FIXTURE }).catch((e) => die(e.message));
+
+  const HEIGHT_FLOOR_PCT = 45;
+  const WIDTH_FLOOR_PX = 480;
+  const FRAME_EPS_MM_12 = 1e-6;
+  /** Non-background share of the middle of the drawing buffer. */
+  const ROBOT_PIXEL_FLOOR_PCT = 2;
+
+  /**
+   * How much of the MIDDLE of the drawing buffer is not the clear colour.
+   *
+   * `snapshot().canvasPixels` reads a 320x320 corner, which is fine for "did
+   * WebGL draw anything" and useless for "is the robot big enough to see": on a
+   * 2018x1171 canvas that corner is mostly empty floor. This samples 400x400
+   * from the centre, where the robot is, and reports a share rather than a
+   * count so one floor is meaningful at every window size.
+   */
+  const robotPixelShare = (evaluate) =>
+    evaluate(`(() => {
+      let canvas = null;
+      let gl = null;
+      for (const candidate of document.querySelectorAll('canvas')) {
+        const context = candidate.getContext('webgl2') ?? candidate.getContext('webgl');
+        if (context !== null) { canvas = candidate; gl = context; break; }
+      }
+      if (gl === null) return null;
+      const w = Math.min(canvas.width, 400);
+      const h = Math.min(canvas.height, 400);
+      const x = Math.max(0, Math.floor((canvas.width - w) / 2));
+      const y = Math.max(0, Math.floor((canvas.height - h) / 2));
+      const pixels = new Uint8Array(w * h * 4);
+      gl.readPixels(x, y, w, h, gl.RGBA, gl.UNSIGNED_BYTE, pixels);
+      let n = 0;
+      for (let i = 0; i < pixels.length; i += 4) {
+        if (Math.abs(pixels[i] - 0x0d) > 6 || Math.abs(pixels[i + 1] - 0x10) > 6 || Math.abs(pixels[i + 2] - 0x15) > 6) n += 1;
+      }
+      return { lit: n, sampled: w * h, sharePct: (n / (w * h)) * 100, bufferW: canvas.width, bufferH: canvas.height };
+    })()`);
+
+  /**
+   * ISSUE-20260823-023, once per breakpoint.
+   *
+   * `rest -> stand` rather than `rest -> wave`: V8 §4.3 recorded that the wave
+   * sweep was vacuous because the foot contact barely moved, and the whole
+   * point is to hold the world still while the pose moves 37.5 mm underneath it.
+   */
+  const sweepWorldFrame = async (page, label) => {
+    const frames = [];
+    const sample = async (tag) => {
+      const frame = await page.evaluate('window.__sesame.worldFrame()');
+      if (frame === null) problems.push(`worldFrame() returned null at "${label}: ${tag}"`);
+      else frames.push({ label: `${label}: ${tag}`, ...frame });
+    };
+    await page.evaluate('window.__sesame.run("rest")');
+    await sleep(1400);
+    await sample('rest pose');
+    void page.evaluate('window.__sesame.run("stand")');
+    for (let i = 0; i < 10; i += 1) {
+      await sleep(170);
+      await sample(`stand sample ${i + 1}`);
+    }
+    const first = frames[0];
+    const worst = {};
+    for (const key of ['groundWorldMm', 'robotRootWorldMm', 'cameraTargetMm', 'cameraPositionMm']) {
+      let value = 0;
+      for (const frame of frames.slice(1)) {
+        const a = first?.[key];
+        const b = frame[key];
+        if (!Array.isArray(a) || !Array.isArray(b)) continue;
+        for (let i = 0; i < 3; i++) value = Math.max(value, Math.abs(a[i] - b[i]));
+      }
+      worst[key] = value;
+      check(
+        value <= FRAME_EPS_MM_12,
+        `${key} moved ${value.toFixed(6)} mm in world space at ${label} (ISSUE-20260823-023)`,
+      );
+    }
+    const contacts = frames.map((f) => f.footContactMm).filter((v) => typeof v === 'number');
+    const spread = contacts.length === 0 ? 0 : Math.max(...contacts) - Math.min(...contacts);
+    // The guard against a vacuous pass: a check that never moved the pose has
+    // not held anything still.
+    check(
+      spread > 5,
+      `the foot contact varied by only ${spread.toFixed(3)} mm at ${label}, so the world-stability ` +
+        `check above proved nothing`,
+    );
+    return { worst, footContactSpreadMm: spread, samples: frames.length };
+  };
+
+  const bootPage = async (window) => {
+    const shellPage = await launchBrowser(shellBridge.url, window);
+    await waitFor(
+      shellPage.evaluate,
+      'typeof window.__sesame !== "undefined" && window.__sesame.ready',
+      (v) => v === true,
+      `the app to load at ${window.width}x${window.height}`,
+      60000,
+    );
+    await waitFor(
+      shellPage.evaluate,
+      'window.__sesame.worldFrame()?.footContactMm ?? null',
+      (v) => typeof v === 'number',
+      `the render loop to compute a foot contact at ${window.width}x${window.height}`,
+    );
+    return shellPage;
+  };
+
+  // --------------------------------------------------- one pass per window
+  for (const window of RESPONSIVE_WINDOWS) {
+    const where = `${window.width}x${window.height} (${window.breakpoint})`;
+    const shellPage = await bootPage(window);
+    try {
+      // The dock starts shut below Wide, which is the state a first-time reader
+      // meets. Measure it here and again with the dock open: below Wide the two
+      // stage widths must be IDENTICAL.
+      await shellPage.evaluate('window.__sesame.setDockOpen(false)');
+      await sleep(500);
+      const shut = await shellPage.evaluate('window.__sesame.shell()');
+      await shellPage.evaluate('window.__sesame.setDockOpen(true)');
+      await sleep(700);
+      const open = await shellPage.evaluate('window.__sesame.shell()');
+
+      check(
+        shut.breakpoint === window.breakpoint,
+        `${where} classified itself as "${shut.breakpoint}"`,
+      );
+
+      // ------------------------------------------- THE assertion that was missing
+      for (const [state, reading] of [['dock shut', shut], ['dock open', open]]) {
+        check(
+          reading.viewportHeightSharePct >= HEIGHT_FLOOR_PCT,
+          `at ${where} with the ${state} the 3D canvas is ${reading.canvasHeightPx.toFixed(0)} px ` +
+            `of ${reading.windowHeightPx} — ${reading.viewportHeightSharePct.toFixed(1)}% of the ` +
+            `window height, below the ${HEIGHT_FLOOR_PCT}% floor. This is the check the old ` +
+            `harness did not have, and a 13%-of-screen robot is what its absence cost.`,
+        );
+        check(
+          reading.canvasWidthPx >= WIDTH_FLOOR_PX,
+          `at ${where} with the ${state} the 3D canvas is only ${reading.canvasWidthPx.toFixed(0)} px ` +
+            `wide; the floor is ${WIDTH_FLOOR_PX}`,
+        );
+      }
+
+      // ------------------------------------------------- overlay, not push
+      if (window.breakpoint === 'wide') {
+        check(
+          open.dockOverlays === false,
+          `${where} is Wide, where the dock is in flow and pushing is correct`,
+        );
+      } else {
+        check(open.dockOverlays === true, `${where} does not report an overlaying dock`);
+        check(
+          Math.abs(open.stageWidthPx - shut.stageWidthPx) < 0.5,
+          `at ${where} the stage lost ${(shut.stageWidthPx - open.stageWidthPx).toFixed(1)} px when ` +
+            `the dock opened (${shut.stageWidthPx.toFixed(1)} -> ${open.stageWidthPx.toFixed(1)}). ` +
+            `Below Wide the dock must OVERLAY the stage, not push it — that rule is the whole fix.`,
+        );
+        check(
+          Math.abs(open.canvasWidthPx - shut.canvasWidthPx) < 0.5,
+          `at ${where} the 3D canvas was resized by opening the dock ` +
+            `(${shut.canvasWidthPx.toFixed(1)} -> ${open.canvasWidthPx.toFixed(1)})`,
+        );
+      }
+
+      // --------------------------------------------------- the robot is there
+      const pixels = await robotPixelShare(shellPage.evaluate);
+      check(
+        pixels !== null && pixels.sharePct >= ROBOT_PIXEL_FLOOR_PCT,
+        `at ${where} only ${(pixels?.sharePct ?? 0).toFixed(2)}% of the middle of the drawing ` +
+          `buffer is non-background — the robot is not visibly drawn`,
+      );
+
+      // ------------------------------- §5: the badge, and the auto-expand
+      //
+      // Close the inspector, then select R4 from the SCENE. The inspector is a
+      // reader of that selection and is now shut, so its header must say so;
+      // and below Wide the graph must open itself, because a highlight that
+      // lands in a collapsed section is a highlight nobody can see.
+      await shellPage.evaluate('window.__sesame.selectJoint(null)');
+      await shellPage.evaluate('window.__sesame.setDockOpen(false)');
+      await shellPage.evaluate('window.__sesame.setSection("inspector", false)');
+      await sleep(350);
+      await shellPage.evaluate('window.__sesame.selectJoint("R4")');
+      await sleep(500);
+      const selected = await shellPage.evaluate('window.__sesame.shell()');
+      const inspector = selected.sections.find((x) => x.id === 'inspector');
+      const modules = selected.sections.find((x) => x.id === 'modules');
+      check(
+        inspector?.open === false && inspector?.badgeIsSelection === true && inspector?.badge === 'R4',
+        `at ${where} the collapsed inspector header does not carry the selection badge: ` +
+          `${JSON.stringify(inspector)}`,
+      );
+      check(
+        (inspector?.headerText ?? '').includes('R4'),
+        `at ${where} the rendered inspector header reads "${inspector?.headerText}" — a reader ` +
+          `cannot see that R4 was selected`,
+      );
+      if (window.breakpoint === 'wide') {
+        check(
+          selected.dockOverlays === false,
+          `${where} should not auto-expand: at Wide the sections the selection lands in are open`,
+        );
+      } else {
+        check(
+          selected.dockOpen === true && modules?.open === true,
+          `at ${where} selecting R4 in the 3D scene did not open the graph that highlights it ` +
+            `(dockOpen=${selected.dockOpen}, modules=${JSON.stringify(modules)}). The app would ` +
+            `appear to do nothing, which is the §5 regression this change had to avoid.`,
+        );
+      }
+      await shellPage.evaluate('window.__sesame.selectJoint(null)');
+
+      // ------------------------------------------------- ISSUE-20260823-023
+      await shellPage.evaluate('window.__sesame.setDockOpen(true)');
+      await sleep(600);
+      const frame = await sweepWorldFrame(shellPage, where);
+
+      // ------------------------------------ the collapse state survives reload
+      await shellPage.evaluate(
+        'window.__sesame.setDockOpen(true); window.__sesame.setSection("source", true); window.__sesame.setDockWidth(384)',
+      );
+      await sleep(500);
+      const beforeReload = await shellPage.evaluate('window.__sesame.shell()');
+      await shellPage.evaluate('void location.reload()');
+      await sleep(700);
+      await waitFor(
+        shellPage.evaluate,
+        'typeof window.__sesame !== "undefined" && window.__sesame.ready',
+        (v) => v === true,
+        `the app to come back after a real reload at ${where}`,
+        60000,
+      );
+      await sleep(600);
+      const afterReload = await shellPage.evaluate('window.__sesame.shell()');
+      check(
+        JSON.stringify(afterReload.openSections) === JSON.stringify(beforeReload.openSections),
+        `at ${where} the open sections did not survive a real reload: ` +
+          `${JSON.stringify(beforeReload.openSections)} -> ${JSON.stringify(afterReload.openSections)}`,
+      );
+      check(
+        afterReload.dockOpen === beforeReload.dockOpen && afterReload.dockWidthPx === 384,
+        `at ${where} the dock came back as ${JSON.stringify({
+          open: afterReload.dockOpen,
+          width: afterReload.dockWidthPx,
+        })}`,
+      );
+
+      shellShots.push(
+        await shellPage.shoot(
+          `u5-shell-${window.label}.png`,
+          `the responsive shell at ${where}: the 3D canvas is ` +
+            `${open.canvasWidthPx.toFixed(0)}x${open.canvasHeightPx.toFixed(0)} — ` +
+            `${open.viewportHeightSharePct.toFixed(0)}% of the window height — with the dock ` +
+            (window.breakpoint === 'wide' ? 'docked beside it' : 'overlaying it rather than pushing it'),
+        ),
+      );
+
+      // ------------------------------- a dock resize is a canvas resize (Wide)
+      //
+      // At Wide the dock IS in flow, so dragging it resizes the renderer's
+      // canvas. That is the same class of change ISSUE-20260823-023 came from,
+      // and it is the only path left that still does it — so it gets its own
+      // sweep rather than an argument.
+      let resize = null;
+      if (window.breakpoint === 'wide') {
+        await shellPage.evaluate('window.__sesame.setDockWidth(320)');
+        await sleep(700);
+        const narrow = await shellPage.evaluate('window.__sesame.shell()');
+        await shellPage.evaluate('window.__sesame.setDockWidth(520)');
+        await sleep(700);
+        const widest = await shellPage.evaluate('window.__sesame.shell()');
+        check(
+          narrow.canvasWidthPx > widest.canvasWidthPx + 100,
+          `dragging the dock from 320 to 520 changed the canvas by only ` +
+            `${(narrow.canvasWidthPx - widest.canvasWidthPx).toFixed(0)} px — the handle is not ` +
+            `resizing anything`,
+        );
+        check(
+          widest.canvasWidthPx >= WIDTH_FLOOR_PX && widest.viewportHeightSharePct >= HEIGHT_FLOOR_PCT,
+          `with the dock dragged to its 520 px maximum the canvas falls below the floor: ` +
+            `${widest.canvasWidthPx.toFixed(0)} px wide, ${widest.viewportHeightSharePct.toFixed(1)}% tall`,
+        );
+        resize = await sweepWorldFrame(shellPage, `${where}, after a 320 -> 520 dock resize`);
+      }
+
+      measured.push({
+        window: `${window.width}x${window.height}`,
+        breakpoint: shut.breakpoint,
+        dockShut: {
+          stageWidthPx: shut.stageWidthPx,
+          canvasWidthPx: shut.canvasWidthPx,
+          canvasHeightPx: shut.canvasHeightPx,
+          viewportHeightSharePct: shut.viewportHeightSharePct,
+        },
+        dockOpen: {
+          stageWidthPx: open.stageWidthPx,
+          canvasWidthPx: open.canvasWidthPx,
+          canvasHeightPx: open.canvasHeightPx,
+          viewportHeightSharePct: open.viewportHeightSharePct,
+          overlays: open.dockOverlays,
+        },
+        stagePushedPx: shut.stageWidthPx - open.stageWidthPx,
+        robotPixels: pixels,
+        worldFrame: frame,
+        dockResizeWorldFrame: resize,
+        collapseSurvivedReload:
+          JSON.stringify(afterReload.openSections) === JSON.stringify(beforeReload.openSections),
+      });
+
+      const pageErrors = shellPage.errors();
+      check(
+        pageErrors.length === 0,
+        `the page logged ${pageErrors.length} error(s) at ${where}: ${pageErrors.slice(0, 3).join(' | ')}`,
+      );
+    } finally {
+      shellPage.close();
+      await sleep(400);
+    }
+  }
+
+  // ======================================================================
+  // LEARN, AT MEDIUM
+  // ======================================================================
+  //
+  // The accordion holds ONE open section below Wide, which is exactly the
+  // arrangement that could have broken a whole mode rather than a pixel count:
+  // a lesson step that selects a symbol, or a check that reads live telemetry,
+  // has to keep working while five other panes are collapsed around it.
+  //
+  // Lesson 2 is locked until every step of lesson 1 has PASSED, so lesson 1 is
+  // played here too. Its structural assertions belong to phase 10 and are not
+  // repeated; what this asserts is that six checks still reach `passed` against
+  // real telemetry at a width where the pane they live in is one of six.
+  {
+    const learnPage = await bootPage({ width: 1440, height: 900 });
+    try {
+      const LESSONS_EXPR = 'window.__sesame.lessons()';
+      const clickOn = (selector) =>
+        learnPage.evaluate(`(() => {
+          const el = document.querySelector(${JSON.stringify(selector)});
+          if (el === null) return { ok: false, why: 'not on screen' };
+          if (typeof el.click === 'function') el.click();
+          else el.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+          return { ok: true };
+        })()`);
+      const setRange = (selector, value) =>
+        learnPage.evaluate(`(() => {
+          const el = document.querySelector(${JSON.stringify(selector)});
+          if (el === null) return { ok: false, why: 'not on screen' };
+          const setter = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, 'value').set;
+          setter.call(el, String(${JSON.stringify(String(value))}));
+          el.dispatchEvent(new Event('input', { bubbles: true }));
+          return { ok: true, value: el.value };
+        })()`);
+      const attrOf = (selector, name) =>
+        learnPage.evaluate(`(() => {
+          const el = document.querySelector(${JSON.stringify(selector)});
+          return el === null ? null : el.getAttribute(${JSON.stringify(name)});
+        })()`);
+      const waitCheck = (status, what, timeoutMs = 20000) =>
+        waitFor(
+          learnPage.evaluate,
+          'window.__sesame.lessons().checkStatus',
+          (value) => value === status,
+          `${what} at Medium (check to read "${status}")`,
+          timeoutMs,
+        );
+      const openStep = async (index) => {
+        await learnPage.evaluate(`(() => {
+          const nav = document.querySelector('[data-testid="lesson-step-nav"]');
+          const chip = nav?.children?.[${index}];
+          if (chip != null) chip.click();
+        })()`);
+        await sleep(400);
+      };
+
+      await openSection(learnPage.evaluate, 'learn');
+      const atMedium = await learnPage.evaluate('window.__sesame.shell()');
+      check(
+        atMedium.breakpoint === 'medium' && atMedium.openSections.length === 1,
+        `the Learn run is not at Medium with a single open section: ${JSON.stringify({
+          breakpoint: atMedium.breakpoint,
+          open: atMedium.openSections,
+        })}`,
+      );
+
+      // ---- lesson 1, to unlock lesson 2 by demonstration
+      await clickOn('[data-testid="lesson-card-meet-sesame"]');
+      await sleep(500);
+      for (let guard = 0; guard < 20; guard += 1) {
+        const asking = await attrOf('[data-testid="joint-quiz"]', 'data-asking');
+        if (asking === null || asking === '') break;
+        await clickOn(`[data-testid="explode-module-${asking}"]`);
+        await waitFor(
+          learnPage.evaluate,
+          `document.querySelector('[data-testid="joint-quiz"]')?.getAttribute('data-asking') ?? null`,
+          (value) => value !== asking,
+          `the naming quiz to advance past ${asking} at Medium`,
+          10000,
+        );
+      }
+      await waitCheck('passed', 'naming all eight joints');
+      await openStep(1);
+      await clickOn('[data-testid="board-s2-mini"]');
+      await sleep(200);
+      await clickOn('[data-testid="board-distro-v1"]');
+      await waitCheck('passed', 'switching the board profile');
+      await openStep(2);
+      await clickOn('[data-testid="graph-node-oled"]');
+      await waitCheck('passed', 'following the OLED node to its declaration');
+      await openStep(3);
+      await clickOn('[data-testid="run-stand"]');
+      await waitCheck('passed', 'the eight channels reaching runStandPose’s vector', 30000);
+      await openStep(4);
+      await clickOn('[data-testid="quiz-badge-inferred-for-explanation"]');
+      await waitCheck('passed', 'identifying pwm.output as computed rather than observed');
+
+      // The graph-node step above went through the shared selection, which is
+      // the §5 path — so assert the dock did not end up somewhere that would
+      // have stranded the learner mid-lesson.
+      const midLesson = await learnPage.evaluate('window.__sesame.lessons()');
+      check(
+        midLesson.openLessonId === 'meet-sesame',
+        `the lesson pane lost its open lesson at Medium (${midLesson.openLessonId}) — a selection ` +
+          `made from inside a lesson must not collapse the section the lesson is in`,
+      );
+
+      // ---- lesson 2, end to end
+      await clickOn('[data-testid="lesson-back"]');
+      await sleep(450);
+      const unlocked = await learnPage.evaluate(LESSONS_EXPR);
+      check(
+        unlocked.lessonCards.find((c) => c.id === 'command-one-joint')?.locked === false,
+        'passing every step of lesson 1 at Medium did not unlock lesson 2',
+      );
+      await learnPage.evaluate('window.__sesame.setJoint("R1", 90)');
+      await sleep(800);
+      await clickOn('[data-testid="lesson-card-command-one-joint"]');
+      await sleep(500);
+
+      await waitCheck('failed', 'R1 sitting at 90 when the step asks for 135');
+      await setRange('[data-testid="joint-slider-input"]', 135);
+      await clickOn('[data-testid="joint-slider-send"]');
+      await waitCheck('passed', 'commanding R1 to 135');
+
+      await openStep(1);
+      await setRange('[data-testid="channel-input"]', 3);
+      await clickOn('[data-testid="channel-send"]');
+      await waitCheck('failed', 'writing channel 3, which is inside the guard');
+      await setRange('[data-testid="channel-input"]', 8);
+      await clickOn('[data-testid="channel-send"]');
+      await waitCheck('passed', 'channel 8 producing no servo.target inside the window');
+
+      await openStep(2);
+      await setRange('[data-testid="subtrim-R1"]', 40);
+      await sleep(300);
+      await setRange('[data-testid="subtrim-angle"]', 160);
+      await clickOn('[data-testid="subtrim-send-button"]');
+      await sleep(600);
+      await setRange('[data-testid="subtrim-angle"]', 180);
+      await clickOn('[data-testid="subtrim-send-button"]');
+      await waitCheck('passed', 'two requests colliding on one commanded angle');
+
+      await openStep(3);
+      await setRange('[data-testid="pwm-angle"]', 99);
+      await sleep(300);
+      await setRange('[data-testid="pwm-angle"]', 100);
+      await waitCheck('passed', '99° and 100° programming the same tick count');
+
+      // The same condition phase 10 waits on, and for the same reason: the
+      // check is already passed from lesson 1's trace when this step opens.
+      await openStep(4);
+      await clickOn('[data-testid="trace-run-stand"]');
+      await waitFor(
+        learnPage.evaluate,
+        LESSONS_EXPR,
+        (v) => v !== null && v.checkStatus === 'passed' && (v.checkObserved ?? '').includes('visual.joint'),
+        'one command producing a row on every rung at Medium',
+        30000,
+      );
+
+      // Same order phase 10 uses: land on delayWithFace out of nowhere first,
+      // which must NOT satisfy a check that names how the span was reached.
+      await openStep(5);
+      await clickOn('[data-testid="open-symbol-delayWithFace"]');
+      await sleep(700);
+      const direct = await learnPage.evaluate(LESSONS_EXPR);
+      check(
+        direct.checkStatus === 'pending',
+        `at Medium, opening delayWithFace out of nowhere satisfied a check that names how it was ` +
+          `reached (${direct.checkStatus})`,
+      );
+      await clickOn('[data-cite-symbol="setServoAngle"]');
+      await sleep(600);
+      await clickOn('[data-testid="open-symbol-delayWithFace"]');
+      await waitCheck('passed', 'reaching delayWithFace from setServoAngle');
+
+      const lesson2 = await learnPage.evaluate(LESSONS_EXPR);
+      check(
+        lesson2.stepOutcomes.length === 6 && lesson2.stepOutcomes.every((s) => s.outcome === 'passed'),
+        `lesson 2 at Medium finished as ${JSON.stringify(lesson2.stepOutcomes)}`,
+      );
+
+      // The stage never gave up a pixel to any of that.
+      const afterLesson = await learnPage.evaluate('window.__sesame.shell()');
+      check(
+        afterLesson.viewportHeightSharePct >= HEIGHT_FLOOR_PCT && afterLesson.canvasWidthPx >= WIDTH_FLOOR_PX,
+        `after playing two lessons at Medium the canvas is ` +
+          `${afterLesson.canvasWidthPx.toFixed(0)}x${afterLesson.canvasHeightPx.toFixed(0)} ` +
+          `(${afterLesson.viewportHeightSharePct.toFixed(1)}% of the window)`,
+      );
+
+      shellShots.push(
+        await learnPage.shoot(
+          'u5-learn-at-medium.png',
+          'lesson 2 played end to end on a 1440x900 laptop: the Learn section is one of six in an ' +
+            'overlaying dock, six checks passed against real telemetry, and the 3D stage kept its ' +
+            'full width the whole time',
+        ),
+      );
+    } finally {
+      learnPage.close();
+      await sleep(400);
+    }
+  }
+
+  // ======================================================================
+  // THE LAB'S C++ EXPORT, AT COMPACT
+  // ======================================================================
+  //
+  // Below 900 px the dock is a full-height sheet over the stage, which is the
+  // narrowest the Lab's editors are ever laid out. The export is parsed by the
+  // same second parser phase 11 uses — the Lab's own round-trip verdict is not
+  // trusted here either.
+  {
+    const labPage12 = await bootPage({ width: 880, height: 900 });
+    try {
+      const evaluate = labPage12.evaluate;
+      const clickOn = (selector) =>
+        evaluate(`(() => {
+          const el = document.querySelector(${JSON.stringify(selector)});
+          if (el === null) return { ok: false, why: 'not on screen' };
+          el.click();
+          return { ok: true };
+        })()`);
+      const setValue = (selector, value) =>
+        evaluate(`(() => {
+          const el = document.querySelector(${JSON.stringify(selector)});
+          if (el === null) return { ok: false, why: 'not on screen' };
+          const setter = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, 'value').set;
+          setter.call(el, ${JSON.stringify(String(value))});
+          el.dispatchEvent(new Event('input', { bubbles: true }));
+          return { ok: true, value: el.value };
+        })()`);
+
+      await evaluate(
+        `(() => { try { localStorage.removeItem('sesame-lab.lab.v1'); } catch { /* blocked */ } })()`,
+      );
+      await evaluate('void location.reload()');
+      await sleep(800);
+      await waitFor(
+        evaluate,
+        'typeof window.__sesame !== "undefined" && window.__sesame.ready',
+        (v) => v === true,
+        'the app to come back for the Compact Lab run',
+        60000,
+      );
+      await openSection(evaluate, 'lab');
+      const compact = await evaluate('window.__sesame.shell()');
+      check(compact.breakpoint === 'compact', `the Lab run is at "${compact.breakpoint}", not Compact`);
+
+      await clickOn('[data-testid="lab-open"]');
+      await sleep(500);
+      await clickOn('[data-testid="lab-tab-pose"]');
+      await sleep(350);
+
+      const authored = [
+        { R1: 135, R2: 90, L1: 90, L2: 90, R4: 90, R3: 90, L3: 90, L4: 170 },
+        { R1: 45, R2: 90, L1: 90, L2: 90, R4: 90, R3: 90, L3: 90, L4: 120 },
+      ];
+      await setValue('[data-testid="pose-slider-R1"]', 135);
+      await setValue('[data-testid="pose-slider-L4"]', 170);
+      await sleep(300);
+      await clickOn('[data-testid="pose-capture"]');
+      await sleep(350);
+      await clickOn('[data-testid="lab-tab-pose"]');
+      await sleep(250);
+      await setValue('[data-testid="pose-slider-R1"]', 45);
+      await setValue('[data-testid="pose-slider-L4"]', 120);
+      await sleep(300);
+      await clickOn('[data-testid="pose-capture"]');
+      await sleep(400);
+
+      const reading = await evaluate('window.__sesame.lab()');
+      check(reading.frameRows === 2, `the Compact Lab holds ${reading.frameRows} frame(s), not 2`);
+      const reparsed = parseExportedCpp(reading.exportedCpp);
+      check(
+        reparsed.length === 2,
+        `at Compact the exported C++ parsed back to ${reparsed.length} frame(s), not the 2 authored`,
+      );
+      let disagreements = 0;
+      reparsed.forEach((frame, index) => {
+        const expected = authored[index] ?? {};
+        if (JSON.stringify(frame.order) !== JSON.stringify(JOINT_ORDER)) {
+          disagreements += 1;
+          problems.push(
+            `at Compact, frame ${index + 1} of the exported C++ writes ${JSON.stringify(frame.order)}, ` +
+              `not the firmware's ${JSON.stringify(JOINT_ORDER)}`,
+          );
+        }
+        for (const joint of JOINT_ORDER) {
+          if (frame.angles[joint] !== expected[joint]) {
+            disagreements += 1;
+            problems.push(
+              `at Compact the exported C++ says frame ${index + 1} commands ${joint} to ` +
+                `${frame.angles[joint]}°; the sliders authored ${expected[joint]}°`,
+            );
+          }
+        }
+      });
+      check(
+        reading.exportedCppRoundTripOk === true && reading.exportedCppWrites === 16,
+        `at Compact the Lab reports round-trip ${reading.exportedCppRoundTripOk} over ` +
+          `${reading.exportedCppWrites} writes; this file re-parsed the same text and found ` +
+          `${disagreements} disagreement(s)`,
+      );
+      check(
+        reading.exportedCpp.includes('COMMANDED ANGLES'),
+        'the Compact export lost the commanded-angles warning that has to survive the clipboard',
+      );
+
+      const stageAtCompact = await evaluate('window.__sesame.shell()');
+      check(
+        stageAtCompact.canvasWidthPx >= WIDTH_FLOOR_PX,
+        `with the Lab sheet open at Compact the canvas is ${stageAtCompact.canvasWidthPx.toFixed(0)} px wide`,
+      );
+
+      shellShots.push(
+        await labPage12.shoot(
+          'u5-lab-at-compact.png',
+          'the Lab as a full-height sheet on an 880 px window: two frames captured from the eight ' +
+            'sliders and the exported C++ re-parsed here, byte for byte the same poses',
+        ),
+      );
+    } finally {
+      labPage12.close();
+      await sleep(400);
+    }
+  }
+
+  try {
+    shellBridge.proc.kill();
+  } catch {
+    /* gone */
+  }
+
+  phases.responsiveShell = {
+    ok: problems.length === before12,
+    breakpoints: {
+      compact: '< 900 px — dock hidden, opens as a full-height sheet',
+      medium: '900-1440 px — 44 px icon strip, opens as an OVERLAY',
+      wide: '> 1440 px — docked at 320-520 px, resizable, persisted',
+    },
+    floors: { viewportHeightSharePct: HEIGHT_FLOOR_PCT, viewportWidthPx: WIDTH_FLOOR_PX },
+    windows: measured,
+    persistenceKey: 'sesame-lab.shell.v1',
+    shots: shellShots.map((s) => s.name),
+  };
+  for (const row of measured) {
+    console.log(
+      `[web] ${row.window} ${row.breakpoint}: canvas ` +
+        `${row.dockOpen.canvasWidthPx.toFixed(0)}x${row.dockOpen.canvasHeightPx.toFixed(0)} = ` +
+        `${row.dockOpen.viewportHeightSharePct.toFixed(1)}% of window height, stage moved ` +
+        `${row.stagePushedPx.toFixed(1)} px when the dock opened`,
+    );
+  }
+}
+
 // ---------------------------------------------------------------- summary
 const summary = {
   capturedAt: new Date().toISOString(),
@@ -4640,7 +5538,9 @@ console.log(
     `stand pose verified in-browser; all three backends drove the same scene; ` +
     `the source explorer rendered the pinned tree at its own line numbers and refused a ` +
     `one-byte-tampered copy of it; lessons 1, 2, 4 and 5 were played end to end against real ` +
-    `telemetry, with six checks driven to FAILED first` +
+    `telemetry, with six checks driven to FAILED first; the 3D canvas held at least 45% of the ` +
+    `window height and 480 px of width at all four window sizes, and below 1441 px the dock ` +
+    `overlaid the stage without taking a pixel from it` +
     (phases.qemuCommanded?.ran === true
       ? `; a clicked button drove real firmware under QEMU and every joint it moved carries ` +
         `origin.kind="emulator" with isPhysicallyObserved() false`
