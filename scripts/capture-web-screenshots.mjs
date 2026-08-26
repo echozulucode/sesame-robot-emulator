@@ -1935,6 +1935,899 @@ await waitFor(
   };
 }
 
+// ---------------------------------------------------------------- phase 10
+//
+// PHASE 10: LEARN MODE — lesson 2 played end to end, by the DOM.
+//
+// The runner's whole claim is that a success condition passes because the robot
+// reached the asserted state, never because a button was pressed. A phase that
+// only asserted "the pane rendered" would prove nothing about that, so this one
+// PLAYS two lessons: it drives the controls the way a learner does — real
+// clicks, real `input` events on real sliders — and asserts each check flips to
+// `passed` only when the underlying state is right.
+//
+// Three checks are driven to `failed` FIRST, on purpose:
+//
+//   * name the wrong joint module,
+//   * command R1 to 90 when the step asks for 135,
+//   * write channel 3, which the `if (channel < 8)` guard lets through, when
+//     the step is about a channel it drops.
+//
+// A check that has never failed is not known to work: it could be a constant.
+//
+// It also asserts what the research report and L5 §6 ask for structurally —
+// exactly one explanation level on screen, `goDeeper` collapsed, the
+// `conceptual` badge driven by `grounding` (including on the three conceptual
+// modules that DO carry symbols), `boundaryNote` in its own register, the seven
+// faults split by `injectorIsLabFeature`, and every unbuilt control rendering a
+// visible refusal — and re-runs the ISSUE-20260823-023 world-frame check with
+// the new pane mounted.
+{
+  const lessonShots = [];
+  const LESSONS_EXPR = 'window.__sesame.lessons()';
+
+  /** A real click. SVG modules are `<g>`, which has no `HTMLElement.click()`. */
+  const clickOn = (selector) =>
+    page.evaluate(`(() => {
+      const el = document.querySelector(${JSON.stringify(selector)});
+      if (el === null) return { ok: false, why: 'not on screen' };
+      if (typeof el.click === 'function') el.click();
+      else el.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+      return { ok: true };
+    })()`);
+
+  /**
+   * Move a real `<input type="range">`.
+   *
+   * React installs its own `value` setter on the element, so assigning
+   * `el.value` and dispatching `input` is ignored. Going through the prototype
+   * descriptor is the documented way to drive a controlled input from outside
+   * React, and it is a genuine DOM interaction — not a call into the app.
+   */
+  const setRange = (selector, value) =>
+    page.evaluate(`(() => {
+      const el = document.querySelector(${JSON.stringify(selector)});
+      if (el === null) return { ok: false, why: 'not on screen' };
+      const setter = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, 'value').set;
+      setter.call(el, String(${JSON.stringify(String(value))}));
+      el.dispatchEvent(new Event('input', { bubbles: true }));
+      return { ok: true, value: el.value };
+    })()`);
+
+  /** Choose an option in a real `<select>`, the React-controlled way. */
+  const selectOption = (selector, value) =>
+    page.evaluate(`(() => {
+      const el = document.querySelector(${JSON.stringify(selector)});
+      if (el === null) return { ok: false, why: 'not on screen' };
+      const setter = Object.getOwnPropertyDescriptor(window.HTMLSelectElement.prototype, 'value').set;
+      setter.call(el, ${JSON.stringify(value)});
+      el.dispatchEvent(new Event('change', { bubbles: true }));
+      return { ok: true, value: el.value };
+    })()`);
+
+  const attrOf = (selector, name) =>
+    page.evaluate(`(() => {
+      const el = document.querySelector(${JSON.stringify(selector)});
+      return el === null ? null : el.getAttribute(${JSON.stringify(name)});
+    })()`);
+
+  /** Wait for the ACTIVE step's check to reach a status. 250 ms evaluator tick. */
+  const waitCheck = async (status, what, timeoutMs = 15000) =>
+    waitFor(
+      page.evaluate,
+      `window.__sesame.lessons().checkStatus`,
+      (value) => value === status,
+      `${what} (check to read "${status}")`,
+      timeoutMs,
+    );
+
+  const openStep = async (index) => {
+    const lesson = await page.evaluate(`(() => {
+      const nav = document.querySelector('[data-testid="lesson-step-nav"]');
+      const chip = nav?.children?.[${index}];
+      if (chip == null) return { ok: false };
+      chip.click();
+      return { ok: true };
+    })()`);
+    await sleep(350);
+    return lesson;
+  };
+
+  // ------------------------------------------------- the list, and the badge
+  //
+  // Progress is per-browser-profile and the profile is fresh, but say so out
+  // loud rather than depending on it: a stale record would silently skip the
+  // progression assertions below.
+  await page.evaluate(`(() => { try { localStorage.removeItem('sesame-lab.lessons.v1'); } catch { /* blocked */ } })()`);
+  await page.evaluate(`(() => {
+    const back = document.querySelector('[data-testid="lesson-back"]');
+    if (back !== null) back.click();
+  })()`);
+  await sleep(300);
+
+  const list = await page.evaluate(LESSONS_EXPR);
+  check(list.lessonCount === 19, `the runner offers ${list.lessonCount} modules, not 19`);
+  check(
+    list.lessonCards.length === 19,
+    `the lesson list painted ${list.lessonCards.length} cards, not 19`,
+  );
+
+  const conceptualCards = list.lessonCards.filter((c) => c.grounding === 'conceptual');
+  check(
+    conceptualCards.length === 7,
+    `${conceptualCards.length} modules are badged conceptual; hardware/lessons.json has 7`,
+  );
+  check(
+    conceptualCards.every((c) => c.conceptualBadge),
+    `a conceptual module rendered no badge: ${JSON.stringify(conceptualCards.filter((c) => !c.conceptualBadge))}`,
+  );
+  // The point of L4 §6.3: these three carry firmware symbols, so a badge driven
+  // by "symbols is empty" would leave them unlabelled. They are badged here
+  // because the badge reads `grounding`.
+  for (const id of ['build-a-leg-pose', 'build-a-movement', 'inside-the-brain']) {
+    const card = list.lessonCards.find((c) => c.id === id);
+    check(
+      card?.conceptualBadge === true && card.grounding === 'conceptual',
+      `${id} carries symbols and must still be badged conceptual; card was ${JSON.stringify(card)}`,
+    );
+  }
+  check(
+    list.lessonCards.filter((c) => c.status === 'polished').length === 6,
+    `the list marks ${list.lessonCards.filter((c) => c.status === 'polished').length} modules polished, not 6`,
+  );
+  check(
+    list.lessonCards.find((c) => c.id === 'command-one-joint')?.locked === true,
+    'lesson 2 is not locked before lesson 1 has been passed',
+  );
+  check(
+    list.unimplementedControls.length === 6 && list.implementedChecks.length === 26,
+    `the registry claims ${list.implementedChecks.length} checks and ${list.unimplementedControls.length} unbuilt controls`,
+  );
+
+  // A conceptual module opens READ-ONLY while locked, and its banner is there.
+  await clickOn('[data-testid="lesson-card-build-a-leg-pose"]');
+  await sleep(350);
+  const conceptualOpen = await page.evaluate(LESSONS_EXPR);
+  check(
+    conceptualOpen.openLessonId === 'build-a-leg-pose' && conceptualOpen.conceptualBadge,
+    `opening build-a-leg-pose showed no conceptual banner: ${JSON.stringify({
+      open: conceptualOpen.openLessonId,
+      badge: conceptualOpen.conceptualBadge,
+    })}`,
+  );
+  check(
+    conceptualOpen.outlineMode === true,
+    'a locked, outline module rendered as playable',
+  );
+  lessonShots.push(
+    await page.shoot(
+      'l6-lesson-conceptual-badge.png',
+      'build-a-leg-pose — a conceptual module that DOES carry firmware symbols, badged from ' +
+        'curriculum[].grounding rather than from an empty symbol list, and readable while locked',
+    ),
+  );
+  await clickOn('[data-testid="lesson-back"]');
+  await sleep(300);
+
+  // -------------------------------------------------------- lesson 1, played
+  //
+  // Not decoration: lesson 2 is locked until every step of lesson 1 has PASSED,
+  // so playing it is the proof that progression is by demonstration.
+  await clickOn('[data-testid="lesson-card-meet-sesame"]');
+  await sleep(400);
+
+  // Step 1 — name the eight modules. One wrong answer first.
+  const firstAsk = await attrOf('[data-testid="joint-quiz"]', 'data-asking');
+  check(firstAsk === 'R1', `the naming quiz opened on ${firstAsk}, not the first joint in enum order`);
+  await clickOn('[data-testid="explode-module-L4"]');
+  await waitCheck('failed', 'naming R1 as L4');
+  const wrongNaming = await page.evaluate(LESSONS_EXPR);
+  check(
+    (wrongNaming.checkSummary ?? '').includes('wrongly'),
+    `a wrong joint name did not read as wrong: ${wrongNaming.checkSummary}`,
+  );
+  // Answer whatever it asks for, waiting for the prompt to ADVANCE each time.
+  // Reading `data-asking` on a fixed sleep raced React and produced a stale
+  // prompt, which then recorded a right name against the wrong joint — a very
+  // good demonstration that the check notices, and a very bad way to drive it.
+  for (let guard = 0; guard < 20; guard += 1) {
+    const asking = await attrOf('[data-testid="joint-quiz"]', 'data-asking');
+    if (asking === null || asking === '') break;
+    await clickOn(`[data-testid="explode-module-${asking}"]`);
+    await waitFor(
+      page.evaluate,
+      `document.querySelector('[data-testid="joint-quiz"]')?.getAttribute('data-asking') ?? null`,
+      (value) => value !== asking,
+      `the naming quiz to advance past ${asking}`,
+      8000,
+    );
+  }
+  await waitCheck('passed', 'naming all eight joints');
+
+  // Step 2 — the board switch. Names must not move with the pins.
+  await openStep(1);
+  await clickOn('[data-testid="board-s2-mini"]');
+  await sleep(150);
+  await clickOn('[data-testid="board-distro-v1"]');
+  await waitCheck('passed', 'switching the board profile');
+  const boardStep = await page.evaluate(LESSONS_EXPR);
+  check(
+    (boardStep.checkObserved ?? '').includes('R1: 1'),
+    `the board switch did not report R1's pin moving: ${boardStep.checkObserved}`,
+  );
+
+  // Step 3 — the graph node, followed down to the line that creates the display.
+  //
+  // The control is the architecture graph, not the source outline: the check is
+  // `source-span-selected: display-object`, and it passes because selecting the
+  // `oled` node resolves — by line containment, at runtime — onto the symbol
+  // that declares it. Nothing here asserts the link; the shared selection does.
+  await openStep(2);
+  await clickOn('[data-testid="graph-node-oled"]');
+  await waitCheck('passed', 'following the OLED node down to its declaration');
+  const nodeToSymbol = await page.evaluate('window.__sesame.selection()');
+  check(
+    nodeToSymbol.symbolId === 'display-object' && nodeToSymbol.nodeId === 'oled',
+    `following the oled node landed on ${JSON.stringify(nodeToSymbol)}`,
+  );
+
+  // Step 4 — run stand, and hold all eight commanded angles.
+  await openStep(3);
+  await clickOn('[data-testid="run-stand"]');
+  await waitCheck('passed', 'the eight channels reaching runStandPose’s vector', 25000);
+
+  // Step 5 — read the pwm.output badge. Wrong answer first.
+  await openStep(4);
+  await clickOn('[data-testid="quiz-badge-simulated"]');
+  await waitCheck('failed', 'calling the pwm.output row simulated');
+  await clickOn('[data-testid="quiz-badge-inferred-for-explanation"]');
+  await waitCheck('passed', 'identifying pwm.output as computed rather than observed');
+
+  const lesson1 = await page.evaluate(LESSONS_EXPR);
+  check(
+    lesson1.stepOutcomes.length === 5 && lesson1.stepOutcomes.every((s) => s.outcome === 'passed'),
+    `lesson 1 finished as ${JSON.stringify(lesson1.stepOutcomes)}`,
+  );
+  const cold = lesson1.challenges.find((c) => c.id === 'ch-name-a-joint-cold');
+  check(
+    cold?.unlocked === true,
+    'the starter challenge did not unlock after its named success was demonstrated',
+  );
+
+  // ------------------------------------------------- lesson 2, end to end
+  await clickOn('[data-testid="lesson-back"]');
+  await sleep(350);
+  const afterOne = await page.evaluate(LESSONS_EXPR);
+  check(
+    afterOne.lessonCards.find((c) => c.id === 'command-one-joint')?.locked === false,
+    'passing every step of lesson 1 did not unlock lesson 2',
+  );
+
+  // Leave R1 at an angle lesson 2's first step does NOT ask for. `stand` put it
+  // on 135 a moment ago, and a check that opened already satisfied would prove
+  // nothing about whether it can fail. This goes through the app's own command
+  // path, so it is journalled exactly as the slider's would be.
+  await page.evaluate('window.__sesame.setJoint("R1", 90)');
+  await sleep(700);
+
+  await clickOn('[data-testid="lesson-card-command-one-joint"]');
+  await sleep(400);
+
+  // --- the structural claims, on a real step -----------------------------
+  const opened = await page.evaluate(LESSONS_EXPR);
+  check(
+    opened.explanationCount === 1,
+    `${opened.explanationCount} explanation levels are on screen at once; the switch must replace, not stack`,
+  );
+  check(
+    opened.shownLevel === 'beginner12',
+    `the runner opened on the "${opened.shownLevel}" level, not beginner12`,
+  );
+  await clickOn('[data-testid="lesson-level-architecture"]');
+  await sleep(250);
+  const switched = await page.evaluate(LESSONS_EXPR);
+  check(
+    switched.explanationCount === 1 && switched.shownLevel === 'architecture',
+    `after switching levels the pane showed ${switched.explanationCount} at "${switched.shownLevel}"`,
+  );
+  await clickOn('[data-testid="lesson-level-beginner12"]');
+  await sleep(200);
+
+  // --- step 1: servo-target. It opens FAILED, on the real angle. ---------
+  await waitCheck('failed', 'R1 sitting at 90 when the step asks for 135');
+  const wrongAngle = await page.evaluate(LESSONS_EXPR);
+  check(
+    (wrongAngle.checkObserved ?? '').includes('90'),
+    `the failed servo-target check reported ${wrongAngle.checkObserved}`,
+  );
+  const sceneAt90 = await page.evaluate('window.__sesame.sceneJoints()');
+  check(
+    Math.abs((sceneAt90.find((j) => j.joint === 'R1')?.sceneCommandedDeg ?? 0) - 90) < 1,
+    `the three.js scene did not follow the lesson slider to 90°: ` +
+      `${JSON.stringify(sceneAt90.find((j) => j.joint === 'R1'))}`,
+  );
+
+  await setRange('[data-testid="joint-slider-input"]', 135);
+  await clickOn('[data-testid="joint-slider-send"]');
+  await waitCheck('passed', 'commanding R1 to 135');
+  const step1 = await page.evaluate(LESSONS_EXPR);
+  check(
+    step1.checkType === 'servo-target' && (step1.checkObserved ?? '').includes('135'),
+    `step 1 passed reporting ${JSON.stringify({ type: step1.checkType, observed: step1.checkObserved })}`,
+  );
+  const step1Challenges = step1.challenges.find((c) => c.id === 'ch-three-angles');
+  check(
+    step1Challenges?.unlocked === true,
+    'ch-three-angles did not unlock from the success it names',
+  );
+
+  // --- step 2: telemetry-absent. A channel the guard lets through first. --
+  await openStep(1);
+  await setRange('[data-testid="channel-input"]', 3);
+  await page.evaluate(`(() => {
+    const el = document.querySelector('[data-testid="channel-input"]');
+    const setter = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, 'value').set;
+    setter.call(el, '3');
+    el.dispatchEvent(new Event('input', { bubbles: true }));
+  })()`);
+  await clickOn('[data-testid="channel-send"]');
+  await waitCheck('failed', 'writing channel 3, which is inside the guard');
+  const leaked = await page.evaluate(LESSONS_EXPR);
+  check(
+    (leaked.checkSummary ?? '').includes('DID arrive'),
+    `the absence check did not notice the row that arrived: ${leaked.checkSummary}`,
+  );
+
+  await page.evaluate(`(() => {
+    const el = document.querySelector('[data-testid="channel-input"]');
+    const setter = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, 'value').set;
+    setter.call(el, '8');
+    el.dispatchEvent(new Event('input', { bubbles: true }));
+  })()`);
+  await clickOn('[data-testid="channel-send"]');
+  await waitCheck('passed', 'channel 8 producing no servo.target inside the window');
+
+  // --- step 3: subtrim before the clamp. goDeeper must be collapsed. ------
+  await openStep(2);
+  const godeeper = await page.evaluate(LESSONS_EXPR);
+  check(
+    godeeper.goDeeperOpen === false,
+    `the goDeeper block opened by default (${JSON.stringify(godeeper.goDeeperOpen)}) — that is the ` +
+      `wall of text the report warns about`,
+  );
+  check(
+    godeeper.stepKind === 'debug',
+    `step 3 rendered as kind "${godeeper.stepKind}", not debug`,
+  );
+  await setRange('[data-testid="subtrim-R1"]', 40);
+  await sleep(250);
+  await setRange('[data-testid="subtrim-angle"]', 160);
+  await clickOn('[data-testid="subtrim-send-button"]');
+  await sleep(500);
+  await setRange('[data-testid="subtrim-angle"]', 180);
+  await clickOn('[data-testid="subtrim-send-button"]');
+  await waitCheck('passed', 'two requests colliding on one commanded angle');
+  const collision = await page.evaluate(LESSONS_EXPR);
+  check(
+    (collision.checkObserved ?? '').includes('160°→180°'),
+    `the collision check reported ${collision.checkObserved}`,
+  );
+  // Read back off the SCENE, not off the check: 160 + 40 saturates at 180 and
+  // the robot really is drawn there.
+  const sceneSaturated = await page.evaluate('window.__sesame.sceneJoints()');
+  check(
+    Math.abs((sceneSaturated.find((j) => j.joint === 'R1')?.sceneCommandedDeg ?? 0) - 180) < 1,
+    `R1 is drawn at ${sceneSaturated.find((j) => j.joint === 'R1')?.sceneCommandedDeg}°, not the ` +
+      `saturated 180°`,
+  );
+
+  // --- step 4: two angles, one tick count. Recomputed, not read. ---------
+  await openStep(3);
+  await setRange('[data-testid="pwm-angle"]', 99);
+  await sleep(250);
+  await setRange('[data-testid="pwm-angle"]', 100);
+  await waitCheck('passed', '99° and 100° programming the same tick count');
+  const ticks = await page.evaluate(`(() => {
+    const el = document.querySelector('[data-testid="pwm-ticks"]');
+    return el === null ? null : el.textContent.trim();
+  })()`);
+  check(
+    (ticks ?? '').startsWith('87'),
+    `the PWM inspector reads "${ticks}" for 100°; quantiseCommandedAngle() says 87 ticks`,
+  );
+
+  // --- step 5: the whole ladder --------------------------------------------
+  await openStep(4);
+  await clickOn('[data-testid="trace-run-stand"]');
+  await waitCheck('passed', 'one command producing a row on every rung', 25000);
+  const ladder = await page.evaluate(LESSONS_EXPR);
+  check(
+    (ladder.checkObserved ?? '').includes('visual.joint'),
+    `the ladder check passed without the last rung: ${ladder.checkObserved}`,
+  );
+
+  // --- step 6: reach delayWithFace FROM setServoAngle -----------------------
+  await openStep(5);
+  const boundary = await page.evaluate(LESSONS_EXPR);
+  check(
+    boundary.controlKind === 'source-selector',
+    `step 6 bound the "${boundary.controlKind}" control`,
+  );
+  // Straight to delayWithFace is not enough: the step asks for the route.
+  await clickOn('[data-testid="open-symbol-delayWithFace"]');
+  await sleep(600);
+  const direct = await page.evaluate(LESSONS_EXPR);
+  check(
+    direct.checkStatus === 'pending',
+    `opening delayWithFace out of nowhere satisfied a check that names how it was reached ` +
+      `(${direct.checkStatus})`,
+  );
+  await clickOn('[data-cite-symbol="setServoAngle"]');
+  await sleep(500);
+  await clickOn('[data-testid="open-symbol-delayWithFace"]');
+  await waitCheck('passed', 'reaching delayWithFace from setServoAngle');
+
+  const lesson2 = await page.evaluate(LESSONS_EXPR);
+  check(
+    lesson2.stepOutcomes.length === 6 && lesson2.stepOutcomes.every((s) => s.outcome === 'passed'),
+    `lesson 2 finished as ${JSON.stringify(lesson2.stepOutcomes)}`,
+  );
+  check(
+    lesson2.challenges.every((c) => c.unlocked),
+    `a lesson 2 challenge stayed locked after its success was demonstrated: ` +
+      `${JSON.stringify(lesson2.challenges)}`,
+  );
+
+  lessonShots.push(
+    await page.shoot(
+      'l6-lesson-two-complete.png',
+      'command-one-joint played end to end: six checks passed against real telemetry, the source ' +
+        'explorer on delayWithFace, and both challenges unlocked by demonstration',
+    ),
+  );
+
+  // ---------------------------------------------- boundaryNote, in its own register
+  //
+  // Lesson 1 step 5 is the emulator claim: the pwm.output row is computed here
+  // and no pin has ever emitted it. That is not a caveat on a Sesame fact, and
+  // it must not render as one.
+  await clickOn('[data-testid="lesson-back"]');
+  await sleep(300);
+  await clickOn('[data-testid="lesson-card-meet-sesame"]');
+  await sleep(350);
+  await openStep(4);
+  const emulatorStep = await page.evaluate(LESSONS_EXPR);
+  check(
+    emulatorStep.boundaryNoteCount === 1 && emulatorStep.boundaryDomains[0] === 'emulator',
+    `the emulator claim rendered ${emulatorStep.boundaryNoteCount} boundary note(s) ` +
+      `${JSON.stringify(emulatorStep.boundaryDomains)}`,
+  );
+  check(
+    (emulatorStep.observability ?? '').includes('inert-in-emulator'),
+    `the emulator claim did not show its observability value: ${emulatorStep.observability}`,
+  );
+  const registers = await page.evaluate(`(() => {
+    const panel = document.querySelector('[data-testid="lesson-runner"]');
+    const boundary = panel?.querySelector('[data-testid="lesson-boundary-note"]');
+    const prose = panel?.querySelector('[data-testid="lesson-explanation"]');
+    if (boundary == null || prose == null) return null;
+    const b = getComputedStyle(boundary);
+    const p = getComputedStyle(prose);
+    return {
+      boundaryBorderStyle: b.borderTopStyle,
+      boundaryBackground: b.backgroundColor,
+      proseBorderStyle: p.borderTopStyle,
+      proseBackground: p.backgroundColor,
+    };
+  })()`);
+  check(
+    registers !== null &&
+      registers.boundaryBorderStyle === 'dashed' &&
+      registers.boundaryBackground !== registers.proseBackground,
+    `boundaryNote is not visually distinct from ordinary prose: ${JSON.stringify(registers)}`,
+  );
+
+  // -------------------------------------------------- the refusals, rendered
+  //
+  // An unbuilt control must be impossible to mistake for a built one. Lesson 8
+  // opens on a serial-console step, which this runner does not build.
+  await clickOn('[data-testid="lesson-back"]');
+  await sleep(300);
+  await clickOn('[data-testid="lesson-card-talk-over-serial"]');
+  await sleep(350);
+  const outlineLesson = await page.evaluate(LESSONS_EXPR);
+  check(
+    outlineLesson.outlineMode === true,
+    'an outline module rendered as if it were playable',
+  );
+  const notBuiltBadges = await page.evaluate(`(() => {
+    const panel = document.querySelector('[data-testid="lesson-runner"]');
+    return [...(panel?.querySelectorAll('.badge.is-notbuilt') ?? [])].length;
+  })()`);
+  check(
+    notBuiltBadges >= 1,
+    `lesson 8 uses the unbuilt serial-console and marked ${notBuiltBadges} steps as not built`,
+  );
+
+  // --------------------------------------------------- lessons 4 and 5, played
+  //
+  // Not for their own sake: `read-the-firmware` names both as prerequisites, so
+  // the only way to reach its fault-injector step is to have PASSED every step
+  // of both. That is the progression rule under test.
+
+  // ===== lesson 4 — four-legs-cooperate ==================================
+  await clickOn('[data-testid="lesson-back"]');
+  await sleep(300);
+  await clickOn('[data-testid="lesson-card-four-legs-cooperate"]');
+  await sleep(400);
+
+  // The +40 of subtrim lesson 2 left on R1 is still there, and `stand` would
+  // command 175° instead of 135°. That is real, sticky lab state and the banner
+  // says so on every step; put it back the way a learner would.
+  const labMods = await page.evaluate(`document.querySelector('[data-testid="lab-modifications"]') !== null`);
+  check(labMods === true, 'the lab did not say that it was still holding +40 of subtrim on R1');
+  await clickOn('[data-testid="lab-modifications-clear"]');
+  await sleep(400);
+
+  // 1. a movement is a list of commanded angles
+  await clickOn('[data-testid="run-stand"]');
+  await waitCheck('passed', 'the stand pose vector, in lesson 4', 25000);
+
+  // 2. which joints does wave's own body command? Wrong answer first.
+  await openStep(1);
+  await clickOn('[data-testid="quiz-joint-R1"]');
+  await clickOn('[data-testid="quiz-joint-submit"]');
+  await waitCheck('failed', 'claiming wave commands only R1');
+  for (const joint of ['L2', 'R4', 'L3']) {
+    await clickOn(`[data-testid="quiz-joint-${joint}"]`);
+    await sleep(80);
+  }
+  await clickOn('[data-testid="quiz-joint-submit"]');
+  await waitCheck('passed', 'listing the four joints runWavePose commands');
+
+  // 3. timing is in the list too — import wave, run it, slow it down, run again
+  await openStep(2);
+  await selectOption('[data-testid="sequence-import"]', 'runWavePose');
+  await sleep(400);
+  await clickOn('[data-testid="sequence-run"]');
+  await waitFor(
+    page.evaluate,
+    `document.querySelector('[data-testid="sequence-run"]')?.disabled ?? true`,
+    (value) => value === false,
+    'the baseline sequence run to finish',
+    45000,
+  );
+  await clickOn('[data-testid="sequence-slower"]');
+  await sleep(200);
+  await clickOn('[data-testid="sequence-run-variant"]');
+  await waitFor(
+    page.evaluate,
+    `document.querySelector('[data-testid="sequence-run"]')?.disabled ?? true`,
+    (value) => value === false,
+    'the slowed sequence run to finish',
+    60000,
+  );
+  await waitCheck('passed', 'a timing change leaving the terminal pose alone', 20000);
+
+  // 4. stand is an exit — wave ends in the idle face
+  await openStep(3);
+  await clickOn('[data-testid="run-wave"]');
+  await waitCheck('passed', 'the face after runWavePose settling on idle', 30000);
+
+  // 5. cancelling a walk is not free
+  await openStep(4);
+  await clickOn('[data-testid="run-forward"]');
+  await sleep(1200);
+  await clickOn('[data-testid="run-stand"]');
+  await waitCheck('passed', 'the cancel path running a whole stand pose', 30000);
+
+  // 6. author a sequence of your own
+  await openStep(5);
+  await clickOn('[data-testid="sequence-run"]');
+  await waitFor(
+    page.evaluate,
+    `document.querySelector('[data-testid="sequence-run"]')?.disabled ?? true`,
+    (value) => value === false,
+    'the authored sequence to finish',
+    60000,
+  );
+  await waitCheck('passed', 'an authored sequence with every angle in range', 20000);
+
+  // 7. where kinematics would go
+  await openStep(6);
+  await clickOn('[data-testid="open-symbol-runStandPose"]');
+  await waitCheck('passed', 'opening runStandPose');
+
+  const lesson4 = await page.evaluate(LESSONS_EXPR);
+  check(
+    lesson4.stepOutcomes.length === 7 && lesson4.stepOutcomes.every((s) => s.outcome === 'passed'),
+    `lesson 4 finished as ${JSON.stringify(lesson4.stepOutcomes)}`,
+  );
+
+  // ===== lesson 5 — sesames-face ==========================================
+  await clickOn('[data-testid="lesson-back"]');
+  await sleep(300);
+  await clickOn('[data-testid="lesson-card-sesames-face"]');
+  await sleep(400);
+
+  await clickOn('[data-testid="open-symbol-FACE_LIST"]');
+  await waitCheck('passed', 'opening FACE_LIST');
+
+  await openStep(1);
+  await clickOn('[data-testid="face-happy"]');
+  await waitCheck('passed', 'the happy face drawing at least one frame', 15000);
+
+  // The blank `stand` face: zero frames drawn AND the name quietly rewritten.
+  await openStep(2);
+  await clickOn('[data-testid="face-stand"]');
+  await waitCheck('passed', 'setFace("stand") drawing nothing and reporting "default"', 15000);
+  const fallback = await page.evaluate(LESSONS_EXPR);
+  check(
+    (fallback.checkObserved ?? '').includes('"default"'),
+    `the fallback check reported ${fallback.checkObserved}`,
+  );
+
+  // TN-013: asking twice draws nothing the second time.
+  await openStep(3);
+  await clickOn('[data-testid="face-wave"]');
+  await sleep(900);
+  await clickOn('[data-testid="face-wave"]');
+  await waitCheck('passed', 'the second setFace early-returning', 15000);
+
+  // The playback mode is one global, set per call site. Wrong answer first.
+  await openStep(4);
+  await clickOn('[data-testid="run-wave"]');
+  await sleep(2500);
+  await clickOn('[data-testid="quiz-mode-loop"]');
+  await waitCheck('failed', 'calling runWavePose’s face mode loop', 30000);
+  await clickOn('[data-testid="quiz-mode-once"]');
+  await waitCheck('passed', 'identifying the once mode runWavePose sets', 30000);
+
+  // Draw a frame into the same buffer a face bitmap goes through.
+  await openStep(5);
+  await page.evaluate(`(() => {
+    const canvas = document.querySelector('[data-testid="pixel-canvas"]');
+    if (canvas === null) return { ok: false };
+    const box = canvas.getBoundingClientRect();
+    const at = (px, py) => ({
+      clientX: box.left + ((px + 0.5) / 128) * box.width,
+      clientY: box.top + ((py + 0.5) / 64) * box.height,
+      bubbles: true,
+      isPrimary: true,
+      pointerId: 1,
+    });
+    canvas.dispatchEvent(new PointerEvent('pointerdown', at(20, 20)));
+    for (let y = 20; y < 23; y += 1) {
+      for (let x = 20; x < 23; x += 1) {
+        canvas.dispatchEvent(new PointerEvent('pointermove', at(x, y)));
+      }
+    }
+    canvas.dispatchEvent(new PointerEvent('pointerup', at(22, 22)));
+    return { ok: true };
+  })()`);
+  await waitCheck('passed', 'a 3x3 shape drawn into the 128x64 frame', 15000);
+  await clickOn('[data-testid="pixel-push"]');
+  await sleep(400);
+  const pushed = await page.evaluate('window.__sesame.oled()');
+  check(
+    (pushed.litPixels ?? 0) > 0,
+    `pushing the authored frame lit ${pushed.litPixels} pixels on the virtual panel`,
+  );
+
+  const lesson5 = await page.evaluate(LESSONS_EXPR);
+  check(
+    lesson5.stepOutcomes.length === 6 && lesson5.stepOutcomes.every((s) => s.outcome === 'passed'),
+    `lesson 5 finished as ${JSON.stringify(lesson5.stepOutcomes)}`,
+  );
+
+  // ===== lesson 6 — read-the-firmware, and the boundary it cannot cross ====
+  //
+  // Two of its six steps drive the firmware's own HTTP routes, and those routes
+  // only exist in front of a robot — `apps/web/server/lab-host.mjs`. This page
+  // is served by the Phase-0 bridge's static server, so there is no `/api/status`
+  // here, and the point of asserting it is that the console reports the REAL
+  // failure instead of synthesising a 200. Those two steps are then SKIPPED, and
+  // the skip is recorded as a skip: lesson 6 does not complete, and nothing
+  // downstream unlocks.
+  await clickOn('[data-testid="lesson-back"]');
+  await sleep(300);
+  await clickOn('[data-testid="lesson-card-read-the-firmware"]');
+  await sleep(400);
+  const lesson6Open = await page.evaluate(LESSONS_EXPR);
+  check(
+    lesson6Open.openLessonId === 'read-the-firmware' && lesson6Open.outlineMode === false,
+    `lesson 6 did not open playable after 4 and 5 were passed: ${JSON.stringify({
+      open: lesson6Open.openLessonId,
+      outline: lesson6Open.outlineMode,
+    })}`,
+  );
+
+  await clickOn('[data-testid="open-symbol-loop"]');
+  await waitCheck('passed', 'opening loop()');
+
+  await openStep(1);
+  await clickOn('[data-testid="run-wave"]');
+  await sleep(500);
+  await clickOn('[data-testid="open-symbol-command-dispatch"]');
+  await waitCheck('passed', 'opening the command dispatcher');
+
+  // The honest failure: no robot is serving the firmware's routes here.
+  await openStep(2);
+  await clickOn('[data-testid="http-send"]');
+  await waitCheck('failed', 'GET /api/status with nothing serving the robot’s routes', 20000);
+  const httpFailure = await page.evaluate(LESSONS_EXPR);
+  check(
+    (httpFailure.checkSummary ?? '').includes('lab-host'),
+    `the HTTP console did not name what is missing: ${httpFailure.checkSummary}`,
+  );
+  await clickOn('[data-testid="lesson-skip"]');
+  await sleep(400);
+  const skipped = await page.evaluate(LESSONS_EXPR);
+  check(
+    skipped.skipped === true,
+    'skipping a step did not record it as skipped',
+  );
+
+  // -------------------------------------------- faults: real vs injected
+  await openStep(3);
+  const faultStep = await page.evaluate(LESSONS_EXPR);
+  check(
+    faultStep.controlKind === 'fault-injector',
+    `the fault step bound "${faultStep.controlKind}"`,
+  );
+  check(
+    faultStep.faults.some((f) => f.id === 'oled-init-fail' && f.injected),
+    `oled-init-fail is not labelled as injected: ${JSON.stringify(faultStep.faults)}`,
+  );
+  // Boot with nothing injected first: it must NOT halt, and the check must say so.
+  await clickOn('[data-testid="fault-boot"]');
+  await waitCheck('failed', 'booting with no fault injected');
+  await clickOn('[data-testid="fault-oled-init-fail"]');
+  await sleep(200);
+  await clickOn('[data-testid="fault-boot"]');
+  await waitCheck('passed', 'boot halting at the display step');
+  const bootStep = await page.evaluate(LESSONS_EXPR);
+  check(
+    (bootStep.checkObserved ?? '').includes('SSD1306 allocation failed.'),
+    `the boot halt did not print the firmware's own line: ${bootStep.checkObserved}`,
+  );
+  // The last two steps: one more skip, and one span reached from a trace row.
+  await openStep(4);
+  await clickOn('[data-testid="lesson-skip"]');
+  await sleep(400);
+  await openStep(5);
+  await clickOn('[data-testid="follow-trace-to-setServoAngle"]');
+  await waitCheck('passed', 'following a trace row back into setServoAngle', 15000);
+  const lesson6 = await page.evaluate(LESSONS_EXPR);
+  const passed6 = lesson6.stepOutcomes.filter((o) => o.outcome === 'passed').length;
+  const skipped6 = lesson6.stepOutcomes.filter((o) => o.outcome === 'skipped').length;
+  check(
+    passed6 === 4 && skipped6 === 2,
+    `lesson 6 finished as ${JSON.stringify(lesson6.stepOutcomes)}; expected 4 passed and 2 skipped`,
+  );
+  await clickOn('[data-testid="lesson-back"]');
+  await sleep(350);
+  const afterSkips = await page.evaluate(LESSONS_EXPR);
+  const card6 = afterSkips.lessonCards.find((c) => c.id === 'read-the-firmware');
+  check(
+    afterSkips.lessonCards.find((c) => c.id === 'send-an-http-command')?.locked === true,
+    `a lesson whose prerequisite has SKIPPED steps unlocked anyway: ${JSON.stringify(card6)}`,
+  );
+  await clickOn('[data-testid="lesson-card-read-the-firmware"]');
+  await sleep(350);
+  await openStep(3);
+
+  lessonShots.push(
+    await page.shoot(
+      'l6-lesson-fault-injector.png',
+      'the display-init fault, badged INJECTED and dashed because the while(1) is real firmware but ' +
+        'making display.begin() fail on demand is Sesame Lab’s — and the boot it halts at bootOrder 4, ' +
+        'printing the line the firmware itself prints',
+    ),
+  );
+
+  // ------------------------------------- ISSUE-20260823-023, pane mounted
+  //
+  // A third grid row is a new chance for the world frame to move. Same check as
+  // phases 7 and 8, with Learn mode open on a lesson.
+  const FRAME_EPS_MM_10 = 1e-6;
+  const frames10 = [];
+  const before10 = await page.evaluate('window.__sesame.worldFrame()');
+  if (before10 === null) problems.push('worldFrame() returned null with the lesson pane mounted');
+  else frames10.push({ label: 'phase 10, lesson open', ...before10 });
+
+  await page.evaluate('window.__sesame.run("rest")');
+  await waitSceneCaughtUp('the scene to reach the rest pose for the phase 10 frame check');
+  const rest10 = await page.evaluate('window.__sesame.worldFrame()');
+  if (rest10 === null) problems.push('worldFrame() returned null at the phase 10 rest pose');
+  else frames10.push({ label: 'phase 10, rest pose', ...rest10 });
+
+  void page.evaluate('window.__sesame.run("stand")');
+  for (let i = 0; i < 10; i += 1) {
+    await sleep(160);
+    const f = await page.evaluate('window.__sesame.worldFrame()');
+    if (f === null) problems.push('worldFrame() returned null during phase 10');
+    else frames10.push({ label: `phase 10, sample ${i + 1}`, ...f });
+  }
+  const first10 = frames10[0];
+  const worst10 = {};
+  for (const key of ['groundWorldMm', 'robotRootWorldMm', 'cameraTargetMm', 'cameraPositionMm']) {
+    let worst = 0;
+    for (const sample of frames10.slice(1)) {
+      const a = first10?.[key];
+      const b = sample[key];
+      if (!Array.isArray(a) || !Array.isArray(b)) continue;
+      for (let i = 0; i < 3; i++) worst = Math.max(worst, Math.abs(a[i] - b[i]));
+    }
+    worst10[key] = worst;
+    check(
+      worst <= FRAME_EPS_MM_10,
+      `${key} moved ${worst.toFixed(6)} mm in world space with LEARN MODE mounted and a lesson ` +
+        `open (ISSUE-20260823-023)`,
+    );
+  }
+  const contacts10 = frames10.map((f) => f.footContactMm).filter((v) => typeof v === 'number');
+  const spread10 = contacts10.length === 0 ? 0 : Math.max(...contacts10) - Math.min(...contacts10);
+  check(
+    spread10 > 1,
+    `the foot contact varied by only ${spread10.toFixed(3)} mm in phase 10, so the world-stability ` +
+      `re-check proved nothing`,
+  );
+
+  const finalReading = await page.evaluate(LESSONS_EXPR);
+  phases.lessonRunner = {
+    ok: true,
+    backend: 'sim',
+    modules: finalReading.lessonCount,
+    playable: finalReading.polishedLessonIds,
+    implementedControls: finalReading.implementedControls,
+    unimplementedControls: finalReading.unimplementedControls,
+    implementedChecks: finalReading.implementedChecks,
+    lessonOne: lesson1.stepOutcomes,
+    lessonTwo: lesson2.stepOutcomes,
+    lessonFour: lesson4.stepOutcomes,
+    lessonFive: lesson5.stepOutcomes,
+    lessonSix: lesson6.stepOutcomes,
+    lessonSixNote:
+      'two steps drive the firmware’s HTTP routes, which only exist in front of ' +
+      'apps/web/server/lab-host.mjs. Served by the bridge, the console reports the real failure ' +
+      'and the steps are recorded as SKIPPED, which leaves the lesson incomplete.',
+    lessonTwoChallenges: lesson2.challenges,
+    falsifications: [
+      'named R1 as L4 → failed',
+      'commanded R1 to 90 when the step asks 135 → failed',
+      'wrote channel 3, which the guard lets through → failed (a servo.target arrived)',
+      'called the pwm.output row simulated → failed',
+      'booted with no fault injected → failed (boot completed)',
+      'opened delayWithFace without coming from setServoAngle → stayed pending',
+    ],
+    explanationLevels: {
+      onScreenAtOnce: opened.explanationCount,
+      defaultLevel: opened.shownLevel,
+      afterSwitch: switched.shownLevel,
+      goDeeperOpenByDefault: godeeper.goDeeperOpen,
+    },
+    conceptual: {
+      badged: conceptualCards.map((c) => c.id),
+      withSymbols: ['build-a-leg-pose', 'build-a-movement', 'inside-the-brain'],
+    },
+    boundaryNote: {
+      domain: emulatorStep.boundaryDomains,
+      observability: emulatorStep.observability,
+      registers,
+    },
+    faults: faultStep.faults,
+    bootHalt: bootStep.checkObserved,
+    worldFrame: {
+      toleranceMm: FRAME_EPS_MM_10,
+      worstDriftMm: worst10,
+      footContactSpreadMm: spread10,
+      samples: frames10.length,
+    },
+    shots: lessonShots.map((shot) => shot.name),
+  };
+}
+
 reportPageErrors('replay session');
 page.close();
 try {
@@ -2865,7 +3758,8 @@ console.log(
   `OK    ${shots.length} real-browser captures; joint rotations read back from the scene graph; ` +
     `stand pose verified in-browser; all three backends drove the same scene; ` +
     `the source explorer rendered the pinned tree at its own line numbers and refused a ` +
-    `one-byte-tampered copy of it` +
+    `one-byte-tampered copy of it; lessons 1, 2, 4 and 5 were played end to end against real ` +
+    `telemetry, with six checks driven to FAILED first` +
     (phases.qemuCommanded?.ran === true
       ? `; a clicked button drove real firmware under QEMU and every joint it moved carries ` +
         `origin.kind="emulator" with isPhysicallyObserved() false`

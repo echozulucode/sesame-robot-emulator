@@ -56,7 +56,7 @@ code,
    * aspect as the only thing that moves, and the harness re-asserts the world
    * frame with the pane mounted anyway.
    */
-  grid-template-rows: minmax(0, 1fr) minmax(0, 380px);
+  grid-template-rows: minmax(0, 1fr) minmax(0, 380px) auto;
   height: 100%;
 }
 
@@ -113,7 +113,7 @@ code,
 
 .sidebar {
   grid-column: 3;
-  grid-row: 1 / span 2;
+  grid-row: 1 / span 3;
   overflow-y: auto;
   border-left: 1px solid var(--line);
   background: #10141a;
@@ -1485,4 +1485,784 @@ ul.tight {
 
 .source-row:hover {
   color: var(--text);
+}
+
+/* ============================================================== Learn mode
+ *
+ * A THIRD grid row, not a fourth column. Same argument as the source
+ * explorer's: a column has to come out of the viewport's width, and the
+ * viewport is where ISSUE-20260823-023 lived. The row is a slim strip until a
+ * lesson is opened, so the browsing state costs the 3D view almost nothing.
+ */
+.lesson-panel {
+  grid-column: 1 / span 2;
+  grid-row: 3;
+  min-width: 0;
+  min-height: 0;
+  margin: 0 12px 12px;
+  padding: 10px 12px;
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  overflow-y: auto;
+  max-height: 128px;
+}
+
+.lesson-panel.is-open {
+  max-height: 360px;
+}
+
+.lesson-list {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(230px, 1fr));
+  gap: 6px;
+}
+
+.lesson-card {
+  display: grid;
+  grid-template-columns: 22px 1fr auto;
+  grid-template-areas:
+    "order title badges"
+    "order progress progress"
+    "lock lock lock";
+  gap: 2px 6px;
+  align-items: baseline;
+  text-align: left;
+  background: var(--panel-2);
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  color: var(--text);
+  cursor: pointer;
+  font: inherit;
+  padding: 6px 8px;
+}
+
+.lesson-card:hover:not(:disabled) {
+  border-color: var(--accent);
+}
+
+.lesson-card.is-locked {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.lesson-card.is-outline {
+  border-style: dashed;
+}
+
+.lesson-card-order {
+  grid-area: order;
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+}
+.lesson-card-title {
+  grid-area: title;
+}
+.lesson-card-badges {
+  grid-area: badges;
+  display: flex;
+  gap: 4px;
+}
+.lesson-card-progress {
+  grid-area: progress;
+  color: var(--muted);
+  font-size: 11px;
+}
+.lesson-card-lock {
+  grid-area: lock;
+  color: var(--warn);
+  font-size: 11px;
+}
+
+.badge {
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  color: var(--dim);
+  font-size: 10px;
+  letter-spacing: 0.04em;
+  padding: 0 4px;
+  text-transform: uppercase;
+}
+
+.badge.is-conceptual {
+  border-color: var(--inferred);
+  color: var(--inferred);
+}
+
+.badge.is-boundary {
+  border-color: var(--warn);
+  color: var(--warn);
+  border-style: dashed;
+}
+
+.badge.is-outline {
+  border-style: dashed;
+}
+
+.badge.is-notbuilt {
+  border-color: #e0625a;
+  color: #ffb0aa;
+}
+
+/* --------------------------------------------------------- lesson header */
+
+/*
+ * The conceptual badge and the grounding note are DIFFERENT treatments on
+ * purpose. The first says this module asserts nothing about how Sesame works;
+ * the second says a factual module has a boundary it will not cross. Rendering
+ * them the same would flatten the distinction L3 spent a whole artefact making.
+ */
+.lesson-conceptual {
+  border: 1px solid var(--inferred);
+  border-left-width: 4px;
+  border-radius: 4px;
+  background: #1d1626;
+  color: #e5d3f5;
+  font-size: 12px;
+  margin: 6px 0;
+  padding: 6px 8px;
+}
+
+.lesson-grounding-note {
+  border: 1px dashed var(--warn);
+  border-radius: 4px;
+  background: #201c12;
+  color: #f0dcae;
+  font-size: 12px;
+  margin: 6px 0;
+  padding: 6px 8px;
+}
+
+.lesson-goal {
+  color: var(--dim);
+  font-size: 12px;
+  margin: 6px 0;
+}
+
+.lesson-steps {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin: 6px 0;
+}
+
+.lesson-step-chip {
+  background: var(--panel-2);
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  color: var(--dim);
+  cursor: pointer;
+  font: inherit;
+  font-size: 11px;
+  min-width: 26px;
+  padding: 1px 5px;
+}
+
+.lesson-step-chip.is-current {
+  border-color: var(--accent);
+  color: #cfe0fb;
+}
+.lesson-step-chip.is-passed {
+  color: var(--observed);
+}
+.lesson-step-chip.is-skipped {
+  color: var(--warn);
+}
+
+/* ----------------------------------------------------------- lesson step */
+
+.lesson-step-head {
+  align-items: baseline;
+  display: flex;
+  gap: 8px;
+  justify-content: space-between;
+}
+
+.lesson-step-head h3 {
+  font-size: 13px;
+  margin: 6px 0;
+}
+
+.lesson-kind {
+  border: 1px solid var(--line);
+  border-radius: 3px;
+  color: var(--muted);
+  font-size: 10px;
+  padding: 0 4px;
+  text-transform: uppercase;
+}
+
+.lesson-kind[data-kind="debug"] {
+  border-color: var(--warn);
+  color: var(--warn);
+}
+
+.lesson-explanation {
+  font-size: 13px;
+  margin: 6px 0;
+}
+
+.lesson-godeeper {
+  border-left: 2px solid var(--line);
+  font-size: 12px;
+  margin: 6px 0;
+  padding-left: 8px;
+}
+
+.lesson-godeeper summary {
+  color: var(--dim);
+  cursor: pointer;
+}
+
+/* ---------------------------------------------------------------- claims */
+
+.lesson-claim {
+  background: #11151c;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  margin: 6px 0;
+  padding: 6px 8px;
+}
+
+.lesson-claim-text {
+  font-size: 12px;
+  margin: 0 0 4px;
+}
+
+.lesson-claim-conceptual {
+  color: var(--inferred);
+  font-size: 12px;
+  margin: 4px 0;
+}
+
+/*
+ * `boundaryNote` gets a register of its own — dashed, labelled with WHICH world
+ * the fact belongs to, and never the same as ordinary prose. It is not a hedge
+ * on a Sesame fact; it is a statement that the fact is not about Sesame.
+ */
+.lesson-boundary {
+  border: 1px dashed var(--inferred);
+  border-radius: 4px;
+  background: #171425;
+  margin: 6px 0;
+  padding: 6px 8px;
+}
+
+.lesson-boundary[data-domain="emulator"] {
+  border-color: #7fb6d8;
+  background: #121b21;
+}
+.lesson-boundary[data-domain="lab"] {
+  border-color: var(--warn);
+  background: #201c12;
+}
+
+.lesson-boundary-label {
+  color: var(--dim);
+  display: block;
+  font-size: 10px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.lesson-boundary p {
+  font-size: 12px;
+  margin: 3px 0 0;
+}
+
+.lesson-observability {
+  color: var(--dim);
+  font-size: 11px;
+  margin: 4px 0 0;
+}
+
+.lesson-citations {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin: 4px 0 0;
+}
+
+.cite {
+  border: 1px solid var(--line);
+  border-radius: 3px;
+  color: var(--muted);
+  font-size: 10px;
+  padding: 0 4px;
+}
+
+.cite-symbol {
+  border-color: #35506e;
+  color: #9fc2ee;
+  cursor: pointer;
+}
+.cite-library {
+  border-style: dashed;
+  border-color: var(--inferred);
+  color: #cdb0e4;
+}
+.cite-document {
+  border-color: #4d6a58;
+  color: #a8d3bd;
+}
+.cite-teaching-note {
+  border-color: var(--warn);
+  color: var(--warn);
+}
+
+/* -------------------------------------------------------------- controls */
+
+.lesson-affordance {
+  color: var(--dim);
+  font-size: 12px;
+  margin: 6px 0 4px;
+}
+
+.lesson-control {
+  border-top: 1px solid var(--line);
+  margin-top: 8px;
+  padding-top: 6px;
+}
+
+.lesson-button {
+  background: var(--panel-2);
+  border: 1px solid var(--line);
+  border-radius: 5px;
+  color: var(--text);
+  cursor: pointer;
+  font: inherit;
+  font-size: 12px;
+  padding: 3px 8px;
+}
+
+.lesson-button.is-primary {
+  border-color: var(--accent);
+  background: #1d2938;
+  color: #cfe0fb;
+}
+
+.lesson-button:disabled {
+  cursor: not-allowed;
+  opacity: 0.5;
+}
+
+.lesson-select {
+  background: var(--panel-2);
+  border: 1px solid var(--line);
+  border-radius: 5px;
+  color: var(--text);
+  font: inherit;
+  font-size: 12px;
+  padding: 2px 4px;
+}
+
+.editor-row {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin: 4px 0;
+}
+
+.editor-label {
+  color: var(--dim);
+  font-size: 11px;
+  min-width: 44px;
+}
+
+.editor-value {
+  color: var(--text);
+  font-variant-numeric: tabular-nums;
+  min-width: 42px;
+}
+
+.lesson-quiz {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  font-size: 12px;
+  gap: 4px;
+  margin: 6px 0;
+}
+
+/*
+ * The refusal. A control that is not built must be impossible to mistake for a
+ * control that is: a learner who sees an empty box concludes the lab is broken,
+ * and a learner who sees nothing at all concludes the step is decorative.
+ */
+.lesson-notbuilt {
+  border: 2px solid #e0625a;
+  border-radius: 6px;
+  background: #2a1614;
+  color: #ffcbc6;
+  font-size: 12px;
+  padding: 8px 10px;
+}
+
+.lesson-notbuilt p {
+  margin: 4px 0 0;
+}
+
+.lesson-lab-note {
+  border: 1px dashed var(--warn);
+  border-radius: 4px;
+  color: #f0dcae;
+  font-size: 11px;
+  margin: 0 0 6px;
+  padding: 4px 6px;
+}
+
+.lesson-lab-note.is-inferred {
+  border-color: var(--inferred);
+  color: #ddc4ef;
+}
+
+/* ----------------------------------------------------------------- check */
+
+.lesson-check {
+  border: 1px solid var(--line);
+  border-left-width: 4px;
+  border-radius: 6px;
+  margin: 8px 0 0;
+  padding: 6px 8px;
+}
+
+.lesson-check.is-pending {
+  border-left-color: var(--muted);
+}
+.lesson-check.is-passed {
+  border-left-color: var(--observed);
+  background: #10201a;
+}
+.lesson-check.is-failed {
+  border-left-color: var(--warn);
+  background: #201c12;
+}
+.lesson-check.is-unsupported {
+  border-color: #e0625a;
+  border-left-color: #e0625a;
+  background: #2a1614;
+}
+
+.lesson-check-head {
+  display: flex;
+  gap: 8px;
+  justify-content: space-between;
+}
+
+.lesson-check-status {
+  font-size: 11px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.lesson-check-type {
+  color: var(--muted);
+  font-size: 11px;
+}
+
+.lesson-check-summary {
+  font-size: 12px;
+  margin: 4px 0;
+}
+
+.lesson-check-detail {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 14px;
+  margin: 4px 0;
+}
+
+.lesson-check-detail dt {
+  color: var(--muted);
+  font-size: 10px;
+  text-transform: uppercase;
+}
+
+.lesson-check-detail dd {
+  font-size: 11px;
+  margin: 0;
+}
+
+.lesson-failure-normal {
+  border-left: 2px solid var(--accent);
+  color: #bfd4f0;
+  font-size: 11px;
+  margin: 4px 0;
+  padding-left: 6px;
+}
+
+.lesson-hint {
+  color: var(--muted);
+  font-size: 11px;
+  margin: 4px 0;
+}
+
+.lesson-skipped-note {
+  color: var(--warn);
+  font-size: 11px;
+}
+
+.lesson-expect {
+  color: var(--dim);
+  font-size: 12px;
+}
+
+.lesson-observables {
+  list-style: none;
+  margin: 4px 0;
+  padding: 0;
+}
+
+.lesson-observables li {
+  font-size: 11px;
+}
+
+.lesson-layer {
+  color: var(--accent);
+}
+
+/* ------------------------------------------------------------ challenges */
+
+.lesson-challenges h4 {
+  color: var(--dim);
+  font-size: 11px;
+  letter-spacing: 0.06em;
+  margin: 10px 0 4px;
+  text-transform: uppercase;
+}
+
+.lesson-challenge {
+  border: 1px solid var(--line);
+  border-radius: 5px;
+  font-size: 12px;
+  margin: 4px 0;
+  padding: 5px 7px;
+}
+
+.lesson-challenge.is-locked {
+  opacity: 0.6;
+}
+
+/* -------------------------------------------------------------- outlines */
+
+.lesson-outline-note {
+  border: 1px dashed var(--line);
+  border-radius: 5px;
+  color: var(--dim);
+  font-size: 12px;
+  padding: 6px 8px;
+}
+
+.lesson-outline-steps {
+  font-size: 12px;
+  padding-left: 18px;
+}
+
+/* --------------------------------------------------------------- editors */
+
+.sequence-table {
+  border-collapse: collapse;
+  font-size: 11px;
+}
+
+.sequence-table th {
+  color: var(--muted);
+  font-weight: normal;
+  padding: 1px 3px;
+}
+
+.sequence-cell {
+  background: var(--panel-2);
+  border: 1px solid var(--line);
+  border-radius: 3px;
+  color: var(--text);
+  font: inherit;
+  font-size: 11px;
+  padding: 1px 3px;
+  width: 40px;
+}
+
+.pixel-canvas {
+  background: #0b0f14;
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  cursor: crosshair;
+  image-rendering: pixelated;
+  max-width: 100%;
+  touch-action: none;
+}
+
+.pwm-readout {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 14px;
+  margin: 4px 0;
+}
+
+.pwm-readout dt {
+  color: var(--muted);
+  font-size: 10px;
+  text-transform: uppercase;
+}
+
+.pwm-readout dd {
+  margin: 0;
+}
+
+.fault-group {
+  color: var(--dim);
+  font-size: 11px;
+  letter-spacing: 0.05em;
+  margin: 8px 0 4px;
+  text-transform: uppercase;
+}
+
+.fault-card {
+  border: 1px solid var(--line);
+  border-radius: 5px;
+  font-size: 12px;
+  margin: 4px 0;
+  padding: 5px 7px;
+}
+
+/*
+ * The whole point of the panel: a fault that ships with the firmware looks
+ * different from one this lab turned on, and neither can be mistaken for the
+ * other at a glance.
+ */
+.fault-card.is-shipped {
+  border-color: var(--observed);
+  background: #101c18;
+}
+
+.fault-card.is-injected {
+  border-color: var(--warn);
+  border-style: dashed;
+  background: #201c12;
+}
+
+.fault-title {
+  align-items: baseline;
+  display: flex;
+  gap: 8px;
+  justify-content: space-between;
+}
+
+.fault-badge {
+  border: 1px solid;
+  border-radius: 3px;
+  font-size: 10px;
+  padding: 0 4px;
+}
+
+.fault-badge.is-shipped {
+  border-color: var(--observed);
+  color: var(--observed);
+}
+.fault-badge.is-injected {
+  border-color: var(--warn);
+  color: var(--warn);
+}
+
+.boot-log {
+  background: #0b0f14;
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  font-size: 11px;
+  margin: 4px 0;
+  padding: 5px 7px;
+  white-space: pre-wrap;
+}
+
+.http-body {
+  background: var(--panel-2);
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  color: var(--text);
+  font: inherit;
+  font-size: 11px;
+  padding: 3px 5px;
+  width: 100%;
+}
+
+.http-log {
+  font-size: 11px;
+  margin: 4px 0;
+  padding-left: 18px;
+}
+
+.is-fail {
+  color: #ff9d95;
+}
+
+/* ---------------------------------------------------------- exploded view */
+
+.explode-svg {
+  display: block;
+  max-height: 190px;
+  width: 100%;
+}
+
+.explode-body {
+  fill: #1b212b;
+  stroke: var(--line);
+}
+
+.explode-body-label {
+  fill: var(--dim);
+  font-size: 11px;
+}
+
+.explode-body-sub {
+  fill: var(--muted);
+  font-size: 9px;
+}
+
+.explode-module rect {
+  fill: var(--panel-2);
+  stroke: var(--line);
+  cursor: pointer;
+}
+
+.explode-module:hover rect {
+  stroke: var(--accent);
+}
+
+.explode-module.is-selected rect {
+  fill: #1d2938;
+  stroke: var(--accent);
+}
+
+.explode-module.is-right rect {
+  stroke: var(--observed);
+}
+
+.explode-module.is-wrong rect {
+  stroke: #e0625a;
+}
+
+.explode-wire {
+  stroke: var(--line);
+  stroke-dasharray: 3 3;
+}
+
+.explode-name {
+  fill: var(--text);
+  font-size: 12px;
+}
+
+.explode-pin {
+  fill: var(--muted);
+  font-size: 9px;
+}
+
+.lesson-labmods {
+  border: 1px dashed var(--warn);
+  border-radius: 4px;
+  background: #241d10;
+  color: #f0dcae;
+  font-size: 12px;
+  margin: 6px 0;
+  padding: 5px 8px;
 }

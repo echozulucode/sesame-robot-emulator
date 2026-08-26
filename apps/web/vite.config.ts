@@ -174,10 +174,11 @@ export default defineConfig({
   build: {
     outDir: 'dist',
     emptyOutDir: true,
-    // three + R3F is a big single chunk. Raising the warning threshold rather
-    // than code-splitting: the app is one screen and lazy-loading the renderer
-    // would only move the wait.
-    chunkSizeWarningLimit: 1800,
+    // three + R3F is a big single chunk, and L6 added ~220 kB of lesson content
+    // to it. Raising the warning threshold rather than code-splitting: the app
+    // is one screen, lazy-loading the renderer would only move the wait, and
+    // the curriculum is needed on the first paint of the lesson list.
+    chunkSizeWarningLimit: 2200,
   },
   server: {
     host: '127.0.0.1',

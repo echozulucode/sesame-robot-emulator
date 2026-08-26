@@ -14,7 +14,13 @@
  * the firmware's own timing, `motorCurrentDelay` and all, and the event stream
  * is identical to the one the tests assert on.
  */
-import type { JointName, SesameCapabilities } from '@sesame-lab/sesame-model';
+import {
+  JOINT_ORDER,
+  SUBTRIM_RANGE_DEG,
+  jointIndex,
+  type JointName,
+  type SesameCapabilities,
+} from '@sesame-lab/sesame-model';
 import type { SesameTelemetry, TelemetryOrigin } from '@sesame-lab/sesame-protocol';
 import { SimulatedSesameRobot, type SimulatedRobotState } from '@sesame-lab/sesame-sim';
 
@@ -55,11 +61,49 @@ export class SimBackend implements TelemetryBackend {
   #unsubscribe: (() => void) | null = null;
   #status: BackendStatus = { connection: 'idle', detail: 'not started', eventsReceived: 0 };
 
+  /**
+   * Per-channel subtrim, in firmware index order — **owned here and mutated in
+   * place**.
+   *
+   * `SimulatedRobotOptions.subtrimDeg` is stored by reference
+   * (`resolveOptions()` in `@sesame-lab/sesame-sim/config.ts` passes the array
+   * straight through) and `FirmwareMachine.adjustedAngle()` reads
+   * `opts.subtrimDeg[channel]` **at the moment of each write**. So writing into
+   * this array changes what the *model* computes on the next
+   * `setServoAngle()`, exactly as `st <ch> <deg>` on the firmware's serial CLI
+   * does — rather than the lab applying an offset of its own before handing the
+   * angle over, which would put lab arithmetic where firmware arithmetic
+   * belongs and would make `constrain(angle + subtrim, 0, 180)` untestable.
+   *
+   * `subtrim-set` and `commanded-angle-collision` then read the result back off
+   * telemetry and off `RobotState`, which is the only reason either check means
+   * anything.
+   */
+  readonly #subtrimDeg: number[] = JOINT_ORDER.map(() => 0);
+
   constructor(options: SimBackendOptions = {}) {
     this.#robot = new SimulatedSesameRobot(
-      { timeMode: 'realtime' },
+      { timeMode: 'realtime', subtrimDeg: this.#subtrimDeg },
       { speed: options.speed ?? 1 },
     );
+  }
+
+  /** What the model will add to the next command on each channel. */
+  get subtrimDeg(): readonly number[] {
+    return this.#subtrimDeg;
+  }
+
+  /**
+   * Set one channel's subtrim.
+   *
+   * A **Lab feature**, and labelled as one everywhere it surfaces: the firmware
+   * exposes subtrim over the serial CLI and nowhere else, so a slider for it is
+   * ours. The consequence — a trimmed channel losing range at the top, because
+   * the offset is added before the clamp — is entirely the firmware's.
+   */
+  setSubtrim(joint: JointName, deg: number): void {
+    const clamped = Math.max(SUBTRIM_RANGE_DEG.min, Math.min(SUBTRIM_RANGE_DEG.max, Math.trunc(deg)));
+    this.#subtrimDeg[jointIndex(joint)] = clamped;
   }
 
   /** The model itself, for the inspector and the browser test hook. */

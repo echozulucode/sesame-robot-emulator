@@ -22,6 +22,9 @@ import { layoutArchitecture } from './arch/layout.js';
 import { ARCH_NODES, HAND_AUTHORED, UPSTREAM_COMMIT } from './generated/architecture-graph.js';
 import { ANNOTATIONS_UPSTREAM_COMMIT, CURRICULUM } from './generated/source-annotations.js';
 import { archNodesInSymbol, citationsForSymbol, SYMBOL_BY_ID } from './source/model.js';
+import { LESSONS, POLISHED_LESSON_IDS } from './generated/lessons.js';
+import { IMPLEMENTED_CHECKS, IMPLEMENTED_CONTROLS, UNIMPLEMENTED_CONTROLS } from './lessons/registry.js';
+import type { LessonRuntime } from './lessons/runtime.js';
 import type { SelectionState } from './state/selection.js';
 import type { TelemetryStore } from './state/telemetry-store.js';
 import { traceBadge, type TraceStore } from './state/trace-store.js';
@@ -213,6 +216,64 @@ export interface SourceExplorerReading {
   readonly renderedAnySource: boolean;
 }
 
+/**
+ * What Learn mode is showing, read off the DOM.
+ *
+ * DOM and not React state, for the same reason phase 1 reads
+ * `Object3D.quaternion` rather than the store: React can be perfectly correct
+ * while nothing is rendered, and a lesson runner that reports a step passed
+ * which it never painted is precisely the failure this feature cannot have.
+ */
+export interface LessonReading {
+  readonly openLessonId: string | null;
+  readonly outlineMode: boolean;
+  readonly claimDomain: string | null;
+  /** The `conceptual` banner. Driven by `grounding`, never by symbol count. */
+  readonly conceptualBadge: boolean;
+  readonly groundingNote: boolean;
+  readonly stepId: string | null;
+  readonly stepKind: string | null;
+  readonly checkType: string | null;
+  readonly checkStatus: string | null;
+  readonly checkSummary: string | null;
+  readonly checkExpected: string | null;
+  readonly checkObserved: string | null;
+  readonly skipped: boolean;
+  /** MUST be 1 while a step is open. Three levels; one on screen. */
+  readonly explanationCount: number;
+  readonly shownLevel: string | null;
+  /** `null` when the step has no goDeeper; otherwise whether it is expanded. */
+  readonly goDeeperOpen: boolean | null;
+  readonly boundaryNoteCount: number;
+  readonly boundaryDomains: readonly string[];
+  readonly observability: string | null;
+  readonly controlKind: string | null;
+  /** Non-null when the control refused to render because it is not built. */
+  readonly controlNotBuilt: string | null;
+  readonly stepOutcomes: readonly { readonly id: string; readonly outcome: string }[];
+  readonly challenges: readonly {
+    readonly id: string;
+    readonly unlocked: boolean;
+    readonly status: string;
+  }[];
+  readonly lessonCards: readonly {
+    readonly id: string;
+    readonly grounding: string;
+    readonly status: string;
+    readonly locked: boolean;
+    readonly conceptualBadge: boolean;
+  }[];
+  /** The declared faults as rendered, split by `injectorIsLabFeature`. */
+  readonly faults: readonly { readonly id: string; readonly injected: boolean }[];
+  readonly implementedControls: readonly string[];
+  readonly unimplementedControls: readonly string[];
+  readonly implementedChecks: readonly string[];
+  readonly polishedLessonIds: readonly string[];
+  readonly lessonCount: number;
+  /** Journal sizes, so a phase can tell "nothing happened" from "nothing seen". */
+  readonly journal: { readonly events: number; readonly actions: number; readonly visits: number };
+}
+
 export interface SesameDebugApi {
   readonly ready: boolean;
   backendId(): BackendId;
@@ -278,6 +339,8 @@ export interface SesameDebugApi {
   archGraph(): ArchGraphReading;
   /** What the source pane is drawing right now, read out of the DOM. */
   sourceExplorer(): SourceExplorerReading;
+  /** Learn mode, read off the DOM. */
+  lessons(): LessonReading;
   /** The trace on screen, in causal order. `null` before any command. */
   trace(): TraceReading | null;
   assetFacts(): AssetFacts | null;
@@ -289,6 +352,8 @@ export interface SesameDebugApi {
 
 export interface DebugHookWiring {
   readonly store: TelemetryStore;
+  /** Learn mode’s journal, so a harness can tell "nothing happened" from "nothing was seen". */
+  readonly lessonRuntime: LessonRuntime;
   readonly traceStore: TraceStore;
   selection(): SelectionState;
   selectJoint(joint: JointName | null): void;
@@ -584,6 +649,76 @@ export function installDebugHook(wiring: DebugHookWiring): () => void {
       };
     },
 
+    lessons(): LessonReading {
+      const panel = document.querySelector('[data-testid="lesson-runner"]');
+      const q = (selector: string): Element | null => panel?.querySelector(selector) ?? null;
+      const all = (selector: string): Element[] =>
+        panel === null ? [] : [...panel.querySelectorAll(selector)];
+      const attr = (selector: string, name: string): string | null =>
+        q(selector)?.getAttribute(name) ?? null;
+      const textOf = (selector: string): string | null => q(selector)?.textContent?.trim() ?? null;
+
+      const check = q('[data-testid="lesson-check"]');
+      const godeeper = q('[data-testid="lesson-godeeper"]');
+
+      return {
+        openLessonId: panel?.getAttribute('data-lesson') ?? null,
+        outlineMode: q('[data-testid="lesson-outline"]') !== null,
+        claimDomain: attr('[data-testid="lesson-claim"]', 'data-claim-domain'),
+        conceptualBadge: q('[data-testid="lesson-conceptual-badge"]') !== null,
+        groundingNote: q('[data-testid="lesson-grounding-note"]') !== null,
+        stepId: attr('[data-testid="lesson-step"]', 'data-step'),
+        stepKind: attr('[data-testid="lesson-step"]', 'data-kind'),
+        checkType: check?.getAttribute('data-check-type') ?? null,
+        checkStatus: check?.getAttribute('data-status') ?? null,
+        checkSummary: textOf('[data-testid="lesson-check-summary"]'),
+        checkExpected: textOf('[data-testid="lesson-check-expected"]'),
+        checkObserved: textOf('[data-testid="lesson-check-observed"]'),
+        skipped: check?.getAttribute('data-skipped') === 'true',
+        // The assertion the report asks for: three levels, exactly one shown.
+        explanationCount: all('[data-testid="lesson-explanation"]').length,
+        shownLevel: attr('[data-testid="lesson-explanation"]', 'data-shown-level'),
+        goDeeperOpen: godeeper === null ? null : (godeeper as HTMLDetailsElement).open,
+        boundaryNoteCount: all('[data-testid="lesson-boundary-note"]').length,
+        boundaryDomains: all('[data-testid="lesson-boundary-note"]').map(
+          (node) => node.getAttribute('data-domain') ?? '',
+        ),
+        observability: textOf('[data-testid="lesson-observability"]'),
+        controlKind: attr('[data-testid="lesson-control"]', 'data-control'),
+        controlNotBuilt: attr('[data-testid="lesson-control-notbuilt"]', 'data-control-kind'),
+        stepOutcomes: all('[data-outcome]').map((node) => ({
+          id: node.getAttribute('data-testid')?.replace('lesson-step-', '') ?? '',
+          outcome: node.getAttribute('data-outcome') ?? '',
+        })),
+        challenges: all('[data-unlocked]').map((node) => ({
+          id: node.getAttribute('data-testid')?.replace('challenge-', '') ?? '',
+          unlocked: node.getAttribute('data-unlocked') === 'true',
+          status: node.getAttribute('data-status') ?? '',
+        })),
+        lessonCards: all('[data-locked]').map((node) => ({
+          id: node.getAttribute('data-testid')?.replace('lesson-card-', '') ?? '',
+          grounding: node.getAttribute('data-grounding') ?? '',
+          status: node.getAttribute('data-status') ?? '',
+          locked: node.getAttribute('data-locked') === 'true',
+          conceptualBadge: node.querySelector('[data-testid^="conceptual-"]') !== null,
+        })),
+        faults: all('[data-fault]').map((node) => ({
+          id: node.getAttribute('data-fault') ?? '',
+          injected: node.getAttribute('data-injected') === 'true',
+        })),
+        implementedControls: [...IMPLEMENTED_CONTROLS],
+        unimplementedControls: [...UNIMPLEMENTED_CONTROLS],
+        implementedChecks: [...IMPLEMENTED_CHECKS],
+        polishedLessonIds: [...POLISHED_LESSON_IDS],
+        lessonCount: LESSONS.length,
+        journal: {
+          events: wiring.lessonRuntime.events.length,
+          actions: wiring.lessonRuntime.actions.length,
+          visits: wiring.lessonRuntime.symbolVisits.length,
+        },
+      };
+    },
+
     sourceExplorer(): SourceExplorerReading {
       const panel = document.querySelector('[data-testid="source-explorer"]');
       const symbolId = wiring.selection().symbolId;
@@ -712,6 +847,7 @@ export function installDebugHook(wiring: DebugHookWiring): () => void {
         sceneSelection: api.sceneSelection(),
         archGraph: api.archGraph(),
         sourceExplorer: api.sourceExplorer(),
+        lessons: api.lessons(),
         trace: api.trace(),
         emulatorFacts: wiring.emulatorFacts(),
         face: wiring.store.face,

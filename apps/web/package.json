@@ -10,7 +10,7 @@
     "build": "vite build",
     "preview": "vite preview",
     "typecheck": "tsc -p tsconfig.json --noEmit",
-    "test": "node scripts/build-face-bitmaps.mjs --check && node scripts/build-architecture-graph.mjs --check && node scripts/build-source-annotations-module.mjs --check && vitest run",
+    "test": "node scripts/build-face-bitmaps.mjs --check && node scripts/build-architecture-graph.mjs --check && node scripts/build-source-annotations-module.mjs --check && node scripts/build-lessons-module.mjs --check && vitest run",
     "test:watch": "vitest",
     "build:face-bitmaps": "node scripts/build-face-bitmaps.mjs",
     "validate:face-bitmaps": "node scripts/build-face-bitmaps.mjs --check",
@@ -19,7 +19,9 @@
     "build:architecture-graph": "node scripts/build-architecture-graph.mjs",
     "validate:architecture-graph": "node scripts/build-architecture-graph.mjs --check",
     "build:source-annotations-module": "node scripts/build-source-annotations-module.mjs",
-    "validate:source-annotations-module": "node scripts/build-source-annotations-module.mjs --check"
+    "validate:source-annotations-module": "node scripts/build-source-annotations-module.mjs --check",
+    "build:lessons-module": "node scripts/build-lessons-module.mjs",
+    "validate:lessons-module": "node scripts/build-lessons-module.mjs --check"
   },
   "dependencies": {
     "@react-three/fiber": "^9.7.0",

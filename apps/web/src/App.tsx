@@ -38,7 +38,7 @@
  * `selectSymbol()` and reads `selection.symbolId`, and owns no selection of its
  * own.
  */
-import { JOINT_ORDER, type JointName } from '@sesame-lab/sesame-model';
+import { JOINT_ORDER, quantiseCommandedAngle, type JointName } from '@sesame-lab/sesame-model';
 import { OLED_HEIGHT, OLED_WIDTH } from '@sesame-lab/sesame-protocol';
 import { Suspense, useCallback, useEffect, useMemo, useRef, useState, type ReactElement } from 'react';
 
@@ -47,8 +47,16 @@ import { defaultLabBaseUrl, QemuBackend } from './backends/qemu-backend.js';
 import { SimBackend } from './backends/sim-backend.js';
 import type { BackendId, BackendStatus, TelemetryBackend } from './backends/types.js';
 import { installDebugHook } from './debug-hook.js';
-import { symbolAt } from './source/model.js';
+import { renderAuthoredBitmap } from './oled/framebuffer.js';
+import { symbolAt, symbolContains, SYMBOL_BY_ID } from './source/model.js';
 import { expansionsFor } from './arch/layout.js';
+import { flattenWrites, outOfRangeAngles, type SequenceDoc } from './editors/sequence.js';
+import { BOOT_ORDER } from './generated/lessons.js';
+import { SERVO_PINS_BY_BOARD } from './generated/architecture-graph.js';
+import type { ModelReading } from './lessons/checks.js';
+import { LessonRuntime, runBootModel } from './lessons/runtime.js';
+import type { LessonWiring } from './lessons/wiring.js';
+import { LessonRunner } from './ui/LessonRunner.js';
 import {
   EMPTY_SELECTION,
   litJointsFor,
@@ -100,6 +108,13 @@ const EMPTY_ROWS: readonly TraceRow[] = [];
 export function App(): ReactElement {
   const store = useMemo(() => new TelemetryStore(), []);
   const traceStore = useMemo(() => new TraceStore(), []);
+  /**
+   * Learn mode's memory. Third consumer of the same event stream, on the same
+   * terms as the other two: it is handed every event `onEvent` sees, and it
+   * reconstructs nothing.
+   */
+  const lessonRuntime = useMemo(() => new LessonRuntime(), []);
+  const modelReading = useRef<ModelReading | null>(null);
 
   /** The 128x64 canvas that becomes the `CanvasTexture` on `oled_screen`. */
   const oledCanvas = useMemo(() => {
@@ -227,6 +242,10 @@ export function App(): ReactElement {
     // worse, because its rows carry the old backend's origins.
     store.reset();
     traceStore.reset();
+    lessonRuntime.resetTelemetry();
+    // A different robot: the previous one's face and playback mode must not be
+    // left standing as if this backend had reported them.
+    modelReading.current = null;
     setShownTraceId(null);
     backendRef.current = next;
     setBackend(next);
@@ -236,6 +255,7 @@ export function App(): ReactElement {
     const offEvent = next.onEvent((event) => {
       store.ingest(event);
       traceStore.ingest(event);
+      lessonRuntime.noteEvent(event);
     });
     const offStatus = next.onStatus((s) => {
       if (!disposed) setStatus(s);
@@ -250,7 +270,7 @@ export function App(): ReactElement {
       offStatus();
       void next.stop();
     };
-  }, [backendId, bridgeUrl, labUrl, store, traceStore]);
+  }, [backendId, bridgeUrl, labUrl, store, traceStore, lessonRuntime]);
 
   // ------------------------------------------------- model-state pump (rAF)
   useEffect(() => {
@@ -262,12 +282,43 @@ export function App(): ReactElement {
       // `SimulatedSesameRobot.getState()` is synchronous under the promise, so
       // this costs nothing and never queues behind a running movement.
       void current.modelState().then((state) => {
-        if (state !== null) store.applyModelState(state.joints);
+        if (state === null) return;
+        store.applyModelState(state.joints);
+        // The lesson runner's window onto `RobotState`. `currentFaceMode` is a
+        // GLOBAL the next movement overwrites, so `face-mode-identified` can
+        // only be answered from a sample taken WHILE the movement runs — which
+        // is why this is sampled rather than read once at the end.
+        const reading: ModelReading = {
+          faceName: state.face.expression,
+          faceFrame: state.face.frame,
+          faceMode: state.simulated.faceMode,
+          faceFrameCount: state.simulated.faceFrameCount,
+          runningMovement: state.simulated.runningMovement,
+          currentCommand: state.motion.command ?? '',
+          idleActive: state.simulated.idleActive,
+        };
+        modelReading.current = reading;
+        lessonRuntime.noteModelSample({
+          runningMovement: reading.runningMovement,
+          faceName: reading.faceName,
+          faceMode: reading.faceMode,
+          faceFrame: reading.faceFrame,
+        });
       });
     };
     frame = requestAnimationFrame(pump);
     return () => cancelAnimationFrame(frame);
-  }, [store]);
+  }, [store, lessonRuntime]);
+
+  // ------------------------------------------------- lesson symbol history
+  //
+  // `source-span-selected` sometimes asks HOW a span was reached — from
+  // `setServoAngle`, or from a trace row — and the current selection cannot
+  // answer that. The visit list can, and it is fed from the one shared
+  // selection rather than from anything the lesson pane does itself.
+  useEffect(() => {
+    if (selection.symbolId !== null) lessonRuntime.noteSymbolVisit(selection.symbolId, selection.origin);
+  }, [selection, lessonRuntime]);
 
   // ---------------------------------------------------------- ground plane
   useEffect(() => {
@@ -320,6 +371,7 @@ export function App(): ReactElement {
         usesHttpRoute: current.id === 'qemu',
       });
       setShownTraceId(traceId);
+      lessonRuntime.noteAction('command', name, { command: name, traceId });
       try {
         await current.command(name, { traceId });
       } catch (e: unknown) {
@@ -336,6 +388,14 @@ export function App(): ReactElement {
       const current = backendRef.current;
       if (current === null) return;
       setError(null);
+      // `frameAtRequest` is the whole of `face-reselect`: TN-013 says
+      // `setFace()` early-returns on the same name, so the animation does NOT
+      // restart — and the only way to see that is to know which frame it was on
+      // when the second request went in.
+      lessonRuntime.noteAction('set-face', `face ← ${name}`, {
+        face: name,
+        frameAtRequest: modelReading.current?.faceFrame ?? 0,
+      });
       try {
         await current.setFace(name);
         // A zero-frame face emits no telemetry whatsoever, so the store would
@@ -346,23 +406,225 @@ export function App(): ReactElement {
         setError(e instanceof Error ? e.message : String(e));
       }
     },
-    [store],
+    [store, lessonRuntime],
   );
 
-  const runSetJoint = useCallback(async (joint: JointName, deg: number): Promise<void> => {
-    const current = backendRef.current;
-    if (current === null) return;
-    try {
-      await current.setJoint(joint, deg);
-    } catch (e: unknown) {
-      setError(e instanceof Error ? e.message : String(e));
-    }
-  }, []);
+  const runSetJoint = useCallback(
+    async (joint: JointName, deg: number): Promise<void> => {
+      const current = backendRef.current;
+      if (current === null) return;
+      // Journalled BEFORE the call, with the subtrim in force at the moment of
+      // the request. `commanded-angle-collision` needs both halves — what was
+      // asked for, and what came back — and the second one is the telemetry
+      // event, not this record.
+      lessonRuntime.noteAction('set-joint', `${joint} ← ${String(deg)}°`, {
+        joint,
+        requestedDeg: deg,
+        subtrimDeg: lessonRuntime.subtrimDeg[joint],
+      });
+      try {
+        await current.setJoint(joint, deg);
+      } catch (e: unknown) {
+        setError(e instanceof Error ? e.message : String(e));
+      }
+    },
+    [lessonRuntime],
+  );
 
   const stopMotion = useCallback((): void => {
     const current = backendRef.current;
     if (current instanceof SimBackend) current.stopMotion();
   }, []);
+
+  // ============================================================ Learn mode
+  //
+  // Everything below is a capability handed to the lesson runner. It owns none
+  // of it: the pane calls these, and reads the same stores every other pane
+  // reads, so a check can never be satisfied by the runner's own bookkeeping.
+
+  /**
+   * Write a raw channel index, including one the firmware's guard drops.
+   *
+   * `setServoAngle()` wraps its whole body in `if (channel < 8)` — no else, no
+   * log, no return code — and `@sesame-lab/sesame-sim`'s machine reproduces
+   * that with `if (jointAtIndex(channel) === undefined) return;`. The model's
+   * only typed entry point is by joint name, so the guard is applied here at
+   * the same place and for the same reason, and the action is journalled either
+   * way so `telemetry-absent` can tell a dropped write from an unsent one.
+   */
+  const runSetChannel = useCallback(
+    async (channel: number, deg: number): Promise<void> => {
+      const joint = Number.isInteger(channel) ? JOINT_ORDER[channel] : undefined;
+      lessonRuntime.noteAction('set-channel', `setServoAngle(${String(channel)}, ${String(deg)})`, {
+        channel,
+        requestedDeg: deg,
+        joint: joint ?? null,
+        reached: joint !== undefined,
+        afterAction: `setServoAngle(${String(channel)}, ${String(deg)})`,
+      });
+      if (joint === undefined) return;
+      const current = backendRef.current;
+      if (current === null) return;
+      try {
+        await current.setJoint(joint, deg);
+      } catch (e: unknown) {
+        setError(e instanceof Error ? e.message : String(e));
+      }
+    },
+    [lessonRuntime],
+  );
+
+  const setLessonSubtrim = useCallback(
+    (joint: JointName, deg: number): void => {
+      const current = backendRef.current;
+      if (current instanceof SimBackend) current.setSubtrim(joint, deg);
+      lessonRuntime.setSubtrim(joint, deg);
+    },
+    [lessonRuntime],
+  );
+
+  const setLessonBoard = useCallback(
+    (board: string): void => {
+      lessonRuntime.setBoard(board, SERVO_PINS_BY_BOARD[board] ?? {});
+    },
+    [lessonRuntime],
+  );
+
+  /** Recomputed here, from the library's own arithmetic. Nothing is passed in. */
+  const probePwm = useCallback(
+    (angleDeg: number): void => {
+      const q = quantiseCommandedAngle(Math.max(0, Math.min(180, Math.round(angleDeg))));
+      lessonRuntime.notePwmProbe({
+        angleDeg: q.commandedDeg,
+        mappedUs: q.mappedUs,
+        ticks: q.ticks,
+        pulseUs: q.pulseUs,
+        aliases: q.aliases,
+      });
+    },
+    [lessonRuntime],
+  );
+
+  /**
+   * Run an authored sequence, then read the terminal pose back off telemetry.
+   *
+   * One `setServoAngle()` per channel in firmware enum order, then the wait —
+   * because that is all the firmware has. The pose recorded afterwards is the
+   * store's, not the document's: `sequence-variation` compares two runs, and
+   * comparing what was *authored* would prove nothing.
+   */
+  const runSequence = useCallback(
+    async (doc: SequenceDoc, changedField: string | null): Promise<void> => {
+      const current = backendRef.current;
+      if (current === null) return;
+      const started = lessonRuntime.noteAction('run-sequence', doc.name, {
+        frames: doc.frames.length,
+        changedField,
+        basedOnMovement: doc.basedOnMovement,
+      });
+      const writes = flattenWrites(doc);
+      const bad = outOfRangeAngles(doc);
+      for (const frame of doc.frames) {
+        for (const joint of JOINT_ORDER) {
+          const angle = frame.angles[joint];
+          if (angle === undefined) continue;
+          if (angle < 0 || angle > 180 || !Number.isInteger(angle)) continue;
+          try {
+            await current.setJoint(joint, angle);
+          } catch (e: unknown) {
+            setError(e instanceof Error ? e.message : String(e));
+          }
+        }
+        await new Promise((resolve) => setTimeout(resolve, Math.min(2000, frame.delayMs)));
+      }
+      const commanded = lessonRuntime
+        .eventsAfter(started)
+        .filter((event) => event.type === 'servo.target' && event.joint !== null)
+        .map((event) => ({ joint: event.joint as JointName, angleDeg: event.angleDeg ?? 0 }));
+      lessonRuntime.noteSequenceRun({
+        t: Date.now(),
+        label: doc.name,
+        basedOnMovement: doc.basedOnMovement,
+        changedField,
+        frameCount: doc.frames.length,
+        outOfRangeCount: bad.length,
+        terminalPose: Object.fromEntries(
+          JOINT_ORDER.map((joint) => [joint, store.joints[joint].commandedDeg]),
+        ) as Record<JointName, number | null>,
+        commanded: commanded.length > 0 ? commanded : writes.map((w) => ({ joint: w.joint, angleDeg: w.angleDeg })),
+      });
+    },
+    [lessonRuntime, store],
+  );
+
+  /**
+   * A real request to this page's origin, recorded with the real status.
+   *
+   * The firmware's ten routes only exist in front of a robot, which means
+   * `apps/web/server/lab-host.mjs`. Served from anywhere else there is no
+   * `/api/status`, and this records the 404 or the network error rather than
+   * synthesising a reply — which is the difference between an API console and a
+   * prop.
+   */
+  const sendHttp = useCallback(
+    async (method: string, route: string, body: string | null): Promise<void> => {
+      const commandWord = body === null ? null : /"command"\s*:\s*"([^"]*)"/.exec(body)?.[1] ?? null;
+      lessonRuntime.noteAction('http', `${method} ${route}`, {
+        method,
+        route,
+        commandWord,
+      });
+      let status: number | null = null;
+      let error: string | null = null;
+      let text = '';
+      try {
+        const response = await fetch(route, {
+          method,
+          ...(body === null ? {} : { body, headers: { 'content-type': 'application/json' } }),
+        });
+        status = response.status;
+        text = await response.text();
+      } catch (e: unknown) {
+        error = e instanceof Error ? e.message : String(e);
+      }
+      let json: unknown = null;
+      let jsonError: string | null = null;
+      try {
+        json = JSON.parse(text);
+      } catch (e: unknown) {
+        jsonError = e instanceof Error ? e.message : String(e);
+      }
+      lessonRuntime.noteHttp({
+        t: Date.now(),
+        method,
+        route,
+        body,
+        status,
+        error,
+        responseText: text,
+        json,
+        jsonError,
+        // Sampled at the moment the reply LANDED. `/api/status` answered from
+        // inside `delayWithFace()` is the whole point of the step.
+        duringMovement: modelReading.current?.runningMovement ?? null,
+      });
+    },
+    [lessonRuntime],
+  );
+
+  const runBoot = useCallback((): void => {
+    const run = runBootModel(BOOT_ORDER, [...lessonRuntime.faults]);
+    lessonRuntime.noteAction('boot', 'boot the robot', { faults: run.faults.join(',') });
+    lessonRuntime.noteBootRun({ ...run, t: Date.now() });
+  }, [lessonRuntime]);
+
+  const pushPixelFrame = useCallback(
+    (frame: Uint8Array): void => {
+      store.writeAuthoredFrame(renderAuthoredBitmap(frame));
+      oledDirty.current += 1;
+    },
+    [store, oledDirty],
+  );
 
   // ------------------------------------------------------------ debug hook
   useEffect(
@@ -378,6 +640,7 @@ export function App(): ReactElement {
         backendId: () => backendId,
         status: () => backendRef.current?.status ?? status,
         emulatorFacts: () => backendRef.current?.emulatorFacts() ?? null,
+        lessonRuntime,
         setBackend: async (id, url) => {
           if (url !== undefined) {
             if (id === 'qemu') setLabUrl(url);
@@ -433,6 +696,48 @@ export function App(): ReactElement {
 
   const traces = traceStore.traces;
   const shownTrace = traces.find((t) => t.id === shownTraceId) ?? traces[0] ?? null;
+
+  const lessonWiring: LessonWiring = {
+    runtime: lessonRuntime,
+    joints: store.joints,
+    model: modelReading.current,
+    trace: shownTrace,
+    selection,
+    busy,
+    showTopCover,
+    // Stated, never hidden: the bridge and QEMU backends have no lab-reachable
+    // subtrim, and the control says so instead of silently doing nothing.
+    canSetSubtrim: backend instanceof SimBackend,
+    runCommand,
+    setJoint: runSetJoint,
+    setChannel: runSetChannel,
+    setFace: runFace,
+    setSubtrim: setLessonSubtrim,
+    setBoard: setLessonBoard,
+    clearLabModifications: () => {
+      for (const joint of JOINT_ORDER) setLessonSubtrim(joint, 0);
+      for (const fault of [...lessonRuntime.faults]) lessonRuntime.setFault(fault, false);
+    },
+    selectSymbol: selectSymbolFrom,
+    followTraceRow: (symbolId) => {
+      const symbol = SYMBOL_BY_ID.get(symbolId);
+      if (symbol === undefined) return false;
+      const row = (shownTrace?.rows ?? EMPTY_ROWS).find(
+        (r) => r.sourceRef !== null && symbolContains(symbol, r.sourceRef.file, r.sourceRef.line),
+      );
+      if (row === undefined) return false;
+      applySelection(selectSymbol(symbolId, 'trace'));
+      return true;
+    },
+    selectNode: (nodeId) => applySelection(selectNode(nodeId, 'graph')),
+    selectJoint: (joint) => selectJointFrom(joint, 'scene'),
+    onToggleTopCover: setShowTopCover,
+    probePwm,
+    runSequence,
+    sendHttp,
+    runBoot,
+    pushPixelFrame,
+  };
 
   /**
    * Which architecture nodes the shown trace touched.
@@ -515,6 +820,15 @@ export function App(): ReactElement {
         traceRows={shownTrace?.rows ?? EMPTY_ROWS}
         onSelectRow={selectTraceRow}
       />
+
+      {/*
+        Learn mode. A THIRD row, for the same reason the source explorer took a
+        second one: a column would have to come out of the viewport's width, and
+        the viewport is where ISSUE-20260823-023 lived. The pane is a slim strip
+        until a lesson is opened, and the harness re-asserts the world frame
+        with it mounted.
+      */}
+      <LessonRunner wiring={lessonWiring} />
 
       <aside className="sidebar">
         {backend !== null && (

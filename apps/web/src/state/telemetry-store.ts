@@ -377,6 +377,31 @@ export class TelemetryStore {
   }
 
   /**
+   * Push a frame a *person* authored onto the panel.
+   *
+   * The pixel editor's output goes through `renderAuthoredBitmap()` — the same
+   * `drawBitmap()` path a real face takes — but the bytes are not the robot's
+   * and must never be presented as if they were. `oledSource` therefore reads
+   * `rendered` with `pixelProvenance: 'inferred'` and a detail line naming
+   * Sesame Lab as the author, and `triggerOrigin` stays null because no
+   * boundary was crossed: nothing outside this tab was involved.
+   */
+  writeAuthoredFrame(gddram: Uint8Array): void {
+    this.#panel.write(gddram);
+    this.#emptyFace = null;
+    this.#oledSource = {
+      kind: 'rendered',
+      pixelProvenance: 'inferred',
+      triggerProvenance: null,
+      triggerOrigin: null,
+      detail:
+        'Drawn in Sesame Lab’s pixel editor and pushed through the same drawBitmap() path a face ' +
+        'bitmap takes. No firmware produced these pixels and no backend transmitted them.',
+    };
+    this.#bump();
+  }
+
+  /**
    * Fold in a backend's model state.
    *
    * Only `simulatedDeg` and `subtrimDeg` are taken. `commandedDeg` stays event-
