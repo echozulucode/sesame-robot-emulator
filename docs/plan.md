@@ -121,18 +121,23 @@ two different emulators.
 **Cancelled:** the physical-hardware sprint (P1-0). V0 replaced it for everything geometric;
 the remainder is deferred behind V6's calibration layer.
 
-## Phase 2: Learning application — NEXT
+## Phase 2: Learning application — IN PROGRESS
 
-The product the research report is actually about. Not started.
+The product the research report is actually about.
 
-- [ ] Interactive architecture graph (React Flow) with cross-pane highlighting
-- [ ] "See the Signal" causal traces — `traceId` threading already exists end to end
-- [ ] Source explorer against the pinned commit, with annotation metadata
-- [ ] First lessons, ordered around Sesame's real architecture
-- [ ] Lab mode: pose editor, face editor, API console
+- [x] **L1** Interactive architecture graph (React Flow) with cross-pane highlighting — 63 nodes / 65 edges derived from `hardware-map.json`; 5 hand-authored nodes enumerated and dashed
+- [x] **L1** "See the Signal" causal traces — per-layer provenance; `pwm.output` stays `INFERRED` on both backends per Q3
+- [x] **L3** Source annotation data — 90 symbols, 39 concepts, 17 teaching notes, resolving `file:line` provenance
+- [x] **L4** Source explorer UI — four synchronised panes, build-time source bundling with two independent hash-refusal gates, zero new dependencies
+- [x] **L5** Lesson content as data — 19 lessons / 74 steps / 74 checkable conditions; **Gate F mechanically enforced**, 44/44 factual claims resolve
+- [ ] **L6** Lesson runner UI — in progress
+- [ ] **L7** Lab mode: pose editor, face editor, API console — queued behind L6 (shared `apps/web` ownership)
 
-**Prerequisite decision:** whether to adopt QEMU as a `QemuSesameRobot` backend (~4–7 d).
-It would slot into V5's contract suite as one additional call.
+**Decided and done:** QEMU adopted as `QemuSesameRobot` (Q2), wired to the browser (V7), and its
+LEDC fidelity characterised (Q3). Renode closed `wont_fix`.
+
+**Open question out for external research:** whether abandoning Renode was correct —
+`docs/research/renode-fit-deep-research-prompt.md`.
 
 ## Phase 4: Renode track — SUPERSEDED by QEMU
 
