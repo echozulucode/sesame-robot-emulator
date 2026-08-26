@@ -2,7 +2,7 @@
 type: plan
 project: "Sesame Lab"
 status: active
-version: 3
+version: 4
 updated: 2026-08-23
 phases:
   - id: 0
@@ -16,7 +16,7 @@ phases:
     status: pending
   - id: 3
     name: "Integration (real hardware adapter, contract tests)"
-    status: pending
+    status: out_of_scope
   - id: 4
     name: "Renode research track"
     status: superseded_by_qemu
@@ -24,6 +24,30 @@ current_phase: 2
 ---
 
 # Plan: Sesame Lab
+
+## Standing constraint — no physical hardware, ever
+
+Recorded 2026-08-25 at the user's direction: **this project will never run on physical hardware.**
+No robot, no bare ESP32 board, no logic analyser.
+
+This is not a temporary gap awaiting a purchase. It is permanent, and it changes what "done" means:
+
+- **Phase 3 (real hardware adapter) is out of scope.** `RealSesameRobot` will not be built.
+- **`isPhysicallyObserved()` returns false for every event this system will ever produce.** That is
+  now a permanent property, not a current limitation, and the UI should read that way.
+- **The V6 hardware-verification checklist is archival.** It stays as a precise record of what
+  *would* settle each open value, and as the answer to "how would you know?", but it will not be
+  executed. Its 13 bare-board steps are equally out of reach.
+- **Values that only hardware can settle stay unverified permanently.** Semantic joint identity,
+  horn spline offset, mechanical travel limits, per-robot subtrim, real servo slew, and the LEDC
+  waveform (ISSUE-20260824-024). The calibration layer keeps them runtime-swappable and honestly
+  marked; that is the end state, not a waypoint.
+- **Emulator fidelity therefore carries more weight**, because there is no ground truth to fall
+  back on. Where the emulator is inert (LEDC), the instrumented firmware hook is permanently
+  load-bearing rather than a stopgap.
+
+Educationally this is survivable and arguably clarifying: the product teaches what the *code* does,
+and says so. It must never imply it is showing what a servo horn did.
 
 ## Goal
 
@@ -137,6 +161,8 @@ LEDC modelling.
 | 2026-08-23 | Adopt QEMU over Renode for firmware execution | QEMU reaches `setup()` today; Renode was costed at 16-25 d to get there |
 | 2026-08-23 | `SimulatedSesameRobot` stays the default backend, QEMU is opt-in | Lessons need determinism and speed; QEMU earns its place for showing real firmware |
 | 2026-08-23 | Calibration layers over the joint map, never forks it | One authoritative geometry source; calibration must not become a laundering mechanism |
+| 2026-08-25 | No physical hardware, ever; Phase 3 out of scope | User direction. Makes unverifiable values a permanent end state and raises the weight on emulator fidelity |
+| 2026-08-25 | Adopt QEMU as a supported backend; Renode closed | QEMU enters setup() today and drives the browser; Renode was 16-25 d from user code |
 | 2026-08-23 | Calibration UI deferred to Phase 2 | `rig.ts` throws if `neutralCommandedDeg != 90`; doing it properly means touching a finished package |
 
 ## Errors Encountered
