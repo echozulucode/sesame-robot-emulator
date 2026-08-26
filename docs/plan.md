@@ -2,7 +2,7 @@
 type: plan
 project: "Sesame Lab"
 status: active
-version: 4
+version: 5
 updated: 2026-08-23
 phases:
   - id: 0
@@ -13,7 +13,7 @@ phases:
     status: complete
   - id: 2
     name: "Learning application (architecture view, lessons, Lab mode)"
-    status: pending
+    status: complete
   - id: 3
     name: "Integration (real hardware adapter, contract tests)"
     status: out_of_scope
@@ -121,7 +121,7 @@ two different emulators.
 **Cancelled:** the physical-hardware sprint (P1-0). V0 replaced it for everything geometric;
 the remainder is deferred behind V6's calibration layer.
 
-## Phase 2: Learning application — IN PROGRESS
+## Phase 2: Learning application — COMPLETE (2026-08-26)
 
 The product the research report is actually about.
 
@@ -130,14 +130,33 @@ The product the research report is actually about.
 - [x] **L3** Source annotation data — 90 symbols, 39 concepts, 17 teaching notes, resolving `file:line` provenance
 - [x] **L4** Source explorer UI — four synchronised panes, build-time source bundling with two independent hash-refusal gates, zero new dependencies
 - [x] **L5** Lesson content as data — 19 lessons / 74 steps / 74 checkable conditions; **Gate F mechanically enforced**, 44/44 factual claims resolve
-- [ ] **L6** Lesson runner UI — in progress
-- [ ] **L7** Lab mode: pose editor, face editor, API console — queued behind L6 (shared `apps/web` ownership)
+- [x] **L6** Lesson runner UI — lessons 1–6 fully playable; 16/22 controls, 26/34 checks built, the rest fail loudly and cannot complete a step
+- [x] **L7** Lab mode — five tabs composing L6's editors; C++ export verified against `movement-sequences.h` and round-tripped by two independent parsers
 
 **Decided and done:** QEMU adopted as `QemuSesameRobot` (Q2), wired to the browser (V7), and its
 LEDC fidelity characterised (Q3). Renode closed `wont_fix`.
 
 **Open question out for external research:** whether abandoning Renode was correct —
 `docs/research/renode-fit-deep-research-prompt.md`.
+
+## Phase 3+: what is left
+
+Phase 3 (real hardware adapter) is **out of scope** — see the standing constraint.
+
+Carried forward from Phase 2's own findings, none blocking:
+
+- **Loop playback** in Lab needs the firmware's `pressingCheck()` cancel path, which the in-process
+  simulator serialises away.
+- **Multi-frame face animations** — `emitFaceHeader` already takes a `frameIndex`; the frame-strip
+  UI does not exist.
+- **A `serial-console` control** — the only affordance that reaches subtrim on the lab-host and
+  bridge backends, where the sliders are correctly disabled rather than inert.
+- **Six deferred lesson controls and eight check types**, needed only by the thirteen outline
+  lessons. They fail visibly today and cannot complete a step.
+- **Reconcile a data inconsistency**: `vocabularies.faults` has **four** entries with
+  `injectorIsLabFeature: false` while `debug-a-robot`'s text and `L5-lesson-content.md` §6.6 both
+  say three.
+- **Document the CRLF/trim conventions** in `source-annotations.json` that L4 had to reverse-engineer.
 
 ## Phase 4: Renode track — SUPERSEDED by QEMU
 

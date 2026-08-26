@@ -131,6 +131,13 @@ docs:
     type: research
     status: active
 
+  - file: docs/findings/L6-lesson-runner.md
+    type: findings
+    status: complete
+  - file: docs/findings/L7-lab-mode.md
+    type: findings
+    status: complete
+
   # Interface specification
   - file: docs/protocol/sesame-telemetry-v1.md
     type: specification

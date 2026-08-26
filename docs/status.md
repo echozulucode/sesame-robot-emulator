@@ -1,16 +1,48 @@
 ---
 type: status
-updated: 2026-08-24
-current_phase: "Phase 1 complete + QEMU emulator backend adopted and wired end to end"
+updated: 2026-08-26
+current_phase: "Phase 2 complete - Learn mode and Lab mode both shipping"
 blockers: []
 next_actions:
-  - "USER EVALUATION: `pnpm demo:web` for the simulator, or the lab-host for real firmware"
-  - "Phase 2: architecture graph, See the Signal traces, source explorer, first lessons"
-  - "Opportunistic: 13 V6 checklist steps (4h25m) need only a bare ESP32-S2, one servo and an OLED"
-  - "ISSUE-024 / V6-14b: a logic analyser is the only way to verify the servo pulse"
+  - "USER EVALUATION: pnpm dev:web for Learn + Lab, or apps/web/server/lab-host.mjs for real firmware"
+  - "External research pending on the Renode decision (docs/research/renode-fit-deep-research-prompt.md)"
+  - "Optional polish: the six carried-forward items in plan.md Phase 3+"
 ---
 
 # Status Log
+
+## Session: 2026-08-25/26 - Phase 2 complete
+
+**Phase:** 2 - Learning application -> **COMPLETE**. Seven tasks, 6 commits,
+**912 tests / 11 validators green**, 26 real-browser captures, 0 problems.
+
+- **L1** architecture graph (63 nodes / 65 edges derived from `hardware-map.json`, 5 hand-authored
+  and dashed) + **See the Signal**, whose `pwm.output` row stays `INFERRED` on both backends
+  because Q3 proved QEMU emits no waveform.
+- **L3** source annotations - 90 symbols, 39 concepts, 17 teaching notes, every citation storing
+  its own line text so the validator can re-read and compare.
+- **L4** source explorer - four synchronised panes, upstream source bundled at build time with two
+  independent hash-refusal gates, both exercised by flipping a single byte.
+- **L5** lesson content - 19 lessons, 74 steps, and **Gate F enforced by a validator**: 44/44
+  factual claims resolve to a matching symbol, and a lesson cannot promote itself.
+- **L6** lesson runner - lessons 1-6 fully playable; checks were **falsified before being
+  confirmed**, and an unbuilt check cannot complete a step.
+- **L7** Lab mode - Studio's pose/frame/animation model preserved, C++ export verified against the
+  real firmware header and round-tripped by two independent parsers.
+
+**The through-line:** every layer refuses to claim more than it can show. `pwm.output` is inferred
+even under real firmware; conceptual lessons are badged from `grounding` rather than from empty
+symbols; unbuilt controls render a red NOT BUILT panel; the exported C++ carries its
+never-verified warning inside the generated code so it survives the clipboard.
+
+**Standing constraint honoured throughout:** no physical hardware, ever. `isPhysicallyObserved()`
+is permanently false, and nothing in Learn or Lab claims a servo moved.
+
+**Carried forward** (none blocking, all in plan.md Phase 3+): loop playback, multi-frame faces,
+a serial console, six deferred lesson controls, one faults-count inconsistency, and the
+undocumented CRLF/trim conventions in `source-annotations.json`.
+
+---
 
 ## Session: 2026-08-24 - QEMU adopted as a real emulator backend
 
