@@ -114,6 +114,14 @@ docs:
     type: procedure
     status: active
 
+  # Phase 2 evidence
+  - file: docs/findings/L3-source-annotations.md
+    type: findings
+    status: complete
+  - file: docs/research/renode-fit-deep-research-prompt.md
+    type: research
+    status: active
+
   # Interface specification
   - file: docs/protocol/sesame-telemetry-v1.md
     type: specification

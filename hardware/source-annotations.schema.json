@@ -1,0 +1,389 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://sesame-lab.local/schemas/source-annotations.schema.json",
+  "title": "Sesame Lab source annotations",
+  "description": "Annotation metadata for the Phase 2 source explorer, extracted from the pinned upstream firmware tree. Every symbol, concept anchor and teaching-note citation resolves to a file:line inside firmware/upstream/ at meta.upstreamCommit and carries the exact source text of that line so it can be re-read and compared. additionalProperties is false throughout: a typo'd key is a hard failure, not a silently ignored field.",
+  "type": "object",
+  "required": ["meta", "coverage", "concepts", "symbols", "teachingNotes", "curriculum"],
+  "additionalProperties": false,
+
+  "$defs": {
+    "sourcePath": {
+      "type": "string",
+      "description": "Path relative to the upstream repository root, e.g. \"firmware/sesame-firmware-main.ino\".",
+      "pattern": "^firmware/[A-Za-z0-9._/-]+$"
+    },
+    "conceptId": { "type": "string", "pattern": "^[a-z][a-z0-9-]*$" },
+    "symbolId": { "type": "string", "pattern": "^[A-Za-z_][A-Za-z0-9_-]*$" },
+    "noteId": { "type": "string", "pattern": "^TN-[0-9]{3}$" },
+    "lessonId": { "type": "string", "pattern": "^[a-z][a-z0-9-]*$" },
+    "robotPart": {
+      "type": "string",
+      "description": "A firmware joint name from hardware-map.json servos.order. Never a semantic name — the firmware has no notion of hip, leg, left or right.",
+      "enum": ["R1", "R2", "L1", "L2", "R4", "R3", "L3", "L4"]
+    },
+    "citation": {
+      "type": "object",
+      "description": "A resolved source citation. `text` is the exact content of that line with trailing whitespace stripped; a validator re-reads the pinned tree and compares.",
+      "required": ["file", "line", "text"],
+      "additionalProperties": false,
+      "properties": {
+        "file": { "$ref": "#/$defs/sourcePath" },
+        "line": { "type": "integer", "minimum": 1 },
+        "text": { "type": "string" }
+      }
+    },
+    "libraryCitation": {
+      "type": "object",
+      "description": "A fact that belongs to a LIBRARY rather than to Sesame source. Deliberately not shaped like a firmware citation, because the library tree is gitignored and cannot be line-checked from a clean clone; the citable identity is library + version + path-within-library + line.",
+      "required": ["library", "version", "file", "line", "text"],
+      "additionalProperties": false,
+      "properties": {
+        "library": { "type": "string" },
+        "version": { "type": "string" },
+        "file": { "type": "string" },
+        "line": { "type": "integer", "minimum": 1 },
+        "text": { "type": "string" }
+      }
+    },
+    "countPair": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "annotated": { "type": "integer", "minimum": 0 },
+        "referenced": { "type": "integer", "minimum": 0 },
+        "referencedByName": { "type": "integer", "minimum": 0 },
+        "inHardwareMap": { "type": "integer", "minimum": 0 },
+        "note": { "type": "string" }
+      },
+      "required": ["inHardwareMap"]
+    }
+  },
+
+  "properties": {
+    "meta": {
+      "type": "object",
+      "required": [
+        "schemaVersion", "schema", "task", "generatedAt", "generatedBy",
+        "upstreamCommit", "upstreamRepo", "upstreamPin", "pathsRelativeTo",
+        "filesAnnotated", "epistemicContract", "noHardwareClaims",
+        "relationshipToHardwareMap", "gateF", "consumers"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "schemaVersion": { "type": "string", "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+$" },
+        "schema": { "type": "string" },
+        "task": { "type": "string" },
+        "generatedAt": { "type": "string", "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}Z$" },
+        "generatedBy": { "const": "scripts/build-source-annotations.mjs" },
+        "upstreamCommit": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{40}$",
+          "description": "Must equal firmware/upstream.pin.json commit and hardware-map.json meta.sourceTree.upstreamCommit."
+        },
+        "upstreamRepo": { "type": "string" },
+        "upstreamPin": { "const": "firmware/upstream.pin.json" },
+        "pathsRelativeTo": { "type": "string" },
+        "filesAnnotated": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "object",
+            "required": ["file", "lines", "sha256"],
+            "additionalProperties": false,
+            "properties": {
+              "file": { "$ref": "#/$defs/sourcePath" },
+              "lines": { "type": "integer", "minimum": 1 },
+              "sha256": { "type": "string", "pattern": "^[0-9a-f]{64}$" }
+            }
+          }
+        },
+        "epistemicContract": { "type": "string" },
+        "noHardwareClaims": {
+          "type": "string",
+          "description": "Restates docs/plan.md's standing constraint. This project will never run on physical hardware, so no annotation may assert that a servo moved or a pulse was observed — only what the code commands."
+        },
+        "relationshipToHardwareMap": { "type": "string" },
+        "gateF": { "type": "string" },
+        "consumers": { "type": "array", "items": { "type": "string" } }
+      }
+    },
+
+    "coverage": {
+      "type": "object",
+      "description": "Computed by the generator from the resolved symbol table. Never hand-typed.",
+      "required": ["note", "files", "symbols", "teachingSurface", "concepts", "teachingNotes", "curriculum"],
+      "additionalProperties": false,
+      "properties": {
+        "note": { "type": "string" },
+        "files": {
+          "type": "object",
+          "minProperties": 1,
+          "additionalProperties": {
+            "type": "object",
+            "required": ["totalLines", "annotatedLines", "annotatedPct"],
+            "additionalProperties": false,
+            "properties": {
+              "totalLines": { "type": "integer", "minimum": 1 },
+              "annotatedLines": { "type": "integer", "minimum": 0 },
+              "annotatedPct": { "type": "number", "minimum": 0, "maximum": 100 }
+            }
+          }
+        },
+        "symbols": {
+          "type": "object",
+          "required": ["total", "byKind"],
+          "additionalProperties": false,
+          "properties": {
+            "total": { "type": "integer", "minimum": 1 },
+            "byKind": { "type": "object", "additionalProperties": { "type": "integer", "minimum": 0 } }
+          }
+        },
+        "teachingSurface": {
+          "type": "object",
+          "required": ["movementFunctions", "httpRoutes", "bootSteps", "commandVocabulary", "faceRegistry"],
+          "additionalProperties": false,
+          "properties": {
+            "movementFunctions": { "$ref": "#/$defs/countPair" },
+            "httpRoutes": { "$ref": "#/$defs/countPair" },
+            "bootSteps": { "$ref": "#/$defs/countPair" },
+            "commandVocabulary": { "$ref": "#/$defs/countPair" },
+            "faceRegistry": { "$ref": "#/$defs/countPair" }
+          }
+        },
+        "concepts": {
+          "type": "object",
+          "required": ["total", "verbatimFromReport", "withoutSymbols"],
+          "additionalProperties": false,
+          "properties": {
+            "total": { "type": "integer", "minimum": 1 },
+            "verbatimFromReport": { "type": "integer", "minimum": 0 },
+            "withoutSymbols": {
+              "type": "array",
+              "description": "Concepts with no annotated symbol. Not a bug — a concept the firmware genuinely does not describe (e.g. `emulator`) belongs here rather than being force-fitted onto a symbol.",
+              "items": { "$ref": "#/$defs/conceptId" }
+            }
+          }
+        },
+        "teachingNotes": {
+          "type": "object",
+          "required": ["total", "byKind"],
+          "additionalProperties": false,
+          "properties": {
+            "total": { "type": "integer", "minimum": 1 },
+            "byKind": { "type": "object", "additionalProperties": { "type": "integer", "minimum": 0 } }
+          }
+        },
+        "curriculum": {
+          "type": "object",
+          "required": ["modules", "factual", "conceptual", "conceptualModules"],
+          "additionalProperties": false,
+          "properties": {
+            "modules": { "type": "integer", "minimum": 1 },
+            "factual": { "type": "integer", "minimum": 0 },
+            "conceptual": { "type": "integer", "minimum": 0 },
+            "conceptualModules": { "type": "array", "items": { "$ref": "#/$defs/lessonId" } }
+          }
+        }
+      }
+    },
+
+    "concepts": {
+      "type": "array",
+      "description": "The CONTROLLED VOCABULARY. Every `concepts[]` entry anywhere else in this file must be an id from here.",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "required": ["id", "label", "verbatimFromReport", "levels", "primaryAnchor", "symbols", "teachingNotes", "lessons"],
+        "additionalProperties": false,
+        "properties": {
+          "id": { "$ref": "#/$defs/conceptId" },
+          "label": { "type": "string" },
+          "verbatimFromReport": {
+            "type": "boolean",
+            "description": "True when all three levels are copied word-for-word from the research report's \"Three explanatory levels\" table."
+          },
+          "levels": {
+            "type": "object",
+            "description": "The report's three explanatory registers. All three are required — a concept with only one register is not usable by the explorer's depth control.",
+            "required": ["beginner12", "beginnerProgrammer", "architecture"],
+            "additionalProperties": false,
+            "properties": {
+              "beginner12": { "type": "string", "minLength": 1 },
+              "beginnerProgrammer": { "type": "string", "minLength": 1 },
+              "architecture": { "type": "string", "minLength": 1 }
+            }
+          },
+          "primaryAnchor": {
+            "type": "object",
+            "description": "Where in the pinned source this concept is most directly visible. Gives every concept a Gate-F citation of its own.",
+            "required": ["symbol", "file", "line", "text"],
+            "additionalProperties": false,
+            "properties": {
+              "symbol": { "$ref": "#/$defs/symbolId" },
+              "file": { "$ref": "#/$defs/sourcePath" },
+              "line": { "type": "integer", "minimum": 1 },
+              "text": { "type": "string" }
+            }
+          },
+          "symbols": { "type": "array", "items": { "$ref": "#/$defs/symbolId" } },
+          "teachingNotes": { "type": "array", "items": { "$ref": "#/$defs/noteId" } },
+          "lessons": { "type": "array", "items": { "$ref": "#/$defs/lessonId" } }
+        }
+      }
+    },
+
+    "symbols": {
+      "type": "array",
+      "description": "One entry per annotated span of pinned source, sorted by file then start line.",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "required": [
+          "id", "kind", "file", "startLine", "endLine", "lineCount",
+          "startLineText", "endLineText", "signature", "description",
+          "concepts", "robotParts", "crossRefs", "teachingNotes",
+          "lesson", "lessons", "commentary"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "id": { "$ref": "#/$defs/symbolId" },
+          "kind": {
+            "enum": ["entrypoint", "handler", "helper", "pose-function", "movement-function", "region", "type", "table", "macro", "config", "state", "data"]
+          },
+          "file": { "$ref": "#/$defs/sourcePath" },
+          "startLine": { "type": "integer", "minimum": 1 },
+          "endLine": { "type": "integer", "minimum": 1 },
+          "lineCount": { "type": "integer", "minimum": 1 },
+          "startLineText": { "type": "string" },
+          "endLineText": { "type": "string" },
+          "signature": { "type": "string", "minLength": 1 },
+          "description": {
+            "type": "string",
+            "minLength": 40,
+            "description": "What the code DOES, checkable against the cited lines. Not why it is interesting — that goes in `commentary` or a teaching note."
+          },
+          "concepts": { "type": "array", "items": { "$ref": "#/$defs/conceptId" }, "uniqueItems": true },
+          "robotParts": {
+            "type": "array",
+            "description": "Joints this span commands DIRECTLY, in firmware enum order. Empty for spans that command none.",
+            "items": { "$ref": "#/$defs/robotPart" },
+            "uniqueItems": true
+          },
+          "robotPartsTransitive": {
+            "type": "array",
+            "description": "Present only on movement and pose functions: joints reached including those commanded by functions this one calls.",
+            "items": { "$ref": "#/$defs/robotPart" },
+            "uniqueItems": true
+          },
+          "crossRefs": {
+            "type": "object",
+            "description": "References into hardware/hardware-map.json BY KEY. Nothing that file owns is restated here.",
+            "additionalProperties": false,
+            "properties": {
+              "movements": { "type": "array", "items": { "type": "string" } },
+              "commands": { "type": "array", "items": { "type": "string" } },
+              "routes": { "type": "array", "items": { "type": "string" } },
+              "bootSteps": { "type": "array", "items": { "type": "integer", "minimum": 1 } },
+              "faces": { "type": "array", "items": { "type": "string" } },
+              "serialCli": { "type": "array", "items": { "type": "string" } },
+              "calls": { "type": "array", "items": { "type": "string" } },
+              "hardwareMap": { "type": "array", "items": { "type": "string" } }
+            }
+          },
+          "teachingNotes": { "type": "array", "items": { "$ref": "#/$defs/noteId" }, "uniqueItems": true },
+          "lesson": { "oneOf": [{ "$ref": "#/$defs/lessonId" }, { "type": "null" }] },
+          "lessons": { "type": "array", "items": { "$ref": "#/$defs/lessonId" }, "uniqueItems": true },
+          "commentary": {
+            "oneOf": [{ "type": "string" }, { "type": "null" }],
+            "description": "A judgement about the code rather than a statement of what it does. Structurally separate so a UI can label it."
+          }
+        }
+      }
+    },
+
+    "teachingNotes": {
+      "type": "array",
+      "description": "The sharp edges — places where the real firmware surprises a reader. Every one carries source evidence.",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "required": ["id", "title", "kind", "severity", "summary", "evidence", "libraryEvidence", "symbols", "concepts", "references", "commentary"],
+        "additionalProperties": false,
+        "properties": {
+          "id": { "$ref": "#/$defs/noteId" },
+          "title": { "type": "string", "minLength": 1 },
+          "kind": {
+            "enum": ["defect", "surprise", "design"],
+            "description": "defect = wrong and filed as an issue; surprise = correct but counter-intuitive; design = a deliberate pattern worth explaining."
+          },
+          "severity": { "enum": ["high", "medium", "low", "info"] },
+          "summary": { "type": "string", "minLength": 60 },
+          "evidence": { "type": "array", "minItems": 1, "items": { "$ref": "#/$defs/citation" } },
+          "libraryEvidence": { "oneOf": [{ "$ref": "#/$defs/libraryCitation" }, { "type": "null" }] },
+          "symbols": { "type": "array", "minItems": 1, "items": { "$ref": "#/$defs/symbolId" } },
+          "concepts": { "type": "array", "minItems": 1, "items": { "$ref": "#/$defs/conceptId" } },
+          "references": {
+            "type": "array",
+            "description": "Where this is already documented: an issue id from docs/issues.yaml, a findings file, or a hardware-map.json key.",
+            "items": { "type": "string" }
+          },
+          "commentary": { "oneOf": [{ "type": "string" }, { "type": "null" }] }
+        }
+      }
+    },
+
+    "curriculum": {
+      "type": "array",
+      "description": "The research report's module table, mapped onto symbols and concepts. `grounding` is the machine-checkable form of Gate F.",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "required": ["id", "module", "mainExperience", "realSesameConcept", "concepts", "symbols", "teachingNotes", "grounding", "groundingNote", "conceptualReason"],
+        "additionalProperties": false,
+        "properties": {
+          "id": { "$ref": "#/$defs/lessonId" },
+          "module": { "type": "string", "minLength": 1 },
+          "mainExperience": { "type": "string", "minLength": 1 },
+          "realSesameConcept": { "type": "string", "minLength": 1 },
+          "concepts": { "type": "array", "items": { "$ref": "#/$defs/conceptId" }, "uniqueItems": true },
+          "symbols": { "type": "array", "items": { "$ref": "#/$defs/symbolId" }, "uniqueItems": true },
+          "teachingNotes": { "type": "array", "items": { "$ref": "#/$defs/noteId" }, "uniqueItems": true },
+          "grounding": {
+            "enum": ["factual", "conceptual"],
+            "description": "factual = every \"this is how Sesame actually works\" claim in this module can point at a pinned firmware symbol. conceptual = it cannot, and the module must be labelled as such to the learner."
+          },
+          "groundingNote": {
+            "oneOf": [{ "type": "string" }, { "type": "null" }],
+            "description": "Present on FACTUAL modules that still have a boundary worth stating — usually that part of the mechanism lives in a library rather than in Sesame source."
+          },
+          "conceptualReason": {
+            "oneOf": [{ "type": "string" }, { "type": "null" }],
+            "description": "Required on every conceptual module: why it cannot be grounded, so a lesson author does not go looking for a symbol that does not exist."
+          }
+        },
+        "allOf": [
+          {
+            "if": { "properties": { "grounding": { "const": "conceptual" } } },
+            "then": {
+              "properties": {
+                "conceptualReason": { "type": "string", "minLength": 40 },
+                "symbols": { "type": "array", "maxItems": 2 }
+              },
+              "required": ["conceptualReason"]
+            }
+          },
+          {
+            "if": { "properties": { "grounding": { "const": "factual" } } },
+            "then": {
+              "properties": {
+                "conceptualReason": { "type": "null" },
+                "symbols": { "type": "array", "minItems": 1 }
+              }
+            }
+          }
+        ]
+      }
+    }
+  }
+}
