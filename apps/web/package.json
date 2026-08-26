@@ -10,18 +10,21 @@
     "build": "vite build",
     "preview": "vite preview",
     "typecheck": "tsc -p tsconfig.json --noEmit",
-    "test": "node scripts/build-face-bitmaps.mjs --check && vitest run",
+    "test": "node scripts/build-face-bitmaps.mjs --check && node scripts/build-architecture-graph.mjs --check && vitest run",
     "test:watch": "vitest",
     "build:face-bitmaps": "node scripts/build-face-bitmaps.mjs",
     "validate:face-bitmaps": "node scripts/build-face-bitmaps.mjs --check",
     "clean": "node -e \"import('node:fs').then(fs => fs.rmSync('dist', { recursive: true, force: true }))\"",
-    "lab:qemu": "node server/lab-host.mjs"
+    "lab:qemu": "node server/lab-host.mjs",
+    "build:architecture-graph": "node scripts/build-architecture-graph.mjs",
+    "validate:architecture-graph": "node scripts/build-architecture-graph.mjs --check"
   },
   "dependencies": {
     "@react-three/fiber": "^9.7.0",
     "@sesame-lab/sesame-model": "workspace:*",
     "@sesame-lab/sesame-protocol": "workspace:*",
     "@sesame-lab/sesame-sim": "workspace:*",
+    "@xyflow/react": "^12.11.5",
     "react": "^19.2.0",
     "react-dom": "^19.2.0",
     "three": "^0.185.1"

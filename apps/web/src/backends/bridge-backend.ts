@@ -175,8 +175,9 @@ export class BridgeBackend implements TelemetryBackend {
     return () => this.#statusListeners.delete(listener);
   }
 
-  command(name: string): Promise<void> {
+  command(name: string, options: { readonly traceId?: string } = {}): Promise<void> {
     void name;
+    void options;
     return Promise.reject(new BackendReadOnlyError(this.id, this.commandUnavailableReason));
   }
 

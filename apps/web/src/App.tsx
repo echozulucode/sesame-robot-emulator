@@ -1,11 +1,16 @@
 /**
- * V3 + V4 — the browser robot.
+ * V3 + V4 (the browser robot) and V8 (the architecture graph + "See the Signal").
  *
- * Layout is one screen: the 3D scene on the left, everything that explains it
- * on the right. The right-hand column exists because the plan's standing rule
- * for Phase 1 is that the absence of hardware must never be papered over —
- * so every number on screen either says where it came from or says that it
- * cannot be known.
+ * Layout is the research report's three-pane engineering workbench: the 3D
+ * scene on the left, the architecture graph and the causal trace in the middle,
+ * and the state inspector on the right.
+ *
+ * ```text
+ * +--------------------+---------------------------+------------------+
+ * | Interactive 3D     | Architecture / Signal     | State inspector  |
+ * | click any joint    | trace                     | OLED, assets     |
+ * +--------------------+---------------------------+------------------+
+ * ```
  *
  * Data flow, once:
  *
@@ -13,9 +18,20 @@
  * backend (sim in-process | bridge WebSocket | QEMU over the lab host)
  *    -> SesameTelemetry
  *    -> TelemetryStore.ingest()      one reduction, provenance preserved
+ *    -> TraceStore.ingest()          the same events, arranged causally
  *    -> useFrame reads store.poseVersion -> Object3D.quaternion   (60 Hz, no React)
  *    -> useStoreTick re-renders the panels                        (~8 Hz)
  * ```
+ *
+ * ## One selection, four panes
+ *
+ * The report is explicit that cross-pane highlighting is worth more than
+ * decorative gamification, so there is exactly one `SelectionState` here and
+ * the 3D scene, the graph, the trace and the joint inspector all read and write
+ * it. Selecting `R4` anywhere selects it everywhere, and the graph auto-expands
+ * whatever chain is needed to put `joint.R4` on screen. Nothing keeps a private
+ * copy of "what is selected"; the previous `selected: JointName | null` is now
+ * a derived value.
  */
 import { JOINT_ORDER, type JointName } from '@sesame-lab/sesame-model';
 import { OLED_HEIGHT, OLED_WIDTH } from '@sesame-lab/sesame-protocol';
@@ -26,14 +42,24 @@ import { defaultLabBaseUrl, QemuBackend } from './backends/qemu-backend.js';
 import { SimBackend } from './backends/sim-backend.js';
 import type { BackendId, BackendStatus, TelemetryBackend } from './backends/types.js';
 import { installDebugHook } from './debug-hook.js';
+import { expansionsFor } from './arch/layout.js';
+import {
+  EMPTY_SELECTION,
+  selectJoint,
+  selectNode,
+  type SelectionState,
+} from './state/selection.js';
 import { TelemetryStore } from './state/telemetry-store.js';
+import { TraceStore, type TraceRow } from './state/trace-store.js';
 import { RobotScene, type SceneHandles } from './three/RobotScene.js';
-import type { AssetFacts, JointRig } from './three/rig.js';
+import { commandedDegFromNode, type AssetFacts, type JointRig } from './three/rig.js';
+import { ArchitectureGraph } from './ui/ArchitectureGraph.js';
 import { AssetPanel } from './ui/AssetPanel.js';
 import { Controls } from './ui/Controls.js';
 import { EmulatorPanel } from './ui/EmulatorPanel.js';
 import { JointInspector } from './ui/JointInspector.js';
 import { OledPanel } from './ui/OledPanel.js';
+import { SignalTrace } from './ui/SignalTrace.js';
 
 /**
  * Re-render the panels at a fixed low rate instead of per event.
@@ -42,7 +68,7 @@ import { OledPanel } from './ui/OledPanel.js';
  * each one re-render the inspector would burn frames the 3D view needs and
  * would make no visible difference at 8 Hz.
  */
-function useStoreTick(store: TelemetryStore, intervalMs = 120): number {
+function useStoreTick(store: { readonly version: number }, intervalMs = 120): number {
   const [tick, setTick] = useState(0);
   useEffect(() => {
     let seen = -1;
@@ -56,8 +82,12 @@ function useStoreTick(store: TelemetryStore, intervalMs = 120): number {
   return tick;
 }
 
+/** The nine nodes the report's collapsed tree draws. Nothing expanded. */
+const NO_EXPANSIONS: ReadonlySet<string> = new Set();
+
 export function App(): ReactElement {
   const store = useMemo(() => new TelemetryStore(), []);
+  const traceStore = useMemo(() => new TraceStore(), []);
 
   /** The 128x64 canvas that becomes the `CanvasTexture` on `oled_screen`. */
   const oledCanvas = useMemo(() => {
@@ -79,7 +109,9 @@ export function App(): ReactElement {
   const backendRef = useRef<TelemetryBackend | null>(null);
   const [backend, setBackend] = useState<TelemetryBackend | null>(null);
 
-  const [selected, setSelected] = useState<JointName | null>(null);
+  const [selection, setSelection] = useState<SelectionState>(EMPTY_SELECTION);
+  const [expanded, setExpanded] = useState<ReadonlySet<string>>(NO_EXPANSIONS);
+  const [shownTraceId, setShownTraceId] = useState<string | null>(null);
   const [showTopCover, setShowTopCover] = useState(true);
   const [driveFromSimulated, setDriveFromSimulated] = useState(false);
   const [busy, setBusy] = useState<string | null>(null);
@@ -91,7 +123,54 @@ export function App(): ReactElement {
   const [groundPlaneMm, setGroundPlaneMm] = useState<number | null>(null);
 
   const tick = useStoreTick(store);
+  // Slower than the telemetry panel's 120 ms: the trace panel renders ~40 rows
+  // of prose, and under SwiftShader those repaints come straight out of the 3D
+  // view's frame budget.
+  const traceTick = useStoreTick(traceStore, 260);
   void tick;
+  void traceTick;
+
+  const selected = selection.joint;
+
+  // ------------------------------------------------------------- selection
+  //
+  // Every pane routes through here. `expansionsFor` is additive: selecting a
+  // joint in the 3D view opens whatever chain is needed to show `joint.R4`, and
+  // never closes something the learner opened on purpose.
+  const applySelection = useCallback((next: SelectionState) => {
+    setSelection(next);
+    const needed = next.nodeId === null ? [] : expansionsFor(next.nodeId);
+    if (needed.length > 0) {
+      setExpanded((previous) => {
+        if (needed.every((id) => previous.has(id))) return previous;
+        const union = new Set(previous);
+        for (const id of needed) union.add(id);
+        return union;
+      });
+    }
+  }, []);
+
+  const selectJointFrom = useCallback(
+    (joint: JointName | null, from: 'scene' | 'inspector') => applySelection(selectJoint(joint, from)),
+    [applySelection],
+  );
+
+  const toggleExpanded = useCallback((id: string) => {
+    setExpanded((previous) => {
+      const next = new Set(previous);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  }, []);
+
+  const selectTraceRow = useCallback(
+    (row: TraceRow) =>
+      applySelection(
+        row.joint !== null ? selectJoint(row.joint, 'trace') : selectNode(row.nodeId, 'trace'),
+      ),
+    [applySelection],
+  );
 
   // ----------------------------------------------------------- backend swap
   useEffect(() => {
@@ -113,14 +192,20 @@ export function App(): ReactElement {
 
     // A backend switch is a different robot, not a continuation of the same
     // one. Keeping the previous joint angles would attribute one backend's
-    // state to another's provenance.
+    // state to another's provenance — and keeping the previous trace would be
+    // worse, because its rows carry the old backend's origins.
     store.reset();
+    traceStore.reset();
+    setShownTraceId(null);
     backendRef.current = next;
     setBackend(next);
     setStatus(next.status);
     setError(null);
 
-    const offEvent = next.onEvent((event) => store.ingest(event));
+    const offEvent = next.onEvent((event) => {
+      store.ingest(event);
+      traceStore.ingest(event);
+    });
     const offStatus = next.onStatus((s) => {
       if (!disposed) setStatus(s);
     });
@@ -134,7 +219,7 @@ export function App(): ReactElement {
       offStatus();
       void next.stop();
     };
-  }, [backendId, bridgeUrl, labUrl, store]);
+  }, [backendId, bridgeUrl, labUrl, store, traceStore]);
 
   // ------------------------------------------------- model-state pump (rAF)
   useEffect(() => {
@@ -162,6 +247,23 @@ export function App(): ReactElement {
     return () => clearInterval(id);
   }, []);
 
+  // -------------------------------------------------- visual.joint sampling
+  //
+  // The trace's last rung is what the SCENE is showing, so it has to be read
+  // off `Object3D.quaternion` rather than off the store. Sampling on an
+  // interval instead of inside `useFrame` keeps the render loop free of React
+  // and matches the rate the panels repaint at anyway.
+  useEffect(() => {
+    const id = setInterval(() => {
+      const currentRig = handles.current?.rig;
+      if (currentRig === undefined) return;
+      for (const joint of JOINT_ORDER) {
+        traceStore.noteVisual(joint, commandedDegFromNode(currentRig[joint]));
+      }
+    }, 200);
+    return () => clearInterval(id);
+  }, [traceStore]);
+
   // ------------------------------------------------------------- callbacks
   const onReady = useCallback((next: SceneHandles) => {
     handles.current = next;
@@ -175,15 +277,27 @@ export function App(): ReactElement {
       if (current === null) return;
       setError(null);
       setBusy(name);
+      // Mint the id BEFORE the command so the trace exists while events arrive.
+      const traceId = traceStore.mintTraceId(name);
+      traceStore.open({
+        traceId,
+        command: name,
+        backendId: current.id,
+        emulatorOrigin: current.emulatorFacts()?.origin ?? null,
+        // Only the QEMU backend actually issues the firmware's HTTP route; the
+        // others get an `inferred` row saying so rather than a plausible lie.
+        usesHttpRoute: current.id === 'qemu',
+      });
+      setShownTraceId(traceId);
       try {
-        await current.command(name);
+        await current.command(name, { traceId });
       } catch (e: unknown) {
         setError(e instanceof Error ? e.message : String(e));
       } finally {
         setBusy(null);
       }
     },
-    [],
+    [traceStore],
   );
 
   const runFace = useCallback(
@@ -224,6 +338,7 @@ export function App(): ReactElement {
     () =>
       installDebugHook({
         store,
+        traceStore,
         rig: () => handles.current?.rig ?? null,
         facts: () => handles.current?.facts ?? null,
         renderStats: () => handles.current?.renderStats() ?? null,
@@ -245,9 +360,32 @@ export function App(): ReactElement {
         setFace: (name) => runFace(name),
         setJoint: (joint, deg) => runSetJoint(joint, deg),
         stop: stopMotion,
-        reset: () => store.reset(),
+        reset: () => {
+          store.reset();
+          traceStore.reset();
+        },
+        selection: () => selection,
+        selectJoint: (joint) => selectJointFrom(joint, 'scene'),
+        selectNode: (nodeId) => applySelection(selectNode(nodeId, 'graph')),
+        expanded: () => [...expanded],
+        toggleNode: (id) => toggleExpanded(id),
       }),
-    [backendId, oledCanvas, runCommand, runFace, runSetJoint, status, stopMotion, store],
+    [
+      applySelection,
+      backendId,
+      expanded,
+      oledCanvas,
+      runCommand,
+      runFace,
+      runSetJoint,
+      selectJointFrom,
+      selection,
+      status,
+      stopMotion,
+      store,
+      toggleExpanded,
+      traceStore,
+    ],
   );
 
   const canDriveFromSimulated = JOINT_ORDER.some((j) => store.joints[j].simulatedDeg !== null);
@@ -260,6 +398,33 @@ export function App(): ReactElement {
     emulatorFacts !== null &&
     (!emulatorFacts.oledFramebuffer || emulatorFacts.elided.includes('ssd1306-panel'));
 
+  const traces = traceStore.traces;
+  const shownTrace = traces.find((t) => t.id === shownTraceId) ?? traces[0] ?? null;
+
+  /**
+   * Which architecture nodes the shown trace touched.
+   *
+   * This is the report's "the same graph becomes the See the Signal canvas":
+   * the trace does not get its own diagram, it lights the path on this one.
+   *
+   * Keyed by CONTENT, not by the trace object. A running wave rewrites its rows
+   * several times a second while the *set of nodes they touch* stops growing
+   * after the first servo write — and a fresh `Set` identity each tick would
+   * rebuild every React Flow node object at 6 Hz. Under SwiftShader that is
+   * frames the 3D view needs.
+   */
+  const activeKey = useMemo(() => {
+    const ids = new Set<string>();
+    for (const row of shownTrace?.rows ?? []) {
+      if (row.nodeId !== null) ids.add(row.nodeId);
+    }
+    return [...ids].sort().join('|');
+  }, [shownTrace]);
+  const activeNodeIds = useMemo(
+    () => new Set(activeKey.length === 0 ? [] : activeKey.split('|')),
+    [activeKey],
+  );
+
   return (
     <div className="app">
       <div className="viewport">
@@ -267,7 +432,7 @@ export function App(): ReactElement {
           <RobotScene
             store={store}
             selected={selected}
-            onSelect={setSelected}
+            onSelect={(joint) => selectJointFrom(joint, 'scene')}
             oledCanvas={oledCanvas}
             oledDirty={oledDirty}
             driveFrom={driveFromSimulated && canDriveFromSimulated ? 'simulated' : 'commanded'}
@@ -281,6 +446,24 @@ export function App(): ReactElement {
             ? 'showing the model’s slew estimate (simulatedDeg)'
             : 'showing commanded angles'}
         </div>
+      </div>
+
+      <div className="workbench">
+        <ArchitectureGraph
+          expanded={expanded}
+          onToggle={toggleExpanded}
+          selection={selection}
+          onSelect={(nodeId) => applySelection(selectNode(nodeId, 'graph'))}
+          activeNodeIds={activeNodeIds}
+        />
+
+        <SignalTrace
+          trace={shownTrace}
+          traces={traces}
+          selection={selection}
+          onSelectRow={selectTraceRow}
+          onSelectTrace={setShownTraceId}
+        />
       </div>
 
       <aside className="sidebar">
@@ -315,7 +498,7 @@ export function App(): ReactElement {
           joints={store.joints}
           rig={rig}
           selected={selected}
-          onSelect={setSelected}
+          onSelect={(joint) => selectJointFrom(joint, 'inspector')}
           canCommand={backend?.canCommand ?? false}
           onSetJoint={(joint, deg) => void runSetJoint(joint, deg)}
         />

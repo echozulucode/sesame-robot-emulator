@@ -15,10 +15,23 @@
  * is identical to the one the tests assert on.
  */
 import type { JointName, SesameCapabilities } from '@sesame-lab/sesame-model';
-import type { SesameTelemetry } from '@sesame-lab/sesame-protocol';
+import type { SesameTelemetry, TelemetryOrigin } from '@sesame-lab/sesame-protocol';
 import { SimulatedSesameRobot, type SimulatedRobotState } from '@sesame-lab/sesame-sim';
 
 import type { BackendStatus, EmulatorFacts, TelemetryBackend } from './types.js';
+
+/**
+ * What this backend is, on the origin axis.
+ *
+ * Not an emulator: no silicon is being modelled, correctly or otherwise. Not a
+ * robot: `isPhysicallyObserved()` is false for every event carrying this, which
+ * is the whole reason the field exists.
+ */
+const HOST_MODEL_ORIGIN: TelemetryOrigin = Object.freeze({
+  kind: 'host-model',
+  engine: '@sesame-lab/sesame-sim',
+  elided: ['silicon', 'pwm-waveform', 'servo-load', 'wifi'],
+});
 
 export interface SimBackendOptions {
   /** Wall-clock multiplier. 1 = the robot's own speed. */
@@ -63,7 +76,16 @@ export class SimBackend implements TelemetryBackend {
     this.#setStatus({ connection: 'connecting', detail: 'powering on the model', eventsReceived: 0 });
     this.#unsubscribe = this.#robot.subscribe((event) => {
       this.#status = { ...this.#status, eventsReceived: this.#status.eventsReceived + 1 };
-      for (const listener of this.#eventListeners) listener(event);
+      // Stamped here, not in the model. `origin` is explicitly *not* a wire tag
+      // (see `origin.ts`): it is set by whoever owns the transport, because the
+      // thing producing the events cannot know which side of which boundary it
+      // is on. For this backend the boundary is "no boundary at all" — the
+      // model runs in this tab — and `host-model` says exactly that. Without
+      // it the app reports `unknown`, which means "nobody said", and "nobody
+      // said" is a weaker and less useful statement than the true one.
+      const stamped: SesameTelemetry =
+        event.origin === undefined ? { ...event, origin: HOST_MODEL_ORIGIN } : event;
+      for (const listener of this.#eventListeners) listener(stamped);
     });
     // connect() reproduces setup(): the hello line, then setFace("rest") with
     // no servo writes at all ("Show rest face on startup without moving
@@ -94,8 +116,15 @@ export class SimBackend implements TelemetryBackend {
     return () => this.#statusListeners.delete(listener);
   }
 
-  async command(name: string): Promise<void> {
-    await this.#robot.command(name);
+  /**
+   * `options.traceId` is threaded straight into the model.
+   *
+   * `SesameMachine` stamps whatever id is set on **every** event it emits for
+   * the duration, so the "See the Signal" panel gets a causal join rather than
+   * a time-window guess. This is the backend where that is possible at all.
+   */
+  async command(name: string, options: { readonly traceId?: string } = {}): Promise<void> {
+    await this.#robot.command(name, options.traceId === undefined ? {} : { traceId: options.traceId });
   }
 
   async setFace(name: string): Promise<void> {

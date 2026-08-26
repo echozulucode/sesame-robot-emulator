@@ -179,7 +179,14 @@ export class QemuBackend implements TelemetryBackend {
    * resolved promise here means "the firmware accepted it", not "the robot
    * finished" — the telemetry stream is what says that.
    */
-  async command(name: string): Promise<void> {
+  async command(name: string, options: { readonly traceId?: string } = {}): Promise<void> {
+    // Dropped on purpose, and the trace panel says so. The `@SESAME` wire has
+    // an `x=` trace tag, but it is device → host: the firmware would have to
+    // *know* an id to echo one, and it has no such concept. The command channel
+    // into the guest is `rn wv` on UART0 — 32 bytes of CLI buffer, no room and
+    // no field for an id. Anything this app displayed as a causal join here
+    // would be a fiction; `RowMatch: 'time-window'` is the truth instead.
+    void options.traceId;
     if (name === 'stop') {
       await this.#postCommand({ command: 'stop' });
       return;

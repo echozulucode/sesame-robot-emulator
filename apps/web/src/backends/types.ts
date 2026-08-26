@@ -114,7 +114,18 @@ export interface TelemetryBackend {
   onEvent(listener: (event: SesameTelemetry) => void): () => void;
   onStatus(listener: (status: BackendStatus) => void): () => void;
 
-  command(name: string): Promise<void>;
+  /**
+   * Run a command word.
+   *
+   * `options.traceId` is the "See the Signal" join. It is **advisory**: a
+   * backend that can thread it must, and a backend that cannot must ignore it
+   * rather than pretend. `SimBackend` hands it to `SimulatedSesameRobot`, which
+   * stamps it on every event it emits; `QemuBackend` drops it, because the
+   * `@SESAME` wire has an `x=` tag but the *firmware* has no trace-id concept
+   * and nothing could carry one across UART0 into the guest. The trace panel
+   * reports which of the two it got rather than smoothing the difference over.
+   */
+  command(name: string, options?: { readonly traceId?: string }): Promise<void>;
   setFace(name: string): Promise<void>;
   setJoint(joint: JointName, angleDeg: number): Promise<void>;
 

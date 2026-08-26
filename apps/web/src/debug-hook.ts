@@ -15,10 +15,14 @@
  */
 import { JOINT_ORDER, type JointName } from '@sesame-lab/sesame-model';
 import type { OriginKind, Provenance, TelemetryOrigin } from '@sesame-lab/sesame-protocol';
-import { Mesh, Quaternion, Vector3 } from 'three';
+import { Mesh, Object3D, Quaternion, Vector3 } from 'three';
 
 import type { BackendId, BackendStatus, EmulatorFacts } from './backends/types.js';
+import { layoutArchitecture } from './arch/layout.js';
+import { ARCH_NODES, HAND_AUTHORED, UPSTREAM_COMMIT } from './generated/architecture-graph.js';
+import type { SelectionState } from './state/selection.js';
 import type { TelemetryStore } from './state/telemetry-store.js';
+import { traceBadge, type TraceStore } from './state/trace-store.js';
 import type { WorldFrameReading } from './three/RobotScene.js';
 import {
   commandedDegFromNode,
@@ -72,6 +76,74 @@ export interface StandPoseVerification {
   readonly problems: readonly string[];
 }
 
+/**
+ * One "See the Signal" row, flattened for the headless harness.
+ *
+ * `badge` is the string the UI actually renders, computed by the same
+ * `traceBadge()` the panel uses — so an assertion on it is an assertion about
+ * what a learner sees, not about an internal field the UI might ignore.
+ */
+export interface TraceRowReading {
+  readonly layer: string;
+  /** Position in the causal ladder. `ui.command` is 0, `visual.joint` is 7. */
+  readonly rank: number;
+  readonly label: string;
+  readonly provenance: Provenance;
+  readonly originKind: OriginKind | null;
+  /** `isPhysicallyObserved()` on the row. Must be false for every row, always. */
+  readonly physicallyObserved: boolean;
+  readonly badge: string;
+  /** `trace-id` (causal) vs `time-window` (correlation) vs `app-local`. */
+  readonly match: string;
+  readonly joint: JointName | null;
+  readonly nodeId: string | null;
+  readonly seq: number | null;
+}
+
+export interface TraceReading {
+  readonly id: string;
+  readonly command: string;
+  readonly backendId: BackendId;
+  /** True when events came back carrying this trace's id. */
+  readonly carriedTraceId: boolean;
+  readonly windowAdopted: number;
+  readonly rows: readonly TraceRowReading[];
+}
+
+/**
+ * Selection, read out of the **three.js materials** rather than out of React.
+ *
+ * The whole point of `sceneJoints()` is that a React state value proves
+ * nothing about what was drawn, and cross-pane highlighting is no different: a
+ * `selected` prop can be perfectly correct while the mesh stays unlit. So this
+ * reads `MeshStandardMaterial.emissiveIntensity` off the joint subtrees. If the
+ * highlight did not reach three.js, these numbers stay zero.
+ */
+export interface SceneSelectionReading {
+  /** What the app thinks is selected. */
+  readonly joint: JointName | null;
+  readonly nodeId: string | null;
+  /** Peak emissive intensity found under each joint node. */
+  readonly emissiveByJoint: Record<JointName, number>;
+  /** Joints actually lit in the scene graph. Should equal `[joint]` or `[]`. */
+  readonly litJoints: readonly JointName[];
+}
+
+/** What the architecture pane is currently drawing. */
+export interface ArchGraphReading {
+  readonly upstreamCommit: string;
+  readonly totalNodes: number;
+  readonly visibleNodeIds: readonly string[];
+  readonly expanded: readonly string[];
+  readonly edges: readonly { source: string; target: string; lifted: boolean }[];
+  /** Node ids rendered with the selected/related treatment. */
+  readonly selectedNodeId: string | null;
+  /** Claims no artefact in this repository establishes. */
+  readonly handAuthored: readonly string[];
+  /** Nodes whose value is recorded as unresolved in hardware-map.json. */
+  readonly unresolvedNodeIds: readonly string[];
+}
+
 export interface SesameDebugApi {
   readonly ready: boolean;
   backendId(): BackendId;
@@ -121,6 +193,20 @@ export interface SesameDebugApi {
     /** `isPhysicallyObserved()` was true this many times. Must be 0. */
     physicallyObservedEvents: number;
   };
+  /** The current cross-pane selection. One object, four panes. */
+  selection(): SelectionState;
+  /** Select a joint as if it had been clicked in the 3D scene. */
+  selectJoint(joint: JointName | null): void;
+  /** Select an architecture node as if it had been clicked in the graph. */
+  selectNode(nodeId: string | null): void;
+  /** Expand or collapse one architecture node. */
+  toggleNode(id: string): void;
+  /** Which joint the 3D scene is actually lighting, off the materials. */
+  sceneSelection(): SceneSelectionReading;
+  /** What the architecture pane is drawing right now. */
+  archGraph(): ArchGraphReading;
+  /** The trace on screen, in causal order. `null` before any command. */
+  trace(): TraceReading | null;
   assetFacts(): AssetFacts | null;
   /** Frames drawn and pose version applied — proof the render loop is alive. */
   renderStats(): { frames: number; appliedPoseVersion: number; storePoseVersion: number } | null;
@@ -130,6 +216,12 @@ export interface SesameDebugApi {
 
 export interface DebugHookWiring {
   readonly store: TelemetryStore;
+  readonly traceStore: TraceStore;
+  selection(): SelectionState;
+  selectJoint(joint: JointName | null): void;
+  selectNode(nodeId: string | null): void;
+  expanded(): readonly string[];
+  toggleNode(id: string): void;
   rig(): Record<JointName, JointRig> | null;
   facts(): AssetFacts | null;
   renderStats(): { frames: number; appliedPoseVersion: number } | null;
@@ -346,6 +438,102 @@ export function installDebugHook(wiring: DebugHookWiring): () => void {
       };
     },
 
+    selection: () => wiring.selection(),
+    selectJoint: (joint) => wiring.selectJoint(joint),
+    selectNode: (nodeId) => wiring.selectNode(nodeId),
+    toggleNode: (id) => wiring.toggleNode(id),
+
+    sceneSelection(): SceneSelectionReading {
+      const rig = wiring.rig();
+      const selection = wiring.selection();
+      const emissiveByJoint = Object.fromEntries(JOINT_ORDER.map((j) => [j, 0])) as Record<
+        JointName,
+        number
+      >;
+      if (rig !== null) {
+        // Attribute each mesh to its NEAREST joint ancestor, not to every joint
+        // above it. The rig is parented — R4's foot lives inside R2's femur
+        // subtree — so a naive `rig[joint].node.traverse()` reports R2 as lit
+        // whenever R4 is, and the cross-link assertion would pass on a
+        // highlight that never reached the joint the learner clicked.
+        const owners = new Map<string, JointName>();
+        for (const joint of JOINT_ORDER) owners.set(rig[joint].node.uuid, joint);
+        const nearestJoint = (node: Object3D): JointName | null => {
+          let cursor: Object3D | null = node;
+          while (cursor !== null) {
+            const owner = owners.get(cursor.uuid);
+            if (owner !== undefined) return owner;
+            cursor = cursor.parent;
+          }
+          return null;
+        };
+        for (const joint of JOINT_ORDER) {
+          let peak = 0;
+          rig[joint].node.traverse((child) => {
+            if (!(child instanceof Mesh)) return;
+            if (nearestJoint(child) !== joint) return;
+            const material = child.material;
+            if (Array.isArray(material)) return;
+            const intensity = (material as { emissiveIntensity?: number }).emissiveIntensity;
+            if (typeof intensity === 'number' && intensity > peak) peak = intensity;
+          });
+          emissiveByJoint[joint] = peak;
+        }
+      }
+      return {
+        joint: selection.joint,
+        nodeId: selection.nodeId,
+        emissiveByJoint,
+        litJoints: JOINT_ORDER.filter((j) => emissiveByJoint[j] > 0),
+      };
+    },
+
+    /**
+     * Read the architecture pane back the way the scene-graph accessors read
+     * three.js: from the layout the component actually renders, not from the
+     * generated data. A node that is in `ARCH_NODES` but not laid out is not on
+     * screen, and this must be able to tell those apart.
+     */
+    archGraph(): ArchGraphReading {
+      const expandedIds = wiring.expanded();
+      const layout = layoutArchitecture(new Set(expandedIds));
+      return {
+        upstreamCommit: UPSTREAM_COMMIT,
+        totalNodes: ARCH_NODES.length,
+        visibleNodeIds: layout.nodes.map((n) => n.node.id),
+        expanded: [...expandedIds],
+        edges: layout.edges.map((e) => ({ source: e.source, target: e.target, lifted: e.lifted })),
+        selectedNodeId: wiring.selection().nodeId,
+        handAuthored: [...HAND_AUTHORED],
+        unresolvedNodeIds: ARCH_NODES.filter((n) => n.unresolved !== null).map((n) => n.id),
+      };
+    },
+
+    trace(): TraceReading | null {
+      const active = wiring.traceStore.active;
+      if (active === null) return null;
+      return {
+        id: active.id,
+        command: active.command,
+        backendId: active.backendId,
+        carriedTraceId: active.carriedTraceId,
+        windowAdopted: active.windowAdopted,
+        rows: active.rows.map((row) => ({
+          layer: row.layer,
+          rank: row.rank,
+          label: row.label,
+          provenance: row.provenance,
+          originKind: row.origin?.kind ?? null,
+          physicallyObserved: row.physicallyObserved,
+          badge: traceBadge(row).text,
+          match: row.match,
+          joint: row.joint,
+          nodeId: row.nodeId,
+          seq: row.seq,
+        })),
+      };
+    },
+
     assetFacts: () => wiring.facts(),
 
     renderStats() {
@@ -365,6 +553,10 @@ export function installDebugHook(wiring: DebugHookWiring): () => void {
         oled: api.oled(),
         provenance: api.provenance(),
         origin: api.origin(),
+        selection: api.selection(),
+        sceneSelection: api.sceneSelection(),
+        archGraph: api.archGraph(),
+        trace: api.trace(),
         emulatorFacts: wiring.emulatorFacts(),
         face: wiring.store.face,
         canvasPixels: canvasPixelCount(),

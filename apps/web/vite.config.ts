@@ -62,7 +62,7 @@ export default defineConfig({
     // three + R3F is a big single chunk. Raising the warning threshold rather
     // than code-splitting: the app is one screen and lazy-loading the renderer
     // would only move the wait.
-    chunkSizeWarningLimit: 1600,
+    chunkSizeWarningLimit: 1800,
   },
   server: {
     host: '127.0.0.1',

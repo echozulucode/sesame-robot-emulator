@@ -53,6 +53,23 @@
  *      check across that wave, because that bug was found by a human on the
  *      simulator path and a new driving path is a new chance for it to return.
  *
+ *   7. ARCHITECTURE + SEE THE SIGNAL — the Phase-2 pair. Numbered last but RUN
+ *      inside the phase 1-4 browser session, switched back to the simulator:
+ *      it needs a backend that can be driven AND can thread a trace id, which
+ *      is the one thing QEMU cannot do. The graph starts at the report's
+ *      collapsed top level, a DOM click expands `Servos` into the real chain
+ *      (setServoAngle -> ESP32Servo -> LEDC -> GPIO -> MG90S -> eight joints),
+ *      a DOM click on `wave` fires a command, and the trace is asserted row by
+ *      row: causal ORDER, and the exact provenance badge each layer must carry.
+ *      `pwm.output` must read INFERRED FOR EXPLANATION on every backend, and no
+ *      row anywhere may claim physical observation. Cross-linking is asserted
+ *      through the SCENE GRAPH: clicking the R4 node in the graph must light
+ *      R4's materials in three.js and nothing else. Phase 6 asserts the same
+ *      ladder under real firmware, where two rows legitimately change and
+ *      `pwm.output` legitimately does not. ISSUE-20260823-023 is re-run in
+ *      both, because three new panes of React are a new chance for the world
+ *      frame to move.
+ *
  * Usage: node scripts/capture-web-screenshots.mjs [--out <dir>] [--skip-qemu]
  * Exit 0 pass · 1 fail · 3 no browser found.
  */
@@ -452,6 +469,36 @@ const waitSceneCaughtUp = (what = 'the render loop to apply the newest telemetry
     what,
   );
 
+/**
+ * Wait until the robot has actually STOPPED, then until the scene has caught up.
+ *
+ * `waitSceneCaughtUp()` alone is not enough before a scene-vs-store comparison:
+ * setting `window.__waving = false` only stops the *loop*, and the wave already
+ * in flight keeps writing servo events for up to another 3.7 s. The store then
+ * moves between the "caught up" poll and the read that follows it, and the
+ * comparison fails on a race rather than on a defect — which is exactly the
+ * false alarm this harness must not produce, since a stalled render loop is a
+ * real failure mode it also has to be able to catch.
+ */
+const waitQuiescent = async (what = 'the robot to stop moving') => {
+  const deadline = Date.now() + 30000;
+  let last = -1;
+  let stableSince = Date.now();
+  while (Date.now() < deadline) {
+    const stats = await page.evaluate(RENDER_STATS);
+    const version = stats?.storePoseVersion ?? -1;
+    if (version !== last) {
+      last = version;
+      stableSince = Date.now();
+    } else if (Date.now() - stableSince > 700) {
+      return waitSceneCaughtUp(what);
+    }
+    await sleep(120);
+  }
+  problems.push(`timed out waiting for ${what}`);
+  return null;
+};
+
 await waitFor(
   page.evaluate,
   'typeof window.__sesame !== "undefined" && window.__sesame.ready',
@@ -460,6 +507,18 @@ await waitFor(
   60000,
 );
 console.log('[web] app loaded, rig built');
+
+// `ready` means the rig exists, which is set from a `useEffect` — and that can
+// fire before the render loop's first `useFrame`. The pose-dependent foot
+// contact is computed IN `useFrame`, so sampling the world frame at that moment
+// yields `footContactMm: null`, the rest-pose value never enters the sample set,
+// and phase 1's vacuity guard fails on a startup race rather than on a defect.
+await waitFor(
+  page.evaluate,
+  'window.__sesame.worldFrame()?.footContactMm ?? null',
+  (v) => typeof v === 'number',
+  'the render loop to compute a foot-contact height at the rest pose',
+);
 
 // --------------------------------------------------------------- phase 1
 {
@@ -661,9 +720,10 @@ console.log('[web] app loaded, rig built');
     );
   }
 
-  // The scene must follow the telemetry, not lead it — checked once the render
-  // loop has caught up, so this is a correctness assertion and not a race.
-  await waitSceneCaughtUp();
+  // The scene must follow the telemetry, not lead it — checked once the robot
+  // has stopped AND the render loop has caught up, so this is a correctness
+  // assertion and not a race.
+  await waitQuiescent('the wave to finish before comparing the scene against the store');
   const settled = await page.evaluate('window.__sesame.sceneJoints()');
   for (const joint of settled) {
     check(
@@ -897,6 +957,500 @@ console.log('[web] app loaded, rig built');
     maxQuaternionDelta: delta,
     servedBy: 'emulator/bridge --serve-viewer --viewer-dir apps/web/dist (no bridge changes)',
   };
+}
+
+
+// --------------------------------------------------------------- phase 7
+//
+// PHASE 7: the architecture graph and "See the Signal", cross-linked.
+//
+// Runs on the simulator because it is the backend that can be driven AND the
+// one that can thread a trace id end to end, so it is the only place the
+// difference between a causal join and a time-window guess is demonstrable.
+// The QEMU leg of the same feature is asserted in phase 6.
+//
+// Everything below is read out of the live page: the architecture layout the
+// component actually rendered, the trace rows the panel actually shows, and —
+// for the cross-link — `MeshStandardMaterial.emissiveIntensity` on the joint
+// subtrees, because a React `selected` prop can be perfectly correct while the
+// mesh stays unlit.
+{
+  await page.evaluate('window.__sesame.setBackend("sim")');
+  await waitFor(
+    page.evaluate,
+    'window.__sesame.status().connection',
+    (c) => c === 'connected',
+    'the simulator backend to come back up for the architecture/trace phase',
+  );
+
+  // ------------------------------------------------- the collapsed top level
+  const collapsed = await page.evaluate('window.__sesame.archGraph()');
+  const REPORT_TOP_LEVEL = [
+    'esp32',
+    'movement',
+    'face',
+    'network',
+    'serial',
+    'servos',
+    'oled',
+    'http-api',
+    'developer',
+  ];
+  check(
+    JSON.stringify([...collapsed.visibleNodeIds].sort()) ===
+      JSON.stringify([...REPORT_TOP_LEVEL].sort()),
+    `the collapsed graph drew ${JSON.stringify(collapsed.visibleNodeIds)}, expected exactly the ` +
+      `report's top level ${JSON.stringify(REPORT_TOP_LEVEL)}`,
+  );
+  const collapsedPairs = collapsed.edges.map((e) => `${e.source}->${e.target}`);
+  for (const pair of [
+    'esp32->movement',
+    'esp32->face',
+    'esp32->network',
+    'esp32->serial',
+    'movement->servos',
+    'face->oled',
+    'network->http-api',
+    'serial->developer',
+  ]) {
+    check(collapsedPairs.includes(pair), `the collapsed graph is missing the edge ${pair}`);
+  }
+  check(
+    collapsed.upstreamCommit === '401730514cefed738710d22303e84b0dcd6b76d0',
+    `the graph cites upstream ${collapsed.upstreamCommit}, not the pinned commit`,
+  );
+  check(
+    collapsed.totalNodes > 60,
+    `only ${collapsed.totalNodes} nodes were generated from hardware-map.json`,
+  );
+  // The claims the data cannot express are enumerated, not hidden.
+  check(
+    collapsed.handAuthored.length === 5,
+    `the graph declares ${collapsed.handAuthored.length} hand-authored claims: ` +
+      JSON.stringify(collapsed.handAuthored),
+  );
+  check(
+    collapsed.unresolvedNodeIds.includes('servo.mg90s'),
+    'the MG90S node is not marked unresolved — hardware-map.json records no torque, slew or travel',
+  );
+
+  await page.evaluate(`void document.querySelector('.workbench')?.scrollTo(0, 0)`);
+  await sleep(700);
+  const graphCollapsedShot = await page.shoot(
+    'v8-architecture-collapsed.png',
+    'the architecture graph at the report’s collapsed top level: ESP32 and its four setup() branches, every node projected from hardware-map.json',
+  );
+
+  // ----------------------------------------------- expand a node, by clicking
+  //
+  // The DOM button, not the debug hook: the claim is "a learner can expand it".
+  const expandClick = await page.evaluate(`(() => {
+    const button = document.querySelector('[data-expand="servos"]');
+    if (button === null) return { ok: false, why: 'no [data-expand="servos"] control in the DOM' };
+    button.click();
+    return { ok: true, why: button.textContent };
+  })()`);
+  check(expandClick.ok, `could not expand the Servos node: ${expandClick.why}`);
+  // The viewport animates to the newly revealed chain; screenshot after it lands.
+  await sleep(900);
+
+  const expanded = await page.evaluate('window.__sesame.archGraph()');
+  const CHAIN = [
+    'servo.setServoAngle',
+    'servo.esp32servo',
+    'servo.ledc',
+    'servo.gpio',
+    'servo.mg90s',
+  ];
+  for (const id of [...CHAIN, 'joint.R1', 'joint.R4', 'joint.L3', 'joint.L4']) {
+    check(
+      expanded.visibleNodeIds.includes(id),
+      `expanding Servos did not reveal ${id} — the chain the firmware actually walks`,
+    );
+  }
+  const expandedPairs = expanded.edges.map((e) => `${e.source}->${e.target}`);
+  for (let i = 0; i + 1 < CHAIN.length; i++) {
+    const pair = `${CHAIN[i]}->${CHAIN[i + 1]}`;
+    check(expandedPairs.includes(pair), `the expanded chain is missing the edge ${pair}`);
+  }
+  check(
+    expandedPairs.includes('servo.mg90s->joint.L3'),
+    'the expanded chain does not reach a joint node',
+  );
+  // The DOM really drew them, not just the layout function.
+  const domNodes = await page.evaluate(
+    `Array.from(document.querySelectorAll('[data-arch-node]')).map((n) => n.getAttribute('data-arch-node'))`,
+  );
+  for (const id of CHAIN) {
+    check(domNodes.includes(id), `${id} is in the layout but not in the DOM — React Flow did not draw it`);
+  }
+  const graphExpandedShot = await page.shoot(
+    'v8-architecture-servos-expanded.png',
+    'Servos expanded: movement → setServoAngle → ESP32Servo → LEDC → GPIO → MG90S → eight joints, every node backed by a hardware-map.json path and a firmware file:line',
+  );
+
+  // -------------------------------------------------- fire a command, by click
+  await page.evaluate('window.__sesame.reset()');
+  const worldBefore = await page.evaluate('window.__sesame.worldFrame()');
+  const traceClick = await page.evaluate(`(() => {
+    const button = document.querySelector('[data-command="wave"]');
+    if (button === null) return { ok: false, why: 'no [data-command="wave"] button in the DOM' };
+    if (button.disabled) return { ok: false, why: 'the wave button is disabled' };
+    button.click();
+    return { ok: true, why: button.textContent };
+  })()`);
+  check(traceClick.ok, `could not click the wave button for the trace: ${traceClick.why}`);
+
+  // Wait for the ladder to be complete FOR EVERY JOINT THE MOVEMENT WRITES,
+  // not merely for the first `visual.joint` row to appear. `runWavePose` writes
+  // R1 first, so "any visual row exists" is satisfied about 200 ms in, with
+  // three quarters of the movement still to run — and every assertion below
+  // would then be about a quarter of a wave. Waiting on the last rung of the
+  // slowest joint is waiting for the real thing.
+  const WAVE_JOINTS = ['R1', 'L2', 'R4', 'L3'];
+  const trace = await waitFor(
+    page.evaluate,
+    'window.__sesame.trace()',
+    (t) =>
+      t !== null &&
+      WAVE_JOINTS.every((joint) =>
+        t.rows.some((r) => r.layer === 'visual.joint' && r.joint === joint),
+      ),
+    'the causal trace to reach visual.joint for every joint runWavePose writes',
+    90000,
+  );
+
+  // --------------------------------------------------------- causal ordering
+  const ranks = trace.rows.map((r) => r.rank);
+  check(
+    ranks.every((r, i) => i === 0 || ranks[i - 1] <= r),
+    `the trace rows are not in causal order: ${JSON.stringify(trace.rows.map((r) => r.layer))}`,
+  );
+  const LADDER = [
+    'ui.command',
+    'http.request',
+    'firmware.command',
+    'movement.enter',
+    'servo.target',
+    'pwm.output',
+    'joint.target',
+    'visual.joint',
+  ];
+  for (const layer of LADDER) {
+    check(trace.rows.some((r) => r.layer === layer), `the trace has no ${layer} row`);
+  }
+  // And the DOM is causally ordered too. Asserted on the RENDERED `data-rank`
+  // rather than by comparing the DOM against a separately-fetched store
+  // snapshot: a movement is still running, so those two reads are of different
+  // moments and comparing them would be a race, not a check. What must hold at
+  // every moment is that the list a learner is looking at reads top to bottom
+  // in causal order.
+  const domRows = await page.evaluate(
+    `Array.from(document.querySelectorAll('[data-trace-row]')).map((n) => ({
+       layer: n.getAttribute('data-layer'),
+       rank: Number(n.getAttribute('data-rank')),
+     }))`,
+  );
+  check(
+    domRows.length >= LADDER.length,
+    `the trace panel rendered ${domRows.length} rows for an eight-layer ladder`,
+  );
+  check(
+    domRows.every((r, i) => i === 0 || domRows[i - 1].rank <= r.rank),
+    `the rendered trace rows are not in causal order: ${JSON.stringify(domRows.map((r) => r.layer))}`,
+  );
+  check(
+    JSON.stringify([...new Set(domRows.map((r) => r.layer))]) === JSON.stringify(LADDER),
+    `the rendered trace shows the layers as ${JSON.stringify([...new Set(domRows.map((r) => r.layer))])}, ` +
+      `expected the report's ladder ${JSON.stringify(LADDER)}`,
+  );
+
+  // ------------------------------------------------ per-row provenance, exact
+  const rowByLayer = new Map();
+  for (const row of trace.rows) if (!rowByLayer.has(row.layer)) rowByLayer.set(row.layer, row);
+  const EXPECTED = {
+    'ui.command': { provenance: 'observed', badge: 'OBSERVED IN THIS APP' },
+    'http.request': { provenance: 'inferred', badge: 'INFERRED FOR EXPLANATION' },
+    'firmware.command': { provenance: 'inferred', badge: 'INFERRED FOR EXPLANATION' },
+    'movement.enter': { provenance: 'simulated', badge: 'SIMULATED' },
+    'servo.target': { provenance: 'simulated', badge: 'SIMULATED' },
+    'pwm.output': { provenance: 'inferred', badge: 'INFERRED FOR EXPLANATION' },
+    'joint.target': { provenance: 'inferred', badge: 'INFERRED FOR EXPLANATION' },
+    'visual.joint': { provenance: 'inferred', badge: 'INFERRED FOR EXPLANATION' },
+  };
+  for (const [layer, want] of Object.entries(EXPECTED)) {
+    const row = rowByLayer.get(layer);
+    check(
+      row !== undefined && row.provenance === want.provenance && row.badge === want.badge,
+      `${layer}: the UI shows provenance ${JSON.stringify(row?.provenance)} / badge ` +
+        `${JSON.stringify(row?.badge)}, expected ${want.provenance} / ${want.badge}`,
+    );
+  }
+
+  // The one that matters most. `pwm.output` must be inferred on EVERY backend:
+  // Q3 proved QEMU's LEDC emits no waveform, and there is no physical robot, so
+  // no pin has ever produced the pulse this row prints.
+  const pwm = rowByLayer.get('pwm.output');
+  check(
+    pwm !== undefined && pwm.provenance === 'inferred' && pwm.physicallyObserved === false,
+    'pwm.output is not marked inferred — the pulse figure is computed here, never observed',
+  );
+  check(
+    typeof pwm?.label === 'string' && /\d+ ticks/.test(pwm.label) && /µs/.test(pwm.label),
+    `pwm.output shows ${JSON.stringify(pwm?.label)}, expected a real quantised tick count and pulse`,
+  );
+  check(
+    !/channel\s*=\s*\d/i.test(`${pwm?.label ?? ''}`),
+    `pwm.output printed a channel number (${pwm?.label}); no artefact in this repository records ` +
+      `which LEDC channel carries which servo`,
+  );
+
+  // Nothing, anywhere, ever.
+  const claimsHardware = trace.rows.filter((r) => r.physicallyObserved || /ON HARDWARE/.test(r.badge));
+  check(
+    claimsHardware.length === 0,
+    `${claimsHardware.length} trace row(s) claim physical observation: ` +
+      JSON.stringify(claimsHardware.map((r) => r.layer)),
+  );
+
+  // The simulator threads the id; that is what makes this join causal.
+  check(
+    trace.carriedTraceId === true,
+    'the simulator did not thread the trace id back — the join would be a time window, not causal',
+  );
+  const wireRows = trace.rows.filter((r) => r.match !== 'app-local');
+  check(
+    wireRows.length > 0 && wireRows.every((r) => r.match === 'trace-id'),
+    `on the simulator every adopted row must be matched by trace id; got ` +
+      JSON.stringify(wireRows.map((r) => [r.layer, r.match])),
+  );
+
+  // The wave's own joints, from the extracted choreography.
+  //
+  // `runWavePose` ends by calling `runStandPose(1)`, which writes all eight, so
+  // the trace legitimately carries more than the four the wave itself sets --
+  // and the trace id proves those extra rows really do belong to this command
+  // rather than to something that happened to overlap. What must hold is that
+  // the four the choreography names are all there, and that the rows are in
+  // firmware enum order rather than alphabetical.
+  const tracedJoints = [...new Set(trace.rows.filter((r) => r.joint !== null).map((r) => r.joint))];
+  for (const joint of WAVE_JOINTS) {
+    check(
+      tracedJoints.includes(joint),
+      `runWavePose writes ${joint} in hardware-map.json but the trace has no row for it ` +
+        `(traced: ${JSON.stringify(tracedJoints)})`,
+    );
+  }
+  const ENUM_ORDER = ['R1', 'R2', 'L1', 'L2', 'R4', 'R3', 'L3', 'L4'];
+  const servoRowJoints = trace.rows.filter((r) => r.layer === 'servo.target').map((r) => r.joint);
+  check(
+    JSON.stringify(servoRowJoints) ===
+      JSON.stringify(ENUM_ORDER.filter((j) => servoRowJoints.includes(j))),
+    `the trace lists servo rows as ${JSON.stringify(servoRowJoints)}; they must follow the firmware ` +
+      `enum order R1 R2 L1 L2 R4 R3 L3 L4, in which R4 really does come before R3`,
+  );
+
+  // The workbench is two fixed halves, so the trace is already on screen; what
+  // needs scrolling is the row list inside it, down to the row this feature is
+  // really about.
+  await sleep(350);
+  const traceShot = await page.shoot(
+    'v8-see-the-signal.png',
+    'the causal trace for one Wave: eight layers, each with its own provenance, origin and a witness clause — and pwm.output marked INFERRED FOR EXPLANATION with the real ESP32Servo-quantised pulse beside it',
+  );
+
+  // The row the whole feature exists for, brought into view: this is where
+  // "the code said 180 deg" and "a servo would have gone there" separate.
+  await page.evaluate(`(() => {
+    const rows = document.querySelector('[data-testid="trace-rows"]');
+    const pwm = document.querySelector('[data-layer="pwm.output"]');
+    if (rows !== null && pwm !== null) rows.scrollTop = pwm.offsetTop - rows.offsetTop - 8;
+  })()`);
+  await sleep(350);
+  const pwmShot = await page.shoot(
+    'v8-see-the-signal-pwm.png',
+    'the pwm.output row: the real ESP32Servo-quantised pulse, marked INFERRED FOR EXPLANATION, with the witness naming Q3’s finding that QEMU’s LEDC produces no waveform and that no physical pin has ever emitted it',
+  );
+
+  // ------------------------------------------------------------ cross-linking
+  //
+  // Graph -> 3D. Click the R4 node in the architecture pane and read the
+  // THREE.js materials back: if the highlight did not reach the scene graph,
+  // `emissiveByJoint` stays zero everywhere and this fails.
+  const r4Click = await page.evaluate(`(() => {
+    const node = document.querySelector('[data-arch-node="joint.R4"]');
+    if (node === null) return { ok: false, why: 'joint.R4 is not in the DOM' };
+    node.click();
+    return { ok: true, why: node.getAttribute('data-arch-node') };
+  })()`);
+  check(r4Click.ok, `could not click the R4 node in the graph: ${r4Click.why}`);
+  await sleep(300);
+
+  const sceneSel = await page.evaluate('window.__sesame.sceneSelection()');
+  check(
+    sceneSel.joint === 'R4',
+    `clicking R4 in the architecture graph left the app's selection at ${JSON.stringify(sceneSel.joint)}`,
+  );
+  check(
+    JSON.stringify(sceneSel.litJoints) === JSON.stringify(['R4']),
+    `the 3D scene lit ${JSON.stringify(sceneSel.litJoints)} after R4 was clicked in the graph — ` +
+      `read off MeshStandardMaterial.emissiveIntensity, so this is what the renderer has, not what ` +
+      `React thinks`,
+  );
+  check(
+    sceneSel.emissiveByJoint.R4 > 0,
+    `R4's emissiveIntensity in the scene graph is ${sceneSel.emissiveByJoint.R4}`,
+  );
+
+  // 3D -> graph -> trace. Select L3 the way a click in the viewport would, then
+  // check the other two panes followed.
+  await page.evaluate('window.__sesame.selectJoint("L3")');
+  await sleep(300);
+  const afterSceneSelect = await page.evaluate('window.__sesame.archGraph()');
+  check(
+    afterSceneSelect.selectedNodeId === 'joint.L3',
+    `selecting L3 in the 3D scene left the graph on ${JSON.stringify(afterSceneSelect.selectedNodeId)}`,
+  );
+  const hitRows = await page.evaluate(
+    `Array.from(document.querySelectorAll('[data-trace-row].hit')).map((n) => ({
+       layer: n.getAttribute('data-layer'),
+       joint: n.getAttribute('data-joint'),
+     }))`,
+  );
+  check(
+    hitRows.length > 0 && hitRows.every((r) => r.joint === 'L3'),
+    `selecting L3 highlighted ${JSON.stringify(hitRows)} in the trace; every highlighted row must ` +
+      `be an L3 row`,
+  );
+  check(
+    hitRows.some((r) => r.layer === 'servo.target') && hitRows.some((r) => r.layer === 'pwm.output'),
+    `selecting L3 did not highlight its servo.target and pwm.output rows: ${JSON.stringify(hitRows)}`,
+  );
+
+  // Auto-expansion: selecting a joint from the 3D view must open whatever chain
+  // is needed to show it, or the cross-link is a promise the graph cannot keep.
+  await page.evaluate('window.__sesame.selectJoint(null)');
+  await page.evaluate('window.__sesame.toggleNode("servos")');
+  await sleep(200);
+  const afterCollapse = await page.evaluate('window.__sesame.archGraph()');
+  check(
+    !afterCollapse.visibleNodeIds.includes('joint.L3'),
+    'collapsing Servos left the joint nodes on screen',
+  );
+  await page.evaluate('window.__sesame.selectJoint("L3")');
+  await sleep(300);
+  const afterReselect = await page.evaluate('window.__sesame.archGraph()');
+  check(
+    afterReselect.visibleNodeIds.includes('joint.L3'),
+    'selecting L3 from the 3D scene did not auto-expand the graph to reveal joint.L3',
+  );
+
+  // ------------------------------------- ISSUE-20260823-023, re-asserted here
+  //
+  // A user found the sliding ground plane once already, on the simulator path,
+  // and this phase adds a whole new set of re-renders (React Flow, the trace
+  // panel, a three-column grid). A resize or a re-layout that nudged the scene
+  // would be exactly the same class of bug with a new cause.
+  const FRAME_EPS_MM = 1e-6;
+  const framesHere = [{ label: 'phase 7, before any command', ...worldBefore }];
+  // Sweep the pose through the transition that actually moves the contact
+  // plane. `runRestPose` puts all eight at 90 deg (feet up, contact -31.1 mm)
+  // and every movement ends at `runStandPose` (-68.65 mm); the 37.5 mm between
+  // them IS the distance the grid used to slide. A wave alone does not move the
+  // MINIMUM foot height at all, so sampling only a wave would leave this check
+  // vacuous however many samples it took.
+  await page.evaluate('window.__sesame.run("rest")');
+  await waitSceneCaughtUp('the scene to reach the rest pose for the phase 7 frame check');
+  const restFrame = await page.evaluate('window.__sesame.worldFrame()');
+  if (restFrame === null) problems.push('worldFrame() returned null at the phase 7 rest pose');
+  else framesHere.push({ label: 'phase 7, rest pose', ...restFrame });
+
+  // Fire-and-forget, looped, exactly as phase 1 does: `Runtime.evaluate` awaits
+  // a returned promise, so `await run("wave")` would sample a robot that had
+  // already finished moving and the check would be blind to the transition.
+  await page.evaluate(`
+    window.__waving = true;
+    void (async () => {
+      while (window.__waving) await window.__sesame.run('wave');
+    })();
+  `);
+  for (let i = 0; i < 8; i++) {
+    await sleep(240);
+    const f = await page.evaluate('window.__sesame.worldFrame()');
+    if (f === null) problems.push('worldFrame() returned null during phase 7');
+    else framesHere.push({ label: `phase 7, wave sample ${i + 1}`, ...f });
+  }
+  await page.evaluate('window.__waving = false');
+  const first = framesHere[0];
+  const worstHere = {};
+  for (const key of ['groundWorldMm', 'robotRootWorldMm', 'cameraTargetMm', 'cameraPositionMm']) {
+    let worst = 0;
+    for (const sample of framesHere.slice(1)) {
+      const a = first?.[key];
+      const b = sample[key];
+      if (!Array.isArray(a) || !Array.isArray(b)) continue;
+      for (let i = 0; i < 3; i++) worst = Math.max(worst, Math.abs(a[i] - b[i]));
+    }
+    worstHere[key] = worst;
+    check(
+      worst <= FRAME_EPS_MM,
+      `${key} moved ${worst.toFixed(6)} mm in world space while the architecture graph and trace ` +
+        `panels were mounted and re-rendering (ISSUE-20260823-023)`,
+    );
+  }
+  const contactsHere = framesHere.map((f) => f.footContactMm).filter((v) => typeof v === 'number');
+  const spreadHere =
+    contactsHere.length === 0 ? 0 : Math.max(...contactsHere) - Math.min(...contactsHere);
+  check(
+    spreadHere > 1,
+    `the foot contact varied by only ${spreadHere.toFixed(3)} mm in phase 7, so the world-stability ` +
+      `re-check proved nothing`,
+  );
+
+  phases.architectureAndTrace = {
+    ok: true,
+    backend: 'sim',
+    graph: {
+      upstreamCommit: collapsed.upstreamCommit,
+      totalNodes: collapsed.totalNodes,
+      collapsedNodeIds: collapsed.visibleNodeIds,
+      expandedByClick: 'servos',
+      revealedChain: CHAIN,
+      handAuthored: collapsed.handAuthored,
+      unresolvedNodeIds: collapsed.unresolvedNodeIds,
+    },
+    trace: {
+      id: trace.id,
+      command: trace.command,
+      carriedTraceId: trace.carriedTraceId,
+      windowAdopted: trace.windowAdopted,
+      ladder: trace.rows.map((r) => ({
+        layer: r.layer,
+        label: r.label,
+        provenance: r.provenance,
+        originKind: r.originKind,
+        badge: r.badge,
+        match: r.match,
+        joint: r.joint,
+      })),
+      physicallyObservedRows: 0,
+    },
+    crossLink: {
+      graphClickToScene: { clicked: 'joint.R4', litJoints: sceneSel.litJoints },
+      sceneSelectToGraph: 'joint.L3',
+      sceneSelectToTrace: hitRows,
+      autoExpanded: true,
+    },
+    worldFrame: {
+      toleranceMm: FRAME_EPS_MM,
+      worstDriftMm: worstHere,
+      footContactSpreadMm: spreadHere,
+      samples: framesHere.length,
+    },
+    shots: [graphCollapsedShot.name, graphExpandedShot.name, traceShot.name, pwmShot.name],
+  };
+
+  await page.evaluate('window.__sesame.stop()');
 }
 
 reportPageErrors('replay session');
@@ -1334,6 +1888,120 @@ if (SKIP_QEMU) {
         `${joint.joint}: the scene graph says ${joint.sceneCommandedDeg}° but the firmware said ` +
           `${joint.storeCommandedDeg}°`,
       );
+    }
+
+    // ------------------------------------- the trace, on the OTHER backend
+    //
+    // Phase 7 asserts the ladder on the simulator, where the trace id threads
+    // end to end. The same feature has to work here and say something
+    // DIFFERENT, because two of its claims genuinely change:
+    //
+    //  - `servo.target` becomes OBSERVED FROM EMULATOR rather than SIMULATED;
+    //  - the join stops being causal. The firmware has no trace-id field and
+    //    nothing can carry one across UART0, so rows are matched by arrival
+    //    window and the UI must say so instead of implying a link it does not
+    //    have.
+    //
+    // `pwm.output` does NOT change: it is inferred here too, because QEMU's
+    // LEDC stores duty and emits no waveform (Q3), so there is nothing to
+    // observe even with real firmware executing.
+    const qemuTrace = await waitFor(
+      evaluate,
+      'window.__sesame.trace()',
+      (t) => t !== null && t.rows.some((r) => r.layer === 'servo.target'),
+      'the causal trace to pick up the firmware’s servo events',
+      45000,
+      true,
+    ).catch((e) => {
+      problems.push(`phase 6: the trace never saw a servo row (${e.message})`);
+      return null;
+    });
+
+    if (qemuTrace !== null) {
+      const qemuRanks = qemuTrace.rows.map((r) => r.rank);
+      check(
+        qemuRanks.every((r, i) => i === 0 || qemuRanks[i - 1] <= r),
+        `the QEMU trace rows are not in causal order: ${JSON.stringify(qemuTrace.rows.map((r) => r.layer))}`,
+      );
+
+      const qemuServo = qemuTrace.rows.find((r) => r.layer === 'servo.target');
+      check(
+        qemuServo?.provenance === 'observed' && qemuServo?.originKind === 'emulator',
+        `the QEMU trace's servo.target row reads ${JSON.stringify(qemuServo?.provenance)} / ` +
+          `${JSON.stringify(qemuServo?.originKind)}, expected observed / emulator`,
+      );
+      check(
+        qemuServo?.badge === 'OBSERVED FROM EMULATOR',
+        `the QEMU trace shows the badge ${JSON.stringify(qemuServo?.badge)}, expected ` +
+          `"OBSERVED FROM EMULATOR" — the report's exact wording, and the strongest claim anything ` +
+          `in this project may make`,
+      );
+      check(
+        qemuServo?.match === 'time-window',
+        `the QEMU trace claims a ${JSON.stringify(qemuServo?.match)} join. The firmware has no ` +
+          `trace-id field; presenting a correlation as causation is the exact failure this row's ` +
+          `label exists to prevent`,
+      );
+      check(
+        qemuTrace.carriedTraceId === false,
+        'the QEMU trace claims events came back carrying its id; nothing can carry one into the guest',
+      );
+
+      const qemuPwm = qemuTrace.rows.find((r) => r.layer === 'pwm.output');
+      check(
+        qemuPwm?.provenance === 'inferred' && qemuPwm?.badge === 'INFERRED FOR EXPLANATION',
+        `pwm.output under real firmware reads ${JSON.stringify(qemuPwm?.provenance)}; it must stay ` +
+          `inferred — QEMU's LEDC model produces no pulse, no edge and no waveform (Q3 §2-§3), so ` +
+          `there is nothing to observe even though the firmware really ran`,
+      );
+      check(
+        !/channel\s*=\s*\d/i.test(`${qemuPwm?.label ?? ''}`),
+        `pwm.output printed a channel number under QEMU (${qemuPwm?.label})`,
+      );
+
+      const qemuHardware = qemuTrace.rows.filter(
+        (r) => r.physicallyObserved || /ON HARDWARE/.test(r.badge),
+      );
+      check(
+        qemuHardware.length === 0,
+        `${qemuHardware.length} QEMU trace row(s) claim physical observation: ` +
+          JSON.stringify(qemuHardware.map((r) => r.layer)),
+      );
+
+      // The correlation caveat has to be ON SCREEN, not merely in an object.
+      const correlationText = await evaluate(
+        `document.querySelector('[data-testid="trace-correlation"]')?.innerText ?? ''`,
+      );
+      check(
+        /arrival time/i.test(correlationText),
+        `the trace panel does not tell the learner the join is by arrival time: ` +
+          `${JSON.stringify(String(correlationText).slice(0, 160))}`,
+      );
+
+      await evaluate(`(() => {
+        const rows = document.querySelector('[data-testid="trace-rows"]');
+        const pwm = document.querySelector('[data-layer="pwm.output"]');
+        if (rows !== null && pwm !== null) rows.scrollTop = pwm.offsetTop - rows.offsetTop - 8;
+      })()`);
+      await sleep(350);
+      await labPage.shoot(
+        'v8-see-the-signal-qemu.png',
+        'the same causal trace driven by real firmware under QEMU: servo.target is OBSERVED FROM EMULATOR, pwm.output is still INFERRED FOR EXPLANATION, and the rows are matched to the click by arrival time because the firmware has no trace-id field',
+      );
+
+      phases.qemuTrace = {
+        ok: true,
+        id: qemuTrace.id,
+        carriedTraceId: qemuTrace.carriedTraceId,
+        windowAdopted: qemuTrace.windowAdopted,
+        ladder: qemuTrace.rows.map((r) => ({
+          layer: r.layer,
+          provenance: r.provenance,
+          originKind: r.originKind,
+          badge: r.badge,
+          match: r.match,
+        })),
+      };
     }
 
     // Now that firmware-driven telemetry HAS moved a joint, the banner has
