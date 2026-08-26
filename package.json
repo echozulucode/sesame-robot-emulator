@@ -35,6 +35,8 @@
     "validate:assembly-map": "node scripts/validate-assembly-map.mjs",
     "validate:gltf": "node scripts/validate-gltf.mjs",
     "demo:telemetry": "node emulator/bridge/dist/cli.js --replay emulator/bridge/fixtures/wave-pose.replay.jsonl --loop --serve-viewer",
+    "dev": "node scripts/dev-lab.mjs",
+    "dev:sim": "node scripts/dev-lab.mjs --backend sim",
     "dev:web": "pnpm --filter @sesame-lab/web dev",
     "demo:web": "node emulator/bridge/dist/cli.js --replay emulator/bridge/fixtures/wave-pose.replay.jsonl --loop --serve-viewer --viewer-dir apps/web/dist",
     "demo:qemu": "node packages/sesame-qemu/dist/cli.js --command wave",
