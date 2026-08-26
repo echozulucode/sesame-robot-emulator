@@ -19,6 +19,8 @@
     "validate:joint-map": "node scripts/validate-joint-map.mjs",
     "build:source-annotations": "node scripts/build-source-annotations.mjs",
     "validate:source-annotations": "node scripts/validate-source-annotations.mjs",
+    "build:lessons": "node scripts/build-lessons.mjs",
+    "validate:lessons": "node scripts/validate-lessons.mjs",
     "build:joint-map": "node scripts/build-joint-map.mjs",
     "validate:calibration": "node scripts/validate-calibration.mjs",
     "build:calibration": "node scripts/build-calibration.mjs",

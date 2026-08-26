@@ -1,0 +1,588 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://sesame-lab.local/schemas/lessons.schema.json",
+  "title": "Sesame Lab lesson content (L5)",
+  "description": "Lesson content as data. Consumed by the Phase 2 lesson runner, the source explorer, the architecture graph and Lab mode. Gate F lives on step.claim: a factual claim about firmware requires a symbol citation that resolves in hardware/source-annotations.json, and a lesson's grounding is copied from that file rather than decided here. Semantic rules the schema cannot express (reference resolution, per-check required parameters, the anti-pattern screens) are enforced by scripts/validate-lessons.mjs.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["meta", "vocabularies", "coverage", "lessons"],
+  "properties": {
+    "meta": { "$ref": "#/$defs/meta" },
+    "vocabularies": { "$ref": "#/$defs/vocabularies" },
+    "coverage": { "$ref": "#/$defs/coverage" },
+    "lessons": {
+      "type": "array",
+      "minItems": 1,
+      "items": { "$ref": "#/$defs/lesson" }
+    }
+  },
+
+  "$defs": {
+    "nonEmptyString": { "type": "string", "minLength": 1 },
+    "id": { "type": "string", "pattern": "^[a-z0-9][a-z0-9-]*$" },
+    "jointName": { "type": "string", "enum": ["R1", "R2", "L1", "L2", "R4", "R3", "L3", "L4"] },
+    "traceLayerId": {
+      "type": "string",
+      "enum": ["ui.command", "http.request", "firmware.command", "movement.enter", "servo.target", "pwm.output", "joint.target", "visual.joint"]
+    },
+    "vocabEntry": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "description"],
+      "properties": {
+        "id": { "$ref": "#/$defs/nonEmptyString" },
+        "label": { "$ref": "#/$defs/nonEmptyString" },
+        "description": { "$ref": "#/$defs/nonEmptyString" }
+      }
+    },
+
+    "meta": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "schemaVersion", "schema", "task", "generatedAt", "generatedBy", "validateWith",
+        "upstreamCommit", "sourceArtifacts", "learner", "gateF", "noHardwareClaims",
+        "curriculumOrdering", "renodeDecision", "consumers"
+      ],
+      "properties": {
+        "schemaVersion": { "type": "string", "pattern": "^\\d+\\.\\d+\\.\\d+$" },
+        "schema": { "$ref": "#/$defs/nonEmptyString" },
+        "task": { "$ref": "#/$defs/nonEmptyString" },
+        "generatedAt": { "type": "string", "format": "date-time" },
+        "generatedBy": { "$ref": "#/$defs/nonEmptyString" },
+        "validateWith": { "$ref": "#/$defs/nonEmptyString" },
+        "upstreamCommit": { "type": "string", "pattern": "^[0-9a-f]{40}$" },
+        "sourceArtifacts": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["file", "role"],
+            "properties": {
+              "file": { "$ref": "#/$defs/nonEmptyString" },
+              "role": { "$ref": "#/$defs/nonEmptyString" }
+            }
+          }
+        },
+        "learner": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["profile", "commitments", "antiPatterns", "antiPatternEnforcement"],
+          "properties": {
+            "profile": { "$ref": "#/$defs/nonEmptyString" },
+            "commitments": { "type": "array", "minItems": 1, "items": { "$ref": "#/$defs/nonEmptyString" } },
+            "antiPatterns": { "type": "array", "minItems": 1, "items": { "$ref": "#/$defs/nonEmptyString" } },
+            "antiPatternEnforcement": { "$ref": "#/$defs/nonEmptyString" }
+          }
+        },
+        "gateF": { "$ref": "#/$defs/nonEmptyString" },
+        "noHardwareClaims": { "$ref": "#/$defs/nonEmptyString" },
+        "curriculumOrdering": { "$ref": "#/$defs/nonEmptyString" },
+        "renodeDecision": { "$ref": "#/$defs/nonEmptyString" },
+        "consumers": { "type": "array", "minItems": 1, "items": { "$ref": "#/$defs/nonEmptyString" } }
+      }
+    },
+
+    "vocabularies": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "explanationLevels", "stepKinds", "controlKinds", "claimDomains", "observability",
+        "citationKinds", "traceLayers", "provenanceBadges", "checkTypes", "faults", "pwmModel"
+      ],
+      "properties": {
+        "explanationLevels": { "type": "array", "minItems": 3, "maxItems": 3, "items": { "$ref": "#/$defs/vocabEntry" } },
+        "stepKinds": { "type": "array", "minItems": 1, "items": { "$ref": "#/$defs/vocabEntry" } },
+        "controlKinds": { "type": "array", "minItems": 1, "items": { "$ref": "#/$defs/vocabEntry" } },
+        "claimDomains": { "type": "array", "minItems": 1, "items": { "$ref": "#/$defs/vocabEntry" } },
+        "observability": { "type": "array", "minItems": 1, "items": { "$ref": "#/$defs/vocabEntry" } },
+        "citationKinds": { "type": "array", "minItems": 1, "items": { "$ref": "#/$defs/vocabEntry" } },
+        "traceLayers": { "type": "array", "minItems": 8, "maxItems": 8, "items": { "$ref": "#/$defs/vocabEntry" } },
+        "provenanceBadges": { "type": "array", "minItems": 1, "items": { "$ref": "#/$defs/nonEmptyString" } },
+        "checkTypes": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["id", "requires", "description"],
+            "properties": {
+              "id": { "$ref": "#/$defs/nonEmptyString" },
+              "requires": { "type": "array", "items": { "$ref": "#/$defs/nonEmptyString" } },
+              "description": { "$ref": "#/$defs/nonEmptyString" }
+            }
+          }
+        },
+        "faults": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["id", "title", "causeSymbol", "teachingNote", "injectorIsLabFeature", "note"],
+            "properties": {
+              "id": { "$ref": "#/$defs/id" },
+              "title": { "$ref": "#/$defs/nonEmptyString" },
+              "causeSymbol": { "$ref": "#/$defs/nonEmptyString" },
+              "teachingNote": { "type": "string", "pattern": "^TN-\\d{3}$" },
+              "injectorIsLabFeature": { "type": "boolean" },
+              "note": { "$ref": "#/$defs/nonEmptyString" }
+            }
+          }
+        },
+        "pwmModel": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["note", "minPulseUs", "maxPulseUs", "requestedMaxPulseUs", "frameUs", "timerWidthTicks", "usPerTick", "commandableAngles", "distinctPulseValues", "aliasedAngles", "aliasPairUsedInLessons"],
+          "properties": {
+            "note": { "$ref": "#/$defs/nonEmptyString" },
+            "minPulseUs": { "type": "number" },
+            "maxPulseUs": { "type": "number" },
+            "requestedMaxPulseUs": { "type": "number" },
+            "frameUs": { "type": "number" },
+            "timerWidthTicks": { "type": "integer" },
+            "usPerTick": { "type": "number" },
+            "commandableAngles": { "type": "integer" },
+            "distinctPulseValues": { "type": "integer" },
+            "aliasedAngles": { "type": "integer" },
+            "aliasPairUsedInLessons": { "type": "array", "minItems": 2, "maxItems": 2, "items": { "type": "integer" } }
+          }
+        }
+      }
+    },
+
+    "coverage": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["lessons", "steps", "claims", "checks", "teachingNotes", "concepts", "symbols", "robotParts"],
+      "properties": {
+        "lessons": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["total", "polished", "outline", "factual", "conceptual", "conceptualLessons", "factualWithBoundaryNote", "supersedingLessons"],
+          "properties": {
+            "total": { "type": "integer" },
+            "polished": { "type": "integer" },
+            "outline": { "type": "integer" },
+            "factual": { "type": "integer" },
+            "conceptual": { "type": "integer" },
+            "conceptualLessons": { "type": "array", "items": { "$ref": "#/$defs/id" } },
+            "factualWithBoundaryNote": { "type": "array", "items": { "$ref": "#/$defs/id" } },
+            "supersedingLessons": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": ["id", "supersedes"],
+                "properties": { "id": { "$ref": "#/$defs/id" }, "supersedes": { "$ref": "#/$defs/id" } }
+              }
+            }
+          }
+        },
+        "steps": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["total", "full", "outline", "byKind", "withManipulable", "withCauseAndEffect", "withSuccessCondition", "withGoDeeper"],
+          "properties": {
+            "total": { "type": "integer" },
+            "full": { "type": "integer" },
+            "outline": { "type": "integer" },
+            "byKind": { "type": "object", "additionalProperties": { "type": "integer" } },
+            "withManipulable": { "type": "integer" },
+            "withCauseAndEffect": { "type": "integer" },
+            "withSuccessCondition": { "type": "integer" },
+            "withGoDeeper": { "type": "integer" }
+          }
+        },
+        "claims": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["total", "byType", "byDomain", "firmwareFactualWithSymbolCitation"],
+          "properties": {
+            "total": { "type": "integer" },
+            "byType": { "type": "object", "additionalProperties": { "type": "integer" } },
+            "byDomain": { "type": "object", "additionalProperties": { "type": "integer" } },
+            "firmwareFactualWithSymbolCitation": { "type": "integer" }
+          }
+        },
+        "checks": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["distinctTypesUsed", "declaredTypes"],
+          "properties": {
+            "distinctTypesUsed": { "type": "array", "items": { "$ref": "#/$defs/nonEmptyString" } },
+            "declaredTypes": { "type": "integer" }
+          }
+        },
+        "teachingNotes": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["total", "used", "unused", "byLesson"],
+          "properties": {
+            "total": { "type": "integer" },
+            "used": { "type": "integer" },
+            "unused": { "type": "array", "items": { "type": "string" } },
+            "byLesson": { "type": "object", "additionalProperties": { "type": "array", "items": { "type": "string" } } }
+          }
+        },
+        "concepts": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["total", "used", "unused"],
+          "properties": {
+            "total": { "type": "integer" },
+            "used": { "type": "integer" },
+            "unused": { "type": "array", "items": { "type": "string" } }
+          }
+        },
+        "symbols": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["total", "cited"],
+          "properties": { "total": { "type": "integer" }, "cited": { "type": "integer" } }
+        },
+        "robotParts": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["order", "orderSource"],
+          "properties": {
+            "order": { "type": "array", "minItems": 8, "maxItems": 8, "items": { "$ref": "#/$defs/jointName" } },
+            "orderSource": { "$ref": "#/$defs/nonEmptyString" }
+          }
+        }
+      }
+    },
+
+    "citation": {
+      "oneOf": [
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["kind", "symbol", "file", "startLine", "endLine", "signature"],
+          "properties": {
+            "kind": { "const": "symbol" },
+            "symbol": { "$ref": "#/$defs/nonEmptyString" },
+            "file": { "$ref": "#/$defs/nonEmptyString" },
+            "startLine": { "type": "integer", "minimum": 1 },
+            "endLine": { "type": "integer", "minimum": 1 },
+            "signature": { "type": ["string", "null"] }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["kind", "path", "note"],
+          "properties": {
+            "kind": { "const": "hardware-map" },
+            "path": { "$ref": "#/$defs/nonEmptyString" },
+            "note": { "type": ["string", "null"] }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["kind", "library", "version", "file", "line", "text", "note"],
+          "properties": {
+            "kind": { "const": "library" },
+            "library": { "$ref": "#/$defs/nonEmptyString" },
+            "version": { "$ref": "#/$defs/nonEmptyString" },
+            "file": { "$ref": "#/$defs/nonEmptyString" },
+            "line": { "type": ["integer", "null"], "minimum": 1 },
+            "text": { "$ref": "#/$defs/nonEmptyString" },
+            "note": { "$ref": "#/$defs/nonEmptyString" }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["kind", "doc", "section", "evidenceTag"],
+          "properties": {
+            "kind": { "const": "document" },
+            "doc": { "$ref": "#/$defs/nonEmptyString" },
+            "section": { "type": ["string", "null"] },
+            "evidenceTag": { "type": ["string", "null"], "enum": ["RAN", "SRC", "INFER", null] }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["kind", "id"],
+          "properties": {
+            "kind": { "const": "issue" },
+            "id": { "type": "string", "pattern": "^ISSUE-\\d{8}-\\d{3}$" }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["kind", "note", "title"],
+          "properties": {
+            "kind": { "const": "teaching-note" },
+            "note": { "type": "string", "pattern": "^TN-\\d{3}$" },
+            "title": { "$ref": "#/$defs/nonEmptyString" }
+          }
+        }
+      ]
+    },
+
+    "claim": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["type", "domain", "text", "citations", "boundaryNote", "conceptualReason", "observability", "groundingDisclosure"],
+      "properties": {
+        "type": { "type": "string", "enum": ["factual", "conceptual"] },
+        "domain": { "type": "string", "enum": ["firmware", "library", "emulator", "lab", "none"] },
+        "text": { "type": "string", "minLength": 10 },
+        "citations": { "type": "array", "items": { "$ref": "#/$defs/citation" } },
+        "boundaryNote": { "type": ["string", "null"] },
+        "conceptualReason": { "type": ["string", "null"] },
+        "observability": { "type": ["string", "null"], "enum": ["ran-in-qemu", "computed-not-observed", "inert-in-emulator", "simulated", null] },
+        "groundingDisclosure": { "type": "boolean" }
+      }
+    },
+
+    "check": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["type"],
+      "properties": {
+        "type": { "$ref": "#/$defs/nonEmptyString" },
+        "afterAction": { "type": "string" },
+        "angleA": { "type": "integer" },
+        "angleB": { "type": "integer" },
+        "angleDeg": { "type": "integer" },
+        "backend": { "type": "string" },
+        "basedOnMovement": { "type": "string" },
+        "changedField": { "type": "string" },
+        "duringMovement": { "type": "string" },
+        "equals": { "type": "string" },
+        "equalsLearnerInput": { "type": "boolean" },
+        "event": { "type": "string" },
+        "expect": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["joint", "angleDeg"],
+            "properties": {
+              "joint": { "$ref": "#/$defs/jointName" },
+              "angleDeg": { "type": ["integer", "null"] }
+            }
+          }
+        },
+        "expectAliasedAngles": { "type": "integer" },
+        "expectAnimationRestart": { "type": "boolean" },
+        "expectBootOrder": { "type": "integer" },
+        "expectBootOrderReached": { "type": "integer" },
+        "expectCommandedAngle": { "type": "integer" },
+        "expectDirectJoints": { "type": "array", "items": { "$ref": "#/$defs/jointName" } },
+        "expectDistinctPulseValues": { "type": "integer" },
+        "expectFace": { "type": "string" },
+        "expectFramesRendered": { "type": "integer" },
+        "expectFramesRenderedAtLeast": { "type": "integer" },
+        "expectHaltAtBootOrder": { "type": "integer" },
+        "expectIdentifiedSymbol": { "type": "string" },
+        "expectJointNamesUnchanged": { "type": "boolean" },
+        "expectLogContains": { "type": "string" },
+        "expectMode": { "type": "string" },
+        "expectQuantisedPulseUs": { "type": "number" },
+        "expectReportedFace": { "type": "string" },
+        "expectRequestedPulseUs": { "type": "number" },
+        "expectSameCommandedAngle": { "type": "boolean" },
+        "expectSameCommandedPose": { "type": "boolean" },
+        "expectSameTerminalPose": { "type": "boolean" },
+        "expectSameTicks": { "type": "boolean" },
+        "expectStatus": { "type": "integer" },
+        "expectTicks": { "type": "integer" },
+        "expectedProvenance": { "type": "string", "enum": ["observed-in-this-app", "observed-from-emulator", "simulated", "inferred-for-explanation"] },
+        "faceName": { "type": "string" },
+        "faultId": { "$ref": "#/$defs/id" },
+        "field": { "type": "string" },
+        "fromBackend": { "type": "string" },
+        "fromBoard": { "type": "string" },
+        "input": { "type": "string" },
+        "inputAngleA": { "type": "integer" },
+        "inputAngleB": { "type": "integer" },
+        "joint": { "$ref": "#/$defs/jointName" },
+        "joints": { "type": "array", "items": { "$ref": "#/$defs/jointName" } },
+        "jsonPath": { "type": "string" },
+        "learnerChosen": { "type": "boolean" },
+        "maxCommandedAngleOutOfRange": { "type": "integer" },
+        "method": { "type": "string" },
+        "minFrames": { "type": "integer" },
+        "minPixelsChanged": { "type": "integer" },
+        "movement": { "type": "string" },
+        "projectKind": { "type": "string" },
+        "reachedFrom": { "type": "string" },
+        "regionHeight": { "type": "integer" },
+        "regionWidth": { "type": "integer" },
+        "requestedFace": { "type": "string" },
+        "route": { "type": "string" },
+        "subtrimDeg": { "type": "integer" },
+        "symbol": { "type": "string" },
+        "toBackend": { "type": "string" },
+        "toBoard": { "type": "string" },
+        "traceLayer": { "$ref": "#/$defs/traceLayerId" },
+        "traceLayers": { "type": "array", "items": { "$ref": "#/$defs/traceLayerId" } },
+        "windowMs": { "type": "integer" }
+      }
+    },
+
+    "success": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "description", "check", "hint", "failureIsNormal"],
+      "properties": {
+        "id": { "$ref": "#/$defs/id" },
+        "description": { "$ref": "#/$defs/nonEmptyString" },
+        "check": { "$ref": "#/$defs/check" },
+        "hint": { "$ref": "#/$defs/nonEmptyString" },
+        "failureIsNormal": { "type": ["string", "null"] }
+      }
+    },
+
+    "links": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["symbols", "concepts", "teachingNotes", "robotParts", "traceLayers", "hardwareMap"],
+      "properties": {
+        "symbols": { "type": "array", "items": { "$ref": "#/$defs/nonEmptyString" } },
+        "concepts": { "type": "array", "items": { "$ref": "#/$defs/nonEmptyString" } },
+        "teachingNotes": { "type": "array", "items": { "type": "string", "pattern": "^TN-\\d{3}$" } },
+        "robotParts": { "type": "array", "items": { "$ref": "#/$defs/jointName" } },
+        "traceLayers": { "type": "array", "items": { "$ref": "#/$defs/traceLayerId" } },
+        "hardwareMap": { "type": "array", "items": { "$ref": "#/$defs/nonEmptyString" } }
+      }
+    },
+
+    "step": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "order", "kind", "title", "detail", "explanation", "goDeeper", "claim", "manipulate", "expect", "success", "links"],
+      "properties": {
+        "id": { "$ref": "#/$defs/id" },
+        "order": { "type": "integer", "minimum": 1 },
+        "kind": { "type": "string", "enum": ["concept", "manipulate", "predict", "observe", "debug", "explain", "variation"] },
+        "title": { "$ref": "#/$defs/nonEmptyString" },
+        "detail": { "type": "string", "enum": ["full", "outline"] },
+        "explanation": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["beginner12", "beginnerProgrammer", "architecture"],
+          "properties": {
+            "beginner12": { "type": "string", "minLength": 10, "maxLength": 400 },
+            "beginnerProgrammer": { "type": ["string", "null"] },
+            "architecture": { "type": ["string", "null"] }
+          }
+        },
+        "goDeeper": {
+          "type": ["object", "null"],
+          "additionalProperties": false,
+          "required": ["title", "body", "citations"],
+          "properties": {
+            "title": { "$ref": "#/$defs/nonEmptyString" },
+            "body": { "$ref": "#/$defs/nonEmptyString" },
+            "citations": { "type": "array", "items": { "$ref": "#/$defs/citation" } }
+          }
+        },
+        "claim": { "$ref": "#/$defs/claim" },
+        "manipulate": {
+          "type": ["object", "null"],
+          "additionalProperties": false,
+          "required": ["control", "target", "affordance", "bounds"],
+          "properties": {
+            "control": { "$ref": "#/$defs/nonEmptyString" },
+            "target": { "$ref": "#/$defs/nonEmptyString" },
+            "affordance": { "$ref": "#/$defs/nonEmptyString" },
+            "bounds": {
+              "type": ["object", "null"],
+              "additionalProperties": false,
+              "properties": {
+                "min": { "type": "number" },
+                "max": { "type": "number" },
+                "step": { "type": "number" },
+                "options": { "type": "array", "items": { "type": "string" } },
+                "width": { "type": "integer" },
+                "height": { "type": "integer" },
+                "depth": { "type": "integer" }
+              }
+            }
+          }
+        },
+        "expect": {
+          "type": ["object", "null"],
+          "additionalProperties": false,
+          "required": ["text", "observable"],
+          "properties": {
+            "text": { "$ref": "#/$defs/nonEmptyString" },
+            "observable": {
+              "type": "array",
+              "minItems": 1,
+              "items": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": ["traceLayer", "what"],
+                "properties": {
+                  "traceLayer": { "$ref": "#/$defs/traceLayerId" },
+                  "what": { "$ref": "#/$defs/nonEmptyString" }
+                }
+              }
+            }
+          }
+        },
+        "success": { "oneOf": [{ "$ref": "#/$defs/success" }, { "type": "null" }] },
+        "links": { "$ref": "#/$defs/links" }
+      }
+    },
+
+    "challenge": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "order", "level", "title", "coreConcept", "unlockedBy", "success"],
+      "properties": {
+        "id": { "$ref": "#/$defs/id" },
+        "order": { "type": "integer", "minimum": 1 },
+        "level": { "type": "string", "enum": ["starter", "explorer", "builder", "advanced"] },
+        "title": { "$ref": "#/$defs/nonEmptyString" },
+        "coreConcept": { "$ref": "#/$defs/nonEmptyString" },
+        "unlockedBy": { "$ref": "#/$defs/id" },
+        "success": { "$ref": "#/$defs/success" }
+      }
+    },
+
+    "lesson": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id", "order", "curriculumRef", "supersedes", "title", "module", "mainExperience",
+        "realSesameConcept", "status", "grounding", "groundingNote", "conceptualReason",
+        "learningGoal", "willBeAbleTo", "prerequisites", "unlocks", "estimatedMinutes",
+        "labHandoff", "openQuestions", "links", "steps", "challenges"
+      ],
+      "properties": {
+        "id": { "$ref": "#/$defs/id" },
+        "order": { "type": "integer", "minimum": 1 },
+        "curriculumRef": { "$ref": "#/$defs/id" },
+        "supersedes": { "oneOf": [{ "$ref": "#/$defs/id" }, { "type": "null" }] },
+        "title": { "$ref": "#/$defs/nonEmptyString" },
+        "module": { "$ref": "#/$defs/nonEmptyString" },
+        "mainExperience": { "$ref": "#/$defs/nonEmptyString" },
+        "realSesameConcept": { "$ref": "#/$defs/nonEmptyString" },
+        "status": { "type": "string", "enum": ["polished", "outline"] },
+        "grounding": { "type": "string", "enum": ["factual", "conceptual"] },
+        "groundingNote": { "type": ["string", "null"] },
+        "conceptualReason": { "type": ["string", "null"] },
+        "learningGoal": { "type": "string", "minLength": 20 },
+        "willBeAbleTo": { "type": "array", "minItems": 1, "items": { "$ref": "#/$defs/nonEmptyString" } },
+        "prerequisites": { "type": "array", "items": { "$ref": "#/$defs/id" } },
+        "unlocks": { "type": "array", "items": { "$ref": "#/$defs/id" } },
+        "estimatedMinutes": { "type": "integer", "minimum": 1 },
+        "labHandoff": { "type": ["string", "null"] },
+        "openQuestions": { "type": "array", "items": { "$ref": "#/$defs/nonEmptyString" } },
+        "links": { "$ref": "#/$defs/links" },
+        "steps": { "type": "array", "minItems": 1, "items": { "$ref": "#/$defs/step" } },
+        "challenges": { "type": "array", "items": { "$ref": "#/$defs/challenge" } }
+      }
+    }
+  }
+}
