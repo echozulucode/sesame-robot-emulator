@@ -70,6 +70,20 @@
  *      both, because three new panes of React are a new chance for the world
  *      frame to move.
  *
+ *   8. SOURCE EXPLORER — the four synchronised panes closed into a loop. A DOM
+ *      click on a symbol in the outline must light its architecture node AND
+ *      its `robotParts` in the three.js materials; selecting a joint in the 3D
+ *      scene must scroll the code view onto a symbol whose `robotParts`
+ *      contains it. The rendered LINE NUMBERS are compared against
+ *      `hardware/source-annotations.json` — the painted text of the line
+ *      numbered `startLine` must equal the `startLineText` L3 recorded, which
+ *      is the assertion that catches a drifted file or the wrong tree.
+ *   9. THE REFUSAL — `firmware/upstream/` is gitignored, so the source is
+ *      bundled at build time and hashed again in the browser. This phase serves
+ *      a `dist/` with ONE BYTE changed and requires the pane to render no code
+ *      at all. A subtly wrong source view is worse than an honest error, so the
+ *      branch is exercised rather than merely written.
+ *
  * Usage: node scripts/capture-web-screenshots.mjs [--out <dir>] [--skip-qemu]
  * Exit 0 pass · 1 fail · 3 no browser found.
  */
@@ -181,14 +195,20 @@ if (!BROWSER) {
  * app and its WebSocket share one origin, so the browser needs no port typed in
  * and there is no cross-origin question to answer.
  */
-async function startBridge({ replay = null, uartPort = null, provenance = null, quiet = true } = {}) {
+async function startBridge({
+  replay = null,
+  uartPort = null,
+  provenance = null,
+  quiet = true,
+  viewerDir = APP_DIST,
+} = {}) {
   const wsPort = await freePort();
   // The bridge's UART listener defaults to 3456, and the checked-in Renode
   // script and the QEMU work both use that port. A capture run has no UART peer
   // at all in the replay phases, so give it a free port rather than letting an
   // unrelated concurrent process on 3456 abort the whole harness.
   if (uartPort === null) uartPort = await freePort();
-  const args = [BRIDGE_CLI, '--ws-port', String(wsPort), '--serve-viewer', '--viewer-dir', APP_DIST];
+  const args = [BRIDGE_CLI, '--ws-port', String(wsPort), '--serve-viewer', '--viewer-dir', viewerDir];
   // `--quiet` suppresses the bridge's lifecycle lines on stderr, including
   // "uart connected" — which is the one line the QEMU phase needs to see.
   if (quiet) args.push('--quiet');
@@ -1453,6 +1473,468 @@ await waitFor(
   await page.evaluate('window.__sesame.stop()');
 }
 
+// --------------------------------------------------------------- phase 8
+//
+// PHASE 8: the source explorer, and the four-way sync closed into a loop.
+//
+// ```text
+// Real source  <->  Architecture node  <->  Robot part  <->  Runtime event
+// ```
+//
+// The report calls those four panes the point of the feature. Everything here
+// is driven through the DOM or through the one shared selection, and read back
+// out of the DOM and the three.js materials — never out of React state, for the
+// same reason phase 1 reads `Object3D.quaternion`.
+//
+// It runs in this session, on the simulator, immediately after phase 7, so the
+// wave trace phase 7 produced is still on screen and the "which rows ran inside
+// this code?" direction has something real to answer with.
+{
+  const sourceShots = [];
+
+  // ---------------------------------------------------- the integrity gate
+  const initial = await page.evaluate('window.__sesame.sourceExplorer()');
+  check(
+    initial.integrity === 'ok',
+    `the source pane reports integrity "${initial.integrity}" for ${initial.file} — the bytes the ` +
+      `browser received do not hash to what hardware/source-annotations.json recorded`,
+  );
+  check(
+    initial.upstreamCommit === '401730514cefed738710d22303e84b0dcd6b76d0',
+    `the source pane cites upstream ${initial.upstreamCommit}, not the pinned commit`,
+  );
+  check(
+    initial.outlineSymbolIds.length > 20,
+    `the outline drew ${initial.outlineSymbolIds.length} symbols for movement-sequences.h`,
+  );
+
+  // ------------------------------------------- source -> node -> robot part
+  //
+  // A real click on the outline row, not the debug hook: the claim is "a
+  // learner can select this".
+  const symbolClick = await page.evaluate(`(() => {
+    const row = document.querySelector('[data-source-symbol="runWavePose"]');
+    if (row === null) return { ok: false, why: 'runWavePose is not in the source outline' };
+    row.click();
+    return { ok: true, why: row.getAttribute('data-start-line') };
+  })()`);
+  check(symbolClick.ok, `could not select runWavePose in the source outline: ${symbolClick.why}`);
+  await sleep(500);
+
+  const wave = await page.evaluate('window.__sesame.sourceExplorer()');
+  check(
+    wave.symbolId === 'runWavePose',
+    `clicking runWavePose left the shared selection at ${JSON.stringify(wave.symbolId)}`,
+  );
+
+  // 1. THE LINE NUMBERS. The painted text of the line numbered `startLine` must
+  //    be the text L3 recorded for that line. This is the check that catches a
+  //    drifted file, a wrong tree, and an off-by-one window, and it is asserted
+  //    against the annotations rather than against a literal.
+  check(
+    wave.symbol !== null && wave.renderedStartLineText === wave.symbol.startLineText,
+    `line ${wave.symbol?.startLine} rendered as ${JSON.stringify(wave.renderedStartLineText)} but ` +
+      `source-annotations.json records ${JSON.stringify(wave.symbol?.startLineText)}`,
+  );
+  check(
+    wave.symbol !== null && wave.renderedEndLineText === wave.symbol.endLineText,
+    `line ${wave.symbol?.endLine} rendered as ${JSON.stringify(wave.renderedEndLineText)} but ` +
+      `source-annotations.json records ${JSON.stringify(wave.symbol?.endLineText)}`,
+  );
+  check(
+    wave.renderedFirstLine !== null &&
+      wave.symbol !== null &&
+      wave.renderedFirstLine <= wave.symbol.startLine &&
+      (wave.renderedLastLine ?? 0) >= wave.symbol.endLine,
+    `the window ${wave.renderedFirstLine}-${wave.renderedLastLine} does not contain the whole ` +
+      `symbol ${wave.symbol?.startLine}-${wave.symbol?.endLine}`,
+  );
+  // Every line some artefact in this repository cites is marked in the gutter.
+  check(
+    JSON.stringify(wave.citedLines) === JSON.stringify(wave.expectedCitedLines),
+    `the pane marked lines ${JSON.stringify(wave.citedLines)} as cited; the annotations cite ` +
+      `${JSON.stringify(wave.expectedCitedLines)}`,
+  );
+
+  // 2. THE ARCHITECTURE NODE follows.
+  const waveGraph = await page.evaluate('window.__sesame.archGraph()');
+  check(
+    waveGraph.selectedNodeId === 'movement.runWavePose',
+    `selecting runWavePose in the source pane left the graph on ` +
+      `${JSON.stringify(waveGraph.selectedNodeId)}`,
+  );
+  check(
+    wave.archNodesInSymbol.includes('movement.runWavePose'),
+    `the pane found ${JSON.stringify(wave.archNodesInSymbol)} citing lines inside runWavePose`,
+  );
+
+  // 3. THE ROBOT PARTS follow, read off MeshStandardMaterial.emissiveIntensity.
+  //    `runWavePose` commands four joints and no single one, so this cannot come
+  //    from the scalar joint selection — it comes from the symbol's robotParts.
+  const waveScene = await page.evaluate('window.__sesame.sceneSelection()');
+  check(
+    JSON.stringify(waveScene.litJoints) === JSON.stringify(['R1', 'L2', 'R4', 'L3']),
+    `selecting runWavePose lit ${JSON.stringify(waveScene.litJoints)} in the three.js materials; ` +
+      `hardware/source-annotations.json says the span commands R1 L2 R4 L3`,
+  );
+  check(
+    waveScene.emissiveByJoint.R2 === 0 && waveScene.emissiveByJoint.L1 === 0,
+    `joints the wave does not command are lit: ${JSON.stringify(waveScene.emissiveByJoint)}`,
+  );
+
+  // 4. THE RUNTIME EVENTS follow — rows whose sourceRef landed in lines 91-107.
+  check(
+    wave.runtimeRowLayers.includes('movement.enter'),
+    `no trace row was attributed to runWavePose's line range: ` +
+      `${JSON.stringify(wave.runtimeRowLayers)}`,
+  );
+
+  await page.evaluate(`void document.querySelector('.source-code')?.scrollTo(0, 0)`);
+  await sleep(400);
+  sourceShots.push(
+    await page.shoot(
+      'l4-source-explorer-wave.png',
+      'runWavePose selected in the source explorer: real source at the pinned tree’s own line numbers, ' +
+        'cited lines marked in the gutter, the architecture node and the four commanded joints lit from ' +
+        'the same one selection',
+    ),
+  );
+
+  // --------------------------------------- 3D -> source, and the scroll
+  //
+  // The reverse direction the report names: click a leg, land on the line that
+  // names it. `selectJoint` is what a click in the viewport does.
+  await page.evaluate('window.__sesame.selectJoint("L3")');
+  await sleep(500);
+  const fromScene = await page.evaluate('window.__sesame.sourceExplorer()');
+  check(
+    fromScene.symbol !== null && fromScene.symbol.robotParts.includes('L3'),
+    `selecting L3 in the 3D scene put the source pane on ${JSON.stringify(fromScene.symbolId)}, ` +
+      `whose robotParts are ${JSON.stringify(fromScene.symbol?.robotParts)} — L3 is not among them`,
+  );
+  check(
+    fromScene.renderedStartLineText === (fromScene.symbol?.startLineText ?? null),
+    `the source pane rendered ${JSON.stringify(fromScene.renderedStartLineText)} at line ` +
+      `${fromScene.symbol?.startLine}, not the annotated ${JSON.stringify(fromScene.symbol?.startLineText)}`,
+  );
+  // It SCROLLED there: the symbol's first line is inside the code view's own
+  // scroll viewport, not merely present in the DOM somewhere below the fold.
+  const scrolled = await page.evaluate(`(() => {
+    const container = document.querySelector('.source-code');
+    const target = container?.querySelector('[data-line="${fromScene.symbol?.startLine ?? 0}"]');
+    if (!container || !target) return { ok: false, why: 'no code view or no such line' };
+    const top = target.getBoundingClientRect().top - container.getBoundingClientRect().top;
+    return { ok: top >= 0 && top <= container.clientHeight, top, height: container.clientHeight };
+  })()`);
+  check(
+    scrolled.ok === true,
+    `the code view did not scroll to line ${fromScene.symbol?.startLine}: ${JSON.stringify(scrolled)}`,
+  );
+
+  // ------------------------------- three registers, three visual treatments
+  //
+  // L3 separates what the code SAYS (`description`), what we THINK
+  // (`commentary`) and what a LIBRARY says (`libraryEvidence`, a different
+  // tree). If those three render alike the distinction is lost the moment it
+  // reaches a learner, so the computed styles are asserted to differ.
+  await page.evaluate('window.__sesame.selectSymbol("setServoAngle")');
+  await sleep(500);
+  const registers = await page.evaluate(`(() => {
+    const paint = (selector) => {
+      const node = document.querySelector(selector);
+      if (node === null) return null;
+      const style = getComputedStyle(node);
+      return {
+        color: style.color,
+        background: style.backgroundColor,
+        borderLeft: style.borderLeftColor,
+        borderStyle: style.borderStyle,
+        fontStyle: style.fontStyle,
+      };
+    };
+    return {
+      description: paint('[data-testid="source-description"]'),
+      commentary: paint('[data-commentary="TN-007"] p'),
+      library: paint('[data-library-evidence="TN-007"]'),
+      hasNote: document.querySelector('[data-teaching-note="TN-007"]') !== null,
+      noteKind: document.querySelector('[data-teaching-note="TN-007"]')?.getAttribute('data-kind') ?? null,
+      libraryText: document.querySelector('[data-library-evidence="TN-007"]')?.textContent ?? '',
+      quantisation: document.querySelector('[data-testid="servo-resolution"]')?.textContent ?? '',
+      pulseUs: document.querySelector('[data-testid="servo-pulse-us"]')?.textContent ?? '',
+    };
+  })()`);
+  check(registers.hasNote, 'TN-007 is not rendered on setServoAngle');
+  check(registers.noteKind === 'surprise', `TN-007 rendered as kind ${registers.noteKind}`);
+  check(registers.commentary !== null, 'TN-007 rendered no commentary block');
+  check(registers.library !== null, 'TN-007 rendered no libraryEvidence block');
+  check(
+    registers.description !== null &&
+      registers.commentary !== null &&
+      registers.description.color !== registers.commentary.color,
+    `a fact and a judgement render in the same colour: ${JSON.stringify(registers)}`,
+  );
+  check(
+    registers.commentary?.fontStyle === 'italic',
+    `commentary is not visually set apart from the description: ${JSON.stringify(registers.commentary)}`,
+  );
+  check(
+    registers.library !== null &&
+      registers.commentary !== null &&
+      registers.library.background !== registers.commentary.background,
+    `library evidence and commentary share a background: ${JSON.stringify(registers)}`,
+  );
+  check(
+    registers.library?.borderStyle === 'dashed',
+    `library evidence is not marked as pointing outside the pinned tree: ` +
+      `${JSON.stringify(registers.library)}`,
+  );
+  check(
+    registers.libraryText.includes('ESP32Servo') && registers.libraryText.includes('3.0.9'),
+    `the library citation does not name the library and version: ${registers.libraryText.slice(0, 120)}`,
+  );
+
+  // TN-007 itself: the UI must not imply one-degree servo resolution.
+  check(
+    /89/.test(registers.quantisation) && /alias/i.test(registers.quantisation),
+    `the servo-resolution note does not say that 89 of the 181 commanded angles alias: ` +
+      `${registers.quantisation.slice(0, 200)}`,
+  );
+  check(
+    registers.pulseUs.includes('1601.56'),
+    `a commanded 90 deg is shown as ${registers.pulseUs}, not the 1601.56 us the 10-bit LEDC ` +
+      `channel actually emits`,
+  );
+
+  // The three registers live below the fold in a 380 px strip; scroll the
+  // context column so the screenshot shows what the assertions just checked.
+  await page.evaluate(`(() => {
+    const context = document.querySelector('.source-context');
+    const note = document.querySelector('[data-teaching-note="TN-007"]');
+    if (!context || !note) return false;
+    context.scrollTop += note.getBoundingClientRect().top - context.getBoundingClientRect().top - 8;
+    return true;
+  })()`);
+  await sleep(350);
+  sourceShots.push(
+    await page.shoot(
+      'l4-source-teaching-notes.png',
+      'setServoAngle: the description is a fact checkable line by line, the amber aside is a labelled ' +
+        'judgement, and the dashed violet block is ESP32Servo 3.0.9 — a different tree that the pinned ' +
+        'line checker cannot resolve',
+    ),
+  );
+
+  // ------------------------------------------------ concepts: depth, capped
+  const levelBefore = await page.evaluate('window.__sesame.sourceExplorer()');
+  const levelClick = await page.evaluate(`(() => {
+    const tab = document.querySelector('[data-level="beginner12"]');
+    if (tab === null) return { ok: false, why: 'no explanatory-level control' };
+    tab.click();
+    return {
+      ok: true,
+      texts: document.querySelectorAll('[data-testid="concept-text"]').length,
+      shown: document.querySelector('[data-testid="concept-text"]')?.textContent ?? '',
+    };
+  })()`);
+  check(levelClick.ok, `could not switch explanatory level: ${levelClick.why}`);
+  await sleep(250);
+  const levelAfter = await page.evaluate('window.__sesame.sourceExplorer()');
+  check(
+    levelBefore.conceptLevelShown === 'beginnerProgrammer' &&
+      levelAfter.conceptLevelShown === 'beginner12',
+    `the explanatory level did not switch: ${levelBefore.conceptLevelShown} -> ` +
+      `${levelAfter.conceptLevelShown}`,
+  );
+  check(
+    levelClick.texts === 1,
+    `${levelClick.texts} explanatory levels are on screen at once; the report asks for optional ` +
+      `depth, not a wall of text`,
+  );
+
+  // Density: `face` claims 38 of the 90 symbols. The panel ranks and caps.
+  await page.evaluate('window.__sesame.selectSymbol("setFace")');
+  await sleep(400);
+  const density = await page.evaluate(`(() => {
+    const conceptChip = document.querySelector('[data-source-concept="face"]');
+    if (conceptChip !== null) conceptChip.click();
+    return null;
+  })()`);
+  void density;
+  await sleep(300);
+  const faceConcept = await page.evaluate('window.__sesame.sourceExplorer()');
+  const shownSymbols = await page.evaluate(
+    `document.querySelectorAll('[data-concept-symbol]').length`,
+  );
+  check(
+    faceConcept.conceptId === 'face' && faceConcept.conceptDensity === 38,
+    `the face concept reports ${faceConcept.conceptDensity} symbols (expected 38) on concept ` +
+      `${faceConcept.conceptId}`,
+  );
+  check(
+    shownSymbols > 0 && shownSymbols <= 6,
+    `the concept panel drew ${shownSymbols} symbol chips for a 38-symbol concept — it must cap and ` +
+      `page rather than hairball`,
+  );
+
+  // ------------------------------------------------------ the conceptual badge
+  await page.evaluate('window.__sesame.selectSymbol("runStandPose")');
+  await sleep(400);
+  const gateF = await page.evaluate('window.__sesame.sourceExplorer()');
+  const badge = await page.evaluate(`(() => {
+    const node = document.querySelector('[data-module="build-a-leg-pose"]');
+    return node === null
+      ? null
+      : {
+          grounding: node.getAttribute('data-grounding'),
+          text: node.textContent ?? '',
+          title: node.getAttribute('title') ?? '',
+        };
+  })()`);
+  check(
+    gateF.conceptualModulesTotal === 7,
+    `the artefact declares ${gateF.conceptualModulesTotal} conceptual modules, not the 7 L3 recorded`,
+  );
+  check(
+    badge !== null && badge.grounding === 'conceptual',
+    `the "Build a leg pose" module is not badged conceptual on runStandPose: ${JSON.stringify(badge)}`,
+  );
+  check(
+    badge !== null && /conceptual/i.test(badge.text),
+    `the conceptual badge is not readable as text: ${JSON.stringify(badge?.text)}`,
+  );
+  check(
+    badge !== null && badge.title.length > 40,
+    `the conceptual badge does not carry the reason it cannot be grounded: ${JSON.stringify(badge?.title)}`,
+  );
+
+  // ------------------------- the biggest file, then ISSUE-20260823-023 again
+  //
+  // `face-bitmaps.h` is 3158 lines and 297 kB, hashed in the browser before a
+  // line of it is drawn. Loading it is the heaviest thing this pane ever does,
+  // so the world-frame check runs AFTER it, not before.
+  const bigFileClick = await page.evaluate(`(() => {
+    const tab = document.querySelector('[data-source-file="firmware/face-bitmaps.h"]');
+    if (tab === null) return { ok: false, why: 'no face-bitmaps.h tab' };
+    tab.click();
+    return { ok: true };
+  })()`);
+  check(bigFileClick.ok, `could not open the largest annotated file: ${bigFileClick.why}`);
+  const bigFile = await waitFor(
+    page.evaluate,
+    'window.__sesame.sourceExplorer()',
+    (r) => r !== null && r.file === 'firmware/face-bitmaps.h' && r.integrity !== 'loading',
+    'the 297 kB face-bitmaps.h to be fetched and hashed in the browser',
+  );
+  check(
+    bigFile.integrity === 'ok',
+    `face-bitmaps.h failed its integrity check in the browser: ${bigFile.integrity}`,
+  );
+  check(
+    bigFile.renderedLineCount > 0 && bigFile.renderedLineCount <= 240,
+    `the pane painted ${bigFile.renderedLineCount} lines of a 3158-line file — it must cap and say so`,
+  );
+
+  const FRAME_EPS_MM_8 = 1e-6;
+  await page.evaluate('window.__sesame.run("rest")');
+  await waitSceneCaughtUp('the scene to reach the rest pose for the phase 8 frame check');
+  const restFrame8 = await page.evaluate('window.__sesame.worldFrame()');
+  const frames8 = [];
+  if (restFrame8 === null) problems.push('worldFrame() returned null at the phase 8 rest pose');
+  else frames8.push({ label: 'phase 8, rest pose, source pane mounted', ...restFrame8 });
+
+  await page.evaluate(`
+    window.__waving = true;
+    void (async () => {
+      while (window.__waving) await window.__sesame.run('stand');
+    })();
+  `);
+  for (let i = 0; i < 6; i++) {
+    await sleep(260);
+    // Keep the source pane working while the scene moves: a re-render that
+    // nudged the world frame is exactly the bug class being re-tested.
+    await page.evaluate(
+      `window.__sesame.selectSymbol(${i % 2 === 0 ? '"runWavePose"' : '"runStandPose"'})`,
+    );
+    const f = await page.evaluate('window.__sesame.worldFrame()');
+    if (f === null) problems.push('worldFrame() returned null during phase 8');
+    else frames8.push({ label: `phase 8, sample ${i + 1}`, ...f });
+  }
+  await page.evaluate('window.__waving = false');
+  await page.evaluate('window.__sesame.stop()');
+
+  const first8 = frames8[0];
+  const worst8 = {};
+  for (const key of ['groundWorldMm', 'robotRootWorldMm', 'cameraTargetMm', 'cameraPositionMm']) {
+    let worst = 0;
+    for (const sample of frames8.slice(1)) {
+      const a = first8?.[key];
+      const b = sample[key];
+      if (!Array.isArray(a) || !Array.isArray(b)) continue;
+      for (let i = 0; i < 3; i++) worst = Math.max(worst, Math.abs(a[i] - b[i]));
+    }
+    worst8[key] = worst;
+    check(
+      worst <= FRAME_EPS_MM_8,
+      `${key} moved ${worst.toFixed(6)} mm in world space while the SOURCE pane was mounted, ` +
+        `loading a 297 kB file and re-rendering hundreds of code lines (ISSUE-20260823-023)`,
+    );
+  }
+  const contacts8 = frames8.map((f) => f.footContactMm).filter((v) => typeof v === 'number');
+  const spread8 = contacts8.length === 0 ? 0 : Math.max(...contacts8) - Math.min(...contacts8);
+  check(
+    spread8 > 1,
+    `the foot contact varied by only ${spread8.toFixed(3)} mm in phase 8, so the world-stability ` +
+      `re-check proved nothing`,
+  );
+
+  phases.sourceExplorer = {
+    ok: true,
+    backend: 'sim',
+    upstreamCommit: initial.upstreamCommit,
+    integrity: { movementSequences: initial.integrity, faceBitmaps: bigFile.integrity },
+    lineNumbers: {
+      symbol: 'runWavePose',
+      startLine: wave.symbol?.startLine ?? null,
+      endLine: wave.symbol?.endLine ?? null,
+      renderedStartLineText: wave.renderedStartLineText,
+      annotatedStartLineText: wave.symbol?.startLineText ?? null,
+      window: [wave.renderedFirstLine, wave.renderedLastLine],
+      citedLines: wave.citedLines,
+    },
+    crossLink: {
+      symbolToNode: waveGraph.selectedNodeId,
+      symbolToJoints: waveScene.litJoints,
+      symbolToTraceLayers: wave.runtimeRowLayers,
+      jointToSymbol: fromScene.symbolId,
+      jointToSymbolRobotParts: fromScene.symbol?.robotParts ?? [],
+      scrolledIntoView: scrolled.ok === true,
+    },
+    registers: {
+      description: registers.description,
+      commentary: registers.commentary,
+      libraryEvidence: registers.library,
+    },
+    concepts: {
+      levelsOnScreenAtOnce: levelClick.texts,
+      switchedTo: levelAfter.conceptLevelShown,
+      denseConcept: faceConcept.conceptId,
+      density: faceConcept.conceptDensity,
+      symbolChipsShown: shownSymbols,
+    },
+    curriculum: {
+      conceptualTotal: gateF.conceptualModulesTotal,
+      badged: badge,
+    },
+    worldFrame: {
+      toleranceMm: FRAME_EPS_MM_8,
+      worstDriftMm: worst8,
+      footContactSpreadMm: spread8,
+      samples: frames8.length,
+    },
+    shots: sourceShots.map((shot) => shot.name),
+  };
+}
+
 reportPageErrors('replay session');
 page.close();
 try {
@@ -1461,6 +1943,154 @@ try {
   /* gone */
 }
 await sleep(400);
+// ===========================================================================
+// PHASE 9: the refusal
+// ===========================================================================
+//
+// `firmware/upstream/` is gitignored, so the four annotated files are bundled
+// into `dist/` at build time and hashed AGAIN in the browser before anything is
+// drawn. This phase proves the second gate fires, because a branch that has
+// never run is a branch that does not work.
+//
+// The tampering is one byte, deep inside `movement-sequences.h`: the file is
+// still valid C++, still 429 lines, and every symbol range in
+// `source-annotations.json` still "resolves". That is precisely the failure a
+// learner cannot see, and precisely what the hash is for.
+{
+  const tamperedDist = fs.mkdtempSync(path.join(os.tmpdir(), 'sesame-tampered-'));
+  fs.cpSync(APP_DIST, tamperedDist, { recursive: true });
+  const victim = path.join(tamperedDist, 'upstream/firmware/movement-sequences.h');
+  const bytes = fs.readFileSync(victim);
+  const before = crypto.createHash('sha256').update(bytes).digest('hex');
+  bytes[Math.floor(bytes.length / 2)] = 0x21;
+  fs.writeFileSync(victim, bytes);
+  const after = crypto.createHash('sha256').update(bytes).digest('hex');
+  // A third file is REMOVED, to exercise the clean-clone path in the same run.
+  fs.rmSync(path.join(tamperedDist, 'upstream/firmware/captive-portal.h'));
+
+  const tamperedBridge = await startBridge({ viewerDir: tamperedDist }).catch((e) => die(e.message));
+  const badPage = await launchBrowser(tamperedBridge.url);
+  await waitFor(
+    badPage.evaluate,
+    'typeof window.__sesame !== "undefined" && window.__sesame.ready',
+    (v) => v === true,
+    'the app to load against the tampered dist',
+    60000,
+  );
+
+  await badPage.evaluate('window.__sesame.selectSymbol("runWavePose")');
+  const refused = await waitFor(
+    badPage.evaluate,
+    'window.__sesame.sourceExplorer()',
+    (r) => r !== null && r.integrity !== 'loading',
+    'the browser to hash the tampered file and decide',
+  );
+
+  check(
+    refused.integrity === 'mismatch',
+    `the source pane reported "${refused.integrity}" for a file with one byte changed — it must ` +
+      `refuse, not render`,
+  );
+  check(
+    refused.renderedAnySource === false,
+    `the pane painted ${refused.renderedLineCount} lines of a tree it could not vouch for; a subtly ` +
+      `wrong source view is worse than an honest error`,
+  );
+  const domLines = await badPage.evaluate(`document.querySelectorAll('.src-line').length`);
+  check(domLines === 0, `${domLines} code lines are in the DOM under a failed integrity check`);
+  const refusalText = await badPage.evaluate(
+    `document.querySelector('[data-testid="source-integrity"]')?.textContent ?? ''`,
+  );
+  check(
+    /Refusing to render/i.test(refusalText),
+    `the refusal does not say what happened: ${refusalText.slice(0, 160)}`,
+  );
+  const shownHashes = await badPage.evaluate(`(() => ({
+    expected: document.querySelector('[data-testid="source-expected-sha"]')?.textContent ?? '',
+    actual: document.querySelector('[data-testid="source-actual-sha"]')?.textContent ?? '',
+  }))()`);
+  check(
+    shownHashes.expected.includes(before) && shownHashes.actual.includes(after),
+    `the refusal does not show both hashes: ${JSON.stringify(shownHashes)}`,
+  );
+
+  const refusalShot = await badPage.shoot(
+    'l4-source-integrity-refusal.png',
+    'one byte changed in the bundled movement-sequences.h: the pane refuses to render any source at ' +
+      'all and prints both hashes, rather than showing real C++ under the wrong line numbers',
+  );
+
+  // The refusal is PER FILE, not a global bail: an untampered file still reads.
+  const goodTab = await badPage.evaluate(`(() => {
+    const tab = document.querySelector('[data-source-file="firmware/sesame-firmware-main.ino"]');
+    if (tab === null) return false;
+    tab.click();
+    return true;
+  })()`);
+  check(goodTab === true, 'the untampered file has no tab to click');
+  const stillGood = await waitFor(
+    badPage.evaluate,
+    'window.__sesame.sourceExplorer()',
+    (r) => r !== null && r.file === 'firmware/sesame-firmware-main.ino' && r.integrity !== 'loading',
+    'the untampered file to be hashed',
+  );
+  check(
+    stillGood.integrity === 'ok' && stillGood.renderedAnySource === true,
+    `one bad file took the whole pane down: sesame-firmware-main.ino reports ` +
+      `"${stillGood.integrity}"`,
+  );
+
+  // And the clean-clone path: a file that is simply not there.
+  const missingTab = await badPage.evaluate(`(() => {
+    const tab = document.querySelector('[data-source-file="firmware/captive-portal.h"]');
+    if (tab === null) return false;
+    tab.click();
+    return true;
+  })()`);
+  check(missingTab === true, 'the removed file has no tab to click');
+  const missing = await waitFor(
+    badPage.evaluate,
+    'window.__sesame.sourceExplorer()',
+    (r) => r !== null && r.file === 'firmware/captive-portal.h' && r.integrity !== 'loading',
+    'the absent file to be reported',
+  );
+  check(
+    missing.integrity === 'missing' && missing.renderedAnySource === false,
+    `a file absent from the build reports "${missing.integrity}" instead of saying so honestly`,
+  );
+  const missingText = await badPage.evaluate(
+    `document.querySelector('[data-testid="source-integrity"]')?.textContent ?? ''`,
+  );
+  check(
+    /fetch-upstream/.test(missingText),
+    `the "source unavailable" message does not tell the reader to run scripts/fetch-upstream: ` +
+      `${missingText.slice(0, 160)}`,
+  );
+
+  badPage.close();
+  try {
+    tamperedBridge.proc.kill();
+  } catch {
+    /* gone */
+  }
+  fs.rmSync(tamperedDist, { recursive: true, force: true });
+
+  phases.sourceIntegrityRefusal = {
+    ok: true,
+    tamperedBytes: 1,
+    file: 'firmware/movement-sequences.h',
+    expectedSha256: before,
+    servedSha256: after,
+    integrity: refused.integrity,
+    renderedLines: refused.renderedLineCount,
+    domCodeLines: domLines,
+    untamperedFileStillReads: stillGood.integrity,
+    absentFileReports: missing.integrity,
+    shots: [refusalShot.name],
+  };
+  await sleep(200);
+}
+
 
 // ===========================================================================
 // PHASE 5 (optional): real firmware under Espressif QEMU
@@ -2233,7 +2863,9 @@ if (problems.length > 0) {
 for (const note of notes) console.log(`NOTE  ${note}`);
 console.log(
   `OK    ${shots.length} real-browser captures; joint rotations read back from the scene graph; ` +
-    `stand pose verified in-browser; all three backends drove the same scene` +
+    `stand pose verified in-browser; all three backends drove the same scene; ` +
+    `the source explorer rendered the pinned tree at its own line numbers and refused a ` +
+    `one-byte-tampered copy of it` +
     (phases.qemuCommanded?.ran === true
       ? `; a clicked button drove real firmware under QEMU and every joint it moved carries ` +
         `origin.kind="emulator" with isPhysicallyObserved() false`

@@ -10,14 +10,16 @@
     "build": "vite build",
     "preview": "vite preview",
     "typecheck": "tsc -p tsconfig.json --noEmit",
-    "test": "node scripts/build-face-bitmaps.mjs --check && node scripts/build-architecture-graph.mjs --check && vitest run",
+    "test": "node scripts/build-face-bitmaps.mjs --check && node scripts/build-architecture-graph.mjs --check && node scripts/build-source-annotations-module.mjs --check && vitest run",
     "test:watch": "vitest",
     "build:face-bitmaps": "node scripts/build-face-bitmaps.mjs",
     "validate:face-bitmaps": "node scripts/build-face-bitmaps.mjs --check",
     "clean": "node -e \"import('node:fs').then(fs => fs.rmSync('dist', { recursive: true, force: true }))\"",
     "lab:qemu": "node server/lab-host.mjs",
     "build:architecture-graph": "node scripts/build-architecture-graph.mjs",
-    "validate:architecture-graph": "node scripts/build-architecture-graph.mjs --check"
+    "validate:architecture-graph": "node scripts/build-architecture-graph.mjs --check",
+    "build:source-annotations-module": "node scripts/build-source-annotations-module.mjs",
+    "validate:source-annotations-module": "node scripts/build-source-annotations-module.mjs --check"
   },
   "dependencies": {
     "@react-three/fiber": "^9.7.0",

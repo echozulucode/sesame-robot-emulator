@@ -59,6 +59,7 @@ import {
 } from '@sesame-lab/sesame-protocol';
 
 import type { BackendId } from '../backends/types.js';
+import { symbolContains, SYMBOL_BY_ID } from '../source/model.js';
 import {
   ACTIVE_BOARD_ID,
   ARCH_NODE_BY_ID,
@@ -628,9 +629,29 @@ export function traceBadge(row: {
 /** Does this row belong to the current selection? Used for cross-highlighting. */
 export function rowMatchesSelection(
   row: TraceRow,
-  selection: { readonly joint: JointName | null; readonly nodeId: string | null },
+  selection: {
+    readonly joint: JointName | null;
+    readonly nodeId: string | null;
+    readonly symbolId?: string | null;
+  },
 ): boolean {
   if (selection.joint !== null && row.joint === selection.joint) return true;
+
+  // The source pane's direction: "which rows ran inside THIS code?". Every row
+  // already carries a `sourceRef`, so the answer is line containment against
+  // the selected symbol's range — no new field, and no name matching.
+  //
+  // Guarded on `joint === null` deliberately. A joint selection resolves to
+  // `ServoName`, the enum that names all eight, and letting the symbol branch
+  // fire there would highlight the other seven joints' rows under a selection
+  // the learner made about one leg.
+  if (selection.joint === null && selection.symbolId != null && row.sourceRef !== null) {
+    const symbol = SYMBOL_BY_ID.get(selection.symbolId);
+    if (symbol !== undefined && symbolContains(symbol, row.sourceRef.file, row.sourceRef.line)) {
+      return true;
+    }
+  }
+
   if (selection.nodeId === null) return false;
   if (row.nodeId === selection.nodeId) return true;
   // A stage node (LEDC, setServoAngle) claims the layers it owns.

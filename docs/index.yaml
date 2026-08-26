@@ -121,6 +121,9 @@ docs:
   - file: docs/findings/V8-architecture-graph-and-signal-trace.md
     type: findings
     status: complete
+  - file: docs/findings/L4-source-explorer.md
+    type: findings
+    status: complete
   - file: docs/findings/L5-lesson-content.md
     type: findings
     status: complete

@@ -20,6 +20,8 @@ import { Mesh, Object3D, Quaternion, Vector3 } from 'three';
 import type { BackendId, BackendStatus, EmulatorFacts } from './backends/types.js';
 import { layoutArchitecture } from './arch/layout.js';
 import { ARCH_NODES, HAND_AUTHORED, UPSTREAM_COMMIT } from './generated/architecture-graph.js';
+import { ANNOTATIONS_UPSTREAM_COMMIT, CURRICULUM } from './generated/source-annotations.js';
+import { archNodesInSymbol, citationsForSymbol, SYMBOL_BY_ID } from './source/model.js';
 import type { SelectionState } from './state/selection.js';
 import type { TelemetryStore } from './state/telemetry-store.js';
 import { traceBadge, type TraceStore } from './state/trace-store.js';
@@ -144,6 +146,73 @@ export interface ArchGraphReading {
   readonly unresolvedNodeIds: readonly string[];
 }
 
+/**
+ * What the source pane is actually SHOWING, read out of the DOM.
+ *
+ * Deliberately the DOM and not the component's state, for the same reason
+ * `sceneJoints()` reads `Object3D.quaternion` rather than the store: the claim
+ * under test is "the learner is looking at line 91 of the pinned tree", and a
+ * correct `startLine` in React proves nothing about what was drawn.
+ *
+ * `renderedStartLineText` is the sharp end. It is the text the browser painted
+ * on the line numbered `symbol.startLine`; comparing it against the
+ * `startLineText` L3 recorded catches a drifted file, a wrong tree and an
+ * off-by-one window in one assertion.
+ */
+export interface SourceExplorerReading {
+  readonly upstreamCommit: string;
+  /** `ok` | `loading` | `missing` | `mismatch` | `error`, off `data-status`. */
+  readonly integrity: string | null;
+  /** The file tab that is active. */
+  readonly file: string | null;
+  readonly symbolId: string | null;
+  readonly symbol: {
+    readonly id: string;
+    readonly kind: string;
+    readonly file: string;
+    readonly startLine: number;
+    readonly endLine: number;
+    readonly startLineText: string;
+    readonly endLineText: string;
+    readonly robotParts: readonly string[];
+    readonly concepts: readonly string[];
+    readonly teachingNotes: readonly string[];
+  } | null;
+  /** Line numbers actually painted, first and last. */
+  readonly renderedFirstLine: number | null;
+  readonly renderedLastLine: number | null;
+  readonly renderedLineCount: number;
+  /**
+   * The painted text of `symbol.startLine`, exactly as the browser has it.
+   *
+   * `null` when the open file is not the selected symbol's file: line 91 of
+   * another file is not this symbol's first line, and saying so would be worse
+   * than saying nothing.
+   */
+  readonly renderedStartLineText: string | null;
+  readonly renderedEndLineText: string | null;
+  /** Lines the pane marked as cited by some artefact. */
+  readonly citedLines: readonly number[];
+  /** What the annotations say should be cited. Compare against the above. */
+  readonly expectedCitedLines: readonly number[];
+  /** Architecture nodes whose `sourceRef` lands inside the selected symbol. */
+  readonly archNodesInSymbol: readonly string[];
+  /** Symbol ids in the outline, in reading order. */
+  readonly outlineSymbolIds: readonly string[];
+  /** Trace rows the pane says ran inside this span. */
+  readonly runtimeRowLayers: readonly string[];
+  /** Which explanatory level the concept panel is showing. One, never three. */
+  readonly conceptLevelShown: string | null;
+  readonly conceptId: string | null;
+  readonly conceptDensity: number | null;
+  /** Curriculum modules on screen that carry the `conceptual` badge. */
+  readonly conceptualModulesOnScreen: readonly string[];
+  /** Total `grounding: "conceptual"` modules in the artefact. Must be 7. */
+  readonly conceptualModulesTotal: number;
+  /** True when the pane painted code lines. False unless `integrity === "ok"`. */
+  readonly renderedAnySource: boolean;
+}
+
 export interface SesameDebugApi {
   readonly ready: boolean;
   backendId(): BackendId;
@@ -199,12 +268,16 @@ export interface SesameDebugApi {
   selectJoint(joint: JointName | null): void;
   /** Select an architecture node as if it had been clicked in the graph. */
   selectNode(nodeId: string | null): void;
+  /** Select an annotated source symbol as if it had been clicked in the outline. */
+  selectSymbol(symbolId: string | null): void;
   /** Expand or collapse one architecture node. */
   toggleNode(id: string): void;
   /** Which joint the 3D scene is actually lighting, off the materials. */
   sceneSelection(): SceneSelectionReading;
   /** What the architecture pane is drawing right now. */
   archGraph(): ArchGraphReading;
+  /** What the source pane is drawing right now, read out of the DOM. */
+  sourceExplorer(): SourceExplorerReading;
   /** The trace on screen, in causal order. `null` before any command. */
   trace(): TraceReading | null;
   assetFacts(): AssetFacts | null;
@@ -220,6 +293,7 @@ export interface DebugHookWiring {
   selection(): SelectionState;
   selectJoint(joint: JointName | null): void;
   selectNode(nodeId: string | null): void;
+  selectSymbol(symbolId: string | null): void;
   expanded(): readonly string[];
   toggleNode(id: string): void;
   rig(): Record<JointName, JointRig> | null;
@@ -441,6 +515,7 @@ export function installDebugHook(wiring: DebugHookWiring): () => void {
     selection: () => wiring.selection(),
     selectJoint: (joint) => wiring.selectJoint(joint),
     selectNode: (nodeId) => wiring.selectNode(nodeId),
+    selectSymbol: (symbolId) => wiring.selectSymbol(symbolId),
     toggleNode: (id) => wiring.toggleNode(id),
 
     sceneSelection(): SceneSelectionReading {
@@ -509,6 +584,86 @@ export function installDebugHook(wiring: DebugHookWiring): () => void {
       };
     },
 
+    sourceExplorer(): SourceExplorerReading {
+      const panel = document.querySelector('[data-testid="source-explorer"]');
+      const symbolId = wiring.selection().symbolId;
+      const symbol = symbolId === null ? undefined : SYMBOL_BY_ID.get(symbolId);
+      const query = (selector: string): Element[] =>
+        panel === null ? [] : [...panel.querySelectorAll(selector)];
+      const attrs = (selector: string, name: string): string[] =>
+        query(selector)
+          .map((node) => node.getAttribute(name) ?? '')
+          .filter((value) => value.length > 0);
+
+      const lineNumbers = attrs('[data-line]', 'data-line')
+        .map((value) => Number(value))
+        .filter((value) => Number.isFinite(value));
+
+      // The painted text of one numbered line. `.src-text` excludes the gutter
+      // number, so this is the source line and nothing else.
+      const textOfLine = (line: number): string | null => {
+        const node =
+          panel?.querySelector('[data-line="' + String(line) + '"] .src-text') ?? null;
+        return node === null ? null : (node.textContent ?? '');
+      };
+
+      const cited = attrs('[data-cited="true"]', 'data-line')
+        .map((value) => Number(value))
+        .filter((value) => Number.isFinite(value));
+
+      const conceptPanel = panel?.querySelector('[data-testid="source-concepts"]') ?? null;
+      const conceptText = panel?.querySelector('[data-testid="concept-text"]') ?? null;
+      const densityNode = panel?.querySelector('[data-testid="concept-density"]') ?? null;
+
+      // The learner can open a file the selected symbol does not live in. When
+      // they have, the pane is not showing that symbol, and reporting a line
+      // text for it would be reading line 91 of the wrong file.
+      const activeFile =
+        panel?.querySelector('.source-tab.active')?.getAttribute('data-source-file') ?? null;
+      const symbolInView = symbol !== undefined && symbol.file === activeFile;
+
+      return {
+        upstreamCommit: ANNOTATIONS_UPSTREAM_COMMIT,
+        integrity:
+          panel?.querySelector('[data-testid="source-integrity"]')?.getAttribute('data-status') ??
+          null,
+        file: activeFile,
+        symbolId,
+        symbol:
+          symbol === undefined
+            ? null
+            : {
+                id: symbol.id,
+                kind: symbol.kind,
+                file: symbol.file,
+                startLine: symbol.startLine,
+                endLine: symbol.endLine,
+                startLineText: symbol.startLineText,
+                endLineText: symbol.endLineText,
+                robotParts: [...symbol.robotParts],
+                concepts: [...symbol.concepts],
+                teachingNotes: [...symbol.teachingNotes],
+              },
+        renderedFirstLine: lineNumbers.length === 0 ? null : Math.min(...lineNumbers),
+        renderedLastLine: lineNumbers.length === 0 ? null : Math.max(...lineNumbers),
+        renderedLineCount: lineNumbers.length,
+        renderedStartLineText: symbolInView ? textOfLine(symbol.startLine) : null,
+        renderedEndLineText: symbolInView ? textOfLine(symbol.endLine) : null,
+        citedLines: [...new Set(cited)].sort((a, b) => a - b),
+        expectedCitedLines:
+          symbol === undefined ? [] : [...citationsForSymbol(symbol).keys()].sort((a, b) => a - b),
+        archNodesInSymbol: archNodesInSymbol(symbolId).map((node) => node.id),
+        outlineSymbolIds: attrs('[data-source-symbol]', 'data-source-symbol'),
+        runtimeRowLayers: attrs('[data-source-trace-row]', 'data-layer'),
+        conceptLevelShown: conceptText?.getAttribute('data-shown-level') ?? null,
+        conceptId: conceptPanel?.getAttribute('data-concept') ?? null,
+        conceptDensity: densityNode === null ? null : Number(densityNode.textContent ?? '0'),
+        conceptualModulesOnScreen: attrs('[data-grounding="conceptual"]', 'data-module'),
+        conceptualModulesTotal: CURRICULUM.filter((m) => m.grounding === 'conceptual').length,
+        renderedAnySource: lineNumbers.length > 0,
+      };
+    },
+
     trace(): TraceReading | null {
       const active = wiring.traceStore.active;
       if (active === null) return null;
@@ -556,6 +711,7 @@ export function installDebugHook(wiring: DebugHookWiring): () => void {
         selection: api.selection(),
         sceneSelection: api.sceneSelection(),
         archGraph: api.archGraph(),
+        sourceExplorer: api.sourceExplorer(),
         trace: api.trace(),
         emulatorFacts: wiring.emulatorFacts(),
         face: wiring.store.face,

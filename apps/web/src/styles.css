@@ -46,6 +46,17 @@ code,
 .app {
   display: grid;
   grid-template-columns: minmax(0, 1fr) minmax(0, 520px) 400px;
+  /*
+   * The source explorer gets its own row rather than a fourth column.
+   *
+   * A fourth column would have to come out of the viewport's width, and the
+   * viewport is where ISSUE-20260823-023 lived: a sliding ground plane found by
+   * a user, on the simulator path, after a layout change. Squeezing the
+   * renderer's column is the same class of change. A row leaves the camera's
+   * aspect as the only thing that moves, and the harness re-asserts the world
+   * frame with the pane mounted anyway.
+   */
+  grid-template-rows: minmax(0, 1fr) minmax(0, 380px);
   height: 100%;
 }
 
@@ -59,6 +70,8 @@ code,
  * graph and watching R4's trace rows light up is one glance, not one scroll.
  */
 .workbench {
+  grid-column: 2;
+  grid-row: 1;
   min-width: 0;
   min-height: 0;
   overflow: hidden;
@@ -73,6 +86,8 @@ code,
 .viewport {
   position: relative;
   min-width: 0;
+  grid-column: 1;
+  grid-row: 1;
 }
 
 .viewport canvas {
@@ -97,6 +112,8 @@ code,
 }
 
 .sidebar {
+  grid-column: 3;
+  grid-row: 1 / span 2;
   overflow-y: auto;
   border-left: 1px solid var(--line);
   background: #10141a;
@@ -953,4 +970,519 @@ ul.tight {
 .trace-legend dl.kv {
   margin-top: 6px;
   grid-template-columns: 120px minmax(0, 1fr);
+}
+
+/* =========================================================== source explorer
+ *
+ * Three sub-columns: the outline a learner scans, the code they read, and the
+ * context that explains it. The whole strip spans the viewport and the
+ * workbench, so the 3D view keeps its width (see `.app`).
+ */
+.source-panel {
+  grid-column: 1 / span 2;
+  grid-row: 2;
+  min-height: 0;
+  min-width: 0;
+  margin: 0 12px 12px;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.source-tabs {
+  display: flex;
+  gap: 4px;
+  margin-bottom: 8px;
+  flex-wrap: wrap;
+}
+
+.source-tab {
+  background: var(--panel-2);
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  color: var(--dim);
+  cursor: pointer;
+  font: inherit;
+  font-size: 11px;
+  padding: 3px 8px;
+}
+
+.source-tab.active {
+  background: #23303f;
+  border-color: var(--accent);
+  color: var(--text);
+}
+
+.source-body {
+  display: grid;
+  grid-template-columns: 190px minmax(0, 1fr) minmax(0, 330px);
+  gap: 10px;
+  min-height: 0;
+  flex: 1;
+}
+
+.source-outline,
+.source-code-wrap,
+.source-context {
+  min-height: 0;
+  overflow-y: auto;
+}
+
+/* ------------------------------------------------------------------ outline */
+.source-outline-row {
+  align-items: baseline;
+  background: none;
+  border: none;
+  border-left: 2px solid transparent;
+  color: var(--dim);
+  cursor: pointer;
+  display: flex;
+  font: inherit;
+  font-size: 11.5px;
+  gap: 6px;
+  padding: 2px 4px;
+  text-align: left;
+  width: 100%;
+}
+
+.source-outline-row:hover {
+  background: var(--panel-2);
+}
+
+.source-outline-row.is-selected {
+  background: #23303f;
+  border-left-color: var(--accent);
+  color: var(--text);
+}
+
+.source-kind {
+  color: var(--muted);
+  flex: none;
+  width: 12px;
+}
+
+.source-outline-name {
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.source-outline-lines {
+  color: var(--muted);
+  flex: none;
+  font-size: 10px;
+}
+
+/* --------------------------------------------------------------------- code */
+.source-code-wrap {
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.source-code {
+  background: #0b0e13;
+  position: relative;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  flex: 1;
+  font-family: ui-monospace, 'Cascadia Code', 'Consolas', monospace;
+  font-size: 11.5px;
+  line-height: 1.45;
+  min-height: 0;
+  overflow: auto;
+  padding: 4px 0;
+}
+
+.src-line {
+  display: flex;
+  gap: 8px;
+  padding: 0 8px 0 0;
+  white-space: pre;
+}
+
+/* Outside the selected symbol: present, readable, clearly not the subject. */
+.src-line {
+  opacity: 0.45;
+}
+
+.src-line.in-symbol {
+  background: #121a24;
+  opacity: 1;
+}
+
+/* A line some artefact in this repository cites, by file:line. */
+.src-line.is-cited {
+  box-shadow: inset 3px 0 0 var(--warn);
+}
+
+.src-line.did-run {
+  background: #142219;
+}
+
+.src-num {
+  color: var(--muted);
+  flex: none;
+  text-align: right;
+  user-select: none;
+  width: 44px;
+}
+
+.src-text {
+  flex: 1;
+  font-size: inherit;
+}
+
+.src-ran {
+  align-self: center;
+  background: #1d3a29;
+  border-radius: 3px;
+  color: var(--observed);
+  flex: none;
+  font-size: 9px;
+  letter-spacing: 0.06em;
+  padding: 0 4px;
+  text-transform: uppercase;
+}
+
+.source-window-note {
+  flex: none;
+  margin: 6px 0 0;
+}
+
+/* C++ tokens. Legibility only — nothing in this app rests on a token colour. */
+.cpp-comment { color: #6b8a63; }
+.cpp-string { color: #d69d78; }
+.cpp-preproc { color: #c08de0; }
+.cpp-number { color: #b8cea0; }
+.cpp-keyword { color: #7aa2f7; }
+.cpp-type { color: #4ec9a0; }
+.cpp-plain { color: #cdd6e4; }
+
+/* ------------------------------------------------------------- integrity */
+.source-integrity {
+  flex: none;
+  font-size: 11px;
+  margin: 0 0 6px;
+}
+
+.source-integrity.ok {
+  color: var(--dim);
+}
+
+/* ------------------------------------------------------------- context */
+.source-detail h3 {
+  font-size: 13px;
+  margin: 0 0 2px;
+}
+
+.source-h4 {
+  border-top: 1px solid var(--line);
+  color: var(--dim);
+  font-size: 10px;
+  letter-spacing: 0.09em;
+  margin: 12px 0 6px;
+  padding-top: 8px;
+  text-transform: uppercase;
+}
+
+.source-signature {
+  color: var(--dim);
+  margin: 4px 0;
+  overflow-wrap: anywhere;
+}
+
+/*
+ * FACT. Checkable line by line against the pinned tree. Ordinary body text on
+ * purpose: it is the default register, and everything else is marked against
+ * it.
+ */
+.source-description {
+  color: var(--text);
+  font-size: 12px;
+  margin: 6px 0;
+}
+
+/*
+ * JUDGEMENT. Amber, indented, italic, and labelled in words — three signals,
+ * because the one thing a learner must never do is read one of these as if the
+ * code said it.
+ */
+.source-commentary {
+  background: #241d10;
+  border-left: 3px solid var(--warn);
+  border-radius: 0 4px 4px 0;
+  margin: 8px 0;
+  padding: 6px 8px;
+}
+
+.source-commentary-tag {
+  color: var(--warn);
+  display: block;
+  font-size: 9.5px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.source-commentary p {
+  color: #e8dcc4;
+  font-size: 11.5px;
+  font-style: italic;
+  margin: 4px 0 0;
+}
+
+.source-disagreement {
+  font-size: 11px;
+}
+
+/* ------------------------------------------------------------------ chips */
+.chip-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin: 4px 0;
+}
+
+.chip-node,
+.chip-joint,
+.chip-concept,
+.chip-symbol,
+.chip-module {
+  background: var(--panel-2);
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  color: var(--dim);
+  cursor: pointer;
+  font: inherit;
+  font-size: 10.5px;
+  padding: 1px 8px;
+}
+
+.chip-joint {
+  font-family: ui-monospace, 'Cascadia Code', 'Consolas', monospace;
+}
+
+.chip-node.is-selected,
+.chip-joint.is-selected,
+.chip-concept.is-selected {
+  background: #23303f;
+  border-color: var(--accent);
+  color: var(--text);
+}
+
+.chip-symbol.is-anchor {
+  border-color: var(--observed);
+  color: var(--observed);
+}
+
+.chip-module {
+  cursor: default;
+}
+
+.chip-module.is-conceptual {
+  border-color: var(--warn);
+  color: var(--warn);
+}
+
+.chip-badge {
+  background: #2a3240;
+  border-radius: 6px;
+  color: var(--dim);
+  font-size: 9px;
+  margin-left: 5px;
+  padding: 0 4px;
+}
+
+.chip-module.is-conceptual .chip-badge {
+  background: #3a2e12;
+  color: var(--warn);
+}
+
+.linkish {
+  background: none;
+  border: none;
+  color: var(--accent);
+  cursor: pointer;
+  font: inherit;
+  padding: 0 3px;
+  text-decoration: underline dotted;
+}
+
+.linkish:disabled {
+  color: var(--muted);
+  cursor: default;
+  text-decoration: none;
+}
+
+/* ------------------------------------------------------------ quantisation */
+.source-quantisation {
+  background: var(--panel-2);
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  margin: 6px 0;
+  padding: 6px 8px;
+}
+
+.source-quantisation-head {
+  align-items: center;
+  display: flex;
+  font-size: 11px;
+  gap: 6px;
+}
+
+.source-quantisation-head input {
+  flex: 1;
+}
+
+.source-quantisation p {
+  margin: 4px 0 0;
+}
+
+/* ---------------------------------------------------------- teaching notes */
+.teaching-note {
+  border: 1px solid var(--line);
+  border-left-width: 3px;
+  border-radius: 0 6px 6px 0;
+  margin: 8px 0;
+  padding: 6px 8px;
+}
+
+.tn-surprise { border-left-color: var(--accent); }
+.tn-defect { border-left-color: #e0736e; }
+.tn-design { border-left-color: var(--inferred); }
+
+.teaching-note header {
+  align-items: baseline;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  font-size: 11.5px;
+}
+
+.tn-kind {
+  border-radius: 6px;
+  background: #2a3240;
+  font-size: 9px;
+  letter-spacing: 0.07em;
+  padding: 0 5px;
+  text-transform: uppercase;
+}
+
+.tn-defect .tn-kind { background: #3d1f1e; color: #e0736e; }
+
+.tn-id {
+  color: var(--muted);
+  font-size: 10px;
+}
+
+.tn-summary {
+  color: var(--dim);
+  font-size: 11.5px;
+  margin: 5px 0;
+}
+
+.tn-evidence {
+  list-style: none;
+  margin: 4px 0;
+  padding: 0;
+}
+
+.tn-evidence li {
+  font-size: 10.5px;
+  margin: 2px 0;
+  overflow-wrap: anywhere;
+}
+
+.tn-line {
+  color: #cdd6e4;
+}
+
+/*
+ * LIBRARY EVIDENCE. A different tree entirely — ESP32Servo 3.0.9, which lives
+ * under the gitignored `tools/`. Violet, boxed and labelled, because the line
+ * checker that guarantees every other citation on this screen cannot resolve
+ * this one and must not appear to.
+ */
+.tn-library {
+  background: #1e1830;
+  border: 1px dashed var(--inferred);
+  border-radius: 4px;
+  margin: 6px 0;
+  padding: 5px 7px;
+}
+
+.tn-library-tag {
+  color: var(--inferred);
+  display: block;
+  font-size: 9.5px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.tn-library p {
+  margin: 3px 0 0;
+}
+
+.tn-refs {
+  overflow-wrap: anywhere;
+}
+
+/* ---------------------------------------------------------------- concepts */
+.level-switch {
+  display: flex;
+  gap: 3px;
+  margin: 6px 0 4px;
+}
+
+.level-tab {
+  background: var(--panel-2);
+  border: 1px solid var(--line);
+  border-radius: 5px;
+  color: var(--muted);
+  cursor: pointer;
+  font: inherit;
+  font-size: 10px;
+  padding: 2px 7px;
+}
+
+.level-tab.active {
+  background: #23303f;
+  border-color: var(--accent);
+  color: var(--text);
+}
+
+.concept-text {
+  color: var(--text);
+  font-size: 12px;
+  margin: 4px 0;
+}
+
+.concept-symbols {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin: 6px 0;
+}
+
+.source-rows {
+  list-style: none;
+  margin: 4px 0;
+  padding: 0;
+}
+
+.source-row {
+  background: none;
+  border: none;
+  color: var(--dim);
+  cursor: pointer;
+  font: inherit;
+  font-size: 11px;
+  padding: 1px 0;
+  text-align: left;
+  width: 100%;
+}
+
+.source-row:hover {
+  color: var(--text);
 }

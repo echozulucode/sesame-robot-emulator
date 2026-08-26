@@ -9,7 +9,10 @@
  * +--------------------+---------------------------+------------------+
  * | Interactive 3D     | Architecture / Signal     | State inspector  |
  * | click any joint    | trace                     | OLED, assets     |
- * +--------------------+---------------------------+------------------+
+ * +--------------------+---------------------------+                  |
+ * | Source explorer — real source at pinned line   | (full height)    |
+ * | numbers, symbol <-> node <-> part <-> event    |                  |
+ * +------------------------------------------------+------------------+
  * ```
  *
  * Data flow, once:
@@ -31,7 +34,9 @@
  * it. Selecting `R4` anywhere selects it everywhere, and the graph auto-expands
  * whatever chain is needed to put `joint.R4` on screen. Nothing keeps a private
  * copy of "what is selected"; the previous `selected: JointName | null` is now
- * a derived value.
+ * a derived value. L4 adds the source pane on the same terms: it calls
+ * `selectSymbol()` and reads `selection.symbolId`, and owns no selection of its
+ * own.
  */
 import { JOINT_ORDER, type JointName } from '@sesame-lab/sesame-model';
 import { OLED_HEIGHT, OLED_WIDTH } from '@sesame-lab/sesame-protocol';
@@ -42,11 +47,14 @@ import { defaultLabBaseUrl, QemuBackend } from './backends/qemu-backend.js';
 import { SimBackend } from './backends/sim-backend.js';
 import type { BackendId, BackendStatus, TelemetryBackend } from './backends/types.js';
 import { installDebugHook } from './debug-hook.js';
+import { symbolAt } from './source/model.js';
 import { expansionsFor } from './arch/layout.js';
 import {
   EMPTY_SELECTION,
+  litJointsFor,
   selectJoint,
   selectNode,
+  selectSymbol,
   type SelectionState,
 } from './state/selection.js';
 import { TelemetryStore } from './state/telemetry-store.js';
@@ -60,6 +68,7 @@ import { EmulatorPanel } from './ui/EmulatorPanel.js';
 import { JointInspector } from './ui/JointInspector.js';
 import { OledPanel } from './ui/OledPanel.js';
 import { SignalTrace } from './ui/SignalTrace.js';
+import { SourceExplorer } from './ui/SourceExplorer.js';
 
 /**
  * Re-render the panels at a fixed low rate instead of per event.
@@ -84,6 +93,9 @@ function useStoreTick(store: { readonly version: number }, intervalMs = 120): nu
 
 /** The nine nodes the report's collapsed tree draws. Nothing expanded. */
 const NO_EXPANSIONS: ReadonlySet<string> = new Set();
+
+/** A stable empty array, so the source pane does not re-render on identity. */
+const EMPTY_ROWS: readonly TraceRow[] = [];
 
 export function App(): ReactElement {
   const store = useMemo(() => new TelemetryStore(), []);
@@ -131,6 +143,9 @@ export function App(): ReactElement {
   void traceTick;
 
   const selected = selection.joint;
+  // What the renderer paints. A joint selection lights one; a symbol
+  // selection lights every joint that span of code commands.
+  const litJoints = useMemo(() => litJointsFor(selection), [selection]);
 
   // ------------------------------------------------------------- selection
   //
@@ -164,11 +179,27 @@ export function App(): ReactElement {
     });
   }, []);
 
+  const selectSymbolFrom = useCallback(
+    (symbolId: string | null) => applySelection(selectSymbol(symbolId, 'source')),
+    [applySelection],
+  );
+
   const selectTraceRow = useCallback(
-    (row: TraceRow) =>
-      applySelection(
-        row.joint !== null ? selectJoint(row.joint, 'trace') : selectNode(row.nodeId, 'trace'),
-      ),
+    (row: TraceRow) => {
+      if (row.joint !== null) {
+        applySelection(selectJoint(row.joint, 'trace'));
+        return;
+      }
+      if (row.nodeId !== null) {
+        applySelection(selectNode(row.nodeId, 'trace'));
+        return;
+      }
+      // `ui.command` and `http.request` carry a `sourceRef` and no node, so
+      // without this last arm the two rows a learner clicks first would select
+      // nothing at all. The symbol is whatever span that citation lands in.
+      const symbol = row.sourceRef === null ? null : symbolAt(row.sourceRef.file, row.sourceRef.line);
+      applySelection(symbol === null ? EMPTY_SELECTION : selectSymbol(symbol.id, 'trace'));
+    },
     [applySelection],
   );
 
@@ -367,6 +398,7 @@ export function App(): ReactElement {
         selection: () => selection,
         selectJoint: (joint) => selectJointFrom(joint, 'scene'),
         selectNode: (nodeId) => applySelection(selectNode(nodeId, 'graph')),
+        selectSymbol: (symbolId) => selectSymbolFrom(symbolId),
         expanded: () => [...expanded],
         toggleNode: (id) => toggleExpanded(id),
       }),
@@ -379,6 +411,7 @@ export function App(): ReactElement {
       runFace,
       runSetJoint,
       selectJointFrom,
+      selectSymbolFrom,
       selection,
       status,
       stopMotion,
@@ -431,7 +464,7 @@ export function App(): ReactElement {
         <Suspense fallback={<div className="loading">loading assets/sesame.glb…</div>}>
           <RobotScene
             store={store}
-            selected={selected}
+            litJoints={litJoints}
             onSelect={(joint) => selectJointFrom(joint, 'scene')}
             oledCanvas={oledCanvas}
             oledDirty={oledDirty}
@@ -465,6 +498,23 @@ export function App(): ReactElement {
           onSelectTrace={setShownTraceId}
         />
       </div>
+
+      {/*
+        The fourth pane. It sits on its own row under the 3D view and the
+        workbench rather than inside either, for one reason: the viewport keeps
+        its width. ISSUE-20260823-023 was a sliding ground plane, and squeezing
+        the column the renderer lives in is the same class of change that
+        produced it. This adds a row and leaves the camera's aspect the only
+        thing that moves.
+      */}
+      <SourceExplorer
+        selection={selection}
+        onSelectSymbol={selectSymbolFrom}
+        onSelectNode={(nodeId) => applySelection(selectNode(nodeId, 'source'))}
+        onSelectJoint={(joint) => selectJointFrom(joint, 'inspector')}
+        traceRows={shownTrace?.rows ?? EMPTY_ROWS}
+        onSelectRow={selectTraceRow}
+      />
 
       <aside className="sidebar">
         {backend !== null && (

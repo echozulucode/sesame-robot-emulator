@@ -125,7 +125,15 @@ export type DriveSource = 'commanded' | 'simulated';
 
 export interface RobotSceneProps {
   readonly store: TelemetryStore;
-  readonly selected: JointName | null;
+  /**
+   * Every joint to light.
+   *
+   * Was `selected: JointName | null` until the source pane arrived. Selecting
+   * `runWavePose` is about four joints and no single one, so a scalar could not
+   * carry it. The app still keeps a scalar `selection.joint` for the inspector;
+   * this is the set the renderer paints, and `litJointsFor()` derives it.
+   */
+  readonly litJoints: readonly JointName[];
   readonly onSelect: (joint: JointName | null) => void;
   /** The canvas the virtual OLED draws into. Projected onto `oled_screen`. */
   readonly oledCanvas: HTMLCanvasElement;
@@ -210,7 +218,17 @@ const SELECTED_EMISSIVE = new Color('#3d6fd8');
 const BLACK = new Color('#000000');
 
 function SesameRig(props: RobotSceneProps & { readonly refs: SceneRefs }): ReactElement {
-  const { store, selected, onSelect, oledCanvas, oledDirty, driveFrom, onReady, showTopCover, refs } = props;
+  const {
+    store,
+    litJoints,
+    onSelect,
+    oledCanvas,
+    oledDirty,
+    driveFrom,
+    onReady,
+    showTopCover,
+    refs,
+  } = props;
   const gltf = useLoader(GLTFLoader, GLB_URL);
 
   const built = useMemo(() => {
@@ -284,18 +302,39 @@ function SesameRig(props: RobotSceneProps & { readonly refs: SceneRefs }): React
   }, [built.topCover, showTopCover]);
 
   // ------------------------------------------------------------- selection
+  //
+  // Each mesh is attributed to its NEAREST joint ancestor, not to every joint
+  // above it. The rig is parented — R4's foot lives inside R2's femur subtree —
+  // so a plain `rig[joint].node.traverse()` lights R4 whenever R2 is lit. That
+  // was invisible while only one leaf joint could ever be selected; it stops
+  // being invisible the moment a symbol lights four joints at once, and it
+  // would make "the wave lit exactly R1, L2, R4, L3" unassertable.
   useEffect(() => {
+    const owners = new Map<string, JointName>();
+    for (const joint of JOINT_ORDER) owners.set(built.rig[joint].node.uuid, joint);
+    const nearestJoint = (node: Object3D): JointName | null => {
+      let cursor: Object3D | null = node;
+      while (cursor !== null) {
+        const owner = owners.get(cursor.uuid);
+        if (owner !== undefined) return owner;
+        cursor = cursor.parent;
+      }
+      return null;
+    };
+
+    const lit = new Set<JointName>(litJoints);
     for (const joint of JOINT_ORDER) {
-      const on = joint === selected;
+      const on = lit.has(joint);
       built.rig[joint].node.traverse((child) => {
         if (!(child instanceof Mesh)) return;
+        if (nearestJoint(child) !== joint) return;
         const material = child.material;
         if (Array.isArray(material) || !(material instanceof MeshStandardMaterial)) return;
         material.emissive.copy(on ? SELECTED_EMISSIVE : BLACK);
         material.emissiveIntensity = on ? 0.55 : 0;
       });
     }
-  }, [built.rig, selected]);
+  }, [built.rig, litJoints]);
 
   // ------------------------------------------------------------------ ready
   const floorMm = groundReferenceMm(built.facts);
