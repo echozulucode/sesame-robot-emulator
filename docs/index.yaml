@@ -138,6 +138,13 @@ docs:
     type: findings
     status: complete
 
+  - file: docs/plans/phase-3-ui-ux-improvement.md
+    type: plan
+    status: complete
+  - file: docs/findings/U1-U5-responsive-shell.md
+    type: findings
+    status: complete
+
   # Interface specification
   - file: docs/protocol/sesame-telemetry-v1.md
     type: specification

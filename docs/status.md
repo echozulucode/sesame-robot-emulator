@@ -1,15 +1,55 @@
 ---
 type: status
 updated: 2026-08-26
-current_phase: "Phase 2 complete - Learn mode and Lab mode both shipping"
+current_phase: "Phase 2 complete; responsive shell landed. Awaiting external Renode research."
 blockers: []
 next_actions:
-  - "USER EVALUATION: pnpm dev:web for Learn + Lab, or apps/web/server/lab-host.mjs for real firmware"
+  - "Evaluate: `pnpm dev` (lab host + vite, one command) or `pnpm dev:sim` for a faster boot"
   - "External research pending on the Renode decision (docs/research/renode-fit-deep-research-prompt.md)"
-  - "Optional polish: the six carried-forward items in plan.md Phase 3+"
+  - "Optional: the carried-forward items in plan.md Phase 3+"
 ---
 
 # Status Log
+
+## Session: 2026-08-26 (later) - dev script + responsive shell
+
+**Two user-reported problems, both real, both fixed.**
+
+**1. "The QEMU firmware shows an error on the web page."** Diagnosed by reproduction, not guesswork:
+`vite dev` proxies `/api`, `/lab`, `/cmd`, `/getSettings` and `/setSettings` to a lab host on
+127.0.0.1:8099, so Vite alone serves the app but leaves the QEMU backend reporting
+*no lab host (HTTP 500)*. **The instructions I had given were wrong** - dev mode needs both
+processes, not either one. Fixed with `pnpm dev` / `pnpm dev:sim` (`scripts/dev-lab.mjs`,
+dependency-free). Two Windows bugs surfaced and were fixed while testing it: Node 24 refuses to
+spawn a `.cmd` (EINVAL, CVE-2024-27980 hardening) and `shell: true` reintroduces DEP0190; and a
+stale host on 8099 gave a raw EADDRINUSE stack trace instead of a sentence.
+
+**2. "You can barely see the robot."** Measured: `styles.css` was **2,407 lines with zero `@media`
+queries** and a hard-coded `1fr | 520px | 400px` grid. The 3D viewport got **494x191 at 1440x900**
+- 24% of the screen - and **334x91 at 1280x800**, under both floors, which the harness called green
+because none of its 26 captures asserted viewport share.
+
+Rebuilt as a three-zone responsive shell (56px rail / flexible stage with a 45vh-480px floor /
+six-section accordion dock). **Viewport share is now 80-87% at every size.** The rule that fixed it:
+below Wide the dock **overlays rather than pushes**, asserted by measuring the stage shut then open
+(0.0 px moved).
+
+**Judgement worth keeping:** auto-expand-on-selection fires only for `origin === 'scene'`, because
+`LessonRunner` calls `selectSymbol` mid-lesson and obeying the spec literally would have collapsed
+a lesson while it played.
+
+**Four plan errors found once on screen**, documented rather than worked around - most usefully
+that Source's bounded scroll regions are load-bearing: an auto-height row would let the code grow
+to all 429 lines while L4's "it scrolled there" assertion kept passing and meaning nothing.
+
+**No assertion dropped; two strengthened.** Phase 7 gained checks that Modules and Signal are open
+together at Wide, so V8's simultaneity requirement is verified rather than assumed. Phase 10's wait
+was tightened after this exposed a pre-existing race.
+
+**State:** 934 tests, 11 validators, 32 captures / 0 problems, zero dependencies added.
+ISSUE-023 world-frame drift 0.000000 mm at every breakpoint and across a dock resize.
+
+---
 
 ## Session: 2026-08-25/26 - Phase 2 complete
 
