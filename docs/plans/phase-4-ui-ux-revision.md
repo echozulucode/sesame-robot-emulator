@@ -204,3 +204,90 @@ Replace the current assertion with the user's rule, and make it area rather than
       overlay, and the line survived the rewrite. It is corrected rather than ticked as
       written.
 - [x] Tests still pass (959, up from 948); zero new dependencies
+
+---
+
+## 11. W7 — module-first shell (added 2026-08-27, user direction)
+
+> *"On ultra large screens, the modules sections are still unusable. The architecture diagram needs
+> to use up at least 50% of the screen to be useful, with the robot in the other half. I think the
+> commands and face tools can be made to be minimal on small screens and never need their own
+> individual scrollbars. Make use of 'more info' popovers or screens to dive into more details over
+> the key information and face that you'd want to look at while executing commands. Make that the
+> right most side-panel while the larger content items can be maximize. The Architecture, Signals,
+> Source and Learn modules should only have one active at a time."*
+
+### 11.1 The layout
+
+```text
+┌────┬──────────────────────┬──────────────────────┬──────────────┐
+│    │                      │                      │  Commands    │
+│RAIL│       ROBOT          │   ACTIVE MODULE      │  Face        │
+│ 64 │                      │  (one of Arch /      │  glance info │
+│    │                      │   Signal / Source /  │              │
+│    │                      │   Learn / Lab)       │  ~280–320px  │
+│    │                      │                      │  no scroller │
+├────┴──────────────────────┴──────────────────────┴──────────────┤
+│ SYSTEM: QEMU EMULATOR · PHYSICAL HARDWARE: NONE                  │
+└──────────────────────────────────────────────────────────────────┘
+```
+
+### 11.2 A rule conflict that must be resolved, not averaged
+
+The ≥50%-of-**screen** stage rule (§3, §7) and "architecture ≥50% of the screen with the robot in
+the other half" cannot both be literal: with a 64px rail, a 32px status strip and a ~300px side
+panel, a 50/50 content split yields:
+
+| Window | Content | Stage | Module |
+|---|---:|---:|---:|
+| 1440×900 | 1076 | 36.0% | 36.0% |
+| 1920×1080 | 1556 | 39.3% | 39.3% |
+| 2560×1440 | 2196 | 41.9% | 41.9% |
+| 3440×1440 | 3076 | 43.7% | 43.7% |
+
+**Resolution — two regimes, both asserted:**
+
+- **No module active:** stage ≥ **50% of viewport area** (§7 unchanged).
+- **A module active:** stage ≥ **50% of the *content* area** — content being the viewport minus
+  rail, status strip and side panel. That is the plain reading of *"with the robot in the other
+  half"*, and it is achievable at every width above the module's own minimum.
+
+Do not average them into one loose number. Publish which regime is in force the way W4 published
+`data-stage-rule`, and assert both.
+
+### 11.3 One active module
+
+`Architecture · Signal · Source · Learn · Lab` are **mutually exclusive**. Selecting one deselects
+the others; no accordion, no two-open state. **Lab is included** — it is a large editing surface,
+not a glance surface; flag it if that proves wrong on screen.
+
+This generalises W3's derived `Control | Analyze` rather than replacing it: the active module *is*
+the state, and the mode label is derived from it.
+
+### 11.4 The side panel
+
+Commands + Face + the glance information you want while driving the robot.
+
+- **Never its own scrollbar** — neither Commands nor Face. If content does not fit, that is a
+  content problem to solve by disclosure, not by adding a scroller.
+- **"More info" popovers/screens** carry the detail: full inspector table, full origin/provenance
+  detail, OLED at larger zoom. The *key* information stays on the panel.
+- **Minimal on small screens** — collapses to the rail's icon strip below the workbench regime.
+- **Correctness surfaces may not be demoted into a popover.** Provenance, origin,
+  `PHYSICAL HARDWARE: NONE`, `NOT BUILT` and `CONCEPTUAL` badges stay visible on the panel itself.
+  A popover may *expand* them; it may not be where they first appear.
+
+### 11.5 Also fix — found by W4, not W4's to fix
+
+At **1760×1000 the two-dock Wide regime holds only 45.0%** of area at *default* dock widths. W3 set
+the 1700 boundary from 360+360, but the defaults are 400+460, and phase 12 only measured 2560. W7
+removes the two-dock regime in favour of this model, which resolves it — assert the new rule at
+1760×1000 explicitly so the gap cannot reopen.
+
+### 11.6 Definition of done
+- [ ] One module active at a time; no two-open state reachable
+- [ ] Stage ≥50% of viewport with no module; ≥50% of content with one — both asserted, regime published
+- [ ] Architecture at ≥1900px gets ≥1000px of surface; label size measured and reported
+- [ ] Side panel has **zero** scrollers at every width; correctness surfaces present on it, not only in popovers
+- [ ] 1760×1000 asserted
+- [ ] 985 tests, ISSUE-023 at every breakpoint and across module switches, zero new dependencies
