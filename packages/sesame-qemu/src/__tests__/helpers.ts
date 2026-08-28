@@ -24,7 +24,7 @@ export const SKIP_REASON = (): string => {
   const missing: string[] = [];
   if (!fs.existsSync(DEFAULT_QEMU_PATH)) missing.push('node emulator/qemu/fetch-qemu.mjs');
   if (!fs.existsSync(DEFAULT_IMAGE_PATH)) {
-    missing.push('node emulator/qemu/build-qemu-images.mjs cli');
+    missing.push('node emulator/qemu/build-qemu-images.mjs cli-oled');
   }
   return missing.length === 0 ? '' : ` (SKIPPED — run: ${missing.join(' && ')})`;
 };

@@ -1,0 +1,101 @@
+{
+  "image": "emulator\\qemu\\images\\distro-v1-esp32-cli-oled.flash.bin",
+  "baseline": "emulator\\qemu\\images\\distro-v1-esp32-cli.flash.bin",
+  "bootFrames": 7,
+  "lineBytes": 1386,
+  "wireSpanMs": {
+    "min": 18,
+    "median": 19,
+    "max": 21
+  },
+  "face": "happy",
+  "faceFrameCount": 1,
+  "byteForByte": {
+    "bytes": 1024,
+    "differingPixels": 0,
+    "firstDifferingByte": -1
+  },
+  "allFrames": {
+    "total": 8,
+    "identical": 8,
+    "other": []
+  },
+  "baselineOledLines": 0,
+  "workload": [
+    "rn wv"
+  ],
+  "withHook": {
+    "runs": [
+      4089,
+      4207,
+      4084
+    ],
+    "median": 4089,
+    "during": {
+      "oled": 6,
+      "face": 6,
+      "servo": 87
+    }
+  },
+  "withoutHook": {
+    "runs": [
+      4002,
+      3989,
+      3944
+    ],
+    "median": 3989,
+    "during": {
+      "oled": 0,
+      "face": 6,
+      "servo": 87
+    }
+  },
+  "deltaMs": 100,
+  "framesPerRun": 2,
+  "perFrameMs": 50,
+  "throttleDropped": 0,
+  "oneFrame": {
+    "withHook": {
+      "runs": [
+        44,
+        31,
+        30,
+        24,
+        25,
+        45,
+        30,
+        32,
+        32,
+        25,
+        24,
+        30
+      ],
+      "median": 30,
+      "mean": 31,
+      "emitted": 18
+    },
+    "without": {
+      "runs": [
+        5,
+        15,
+        16,
+        15,
+        15,
+        5,
+        15,
+        16,
+        15,
+        16,
+        15,
+        15
+      ],
+      "median": 15,
+      "mean": 13.583333333333334,
+      "emitted": 0
+    }
+  },
+  "oneFrameDeltaMs": {
+    "median": 15,
+    "mean": 17.416666666666664
+  }
+}

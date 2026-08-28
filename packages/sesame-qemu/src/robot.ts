@@ -39,13 +39,14 @@ import {
   type EncodedCommand,
   type SesameCommand,
   type SesameTelemetry,
+  type TelemetryOrigin,
 } from '@sesame-lab/sesame-protocol';
 import type { SesameRobot } from '@sesame-lab/sesame-sim';
 
 import {
   POWER_ON_ANGLE_DEG,
-  QEMU_CAPABILITIES_FULL,
-  QEMU_ORIGIN,
+  capabilitiesForImage,
+  originForImage,
   resolveQemuOptions,
   type QemuCapabilities,
   type QemuRobotOptions,
@@ -214,7 +215,7 @@ export class QemuSesameRobot implements SesameRobot {
    * board anyone is told to buy".
    */
   capabilities(): Promise<QemuCapabilities> {
-    return Promise.resolve(QEMU_CAPABILITIES_FULL);
+    return Promise.resolve(capabilitiesForImage(this.#opts.imagePath));
   }
 
   /**
@@ -415,8 +416,8 @@ export class QemuSesameRobot implements SesameRobot {
   }
 
   /** The origin stamped on every event this backend produces. */
-  get origin(): typeof QEMU_ORIGIN {
-    return QEMU_ORIGIN;
+  get origin(): TelemetryOrigin {
+    return originForImage(this.#opts.imagePath);
   }
 
   // =========================================================================

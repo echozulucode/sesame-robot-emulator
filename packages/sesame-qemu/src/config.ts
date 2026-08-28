@@ -30,21 +30,65 @@ export const DEFAULT_QEMU_PATH = path.join(
   'qemu-system-xtensa.exe',
 );
 
+/** Where `emulator/qemu/build-qemu-images.mjs` puts what it builds. */
+const IMAGES_DIR = path.join(REPO_ROOT, 'emulator', 'qemu', 'images');
+
 /**
- * The image this backend boots: `node emulator/qemu/build-qemu-images.mjs cli`.
+ * The Q2 image: telemetry + Wi-Fi elision + serial CLI, **without** the OLED
+ * framebuffer hook. `node emulator/qemu/build-qemu-images.mjs cli`.
+ *
+ * Still supported, still honest — it just cannot show pixels, and
+ * {@link capabilitiesForImage} says so when it is the one booted.
+ */
+export const CLI_IMAGE_PATH = path.join(IMAGES_DIR, 'distro-v1-esp32-cli.flash.bin');
+
+/**
+ * The same image plus `-DSESAME_TELEMETRY_OLED=1`.
+ * `node emulator/qemu/build-qemu-images.mjs cli-oled`.
+ *
+ * One compile-time token is the entire difference. It turns on the hook inside
+ * `updateFaceBitmap()` that base64s `display.getBuffer()` — the exact 1024
+ * bytes `display.display()` would shift into GDDRAM — onto UART0, so the
+ * panel's pixels arrive from the guest instead of being re-derived host-side.
+ */
+export const OLED_IMAGE_PATH = path.join(IMAGES_DIR, 'distro-v1-esp32-cli-oled.flash.bin');
+
+/**
+ * The image this backend boots by default: the one WITH the framebuffer hook.
+ *
+ * **Measured, not assumed.** EXP6 kept the hook off because one frame is 1385
+ * bytes ≈ 120 ms of wire time at 115200 8N1, six times the 20 ms
+ * `motorCurrentDelay` budget it is emitted inside. Under QEMU, UART0 is a TCP
+ * socket and that baud rate does not exist. `emulator/qemu/probe-oled.mjs`
+ * measured the real cost through the firmware's own completion barrier:
+ * **+14–15 ms per frame** (median over 12 isolated single-frame face sets,
+ * three sessions: 29/30 ms with the hook against 15 ms without), and a full
+ * `rn wv` choreography grew by 38–100 ms on ~3.9 s — **+1.0 % to +2.5 %**, a
+ * spread dominated by host scheduling rather than by the hook. Per frame that
+ * is under one `motorCurrentDelay`, so the reason the hook ships off on silicon
+ * does not apply here.
  *
  * **Not stock firmware.** See {@link FIRMWARE_DEVIATIONS}.
  */
-export const DEFAULT_IMAGE_PATH = path.join(
-  REPO_ROOT,
-  'emulator',
-  'qemu',
-  'images',
-  'distro-v1-esp32-cli.flash.bin',
-);
+export const DEFAULT_IMAGE_PATH = OLED_IMAGE_PATH;
 
 /** QEMU's release tag, pinned by `fetch-qemu.mjs`. */
 export const QEMU_RELEASE = 'esp_develop_9.2.2_20260417';
+
+/**
+ * True when `imagePath` is an image built with the OLED framebuffer hook on.
+ *
+ * A filename test, and it is load-bearing enough to say why that is acceptable:
+ * the images are produced by one script into one directory under names it
+ * controls, and every consumer of this package gets its path from
+ * {@link DEFAULT_IMAGE_PATH} or passes one of the two constants above. A caller
+ * that hands in an arbitrary renamed image gets the conservative answer —
+ * `false`, panel elided — which is the safe direction to be wrong in: it
+ * under-claims rather than presenting host-drawn pixels as the emulator's.
+ */
+export function imageHasOledHook(imagePath: string): boolean {
+  return path.basename(imagePath).includes('cli-oled');
+}
 
 /**
  * Every way the running image differs from stock Sesame firmware.
@@ -60,14 +104,47 @@ export const FIRMWARE_DEVIATIONS: readonly string[] = Object.freeze([
   'R6 telemetry instrumentation applied (firmware/patches/telemetry-instrumentation.patch)',
 ]);
 
-/** Subsystems the emulator does not model. Silence from these means nothing. */
+/** The OLED image's extra deviation, appended to {@link FIRMWARE_DEVIATIONS}. */
+export const OLED_FIRMWARE_DEVIATION =
+  'Compiled with -DSESAME_TELEMETRY_OLED=1 and -DSESAME_TELEMETRY_OLED_MIN_MS=0, which the ' +
+  "patch's own #ifndef leaves overridable without changing its in-source defaults (0 and 500). " +
+  'This enables the framebuffer hook in updateFaceBitmap() and removes its rate limit; measured ' +
+  'cost under QEMU is +14-15 ms per frame and +1.0%..+2.5% on a full `rn wv`. See ' +
+  'docs/findings/EXP6-QEMU-oled.md.';
+
+/** {@link FIRMWARE_DEVIATIONS} plus {@link OLED_FIRMWARE_DEVIATION}. */
+export const OLED_FIRMWARE_DEVIATIONS: readonly string[] = Object.freeze([
+  ...FIRMWARE_DEVIATIONS,
+  OLED_FIRMWARE_DEVIATION,
+]);
+
+/**
+ * Subsystems the emulator does not model, **on the default (OLED) image**.
+ * Silence from these means nothing.
+ *
+ * `ssd1306-panel` is deliberately absent and `ssd1306-glass` deliberately
+ * present, and the distinction is the whole point. QEMU still attaches no
+ * SSD1306 to the I2C bus — the only slave the `esp32` machine creates is a
+ * TMP105 — so `display.display()`'s I2C writes still go nowhere and nothing
+ * confirms a panel received them. What changed is that the *framebuffer* is now
+ * observed, from inside the guest, one layer above the missing device. Silence
+ * on `oled.frame` therefore does mean something now — it means
+ * `updateFaceBitmap()` was not called, which is exactly what the firmware does
+ * for a face with no bitmap.
+ *
+ * See {@link ELIDED_WITHOUT_OLED_HOOK} for the list that applies to the `cli`
+ * image, and {@link elidedForImage} for the one that applies to what you booted.
+ */
 export const ELIDED_SUBSYSTEMS: readonly string[] = Object.freeze([
   'wifi-mac',
   'wifi-phy',
   'http-server',
   'captive-portal',
   'mdns',
-  'ssd1306-panel',
+  // The panel DEVICE, still absent, still unmodelled. Kept as its own entry so
+  // that dropping `ssd1306-panel` does not quietly also drop the fact that no
+  // pixel has ever been confirmed to reach any glass, real or emulated.
+  'ssd1306-glass',
   'servo-load',
   // Q3: QEMU's `misc.esp32.ledc` is a real device at the real address and its
   // duty *ratio* is arithmetically correct, but it has no timer, no clock, no
@@ -78,6 +155,22 @@ export const ELIDED_SUBSYSTEMS: readonly string[] = Object.freeze([
   'ledc-waveform',
   'usb-cdc',
 ]);
+
+/**
+ * The elision list for the `cli` image, which has no framebuffer hook.
+ *
+ * `ssd1306-panel` is back: with the hook off, the firmware emits face *names*
+ * and no pixels at all, so anything a UI draws it drew itself.
+ */
+export const ELIDED_WITHOUT_OLED_HOOK: readonly string[] = Object.freeze([
+  ...ELIDED_SUBSYSTEMS.filter((s) => s !== 'ssd1306-glass'),
+  'ssd1306-panel',
+]);
+
+/** Whichever of the two lists describes `imagePath`. */
+export function elidedForImage(imagePath: string): readonly string[] {
+  return imageHasOledHook(imagePath) ? ELIDED_SUBSYSTEMS : ELIDED_WITHOUT_OLED_HOOK;
+}
 
 /**
  * Peripherals that ARE modelled, and how far the model actually goes.
@@ -96,6 +189,20 @@ export const PERIPHERAL_FIDELITY: readonly string[] = Object.freeze([
     "therefore comes from the firmware's own instrumentation hook, ABOVE the peripheral — the " +
     'hook is load-bearing and no amount of emulator work retires it. Only a logic analyser on ' +
     'real hardware (checklist V6-14) can show a pulse. See docs/findings/Q3-ledc-fidelity.md.',
+  // The OLED sits in exactly the same awkward middle as the LEDC, and for
+  // exactly the same reason: the evidence comes from a firmware hook above a
+  // peripheral the emulator does not have. Saying "the OLED works now" without
+  // this paragraph would be the same error as "the LEDC is modelled".
+  'SSD1306 panel is NOT modelled and never has been: QEMU attaches no SSD1306 to the ESP32 I2C ' +
+    'bus (the only slave the esp32 machine creates is a TMP105), so display.display()\'s I2C ' +
+    'writes go nowhere. What IS observed, on the default image, is the FRAMEBUFFER — the ' +
+    'SESAME_TELEMETRY_OLED hook base64s display.getBuffer() from inside updateFaceBitmap(), ' +
+    'BEFORE display.display(), so the 1024 bytes are the driver\'s own page-ordered GDDRAM buffer ' +
+    'read out of guest RAM. Verified byte-for-byte against Adafruit_GFX::drawBitmap applied to ' +
+    'face-bitmaps.h: 7/7 frames identical in a probe session. That makes the pixels a report of ' +
+    'what the driver was about to shift out, NOT a readback of a panel — if an I2C write failed ' +
+    'the telemetry would still say the frame was drawn. Only real hardware can close that gap. ' +
+    'See docs/findings/EXP6-QEMU-oled.md.',
 ]);
 
 /**
@@ -116,8 +223,32 @@ export const QEMU_ORIGIN: TelemetryOrigin = Object.freeze({
   // not testable here by any means. Q1 §9, §12.
   board: 'distro-v1-esp32',
   elided: ELIDED_SUBSYSTEMS,
+  firmwareDeviations: OLED_FIRMWARE_DEVIATIONS,
+});
+
+/**
+ * The origin for the `cli` image — same emulator, same board, no framebuffer.
+ *
+ * Kept as its own frozen object rather than built on demand so that the two are
+ * comparable by identity in a test, and so that neither can drift into
+ * describing the other.
+ */
+export const QEMU_ORIGIN_WITHOUT_OLED: TelemetryOrigin = Object.freeze({
+  ...QEMU_ORIGIN,
+  elided: ELIDED_WITHOUT_OLED_HOOK,
   firmwareDeviations: FIRMWARE_DEVIATIONS,
 });
+
+/**
+ * The origin that describes the image actually booted.
+ *
+ * `kind` is `emulator` either way, and `isPhysicallyObserved()` is false either
+ * way. Nothing about enabling the framebuffer hook moves this any closer to
+ * hardware; it moves `oled.frame` from *absent* to *observed*, and that is all.
+ */
+export function originForImage(imagePath: string): TelemetryOrigin {
+  return imageHasOledHook(imagePath) ? QEMU_ORIGIN : QEMU_ORIGIN_WITHOUT_OLED;
+}
 
 /**
  * What this backend can do. Every `false` is load-bearing.
@@ -133,14 +264,24 @@ export const QEMU_CAPABILITIES: SesameCapabilities = Object.freeze({
   /** The actual compiled firmware executes, instruction by instruction. */
   firmwareExecution: true,
   /**
-   * False, and not for want of a hook. QEMU attaches no SSD1306 to the ESP32
-   * I2C bus — the only slave the machine creates is a TMP105 — so
-   * `display.display()` writes go nowhere. The R6 framebuffer hook
-   * (`SESAME_TELEMETRY_OLED=1`) would produce pixels from inside the guest, but
-   * it is off by default: one frame is 1385 bytes, ~120 ms of wire time at
-   * 115200 baud, inside a 20 ms servo delay budget.
+   * **True on the default image, and it means the framebuffer — not the panel.**
+   *
+   * QEMU still attaches no SSD1306 to the ESP32 I2C bus; the only slave the
+   * machine creates is a TMP105, and `display.display()`'s writes still go
+   * nowhere. What is true is that the R6 framebuffer hook
+   * (`SESAME_TELEMETRY_OLED=1`, on in `distro-v1-esp32-cli-oled`) reads
+   * `display.getBuffer()` from inside `updateFaceBitmap()` and puts those 1024
+   * bytes on UART0, so the pixels a UI draws are the guest's own GDDRAM rather
+   * than a host-side re-render of `face-bitmaps.h`.
+   *
+   * EXP6 left this off because a frame is ~120 ms of wire time at 115200 8N1.
+   * Under QEMU the UART is a TCP socket: measured +14-15 ms per frame and +1.0 %
+   * to +2.5 % on a full `rn wv`. See {@link DEFAULT_IMAGE_PATH} and
+   * `docs/findings/EXP6-QEMU-oled.md`.
+   *
+   * `false` for the `cli` image — use {@link capabilitiesForImage}.
    */
-  oledFramebuffer: false,
+  oledFramebuffer: true,
   /**
    * **True, and this is the change v2 makes.** The firmware's own serial
    * console on UART0 is the command channel — the same UART the telemetry
@@ -209,7 +350,7 @@ export const QEMU_CAPABILITIES_FULL: QemuCapabilities = Object.freeze({
       'This is the board the research report RECOMMENDS for DIY builds (Q1 §12).',
   }),
   commandChannel: COMMAND_CHANNEL,
-  firmwareDeviations: FIRMWARE_DEVIATIONS,
+  firmwareDeviations: OLED_FIRMWARE_DEVIATIONS,
   elided: ELIDED_SUBSYSTEMS,
   peripheralFidelity: PERIPHERAL_FIDELITY,
   knownFlakiness:
@@ -221,6 +362,28 @@ export const QEMU_CAPABILITIES_FULL: QemuCapabilities = Object.freeze({
     'at all. connect() detects it in ~2 s and relaunches: 0 failures in 25 connects, worst ' +
     'case 7 attempts. See docs/findings/Q2-qemu-backend.md.',
 });
+
+/** {@link QEMU_CAPABILITIES_FULL} for the `cli` image: no framebuffer, panel elided. */
+export const QEMU_CAPABILITIES_WITHOUT_OLED: QemuCapabilities = Object.freeze({
+  ...QEMU_CAPABILITIES_FULL,
+  oledFramebuffer: false,
+  origin: QEMU_ORIGIN_WITHOUT_OLED,
+  firmwareDeviations: FIRMWARE_DEVIATIONS,
+  elided: ELIDED_WITHOUT_OLED_HOOK,
+});
+
+/**
+ * The capability record for the image actually booted.
+ *
+ * This is what `QemuSesameRobot.capabilities()` returns, and it is the reason
+ * the app needs no QEMU-specific branch to decide whether the panel's pixels
+ * are the emulator's: booting the `cli` image reports `oledFramebuffer: false`
+ * with `ssd1306-panel` elided, booting `cli-oled` reports `true` without it, and
+ * the UI follows the record rather than the backend's identity.
+ */
+export function capabilitiesForImage(imagePath: string): QemuCapabilities {
+  return imageHasOledHook(imagePath) ? QEMU_CAPABILITIES_FULL : QEMU_CAPABILITIES_WITHOUT_OLED;
+}
 
 /**
  * Power-on joint angle assumed when a channel has never been observed.

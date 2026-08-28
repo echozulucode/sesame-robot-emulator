@@ -22,13 +22,23 @@
  *                            What QemuSesameRobot boots: it comes up idle and
  *                            takes its orders from the firmware's own serial
  *                            CLI on UART0 (Q2). NOT stock firmware either.
+ *   distro-v1-esp32-cli-oled byte-for-byte the `cli` recipe plus ONE token,
+ *                            -DSESAME_TELEMETRY_OLED=1, which the patch's own
+ *                            `#ifndef SESAME_TELEMETRY_OLED` leaves overridable
+ *                            without touching its in-source default of 0. That
+ *                            turns on the `@SESAME oled b64` hook so the 1024
+ *                            bytes of Adafruit_SSD1306's framebuffer leave the
+ *                            guest over UART0 and the panel's pixels stop being
+ *                            re-derived host-side. EXP6 proved the hook
+ *                            compiles and round-trips; this image is what makes
+ *                            it RUN. See docs/findings/EXP6-QEMU-oled.md.
  *
  * Everything happens in gitignored scratch under tools/; firmware/ is untouched
  * and the repo's firmware/build/sketch.yaml is not modified - the extra
  * profiles are injected into the SCRATCH copy of sketch.yaml by this script, so
  * the profile text itself is version-controlled here.
  *
- * Usage: node emulator/qemu/build-qemu-images.mjs [v1|s3|nowifi|cli|all]
+ * Usage: node emulator/qemu/build-qemu-images.mjs [v1|s3|nowifi|cli|cli-oled|all]
  */
 import { execFileSync, spawnSync } from 'node:child_process';
 import crypto from 'node:crypto';
@@ -42,8 +52,17 @@ import { parseArgs } from './args.mjs';
 const opts = parseArgs({
   name: 'build-qemu-images.mjs',
   summary: 'Assemble bootloader + partition table + app into QEMU-bootable flash images.',
-  flags: {},
-  positional: ['all|v1|nowifi|cli|s3'],
+  flags: {
+    // The patch's `#ifndef SESAME_TELEMETRY_OLED_MIN_MS` default is 500, sized
+    // for a 115200 UART where one frame is ~120 ms of wire time. QEMU's UART0
+    // is a TCP socket with no baud rate, so the right value here is a
+    // measurement rather than an inheritance - see docs/findings/EXP6-QEMU-oled.md
+    // and emulator/qemu/probe-oled.mjs. Overridden the same way the hook itself
+    // is: one -D, source default untouched.
+    'oled-min-ms': { describe: 'SESAME_TELEMETRY_OLED_MIN_MS for the cli-oled image', type: 'number', default: 0 },
+    'oled-suffix': { describe: 'suffix for the cli-oled output name (for A/B builds)', default: '' },
+  },
+  positional: ['all|v1|nowifi|cli|cli-oled|s3'],
 });
 const which = (opts._[0] ?? 'all').toLowerCase();
 
@@ -132,11 +151,22 @@ function addProfile(dir, profile) {
   fs.writeFileSync(p, s.replace('default_profile:', `${PROFILES[profile]}\ndefault_profile:`));
 }
 
-function compile(name, profile, outName) {
+/**
+ * `defines` are injected through `compiler.cpp.extra_flags`, the same lever
+ * scripts/build-firmware.mjs uses for the s2mini-oled profile, rather than by
+ * editing the patch. The checked-in source default stays 0, every other build
+ * property stays identical, and the difference between two images is then
+ * exactly the tokens listed here - which is what makes the cost delta
+ * attributable to the hook instead of to "a different build".
+ */
+function compile(name, profile, outName, defines = []) {
   const dir = path.join(SCRATCH, name, SKETCH_NAME);
   const build = path.join(SCRATCH, name, 'build');
   const out = path.join(SCRATCH, name, 'out');
-  run(CLI, ['--config-file', CFG, 'compile', '--profile', profile,
+  const extra = defines.length
+    ? ['--build-property', `compiler.cpp.extra_flags=${defines.map((d) => `-D${d}`).join(' ')}`]
+    : [];
+  run(CLI, ['--config-file', CFG, 'compile', '--profile', profile, ...extra,
     '--build-path', build, '--output-dir', out, '--warnings', 'default', dir], { stdio: 'inherit' });
   fs.mkdirSync(IMAGES, { recursive: true });
   const merged = path.join(out, `${SKETCH_NAME}.ino.merged.bin`);
@@ -185,4 +215,25 @@ if (which === 'cli' || which === 'all') {
     '--scratch', 'qemu-cli', '--trigger', 'none',
   ], { stdio: 'inherit' });
   compile('qemu-cli', 'distro-v1-esp32-qemu', 'distro-v1-esp32-cli');
+}
+if (which === 'cli-oled' || which === 'all') {
+  // EXP6-QEMU: the `cli` recipe verbatim - same base scratch, same telemetry
+  // patch, same Wi-Fi elision, same `--trigger none` - plus one -D.
+  //
+  // On distro-v1-esp32 there is no USB peripheral, so ARDUINO_USB_CDC_ON_BOOT
+  // is 0, `Serial` IS `Serial0`, and the hook's printf goes to the same UART0
+  // socket QemuSesameRobot already reads. Nothing else has to change.
+  const minMs = Number(opts['oled-min-ms'] ?? 0);
+  const suffix = String(opts['oled-suffix'] ?? '');
+  const scratch = `qemu-cli-oled${suffix}`;
+  console.log(`\n=== distro-v1-esp32-cli-oled${suffix} (MODIFIED: cli + -DSESAME_TELEMETRY_OLED=1, MIN_MS=${minMs}) ===`);
+  const d = stage(scratch, 'distro-v1-esp32');
+  applyPatch(d, path.join(REPO, 'firmware', 'patches', 'telemetry-instrumentation.patch'));
+  addProfile(d, 'distro-v1-esp32-qemu');
+  execFileSync(process.execPath, [
+    path.join(REPO, 'emulator', 'qemu', 'make-nowifi-variant.mjs'),
+    '--scratch', scratch, '--trigger', 'none',
+  ], { stdio: 'inherit' });
+  compile(scratch, 'distro-v1-esp32-qemu', `distro-v1-esp32-cli-oled${suffix}`,
+    ['SESAME_TELEMETRY_OLED=1', `SESAME_TELEMETRY_OLED_MIN_MS=${minMs}`]);
 }

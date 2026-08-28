@@ -23,7 +23,8 @@ export class QemuArtifactMissingError extends Error {
     super(
       what === 'qemu'
         ? `QEMU not found at ${artifactPath} — run: node emulator/qemu/fetch-qemu.mjs`
-        : `flash image not found at ${artifactPath} — run: node emulator/qemu/build-qemu-images.mjs cli`,
+        : `flash image not found at ${artifactPath} — run: node emulator/qemu/build-qemu-images.mjs ` +
+          `${artifactPath.includes('cli-oled') ? 'cli-oled' : 'cli'}`,
     );
     this.name = 'QemuArtifactMissingError';
   }

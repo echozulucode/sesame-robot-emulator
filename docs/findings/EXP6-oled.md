@@ -26,6 +26,13 @@ asks, because they have three different answers:
 | **2 · Instrumentation** | Is the compile-gated OLED framebuffer path real code that builds, links, routes and decodes? | **YES — proven this session.** §3 |
 | **3 · Silicon** | Do real pixels appear on a real SSD1306? | **UNTESTED.** No board exists. §4 |
 
+> **Follow-up (2026-08-28): [`EXP6-QEMU-oled.md`](EXP6-QEMU-oled.md).** Leg 2 has now been *run*,
+> not only compiled — on the V1 board under Espressif QEMU, where the hook fires, the framebuffer
+> arrives byte-identical to `drawBitmap(face-bitmaps.h)`, and the measured cost is **+14 ms per
+> frame / +1.0 % on a full `rn wv`**, because QEMU's UART0 is a TCP socket and §3.7's 120 ms is a
+> statement about 115200 baud. The in-source default here is still `0` and legs 1 and 3 below are
+> unchanged: `s2mini-oled` remains unexecutable (no `esp32s2` machine) and no real panel exists.
+
 The report's literal pass criterion — *`display.begin()` succeeds and pixels observable* — is
 **NOT MET**. Leg 1 is a hard no and leg 3 has never been attempted. What leg 2 buys is that the
 *educational* payload the experiment was reaching for — a framebuffer on the wire, decodable into

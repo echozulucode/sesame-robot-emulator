@@ -39,23 +39,36 @@
  * | The current Distro board (`distro-v3-s3`) | boots ROM + bootloader, never reaches `setup()` |
  * | The recommended DIY board (S2 Mini) | QEMU has **no** `esp32s2` machine |
  * | Wi-Fi, HTTP, captive portal, mDNS | **impossible** — QEMU models no ESP32 radio |
- * | OLED pixels | not rendered; QEMU attaches no SSD1306 |
+ * | An SSD1306 on the I2C bus | **not modelled**; the only slave is a TMP105 |
+ * | OLED *pixels* | observed on the default image — from the firmware's own framebuffer hook, ABOVE the missing device |
  *
- * Findings: `docs/findings/Q1-qemu-spike.md`, `docs/findings/Q2-qemu-backend.md`.
+ * Findings: `docs/findings/Q1-qemu-spike.md`, `docs/findings/Q2-qemu-backend.md`,
+ * `docs/findings/EXP6-QEMU-oled.md`.
  */
 
 export {
+  CLI_IMAGE_PATH,
   DEFAULT_IMAGE_PATH,
   DEFAULT_QEMU_PATH,
   ELIDED_SUBSYSTEMS,
+  ELIDED_WITHOUT_OLED_HOOK,
   FIRMWARE_DEVIATIONS,
+  OLED_FIRMWARE_DEVIATION,
+  OLED_FIRMWARE_DEVIATIONS,
+  OLED_IMAGE_PATH,
   PERIPHERAL_FIDELITY,
   POWER_ON_ANGLE_DEG,
   QEMU_CAPABILITIES,
   QEMU_CAPABILITIES_FULL,
+  QEMU_CAPABILITIES_WITHOUT_OLED,
   QEMU_ORIGIN,
+  QEMU_ORIGIN_WITHOUT_OLED,
   QEMU_RELEASE,
   REPO_ROOT,
+  capabilitiesForImage,
+  elidedForImage,
+  imageHasOledHook,
+  originForImage,
   resolveQemuOptions,
   type QemuCapabilities,
   type QemuRobotOptions,

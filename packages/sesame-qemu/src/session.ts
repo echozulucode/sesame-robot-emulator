@@ -39,7 +39,7 @@ import {
   type SesameTelemetry,
 } from '@sesame-lab/sesame-protocol';
 
-import { QEMU_ORIGIN, type ResolvedQemuOptions } from './config.js';
+import { originForImage, type ResolvedQemuOptions } from './config.js';
 import {
   QemuArtifactMissingError,
   QemuBootFailedError,
@@ -184,7 +184,7 @@ export class QemuSession {
       // that makes an emulator look like hardware. `defaultOrigin` is the half
       // that says which.
       defaultProvenance: 'observed',
-      defaultOrigin: QEMU_ORIGIN,
+      defaultOrigin: originForImage(options.imagePath),
     });
   }
 

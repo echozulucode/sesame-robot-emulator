@@ -18,13 +18,24 @@ import {
 } from '@sesame-lab/sesame-protocol';
 
 import {
+  CLI_IMAGE_PATH,
+  DEFAULT_IMAGE_PATH,
   ELIDED_SUBSYSTEMS,
+  ELIDED_WITHOUT_OLED_HOOK,
   FIRMWARE_DEVIATIONS,
+  OLED_FIRMWARE_DEVIATIONS,
+  OLED_IMAGE_PATH,
   PERIPHERAL_FIDELITY,
   POWER_ON_ANGLE_DEG,
   QEMU_CAPABILITIES,
   QEMU_CAPABILITIES_FULL,
+  QEMU_CAPABILITIES_WITHOUT_OLED,
   QEMU_ORIGIN,
+  QEMU_ORIGIN_WITHOUT_OLED,
+  capabilitiesForImage,
+  elidedForImage,
+  imageHasOledHook,
+  originForImage,
 } from '../config.js';
 import { BOOT_BANNER, PANIC_PATTERNS, livePids } from '../session.js';
 
@@ -46,8 +57,26 @@ describe('capabilities are truthful', () => {
     expect(QEMU_CAPABILITIES_FULL.commandChannel).toBe('serial-cli/upstream-1.0');
   });
 
-  it('claims no OLED framebuffer: QEMU attaches no SSD1306 to the I2C bus', () => {
-    expect(QEMU_CAPABILITIES.oledFramebuffer).toBe(false);
+  it('claims the OLED FRAMEBUFFER on the default image, and never the panel', () => {
+    // EXP6-QEMU: `distro-v1-esp32-cli-oled` carries -DSESAME_TELEMETRY_OLED=1,
+    // so display.getBuffer() really does cross UART0 and the pixels a UI draws
+    // are the guest's. What did NOT change is the device: QEMU still attaches
+    // no SSD1306, so the claim must stay pinned to the framebuffer.
+    expect(QEMU_CAPABILITIES.oledFramebuffer).toBe(true);
+    expect(DEFAULT_IMAGE_PATH).toBe(OLED_IMAGE_PATH);
+  });
+
+  it('claims NO framebuffer when the image booted has no hook', () => {
+    // The capability is a property of the IMAGE, not of the backend. Booting
+    // the `cli` image must report the old, correct answer - otherwise the
+    // record would be a slogan rather than a description.
+    expect(QEMU_CAPABILITIES_WITHOUT_OLED.oledFramebuffer).toBe(false);
+    expect(capabilitiesForImage(CLI_IMAGE_PATH).oledFramebuffer).toBe(false);
+    expect(capabilitiesForImage(OLED_IMAGE_PATH).oledFramebuffer).toBe(true);
+    expect(imageHasOledHook(CLI_IMAGE_PATH)).toBe(false);
+    expect(imageHasOledHook(OLED_IMAGE_PATH)).toBe(true);
+    // An image this package does not recognise gets the conservative answer.
+    expect(imageHasOledHook('C:/somewhere/mystery.flash.bin')).toBe(false);
   });
 
   it('names the boards it cannot do, including the one the report recommends', () => {
@@ -62,7 +91,11 @@ describe('capabilities are truthful', () => {
   it('surfaces the firmware deviations rather than leaving them in prose', () => {
     expect(FIRMWARE_DEVIATIONS.join(' ')).toMatch(/FlashMode=dio/);
     expect(FIRMWARE_DEVIATIONS.join(' ')).toMatch(/Wi-Fi/);
-    expect(QEMU_CAPABILITIES_FULL.firmwareDeviations).toEqual(FIRMWARE_DEVIATIONS);
+    // The default image carries one more: the OLED hook is a compile-time
+    // change to the firmware and has to be declared as one.
+    expect(QEMU_CAPABILITIES_FULL.firmwareDeviations).toEqual(OLED_FIRMWARE_DEVIATIONS);
+    expect(OLED_FIRMWARE_DEVIATIONS.join(' ')).toMatch(/-DSESAME_TELEMETRY_OLED=1/);
+    expect(QEMU_CAPABILITIES_WITHOUT_OLED.firmwareDeviations).toEqual(FIRMWARE_DEVIATIONS);
   });
 
   it('surfaces the known flakiness with its issue id', () => {
@@ -93,6 +126,19 @@ describe('the LEDC peripheral is not claimed to produce a waveform (Q3)', () => 
     expect(QEMU_CAPABILITIES_FULL.peripheralFidelity).toEqual(PERIPHERAL_FIDELITY);
   });
 
+  it('says the SSD1306 is still unmodelled even though the pixels are observed', () => {
+    // The exact sentence that stops "oledFramebuffer: true" being read as "the
+    // panel is emulated". Same shape as the LEDC entry above and for the same
+    // reason: the evidence is a firmware hook ABOVE a device that is absent.
+    const fidelity = PERIPHERAL_FIDELITY.join(' ');
+    expect(fidelity).toMatch(/SSD1306 panel is NOT modelled/i);
+    expect(fidelity).toMatch(/getBuffer\(\)/);
+    expect(fidelity).toMatch(/NOT a readback of a panel/i);
+    expect(fidelity).toMatch(/EXP6-QEMU-oled\.md/);
+    // Present on BOTH records: the device is missing either way.
+    expect(QEMU_CAPABILITIES_WITHOUT_OLED.peripheralFidelity).toEqual(PERIPHERAL_FIDELITY);
+  });
+
   it('never lets "LEDC is modelled" stand alone as a claim about the servo signal', () => {
     // A regression guard with teeth: if someone drops the elided entry, the
     // capability record would say only that a peripheral exists.
@@ -120,7 +166,29 @@ describe('provenance cannot be mistaken for hardware', () => {
     expect(QEMU_ORIGIN.board).toBe('distro-v1-esp32');
     expect(QEMU_ORIGIN.elided).toEqual(ELIDED_SUBSYSTEMS);
     expect(QEMU_ORIGIN.elided).toContain('wifi-phy');
-    expect(QEMU_ORIGIN.elided).toContain('ssd1306-panel');
+    // `ssd1306-panel` is gone on the default image because the framebuffer is
+    // observed; `ssd1306-glass` replaces it because the DEVICE still is not
+    // modelled and no pixel has been confirmed to reach any panel.
+    expect(QEMU_ORIGIN.elided).not.toContain('ssd1306-panel');
+    expect(QEMU_ORIGIN.elided).toContain('ssd1306-glass');
+    // And the image without the hook keeps the original claim exactly.
+    expect(QEMU_ORIGIN_WITHOUT_OLED.elided).toContain('ssd1306-panel');
+    expect(QEMU_ORIGIN_WITHOUT_OLED.elided).not.toContain('ssd1306-glass');
+    expect(originForImage(CLI_IMAGE_PATH)).toBe(QEMU_ORIGIN_WITHOUT_OLED);
+    expect(originForImage(OLED_IMAGE_PATH)).toBe(QEMU_ORIGIN);
+    expect(elidedForImage(CLI_IMAGE_PATH)).toEqual(ELIDED_WITHOUT_OLED_HOOK);
+    expect(elidedForImage(OLED_IMAGE_PATH)).toEqual(ELIDED_SUBSYSTEMS);
+  });
+
+  it('enabling the framebuffer moves NOTHING towards hardware', () => {
+    // The whole point of TelemetryOrigin. `observed` now covers pixels as well
+    // as servo angles, and it is still an emulator on both counts.
+    expect(QEMU_ORIGIN.kind).toBe('emulator');
+    expect(QEMU_ORIGIN_WITHOUT_OLED.kind).toBe('emulator');
+    expect(isPhysicallyObserved({ provenance: 'observed', origin: QEMU_ORIGIN })).toBe(false);
+    expect(QEMU_CAPABILITIES.realHardware).toBe(false);
+    expect(QEMU_CAPABILITIES_WITHOUT_OLED.realHardware).toBe(false);
+    expect(QEMU_ORIGIN.board).toBe(QEMU_ORIGIN_WITHOUT_OLED.board);
   });
 
   it('describeOrigin never renders as a bare "observed"', () => {

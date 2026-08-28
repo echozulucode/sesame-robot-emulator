@@ -270,4 +270,7 @@ if (problems.length) {
   process.exit(1);
 }
 console.log('OK    EXP6 — the OLED framebuffer hook compiles, links, routes to UART0, and round-trips through @sesame-lab/sesame-protocol');
-console.log('      NOT proven: that it has ever executed. No silicon, and Renode cannot boot this image (Gate A).');
+console.log('      NOT proven HERE: that THIS build has ever executed. s2mini-oled is an ESP32-S2');
+console.log('      image; QEMU has no esp32s2 machine, Renode cannot boot it (Gate A), and no board exists.');
+console.log('      The same hook HAS been run, on the V1 board under QEMU, in distro-v1-esp32-cli-oled:');
+console.log('      byte-identical frames at +14 ms each. See docs/findings/EXP6-QEMU-oled.md.');
