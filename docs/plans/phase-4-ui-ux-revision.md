@@ -1,7 +1,7 @@
 # Sesame Lab — UI/UX Revision Plan (Phase 4)
 ## Typography floor · container queries · one laptop workbench · representation-switching
 
-**Status:** proposed, awaiting approval — **one decision needs your call before W3 starts (§3)**
+**Status:** approved. §3 resolved 2026-08-27 by the user's 50%-area rule.
 **Opened:** 2026-08-27
 **Source:** `docs/research/Sesame Lab_ responsive UI_UX research brief.md` (1,232 lines, external specialist)
 **Supersedes:** `docs/plans/phase-3-ui-ux-improvement.md` §§2–4 for laptop widths
@@ -35,20 +35,43 @@ Worth stating, so the revision does not throw away what is working:
 - **Correctness surfaces are endorsed and strengthened.** The brief adds invariants we did not have — most importantly that *"observed"* alone is insufficient, because a novice reads it as *observed on hardware*.
 - **Do not adopt Tailwind** merely because the stylesheet is long, and **do not** combine any CSS migration with a component-library migration — visual regressions become unattributable.
 
-## 3. The one decision that needs you
+## 3. Resolved: one workbench, in flow, robot >= 50% of screen area
 
-**The brief recommends against two side-by-side docks at 1440×900 — which is what you asked for and what U6 just shipped.**
+The brief recommended against two side-by-side docks at 1440x900 - what was asked for and what U6
+shipped - on the arithmetic that a 64px rail + two 360px docks + a 900px stage needs ~1684px.
 
-Its arithmetic: a 64px rail + two 360px docks + a 900px stage needs **~1684px** before gaps. So *"a 1440px breakpoint for full desktop furniture is badly placed for your primary machine."* It recommends keeping **Control** and **Analyze** as top-level concepts but making them **two modes of one workbench** at laptop size.
+The user resolved it with a different and better constraint:
 
-I think it is right, and the synthesis that honours both:
+> *"I'd rather the robot area shrink. 50% of the screen area is more than enough."*
 
-| Viewport | Workbench |
-|---|---|
-| < 1700px (**includes your 1440×900**) | **One** workbench overlay, 540px, with a `Control | Analyze` mode switch at its top |
-| ≥ 1700px | **Two** docks side by side, as U6 built them |
+That rule independently produces the brief's recommendation. At 1440x900 with a 64px rail and a
+32px status strip, stage height 868:
 
-Your two-dock layout survives where the arithmetic supports it, and your laptop gets the composition the brief specifies. **This is the only item I will not proceed on without your say-so**, because it partially reverses an explicit request.
+| Configuration | Stage | Area | % of screen | |
+|---|---|---:|---:|---|
+| **One workbench 540px** | 836x868 | 725,648 | **56.0%** | passes |
+| One workbench 500px | 876x868 | 760,368 | 58.7% | passes |
+| Two docks 320+320 | 736x868 | 638,848 | 49.3% | fails |
+| Two docks 360+360 | 656x868 | 569,408 | 43.9% | fails |
+
+**Two docks cannot satisfy the 50% rule at 1440x900 at any usable dock width.** One 540px workbench
+clears it with room to spare. So the decision is made by arithmetic rather than by preference.
+
+### Three consequences, all simplifying
+
+1. **Docks go back into flow. The overlay is retired below Wide.** The overlay existed solely to stop
+   the stage losing width; the user has now said losing width is fine. In-flow means no scrim, no
+   floating panel, and no z-order to reason about.
+2. **The safe-area occlusion model is no longer needed.** The brief proposed passing an occlusion
+   rectangle to the camera because the stage stayed full-bleed behind the workbench. With the stage
+   actually resizing, the canvas reframes on a real resize - which we already handle, and which
+   ISSUE-20260823-023 already asserts across dock resizes.
+3. **The viewport-share metric survives** rather than being retired (§7 rewritten).
+
+### Two docks above 1700px
+
+Retained. At >= 1700px, two 360px docks plus a 64px rail leave >= 1276px of stage, which clears 50%
+comfortably. U6's two-dock work is not wasted - it becomes the wide-desktop regime.
 
 ## 4. Workstreams
 
@@ -80,16 +103,15 @@ Split responsibilities exactly as the brief specifies — **media queries for sh
 
 Migrate incrementally: tokens and scroll ownership first, then per-pane containers, then move pane logic out of viewport queries, then delete dead overrides. Estimated a quarter to two-fifths of selectors touched.
 
-### W3 · One laptop workbench (**gated on §3**)
+### W3 · One laptop workbench (approved, §3)
 64px rail with icon + readable 14px label · 30–32px status strip · 540px workbench inset 12–16px · exactly one scroller · `Control | Analyze` mode switch · tabs or a compact section navigator **before** nested accordions.
 
-**The stage stops being resized.** It stays the full canvas; instead we pass a safe-area to the camera framing logic so Sesame stays framed in the unoccluded region when the workbench opens:
+**The stage is resized, not overlaid.** Per §3 the workbench sits in flow and the canvas genuinely
+shrinks to ~836x868 at 1440x900. The brief's safe-area occlusion model is therefore not needed: the
+camera reframes on a real resize, which is the path ISSUE-20260823-023 already guards.
 
-```ts
-const safeArea = { left: railWidth, right: workbenchOpen ? workbenchWidth + gap : 0, top: 0, bottom: statusHeight };
-```
-
-That keeps the robot feeling like the environment rather than a video tile squeezed by chrome — and it means our viewport-share metric needs rethinking (§7).
+Retire the `overlay-not-push` assertion below Wide and replace it with the stage-area rule in §7.
+Do not leave it passing against a layout that no longer overlays.
 
 **Persistent environment line:** `SYSTEM: QEMU EMULATOR · PHYSICAL HARDWARE: NONE`. The brief is blunt that *"observed"* reads to a novice as *observed on hardware*, so this must be visible, not in a legend.
 
@@ -152,13 +174,21 @@ One agent per workstream, sequential — they all own `apps/web`, and concurrent
 - **No vocabulary simplification.** `ESP32Servo` stays `ESP32Servo`.
 - **No compact mode as a default.**
 
-## 7. A metric we have to retire honestly
+## 7. The stage metric, kept and sharpened
 
-We have been asserting **viewport share ≥45%**, and reporting 95.8% at 1440×900 as a win.
+Earlier drafts of this plan proposed retiring viewport share, because a full-bleed stage behind an
+overlay would read ~100% while the robot sat behind a panel. §3 removes that problem: the stage is
+genuinely resized, so a measured share means what it says again.
 
-Under W3 the stage becomes the full canvas with the workbench overlaying it, so that number stops meaning what it meant — it would trivially read ~100% while the robot sits behind a panel. The brief's replacement is better: **the robot's projected bounding box must remain inside the declared safe area after the workbench opens** (~820×620px unobscured at 1440×900).
+Replace the current assertion with the user's rule, and make it area rather than height:
 
-Replace the assertion; do not keep both. And say so in the findings rather than letting a number quietly change meaning — that is the class of mistake the "it scrolled there" assertion already taught us.
+- **Stage area >= 50% of viewport area** at every breakpoint at and above Medium.
+- Keep the existing floors (`min-height: 45vh`, `min-width: min(480px, 100%)`) as a Compact backstop.
+- **Retire `overlay-not-push`** below Wide, and say so in the findings - it would otherwise keep
+  passing against a layout that no longer overlays, which is exactly the hollow-assertion failure
+  mode this project has hit twice.
+- Keep ISSUE-20260823-023 world-frame stability asserted across every breakpoint and every dock
+  resize. That check becomes *more* load-bearing now that the canvas resizes for real.
 
 ## 8. Definition of done
 
