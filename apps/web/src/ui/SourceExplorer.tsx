@@ -89,6 +89,20 @@ export interface SourceExplorerProps {
   /** The rows the trace pane is showing. The runtime-event half of the sync. */
   readonly traceRows: readonly TraceRow[];
   readonly onSelectRow: (row: TraceRow) => void;
+  /**
+   * How many lines the code view may render before it says so and stops.
+   *
+   * Below Wide the code view has no scrollbar of its own — the dock body is the
+   * single scroller there, because a reader told us they would rather scroll
+   * one long pane than read tiny content in three nested ones. What bounds the
+   * code region at those widths is therefore this NUMBER OF LINES rather than a
+   * pixel height, and the difference matters: a line budget is announced in the
+   * UI ("showing lines 83-140 of 429") and can be lifted with a button, where a
+   * pixel height is a mystery gutter. At Wide the bound is still the pixel box
+   * `.source-body` gives it, which is what L4 measures its scroll assertion
+   * against.
+   */
+  readonly lineBudget?: number;
 }
 
 /** Lines of context either side of the symbol. Enough to see the brace above. */
@@ -140,7 +154,15 @@ const KIND_MARK: Record<string, string> = {
 const shortFile = (file: string): string => file.replace(/^firmware\//, '');
 
 export function SourceExplorer(props: SourceExplorerProps): ReactElement {
-  const { selection, onSelectSymbol, onSelectNode, onSelectJoint, traceRows, onSelectRow } = props;
+  const {
+    selection,
+    onSelectSymbol,
+    onSelectNode,
+    onSelectJoint,
+    traceRows,
+    onSelectRow,
+    lineBudget = MAX_RENDERED_LINES,
+  } = props;
 
   const symbol = selection.symbolId === null ? null : (SYMBOL_BY_ID.get(selection.symbolId) ?? null);
 
@@ -152,6 +174,8 @@ export function SourceExplorer(props: SourceExplorerProps): ReactElement {
   const [focusConcept, setFocusConcept] = useState<string | null>(null);
   const [conceptPage, setConceptPage] = useState(0);
   const [probeDeg, setProbeDeg] = useState(90);
+  /** Lines the reader asked for beyond {@link lineBudget}, via "show more". */
+  const [extraLines, setExtraLines] = useState(0);
   const codeRef = useRef<HTMLDivElement | null>(null);
 
   // The file follows the selection — on a CHANGE of selection, not on every
@@ -164,6 +188,9 @@ export function SourceExplorer(props: SourceExplorerProps): ReactElement {
     if (lastSymbolId.current === symbol.id) return;
     lastSymbolId.current = symbol.id;
     setFile(symbol.file);
+    // A new symbol is a new window; an expansion the reader asked for on the
+    // last one must not silently apply to this one.
+    setExtraLines(0);
   }, [symbol]);
 
   // Lazily fetch and verify. 297 kB of `face-bitmaps.h` is not worth loading
@@ -189,16 +216,17 @@ export function SourceExplorer(props: SourceExplorerProps): ReactElement {
   const outline = useMemo(() => symbolsInFile(file), [file]);
 
   // ------------------------------------------------------------- the window
+  const budget = Math.max(1, lineBudget + extraLines);
   const viewWindow = useMemo(() => {
     const total = facts?.lines ?? 0;
     if (symbol === null || symbol.file !== file) {
-      return { from: 1, to: Math.min(total, MAX_RENDERED_LINES), clipped: total > MAX_RENDERED_LINES };
+      return { from: 1, to: Math.min(total, budget), clipped: total > budget, budget };
     }
     const from = Math.max(1, symbol.startLine - CONTEXT_LINES);
     const wanted = Math.min(total, symbol.endLine + CONTEXT_LINES);
-    const to = Math.min(wanted, from + MAX_RENDERED_LINES - 1);
-    return { from, to, clipped: to < wanted };
-  }, [symbol, file, facts]);
+    const to = Math.min(wanted, from + budget - 1);
+    return { from, to, clipped: to < wanted, budget };
+  }, [symbol, file, facts, budget]);
 
   /**
    * The rendered lines, each carrying its own number.
@@ -384,8 +412,16 @@ export function SourceExplorer(props: SourceExplorerProps): ReactElement {
                     {' '}
                     &middot;{' '}
                     <span className="warn-inline">
-                      clipped at {MAX_RENDERED_LINES} rendered lines
-                    </span>
+                      clipped at {viewWindow.budget} rendered lines
+                    </span>{' '}
+                    <button
+                      type="button"
+                      className="source-tab"
+                      data-testid="source-show-more"
+                      onClick={() => setExtraLines((n) => n + lineBudget)}
+                    >
+                      show {lineBudget} more
+                    </button>
                   </>
                 )}
                 {symbol !== null && (

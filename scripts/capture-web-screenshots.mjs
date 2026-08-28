@@ -664,27 +664,90 @@ console.log('[web] app loaded, rig built');
  * collapsed section does not have is a laid-out box, which is why anything
  * measuring geometry calls this (or `openSection`) FIRST rather than after.
  */
+/**
+ * Which of the two docks draws which section.
+ *
+ * The shell is `rail | stage | CONTROL dock | ANALYSIS dock`: the control dock
+ * is inboard and holds the surfaces that DRIVE the robot, the analysis dock is
+ * outboard and holds the ones that EXPLAIN it. Mirrored here rather than read
+ * out of the page so a phase that names a dock that stopped existing fails
+ * loudly at the first call instead of silently opening nothing.
+ */
+const DOCK_OF = {
+  commands: 'control',
+  face: 'control',
+  lab: 'control',
+  inspector: 'analysis',
+  modules: 'analysis',
+  signal: 'analysis',
+  source: 'analysis',
+  learn: 'analysis',
+};
+
+const dockOf = (id) => {
+  const dock = DOCK_OF[id];
+  if (dock === undefined) die(`no such dock section: ${id}`);
+  return dock;
+};
+
 const focusSection = async (evaluate, id) => {
+  const dock = dockOf(id);
   await evaluate(`(() => {
     const shell = window.__sesame.shell();
     for (const open of shell.openSections) {
       if (open !== ${JSON.stringify(id)}) window.__sesame.setSection(open, false);
     }
-    window.__sesame.setDockOpen(true);
+    window.__sesame.setDockOpen(${JSON.stringify(dock)}, true);
     window.__sesame.setSection(${JSON.stringify(id)}, true);
   })()`);
   // A repaint, plus React Flow's resize observer, plus the dock's own scroller
   // back to the top now that there is only one section in it.
   await sleep(500);
-  await evaluate(`void document.querySelector('[data-testid="dock-body"]')?.scrollTo(0, 0)`);
+  await evaluate(
+    `void document.querySelector('[data-testid="dock-body-${dock}"]')?.scrollTo(0, 0)`,
+  );
   await sleep(250);
 };
 
 const openSection = async (evaluate, id) => {
-  await evaluate(`window.__sesame.setDockOpen(true); window.__sesame.setSection(${JSON.stringify(id)}, true)`);
+  await evaluate(
+    `window.__sesame.setDockOpen(${JSON.stringify(dockOf(id))}, true); ` +
+      `window.__sesame.setSection(${JSON.stringify(id)}, true)`,
+  );
   // One repaint plus React Flow's own resize observer, which needs a laid-out
   // box before it will place nodes at real coordinates.
   await sleep(450);
+};
+
+/** Put a dock's scroller back to the top before a capture. */
+const scrollDockTop = (evaluate, id) =>
+  evaluate(`void document.querySelector('[data-testid="dock-body-${dockOf(id)}"]')?.scrollTo(0, 0)`);
+
+/**
+ * Click the real `[data-command="wave"]` button, and mean it.
+ *
+ * The command vocabulary moved from a fixed strip under the stage into the
+ * control dock's `Commands` section, so the section is opened first and the
+ * button is HIT-TESTED rather than merely found: `HTMLElement.click()` fires on
+ * a `hidden` element too, and a check that a hidden button "works" is a check
+ * that proves nothing. `elementFromPoint` at the button's own centre is what
+ * separates "a reader could press this" from "React still has a handler".
+ */
+const clickWaveButton = async (evaluate) => {
+  await openSection(evaluate, 'commands');
+  return evaluate(`(() => {
+    const button = document.querySelector('[data-command="wave"]');
+    if (button === null) return { ok: false, why: 'no [data-command="wave"] button in the DOM' };
+    if (button.disabled) return { ok: false, why: 'the wave button is disabled' };
+    const rect = button.getBoundingClientRect();
+    if (rect.width === 0 || rect.height === 0)
+      return { ok: false, why: 'the wave button has no laid-out box' };
+    const hit = document.elementFromPoint(rect.left + rect.width / 2, rect.top + rect.height / 2);
+    if (hit === null || !(hit === button || button.contains(hit)))
+      return { ok: false, why: 'something is covering the wave button: ' + (hit?.className ?? 'nothing') };
+    button.click();
+    return { ok: true, why: button.textContent, rect: { w: rect.width, h: rect.height } };
+  })()`);
 };
 
 // `ready` means the rig exists, which is set from a `useEffect` — and that can
@@ -1008,6 +1071,7 @@ await waitFor(
 
   // Bring the OLED panel into view: the evidence has to show the 8x pixel
   // canvas and the 3D projection in the same frame.
+  await focusSection(page.evaluate, 'face');
   await page.evaluate(
     `void document.querySelector('[data-testid="oled"]')?.scrollIntoView({ block: 'start' })`,
   );
@@ -1123,7 +1187,7 @@ await waitFor(
   // Back to the top of the dock: this shot's evidence is the backend switch and
   // the provenance banner, both of which live in the inspector section now.
   // (`.sidebar` was the old third column; the dock's scroller replaced it.)
-  await page.evaluate(`void document.querySelector('[data-testid="dock-body"]')?.scrollTo(0, 0)`);
+  await scrollDockTop(page.evaluate, 'inspector');
   await sleep(400);
   await page.shoot(
     'v3-browser-bridge-backend.png',
@@ -1232,7 +1296,7 @@ await waitFor(
 
   // `.workbench` was the middle column that held the graph above the trace.
   // Both are dock sections now and the dock's own scroller is what moves.
-  await page.evaluate(`void document.querySelector('[data-testid="dock-body"]')?.scrollTo(0, 0)`);
+  await scrollDockTop(page.evaluate, 'signal');
   await sleep(700);
   await focusSection(page.evaluate, 'modules');
   const graphCollapsedShot = await page.shoot(
@@ -1292,13 +1356,7 @@ await waitFor(
   // -------------------------------------------------- fire a command, by click
   await page.evaluate('window.__sesame.reset()');
   const worldBefore = await page.evaluate('window.__sesame.worldFrame()');
-  const traceClick = await page.evaluate(`(() => {
-    const button = document.querySelector('[data-command="wave"]');
-    if (button === null) return { ok: false, why: 'no [data-command="wave"] button in the DOM' };
-    if (button.disabled) return { ok: false, why: 'the wave button is disabled' };
-    button.click();
-    return { ok: true, why: button.textContent };
-  })()`);
+  const traceClick = await clickWaveButton(page.evaluate);
   check(traceClick.ok, `could not click the wave button for the trace: ${traceClick.why}`);
 
   // Wait for the ladder to be complete FOR EVERY JOINT THE MOVEMENT WRITES,
@@ -3342,7 +3400,7 @@ if (SKIP_QEMU) {
           `${driven.length} joints driven, ${observed.canvasPixels} canvas pixels.`,
       );
     }
-    await qemuPage.evaluate(`void document.querySelector('[data-testid="dock-body"]')?.scrollTo(0, 0)`);
+    await scrollDockTop(qemuPage.evaluate, 'signal');
     await sleep(400);
     await qemuPage.shoot(
       'v3-browser-qemu-observed.png',
@@ -3577,13 +3635,7 @@ if (SKIP_QEMU) {
     // same code path, but the claim being evidenced is "the buttons work", and
     // a disabled button, a missing handler or a `canCommand: false` backend are
     // exactly the failures a direct call would step over.
-    const clicked = await evaluate(`(() => {
-      const button = document.querySelector('[data-command="wave"]');
-      if (button === null) return { ok: false, why: 'no [data-command="wave"] button in the DOM' };
-      if (button.disabled) return { ok: false, why: 'the wave button is disabled' };
-      button.click();
-      return { ok: true, why: button.textContent };
-    })()`);
+    const clicked = await clickWaveButton(evaluate);
     check(clicked.ok, `could not click the wave button: ${clicked.why}`);
     console.log('[web] clicked the wave button');
 
@@ -3871,12 +3923,13 @@ if (SKIP_QEMU) {
       `the render loop drew ${snapshot6.renderStats?.frames} frames — every reading above is stale`,
     );
 
-    await evaluate(`void document.querySelector('[data-testid="dock-body"]')?.scrollTo(0, 0)`);
+    await focusSection(evaluate, 'inspector');
     await sleep(400);
     const waveShot = await labPage.shoot(
       'v3-browser-qemu-commanded-wave.png',
       'a browser button drove real Sesame firmware: POST /api/command -> the firmware’s serial console under QEMU -> 29 @SESAME servo events -> these quaternions. Labelled emulated, on the legacy V1 board, not a measurement.',
     );
+    await focusSection(evaluate, 'face');
     await evaluate(
       `void document.querySelector('[data-testid="oled"]')?.scrollIntoView({ block: 'start' })`,
     );
@@ -4931,18 +4984,54 @@ if (SKIP_QEMU) {
     return shellPage;
   };
 
+  /**
+   * Computed font sizes of the same five nodes, in the same open section.
+   *
+   * "I still cannot read any of the content" is the second complaint this
+   * change answers, and the machine-checkable form of it is that nothing in the
+   * dock is SMALLER at Medium than at Wide. Below Wide there is one column
+   * instead of three and the overlay is wider than the Wide dock, so there is
+   * no width argument left for shrinking anything.
+   */
+  const fontFingerprint = (evaluate) =>
+    evaluate(`(() => {
+      const of = (sel) => {
+        const el = document.querySelector(sel);
+        return el === null ? null : parseFloat(getComputedStyle(el).fontSize);
+      };
+      return {
+        'section body': of('[data-dock-section="source"] .dock-section-body'),
+        'a line of C++': of('.src-line'),
+        'an outline row': of('.source-outline-row'),
+        'a file tab': of('.source-tab'),
+        'the window note': of('[data-testid="source-window"]'),
+      };
+    })()`);
+
+  const fonts = {};
+
   // --------------------------------------------------- one pass per window
   for (const window of RESPONSIVE_WINDOWS) {
     const where = `${window.width}x${window.height} (${window.breakpoint})`;
     const shellPage = await bootPage(window);
     try {
-      // The dock starts shut below Wide, which is the state a first-time reader
-      // meets. Measure it here and again with the dock open: below Wide the two
-      // stage widths must be IDENTICAL.
-      await shellPage.evaluate('window.__sesame.setDockOpen(false)');
+      // Both docks start shut below Wide, which is the state a first-time
+      // reader meets. Measure the stage there, then open EACH dock in turn:
+      // below Wide all three readings must agree, because neither dock may
+      // take a pixel from the robot.
+      await shellPage.evaluate(
+        'window.__sesame.setDockOpen("control", false); window.__sesame.setDockOpen("analysis", false)',
+      );
       await sleep(500);
       const shut = await shellPage.evaluate('window.__sesame.shell()');
-      await shellPage.evaluate('window.__sesame.setDockOpen(true)');
+
+      await shellPage.evaluate('window.__sesame.setDockOpen("control", true)');
+      await sleep(700);
+      const controlOpen = await shellPage.evaluate('window.__sesame.shell()');
+
+      await shellPage.evaluate(
+        'window.__sesame.setDockOpen("control", false); window.__sesame.setDockOpen("analysis", true)',
+      );
       await sleep(700);
       const open = await shellPage.evaluate('window.__sesame.shell()');
 
@@ -4951,8 +5040,15 @@ if (SKIP_QEMU) {
         `${where} classified itself as "${shut.breakpoint}"`,
       );
 
-      // ------------------------------------------- THE assertion that was missing
-      for (const [state, reading] of [['dock shut', shut], ['dock open', open]]) {
+      // ---------------------------------------- THE assertion that was missing
+      //
+      // The stage strip that held the commands and the OLED is gone — it cost
+      // the viewport up to 176 px of height and this is where that shows.
+      for (const [state, reading] of [
+        ['docks shut', shut],
+        ['control dock open', controlOpen],
+        ['analysis dock open', open],
+      ]) {
         check(
           reading.viewportHeightSharePct >= HEIGHT_FLOOR_PCT,
           `at ${where} with the ${state} the 3D canvas is ${reading.canvasHeightPx.toFixed(0)} px ` +
@@ -4967,24 +5063,50 @@ if (SKIP_QEMU) {
         );
       }
 
-      // ------------------------------------------------- overlay, not push
+      // A thin line, not a strip. 34 px, and it must never grow into one.
+      check(
+        shut.statusBarHeightPx > 0 && shut.statusBarHeightPx <= 40,
+        `the status line under the robot is ${shut.statusBarHeightPx.toFixed(1)} px at ${where}; ` +
+          `it replaced a 120-176 px strip and must stay a glance line`,
+      );
+
+      // ------------------------------------------- overlay, not push, PER DOCK
       if (window.breakpoint === 'wide') {
         check(
           open.dockOverlays === false,
-          `${where} is Wide, where the dock is in flow and pushing is correct`,
+          `${where} is Wide, where the docks are in flow and pushing is correct`,
         );
       } else {
-        check(open.dockOverlays === true, `${where} does not report an overlaying dock`);
+        check(open.dockOverlays === true, `${where} does not report overlaying docks`);
+        for (const [label, reading] of [
+          ['control', controlOpen],
+          ['analysis', open],
+        ]) {
+          check(
+            Math.abs(reading.stageWidthPx - shut.stageWidthPx) < 0.5,
+            `at ${where} the stage lost ${(shut.stageWidthPx - reading.stageWidthPx).toFixed(1)} px ` +
+              `when the ${label} dock opened (${shut.stageWidthPx.toFixed(1)} -> ` +
+              `${reading.stageWidthPx.toFixed(1)}). Below Wide a dock must OVERLAY the stage, not ` +
+              `push it — that rule is the whole fix, and there are two docks to break it now.`,
+          );
+          check(
+            Math.abs(reading.canvasWidthPx - shut.canvasWidthPx) < 0.5,
+            `at ${where} the 3D canvas was resized by opening the ${label} dock ` +
+              `(${shut.canvasWidthPx.toFixed(1)} -> ${reading.canvasWidthPx.toFixed(1)})`,
+          );
+        }
+        // The overlay's width is FREE — it costs the stage nothing — so it is
+        // used. 460 px was the old one-dock width and was too narrow to read.
         check(
-          Math.abs(open.stageWidthPx - shut.stageWidthPx) < 0.5,
-          `at ${where} the stage lost ${(shut.stageWidthPx - open.stageWidthPx).toFixed(1)} px when ` +
-            `the dock opened (${shut.stageWidthPx.toFixed(1)} -> ${open.stageWidthPx.toFixed(1)}). ` +
-            `Below Wide the dock must OVERLAY the stage, not push it — that rule is the whole fix.`,
+          open.docks.analysis.rectWidthPx >= 560,
+          `the analysis overlay is only ${open.docks.analysis.rectWidthPx.toFixed(0)} px wide at ` +
+            `${where}. It takes nothing from the stage, so a narrow one buys nothing and costs ` +
+            `legibility.`,
         );
         check(
-          Math.abs(open.canvasWidthPx - shut.canvasWidthPx) < 0.5,
-          `at ${where} the 3D canvas was resized by opening the dock ` +
-            `(${shut.canvasWidthPx.toFixed(1)} -> ${open.canvasWidthPx.toFixed(1)})`,
+          open.docks.analysis.rectWidthPx <= open.windowWidthPx * 0.92,
+          `the analysis overlay covers ${((open.docks.analysis.rectWidthPx / open.windowWidthPx) * 100).toFixed(0)}% ` +
+            `of the window at ${where} — an overlay that covers everything is a modal, and this is not one`,
         );
       }
 
@@ -4996,6 +5118,48 @@ if (SKIP_QEMU) {
           `buffer is non-background — the robot is not visibly drawn`,
       );
 
+      // ------------------------------- `wave`, reachable without opening anything
+      //
+      // The command vocabulary moved into the control dock, which starts shut
+      // below Wide. The assertion it used to satisfy — `[data-command="wave"]`
+      // present and not disabled — would now be satisfied by a button inside a
+      // collapsed section, which nobody can press. So what is asserted here is
+      // the STATUS LINE's quick-run cluster, hit-tested: with both docks shut,
+      // a `wave` button must have a box and be the topmost element at the
+      // centre of it. That is strictly stronger than presence in the DOM, and
+      // it is true at every breakpoint including Compact.
+      await shellPage.evaluate(
+        'window.__sesame.setDockOpen("control", false); window.__sesame.setDockOpen("analysis", false)',
+      );
+      await sleep(450);
+      const glance = await shellPage.evaluate('window.__sesame.shell()');
+      const quickWave = glance.quickCommands.find((c) => c.name === 'wave');
+      check(
+        quickWave?.reachable === true && quickWave?.enabled === true,
+        `at ${where} with both docks shut, the status line's wave button is ` +
+          `${JSON.stringify(quickWave)} — a reader cannot make the robot move without opening ` +
+          `something, which is what this check has always been for`,
+      );
+      check(
+        glance.quickCommands.some((c) => c.name === 'stop' && c.reachable),
+        `at ${where} there is no reachable stop button on the status line`,
+      );
+      // And it really commands: the quick button is the vocabulary's button by
+      // another name, not a decoration.
+      const quickRan = await shellPage.evaluate(`(() => {
+        const button = document.querySelector('[data-quick-command="wave"]');
+        if (button === null) return { ok: false, why: 'no quick wave button' };
+        button.click();
+        return { ok: true };
+      })()`);
+      check(quickRan.ok, `the status line's wave button did not click at ${where}: ${quickRan.why}`);
+      await sleep(900);
+      const afterQuick = await shellPage.evaluate('window.__sesame.snapshot()');
+      check(
+        afterQuick.store.totalEvents > 0,
+        `clicking the status line's wave button at ${where} produced no telemetry at all`,
+      );
+
       // ------------------------------- §5: the badge, and the auto-expand
       //
       // Close the inspector, then select R4 from the SCENE. The inspector is a
@@ -5003,7 +5167,9 @@ if (SKIP_QEMU) {
       // and below Wide the graph must open itself, because a highlight that
       // lands in a collapsed section is a highlight nobody can see.
       await shellPage.evaluate('window.__sesame.selectJoint(null)');
-      await shellPage.evaluate('window.__sesame.setDockOpen(false)');
+      await shellPage.evaluate(
+        'window.__sesame.setDockOpen("control", false); window.__sesame.setDockOpen("analysis", false)',
+      );
       await shellPage.evaluate('window.__sesame.setSection("inspector", false)');
       await sleep(350);
       await shellPage.evaluate('window.__sesame.selectJoint("R4")');
@@ -5028,22 +5194,102 @@ if (SKIP_QEMU) {
         );
       } else {
         check(
-          selected.dockOpen === true && modules?.open === true,
+          selected.docks.analysis.open === true && modules?.open === true,
           `at ${where} selecting R4 in the 3D scene did not open the graph that highlights it ` +
-            `(dockOpen=${selected.dockOpen}, modules=${JSON.stringify(modules)}). The app would ` +
-            `appear to do nothing, which is the §5 regression this change had to avoid.`,
+            `(analysis dock open=${selected.docks.analysis.open}, ` +
+            `modules=${JSON.stringify(modules)}). The app would appear to do nothing, which is ` +
+            `the §5 regression this change had to avoid.`,
+        );
+        // Both §5 targets live in the analysis dock on purpose: a selection is
+        // something to read about, so it must never yank the controls away.
+        check(
+          selected.docks.control.open === false,
+          `at ${where} selecting a joint in the 3D scene opened the CONTROL dock; the auto-expand ` +
+            `is only ever allowed to reveal the pane that explains the selection`,
         );
       }
       await shellPage.evaluate('window.__sesame.selectJoint(null)');
 
       // ------------------------------------------------- ISSUE-20260823-023
-      await shellPage.evaluate('window.__sesame.setDockOpen(true)');
+      await shellPage.evaluate('window.__sesame.setDockOpen("analysis", true)');
       await sleep(600);
       const frame = await sweepWorldFrame(shellPage, where);
 
+      // ----------------------------- ONE scroller, ONE open pane, and legible
+      //
+      // The three assertions a reader's two complaints turned into. Below Wide
+      // the dock body is the only scrollable box in the dock, exactly one
+      // section is open across BOTH docks, and nothing is smaller than it is at
+      // Wide (compared after the loop, once both readings exist).
+      await openSection(shellPage.evaluate, 'source');
+      await shellPage.evaluate('window.__sesame.selectSymbol("runWavePose")');
+      await sleep(800);
+      const opened = await shellPage.evaluate('window.__sesame.shell()');
+      fonts[window.breakpoint] = await fontFingerprint(shellPage.evaluate);
+
+      const sourceView = await shellPage.evaluate(`(() => {
+        const lines = document.querySelectorAll('.src-line').length;
+        const note = document.querySelector('[data-testid="source-window"]');
+        const text = (note?.textContent ?? '').replace(/\s+/g, ' ').trim();
+        const m = /showing lines (\d+)[^\d]+(\d+) of (\d+)/.exec(text);
+        return {
+          lines,
+          text,
+          from: m === null ? null : Number(m[1]),
+          to: m === null ? null : Number(m[2]),
+          total: m === null ? null : Number(m[3]),
+        };
+      })()`);
+      check(
+        sourceView.from !== null && sourceView.lines === sourceView.to - sourceView.from + 1,
+        `at ${where} the source pane rendered ${sourceView.lines} lines but announced ` +
+          `"${sourceView.text}". The announcement IS the bound below Wide — a cap a reader cannot ` +
+          `read is the same class of lie as a wrong line number.`,
+      );
+
+      if (window.breakpoint === 'wide') {
+        check(
+          opened.docks.analysis.open && opened.docks.control.open,
+          `at ${where} both docks should be in flow and open together`,
+        );
+      } else {
+        check(
+          opened.openSections.length === 1,
+          `at ${where} ${opened.openSections.length} sections are open (` +
+            `${JSON.stringify(opened.openSections)}). Below Wide exactly one pane is open across ` +
+            `BOTH docks and it gets the whole dock — the reader asked for that in as many words.`,
+        );
+        check(
+          opened.docks.control.open !== opened.docks.analysis.open,
+          `at ${where} both overlays are open at once (${JSON.stringify({
+            control: opened.docks.control.open,
+            analysis: opened.docks.analysis.open,
+          })}) — two sheets over the robot is a modal, and this is not one`,
+        );
+        for (const dock of ['control', 'analysis']) {
+          const reading = opened.docks[dock];
+          if (!reading.open) continue;
+          check(
+            reading.scrollers.length === 1 && reading.scrollers[0] === `[dock-body-${dock}]`,
+            `at ${where} the ${dock} dock has ${reading.scrollers.length} scrollable box(es): ` +
+              `${JSON.stringify(reading.scrollers)}. Below Wide the dock body is the only one — ` +
+              `"I'd rather have to scroll through the pane vertically than tiny content and many ` +
+              `scrollbars".`,
+          );
+        }
+        // The Source pane is the sharpest case: 429 lines of C++ with no inner
+        // scroller. What bounds it is the line budget it announces.
+        check(
+          sourceView.lines <= 140,
+          `at ${where} the source pane rendered ${sourceView.lines} lines with no scroller of its ` +
+            `own; the announced budget below Wide is 140`,
+        );
+      }
+
       // ------------------------------------ the collapse state survives reload
       await shellPage.evaluate(
-        'window.__sesame.setDockOpen(true); window.__sesame.setSection("source", true); window.__sesame.setDockWidth(384)',
+        'window.__sesame.setDockOpen("analysis", true); window.__sesame.setSection("source", true); ' +
+          'window.__sesame.setDockWidth("analysis", 384); window.__sesame.setDockWidth("control", 336)',
       );
       await sleep(500);
       const beforeReload = await shellPage.evaluate('window.__sesame.shell()');
@@ -5064,71 +5310,105 @@ if (SKIP_QEMU) {
           `${JSON.stringify(beforeReload.openSections)} -> ${JSON.stringify(afterReload.openSections)}`,
       );
       check(
-        afterReload.dockOpen === beforeReload.dockOpen && afterReload.dockWidthPx === 384,
-        `at ${where} the dock came back as ${JSON.stringify({
-          open: afterReload.dockOpen,
-          width: afterReload.dockWidthPx,
+        afterReload.docks.analysis.open === beforeReload.docks.analysis.open &&
+          afterReload.docks.control.open === beforeReload.docks.control.open &&
+          afterReload.docks.analysis.widthPx === 384 &&
+          afterReload.docks.control.widthPx === 336,
+        `at ${where} the docks came back as ${JSON.stringify({
+          control: afterReload.docks.control,
+          analysis: afterReload.docks.analysis,
         })}`,
       );
 
       shellShots.push(
         await shellPage.shoot(
           `u5-shell-${window.label}.png`,
-          `the responsive shell at ${where}: the 3D canvas is ` +
+          `the two-dock shell at ${where}: the 3D canvas is ` +
             `${open.canvasWidthPx.toFixed(0)}x${open.canvasHeightPx.toFixed(0)} — ` +
-            `${open.viewportHeightSharePct.toFixed(0)}% of the window height — with the dock ` +
-            (window.breakpoint === 'wide' ? 'docked beside it' : 'overlaying it rather than pushing it'),
+            `${open.viewportHeightSharePct.toFixed(0)}% of the window height, up from ` +
+            `${window.breakpoint === 'wide' ? '86.9' : '80.0'}% before the stage strip was removed — ` +
+            `with the analysis dock ` +
+            (window.breakpoint === 'wide'
+              ? 'docked beside the control dock'
+              : `overlaying the stage at ${open.docks.analysis.rectWidthPx.toFixed(0)} px rather than pushing it`),
         ),
       );
 
-      // ------------------------------- a dock resize is a canvas resize (Wide)
+      // ------------------------- a dock resize is a canvas resize (Wide, both)
       //
-      // At Wide the dock IS in flow, so dragging it resizes the renderer's
-      // canvas. That is the same class of change ISSUE-20260823-023 came from,
-      // and it is the only path left that still does it — so it gets its own
-      // sweep rather than an argument.
+      // At Wide the docks ARE in flow, so dragging either resizes the
+      // renderer's canvas. That is the same class of change
+      // ISSUE-20260823-023 came from, and it is the only path left that still
+      // does it — so each dock gets its own sweep rather than an argument.
       let resize = null;
+      let controlResize = null;
       if (window.breakpoint === 'wide') {
-        await shellPage.evaluate('window.__sesame.setDockWidth(320)');
+        await shellPage.evaluate('window.__sesame.setDockWidth("analysis", 320)');
         await sleep(700);
         const narrow = await shellPage.evaluate('window.__sesame.shell()');
-        await shellPage.evaluate('window.__sesame.setDockWidth(520)');
+        await shellPage.evaluate('window.__sesame.setDockWidth("analysis", 560)');
         await sleep(700);
         const widest = await shellPage.evaluate('window.__sesame.shell()');
         check(
           narrow.canvasWidthPx > widest.canvasWidthPx + 100,
-          `dragging the dock from 320 to 520 changed the canvas by only ` +
+          `dragging the analysis dock from 320 to 560 changed the canvas by only ` +
             `${(narrow.canvasWidthPx - widest.canvasWidthPx).toFixed(0)} px — the handle is not ` +
             `resizing anything`,
         );
+        resize = await sweepWorldFrame(shellPage, `${where}, after a 320 -> 560 analysis resize`);
+
+        await shellPage.evaluate('window.__sesame.setDockWidth("control", 560)');
+        await sleep(700);
+        const bothWidest = await shellPage.evaluate('window.__sesame.shell()');
         check(
-          widest.canvasWidthPx >= WIDTH_FLOOR_PX && widest.viewportHeightSharePct >= HEIGHT_FLOOR_PCT,
-          `with the dock dragged to its 520 px maximum the canvas falls below the floor: ` +
-            `${widest.canvasWidthPx.toFixed(0)} px wide, ${widest.viewportHeightSharePct.toFixed(1)}% tall`,
+          bothWidest.canvasWidthPx >= WIDTH_FLOOR_PX &&
+            bothWidest.viewportHeightSharePct >= HEIGHT_FLOOR_PCT,
+          `with BOTH docks dragged to their 560 px maximum the canvas falls below the floor: ` +
+            `${bothWidest.canvasWidthPx.toFixed(0)} px wide, ` +
+            `${bothWidest.viewportHeightSharePct.toFixed(1)}% tall`,
         );
-        resize = await sweepWorldFrame(shellPage, `${where}, after a 320 -> 520 dock resize`);
+        controlResize = await sweepWorldFrame(
+          shellPage,
+          `${where}, after a 400 -> 560 control resize`,
+        );
       }
 
       measured.push({
         window: `${window.width}x${window.height}`,
         breakpoint: shut.breakpoint,
-        dockShut: {
+        docksShut: {
           stageWidthPx: shut.stageWidthPx,
           canvasWidthPx: shut.canvasWidthPx,
           canvasHeightPx: shut.canvasHeightPx,
           viewportHeightSharePct: shut.viewportHeightSharePct,
         },
-        dockOpen: {
+        controlDockOpen: {
+          stageWidthPx: controlOpen.stageWidthPx,
+          canvasWidthPx: controlOpen.canvasWidthPx,
+          dockRectWidthPx: controlOpen.docks.control.rectWidthPx,
+          scrollers: controlOpen.docks.control.scrollers,
+        },
+        analysisDockOpen: {
           stageWidthPx: open.stageWidthPx,
           canvasWidthPx: open.canvasWidthPx,
           canvasHeightPx: open.canvasHeightPx,
           viewportHeightSharePct: open.viewportHeightSharePct,
+          dockRectWidthPx: open.docks.analysis.rectWidthPx,
+          scrollers: open.docks.analysis.scrollers,
           overlays: open.dockOverlays,
         },
-        stagePushedPx: shut.stageWidthPx - open.stageWidthPx,
+        statusBarHeightPx: shut.statusBarHeightPx,
+        statusSegments: shut.statusSegments,
+        stagePushedByControlPx: shut.stageWidthPx - controlOpen.stageWidthPx,
+        stagePushedByAnalysisPx: shut.stageWidthPx - open.stageWidthPx,
+        quickCommands: glance.quickCommands,
+        openSectionsWithSourceUp: opened.openSections,
+        sourceLinesRendered: sourceView.lines,
+        fontSizesPx: fonts[window.breakpoint],
         robotPixels: pixels,
         worldFrame: frame,
-        dockResizeWorldFrame: resize,
+        analysisResizeWorldFrame: resize,
+        controlResizeWorldFrame: controlResize,
         collapseSurvivedReload:
           JSON.stringify(afterReload.openSections) === JSON.stringify(beforeReload.openSections),
       });
@@ -5141,6 +5421,27 @@ if (SKIP_QEMU) {
     } finally {
       shellPage.close();
       await sleep(400);
+    }
+  }
+
+  // --------------------------------------------------------- legibility
+  //
+  // "Everything is too small ... I still cannot read any of the content." The
+  // machine-checkable form: the same five nodes, in the same open section, must
+  // not be smaller at Medium or Compact than they are at Wide.
+  for (const narrow of ['compact', 'medium']) {
+    const here = fonts[narrow] ?? {};
+    const wide = fonts.wide ?? {};
+    for (const [what, size] of Object.entries(here)) {
+      const reference = wide[what];
+      if (typeof size !== 'number' || typeof reference !== 'number') continue;
+      check(
+        size >= reference - 0.01,
+        `${what} is ${size.toFixed(1)} px at ${narrow} but ${reference.toFixed(1)} px at Wide. ` +
+          `Below Wide the dock has ONE column instead of three and a wider overlay, so nothing has ` +
+          `any reason to be smaller there — and "I cannot read the content" is what happens when ` +
+          `it is.`,
+      );
     }
   }
 
@@ -5482,22 +5783,40 @@ if (SKIP_QEMU) {
 
   phases.responsiveShell = {
     ok: problems.length === before12,
+    docks: {
+      control: 'inboard, adjacent to the stage — Commands, Face, Lab',
+      analysis: 'outboard — Inspector, Modules, Signal, Source, Learn',
+    },
     breakpoints: {
-      compact: '< 900 px — dock hidden, opens as a full-height sheet',
-      medium: '900-1440 px — 44 px icon strip, opens as an OVERLAY',
-      wide: '> 1440 px — docked at 320-520 px, resizable, persisted',
+      compact: '< 900 px — both docks hidden; one opens as a sheet over the stage',
+      medium: '900-1440 px — two 44 px icon strips; one opens as a 620-720 px OVERLAY',
+      wide: '> 1440 px — both in flow at 320-560 px, resizable, persisted',
+    },
+    belowWide: {
+      openSections: 'exactly one, across both docks',
+      openDocks: 'at most one',
+      scrollersPerDock: 1,
+      sourceLineBudget: 140,
+    },
+    statusLine: {
+      heightPx: 34,
+      replaced: 'a clamp(120px, 20vh, 176px) stage strip holding the commands and the OLED',
+      quickCommands: '[data-quick-command] — wave/stand/rest/stop, hit-tested at every breakpoint',
     },
     floors: { viewportHeightSharePct: HEIGHT_FLOOR_PCT, viewportWidthPx: WIDTH_FLOOR_PX },
     windows: measured,
-    persistenceKey: 'sesame-lab.shell.v1',
+    persistenceKey: 'sesame-lab.shell.v2',
+    fontSizesPx: fonts,
     shots: shellShots.map((s) => s.name),
   };
   for (const row of measured) {
     console.log(
       `[web] ${row.window} ${row.breakpoint}: canvas ` +
-        `${row.dockOpen.canvasWidthPx.toFixed(0)}x${row.dockOpen.canvasHeightPx.toFixed(0)} = ` +
-        `${row.dockOpen.viewportHeightSharePct.toFixed(1)}% of window height, stage moved ` +
-        `${row.stagePushedPx.toFixed(1)} px when the dock opened`,
+        `${row.analysisDockOpen.canvasWidthPx.toFixed(0)}x${row.analysisDockOpen.canvasHeightPx.toFixed(0)} = ` +
+        `${row.analysisDockOpen.viewportHeightSharePct.toFixed(1)}% of window height; stage moved ` +
+        `${row.stagePushedByControlPx.toFixed(1)} px for the control dock and ` +
+        `${row.stagePushedByAnalysisPx.toFixed(1)} px for the analysis dock; ` +
+        `${row.analysisDockOpen.scrollers.length} scroller(s) in the open dock`,
     );
   }
 }

@@ -1,21 +1,30 @@
 /**
  * V3 + V4 (the browser robot) and V8 (the architecture graph + "See the Signal").
  *
- * Layout is the responsive three-zone shell: a 56 px rail that never collapses,
- * a stage that gets every pixel nothing else claimed, and a right dock of
- * accordion sections.
+ * Layout is the responsive shell: a 56 px rail that never collapses, a stage
+ * that gets every pixel nothing else claimed, a thin status line under it, and
+ * TWO docks of accordion sections.
  *
  * ```text
- * +--+------------------------------------+------------------+
- * |  |                                    |  RIGHT DOCK      |
- * |R |          CENTER STAGE              |  v Inspector     |
- * |A |       3D robot (>= 45vh)           |  > Modules       |
- * |I |                                    |  > Signal        |
- * |L +------------------------------------+  > Source        |
- * |  |  commands + OLED (stage strip)     |  > Learn  > Lab  |
- * +--+------------------------------------+------------------+
- *  56px          flexible, never < 45vh      0 / 320-520 px
+ * +--+---------------------------+-------------+---------------+
+ * |  |                           | CONTROL     | ANALYSIS      |
+ * |R |        CENTER STAGE       | v Commands  | v Inspector   |
+ * |A |     3D robot (>= 45vh)    | > Face      | > Modules     |
+ * |I |                           | > Lab       | > Signal      |
+ * |L +---------------------------+             | > Source      |
+ * |  |  status line (~34 px)     |             | > Learn       |
+ * +--+---------------------------+-------------+---------------+
+ *  56px       never < 45vh          0/44/360      0/44/460
  * ```
+ *
+ * The control dock is INBOARD, so the reading order is the robot, then the
+ * surfaces that drive it, then the surfaces that explain it. It holds the
+ * command vocabulary and the 128x64 face, which used to be a fixed
+ * `clamp(120px, 20vh, 176px)` strip under the stage — up to 176 px taken from
+ * the one thing this shell exists to maximise. The status line took its place
+ * at 34 px, and the commands worth one click are on it as a `data-quick-command`
+ * cluster, so `wave` is still reachable at every breakpoint without opening
+ * anything.
  *
  * It replaced a `minmax(0,1fr) minmax(0,520px) 400px` grid with a fixed 380 px
  * source row, which on a 1440x900 laptop left the 3D viewport about 500x280 —
@@ -50,7 +59,7 @@
  * own.
  */
 import { JOINT_ORDER, quantiseCommandedAngle, type JointName } from '@sesame-lab/sesame-model';
-import { OLED_HEIGHT, OLED_WIDTH } from '@sesame-lab/sesame-protocol';
+import { COMMAND_VOCABULARY, OLED_HEIGHT, OLED_WIDTH } from '@sesame-lab/sesame-protocol';
 import { Suspense, useCallback, useEffect, useMemo, useRef, useState, type ReactElement } from 'react';
 
 import { BridgeBackend, sameOriginBridgeUrl } from './backends/bridge-backend.js';
@@ -90,7 +99,8 @@ import { JointInspector } from './ui/JointInspector.js';
 import { OledPanel } from './ui/OledPanel.js';
 import { SignalTrace } from './ui/SignalTrace.js';
 import { SourceExplorer } from './ui/SourceExplorer.js';
-import { Dock, Rail, useShell, type DockSectionSpec } from './ui/Shell.js';
+import { Docks, Rail, useShell, type DockSectionSpec } from './ui/Shell.js';
+import { StatusBar } from './ui/StatusBar.js';
 import { sectionForSelection } from './ui/shell-state.js';
 import { lessonProgress, loadProgress } from './lessons/progress.js';
 import { LESSON_BY_ID, LESSONS } from './generated/lessons.js';
@@ -712,13 +722,13 @@ export function App(): ReactElement {
         expanded: () => [...expanded],
         toggleNode: (id) => toggleExpanded(id),
         shellBreakpoint: () => shell.breakpoint,
-        shellDockOpen: () => shell.dockVisible,
+        shellDockOpen: (dock) => shell.isDockOpen(dock),
         shellDockOverlays: () => shell.dockOverlays,
-        shellDockWidthPx: () => shell.state.dockWidthPx,
+        shellDockWidthPx: (dock) => shell.state.dockWidthPx[dock],
         shellOpenSections: () => shell.state.open[shell.breakpoint],
         setSection: (id, open) => shell.setSection(id, open),
-        setDockOpen: (open) => shell.setDockOpen(open),
-        setDockWidth: (px) => shell.setDockWidth(px),
+        setDockOpen: (dock, open) => shell.setDockOpen(dock, open),
+        setDockWidth: (dock, px) => shell.setDockWidth(dock, px),
       }),
     [
       shell,
@@ -910,7 +920,59 @@ export function App(): ReactElement {
     lessonRuntime.faults.size +
     (store.panelIsAuthored ? 1 : 0);
 
+  const commandCount = COMMAND_VOCABULARY.filter((c) => c.command !== '').length;
+
   const sections: readonly DockSectionSpec[] = [
+    // ------------------------------------------------ the control dock
+    //
+    // Commands, Face and Lab: the three surfaces that DRIVE this robot, in the
+    // dock adjacent to it. Commands and Face were the fixed strip under the
+    // stage until this change; Lab came across from the analysis dock, because
+    // the pane that authors the OLED's pixels belongs beside the OLED it
+    // authors, and because a pose editor is not a reading surface.
+    {
+      id: 'commands',
+      label: 'Commands',
+      glyph: '▷',
+      badge: busy !== null ? `running ${busy}` : `${String(commandCount)} commands`,
+      badgeIsSelection: busy !== null,
+      body:
+        backend === null ? null : (
+          <CommandBar
+            backend={backend}
+            status={status}
+            busy={busy}
+            error={error}
+            onCommand={(name) => void runCommand(name)}
+            onFace={(name) => void runFace(name)}
+            onStop={stopMotion}
+          />
+        ),
+    },
+    {
+      id: 'face',
+      label: 'Face',
+      glyph: '☺',
+      badge: store.panelIsAuthored
+        ? `${store.face?.name ?? 'authored'} · authored here`
+        : (store.face?.name ?? 'no face yet'),
+      badgeIsSelection: store.panelIsAuthored,
+      body: (
+        <OledPanel
+          panel={store.panel}
+          textureCanvas={oledCanvas}
+          face={store.face}
+          source={store.oledSource}
+          emptyFace={store.emptyFace}
+          panelElided={oledElided}
+          version={store.version}
+          onRedraw={() => {
+            oledDirty.current += 1;
+          }}
+        />
+      ),
+    },
+    // ------------------------------------------------ the analysis dock
     {
       id: 'inspector',
       label: 'Inspector',
@@ -1011,6 +1073,14 @@ export function App(): ReactElement {
           onSelectJoint={(joint) => selectJointFrom(joint, 'inspector')}
           traceRows={shownTrace?.rows ?? EMPTY_ROWS}
           onSelectRow={selectTraceRow}
+          /*
+            Below Wide the code view has no scrollbar of its own — the dock body
+            is the single scroller there — so what bounds it is a LINE BUDGET
+            the pane announces and a button can lift, rather than a pixel box.
+            At Wide the pixel box is back and is what L4 measures its scroll
+            assertion against.
+          */
+          lineBudget={shell.breakpoint === 'wide' ? 240 : 140}
         />
       ),
     },
@@ -1040,7 +1110,8 @@ export function App(): ReactElement {
       className="shell"
       data-testid="shell"
       data-breakpoint={shell.breakpoint}
-      data-dock-open={String(shell.dockVisible)}
+      data-control-dock-open={String(shell.isDockOpen('control'))}
+      data-analysis-dock-open={String(shell.isDockOpen('analysis'))}
       data-dock-overlay={String(shell.dockOverlays)}
     >
       <Rail
@@ -1088,41 +1159,38 @@ export function App(): ReactElement {
         </div>
 
         {/*
-          The stage strip: the command vocabulary and the OLED, beside the robot
-          they are about. Fixed height and horizontally scrollable rather than
-          wrapping, so its cost to the viewport is the same at every width - a
-          strip that grew a second row at 900 px would eat exactly the height
-          this change exists to give back.
+          The status line. 34 px, never scrolls, never wraps, and its content
+          scales with the breakpoint rather than with its own box - see
+          `ui/StatusBar.tsx`. It replaced a 120-176 px strip that held the
+          command vocabulary and the OLED; both moved into the control dock, and
+          the commands worth one click are here as `data-quick-command` buttons
+          so `wave` stays reachable at every breakpoint without opening
+          anything.
         */}
-        <div className="stage-strip" data-testid="stage-strip">
-          {backend !== null && (
-            <CommandBar
-              backend={backend}
-              status={status}
-              busy={busy}
-              error={error}
-              onCommand={(name) => void runCommand(name)}
-              onFace={(name) => void runFace(name)}
-              onStop={stopMotion}
-            />
-          )}
-
-          <OledPanel
-            panel={store.panel}
-            textureCanvas={oledCanvas}
-            face={store.face}
-            source={store.oledSource}
-            emptyFace={store.emptyFace}
-            panelElided={oledElided}
-            version={store.version}
-            onRedraw={() => {
-              oledDirty.current += 1;
-            }}
-          />
-        </div>
+        <StatusBar
+          breakpoint={shell.breakpoint}
+          status={status}
+          backendId={backendId}
+          drivingProvenance={store.drivingProvenance}
+          drivingOrigin={store.drivingOrigin}
+          provenanceCounts={store.provenanceCounts}
+          originCounts={store.originCounts}
+          totalEvents={store.totalEvents}
+          physicallyObservedEvents={store.physicallyObservedEvents}
+          emulatorFacts={emulatorFacts}
+          groundPlaneMm={groundPlaneMm}
+          jointsCommanded={JOINT_ORDER.filter((j) => store.joints[j].commandedDeg !== null).length}
+          jointCount={JOINT_ORDER.length}
+          selectedJoint={selected}
+          selectedJointDeg={selected === null ? null : store.joints[selected].commandedDeg}
+          canCommand={backend?.canCommand ?? false}
+          busy={busy}
+          onCommand={(name) => void runCommand(name)}
+          onStop={stopMotion}
+        />
       </main>
 
-      <Dock shell={shell} sections={sections} />
+      <Docks shell={shell} sections={sections} />
     </div>
   );
 }

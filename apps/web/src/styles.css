@@ -38,26 +38,37 @@ code,
 }
 
 /* ==========================================================================
- * THE SHELL — rail | stage | dock
+ * THE SHELL — rail | stage + status line | control dock | analysis dock
  *
- * What was here before: `.app` as a `minmax(0,1fr) minmax(0,520px) 400px` grid
- * with a fixed 380 px source row, and not one `@media` query in 2,407 lines. On
- * a 1440x900 laptop that left the 3D viewport roughly 500x280 — about 13% of
- * the screen — and the robot is the product. Every one of the 26 harness
- * captures ran at 1440x900 or wider and none of them asserted how much space
- * the viewport got, which is exactly why it shipped.
+ * What was here before U1-U5: `.app` as a `minmax(0,1fr) minmax(0,520px) 400px`
+ * grid with a fixed 380 px source row, and not one `@media` query in 2,407
+ * lines. On a 1440x900 laptop that left the 3D viewport roughly 500x280 — about
+ * 13% of the screen — and the robot is the product.
  *
- * Three zones now, and three breakpoints keyed to what fits rather than to
- * device names:
+ * U1-U5 fixed the width and then took some of it back in height: the command
+ * vocabulary and the OLED went into a `clamp(120px, 20vh, 176px)` strip under
+ * the stage. That strip is gone. The two panes it held are sections of a SECOND
+ * dock, and what is under the robot now is a 34 px status line.
  *
- *   Compact  <  900 px   dock hidden; opens as a full-height sheet over the stage
- *   Medium   900-1440    dock collapsed to a 44 px icon strip; opens as an OVERLAY
- *   Wide     > 1440 px   dock in flow at 320-520 px, resizable, persisted
+ *   Compact  <  900 px   docks hidden; one opens as a sheet over the stage
+ *   Medium   900-1440    two 44 px icon strips; one opens as a wide OVERLAY
+ *   Wide     > 1440 px   both docks in flow at 320-560 px, resizable, persisted
  *
- * **The rule that fixes the laptop is that below Wide the dock overlays rather
- * than pushes.** It is `position: absolute` there, so it is out of flow and the
- * stage's measured width is identical with the dock shut and with it open. The
- * harness asserts precisely that, by measuring the stage twice.
+ * **The rule that fixes the laptop is that below Wide the docks overlay rather
+ * than push.** `.docks` is `position: absolute` there, so both are out of flow
+ * and the stage's measured width is identical with them shut and with either
+ * open. The harness asserts precisely that, by measuring the stage twice per
+ * dock.
+ *
+ * ## One scroller, and the panes at their natural height
+ *
+ * The second reader complaint was "everything is too small and too many
+ * scrollbars ... I'd rather have to scroll through the pane vertically on
+ * smaller screens". Below Wide the dock BODY is the only scrollable box in the
+ * dock: `.dock-section-body` and every pane inside it render at content height,
+ * one section is open at a time across both docks, and it gets the full width
+ * of a 480-720 px overlay. Nothing in the dock is smaller below Wide than it is
+ * at Wide — see the LEGIBILITY block at the end of the Medium section.
  * ========================================================================== */
 .shell {
   position: relative;
@@ -186,7 +197,12 @@ code,
 /* ----------------------------------------------------------- center stage */
 .stage {
   flex: 1 1 auto;
-  min-width: 0;
+  /*
+   * The stage's floor outranks the docks' widths. Both docks are
+   * `flex-shrink: 1`, so at a narrow Wide window they give way rather than
+   * squeezing the robot below the 480 px the harness asserts.
+   */
+  min-width: min(480px, 100%);
   min-height: 0;
   display: flex;
   flex-direction: column;
@@ -220,42 +236,98 @@ code,
   text-shadow: 0 1px 3px #000;
 }
 
-/*
- * The stage strip: the command vocabulary and the OLED, under the robot.
+/* ------------------------------------------------------- the status line
  *
- * Fixed height and scrolled horizontally rather than wrapped. A strip that grew
- * a second row at 900 px would take back exactly the height this whole change
- * exists to give the viewport, and it would do it only at the width where the
- * viewport can least afford it.
+ * 34 px, one row, never scrolls and never wraps. It replaced a 120-176 px strip
+ * that held the whole command vocabulary and the OLED; both are sections of the
+ * control dock now. What is left here is a glance line whose content scales
+ * with the breakpoint (see `ui/StatusBar.tsx`), plus the commands worth one
+ * click — which is what keeps `wave` reachable at every breakpoint without
+ * opening anything.
  */
-.stage-strip {
+.stage-status {
   flex: 0 0 auto;
-  height: clamp(120px, 20vh, 176px);
+  height: 34px;
   display: flex;
-  align-items: stretch;
+  align-items: center;
   gap: 8px;
-  padding: 8px 10px;
+  padding: 0 10px;
   border-top: 1px solid var(--line);
   background: #0f1319;
-  overflow-x: auto;
-  overflow-y: hidden;
+  font-size: 12px;
+  white-space: nowrap;
+  overflow: hidden;
 }
 
-.stage-strip > .panel {
+.status-dot {
+  font-size: 11px;
+  line-height: 1;
+}
+
+.status-word {
+  color: var(--dim);
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.status-word.warn-word {
+  color: var(--warn);
+}
+
+.status-prov {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.status-prov .prov,
+.status-prov .origin {
+  font-size: 10px;
+  padding: 1px 5px;
+}
+
+.status-sep {
+  width: 1px;
+  height: 15px;
+  background: var(--line);
   flex: 0 0 auto;
-  min-width: 0;
-  max-width: 640px;
-  overflow-y: auto;
-  padding: 8px 10px;
 }
 
-.stage-strip .command-bar {
-  flex: 1 1 420px;
-  min-width: 320px;
+/* The quick-run cluster sits at the end of the line, so the reading order is
+   "what is happening" and then "what you can do about it". */
+.status-run {
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  flex: 0 0 auto;
 }
 
-.stage-strip .panel-header {
-  margin: 0 0 6px;
+.status-cmd {
+  background: var(--panel-2);
+  color: var(--text);
+  border: 1px solid var(--line);
+  border-radius: 5px;
+  cursor: pointer;
+  font: inherit;
+  font-size: 12px;
+  padding: 3px 10px;
+  min-height: 24px;
+}
+
+.status-cmd:hover:not(:disabled) {
+  border-color: var(--accent);
+  color: #cfe0fb;
+}
+
+.status-cmd:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.status-cmd-stop {
+  border-color: #4a3340;
+  color: var(--warn);
 }
 
 .loading {
@@ -265,11 +337,23 @@ code,
   color: var(--dim);
 }
 
-/* ------------------------------------------------------------ right dock */
-.dock {
-  flex: 0 0 var(--dock-w, 460px);
-  width: var(--dock-w, 460px);
+/* ---------------------------------------------------------------- the docks
+ *
+ * `.docks` is the flex row that holds both. At Wide it is in flow and the two
+ * docks take width from the stage, which is correct there — the stage is still
+ * 1,400 px or more. Below Wide it is absolutely positioned against the shell's
+ * right edge, so neither dock can take a pixel from the stage.
+ */
+.docks {
+  display: flex;
+  align-items: stretch;
   min-width: 0;
+}
+
+.dock {
+  flex: 0 1 var(--dock-w, 460px);
+  width: var(--dock-w, 460px);
+  min-width: 44px;
   display: flex;
   align-items: stretch;
   position: relative;
@@ -281,10 +365,11 @@ code,
 /*
  * Closed at Wide: the 44 px icon strip is all that is left, and every pane is
  * still one click away. `flex-basis` is what shrinks, so the stage grows into
- * the space — at Wide the dock IS in flow and pushing is the correct behaviour.
+ * the space — at Wide the docks ARE in flow and pushing is the correct
+ * behaviour.
  */
 .dock[data-open='false'] {
-  flex-basis: 44px;
+  flex: 0 0 44px;
   width: 44px;
 }
 
@@ -337,6 +422,14 @@ code,
   background: var(--accent);
 }
 
+/*
+ * THE dock scroller.
+ *
+ * At Wide several sections are open at once and each bounds itself, so this
+ * rarely has anything to scroll. Below Wide it is the ONLY scrollable box in
+ * the dock: one section is open, it renders at its content height, and this is
+ * what a reader drags. See the MEDIUM block below.
+ */
 .dock-body {
   flex: 1 1 auto;
   min-width: 0;
@@ -368,6 +461,8 @@ code,
  * Wide: the architecture graph and the Signal trace are both open by default
  * and both on screen at once, because the cross-highlight between them is the
  * feature and a scroll between them destroys it.
+ *
+ * Below Wide this is overridden: one section, natural height, one scroller.
  */
 .dock-section.is-open {
   flex: 1 1 0;
@@ -474,6 +569,7 @@ code,
   cursor: col-resize;
   background: transparent;
   touch-action: none;
+  z-index: 2;
 }
 
 .dock-resizer:hover {
@@ -492,56 +588,202 @@ code,
 
 /* ================================================================ MEDIUM
  *
- * 900-1440 px, the laptop. The dock comes out of flow entirely, so the stage
- * keeps every pixel it had with the dock shut. This is the whole fix.
+ * 900-1440 px, the laptop. Both docks come out of flow entirely, so the stage
+ * keeps every pixel it had with them shut. That is the whole fix, and it is
+ * also what makes the overlay's width FREE: it costs the robot nothing, so the
+ * open dock is 620-720 px rather than the 460 it was.
  */
 @media (max-width: 1440px) {
-  .dock {
+  .docks {
     position: absolute;
     z-index: 5;
     top: 0;
     right: 0;
     bottom: 0;
-    flex: 0 0 auto;
-    width: min(var(--dock-w, 460px), 92vw);
+    /* Capped so the robot is still visibly there behind the overlay. An
+       overlay that covers everything is a modal, and this is not one. */
+    max-width: 92vw;
+  }
+
+  .dock {
+    flex: 0 1 auto;
+    width: min(var(--dock-overlay-w, 720px), 84vw);
     box-shadow: -14px 0 34px rgba(0, 0, 0, 0.5);
   }
 
-  /* Shut, the dock is the 44 px icon strip and nothing else — still absolute,
-     so it costs the stage nothing there either. */
+  .dock[data-dock='control'] {
+    --dock-overlay-w: 620px;
+  }
+
+  /* Shut, a dock is its 44 px icon strip and nothing else — still absolute, so
+     it costs the stage nothing there either. */
   .dock[data-open='false'] {
     width: 44px;
+    flex: 0 0 44px;
     box-shadow: none;
   }
 
-  /* The stage reserves the strip's width and no more. A margin rather than a
-     flex column, because the strip must never become a resizable column that
-     could grow into the viewport. */
+  /* The stage reserves the two strips' width and no more. A margin rather than
+     two flex columns, because a column is a thing that could later grow. */
   .stage {
-    margin-right: 44px;
+    margin-right: 88px;
   }
 
   .dock-resizer {
     display: none;
   }
+
+  /* ------------------------------------------------- ONE scroller, one pane
+   *
+   * `.dock-body` is the only scrollable box below Wide. The open section takes
+   * its natural height inside it, and every pane inside the section renders at
+   * content height — no inner `overflow-y`, no bounded box, no share of a short
+   * column. `capture-web-screenshots.mjs` counts the scrollable elements inside
+   * each dock at Compact and Medium and requires exactly one.
+   */
+  /* Collapsed headers must not be squeezed away by an open section that is
+     taller than the dock. `0 1 auto` lets a flex item shrink below its content,
+     and with one pane at natural height there is always more content than
+     dock. */
+  .dock-section,
+  .dock-section.is-open {
+    flex: 0 0 auto;
+    min-height: 0;
+  }
+
+  .dock-section-body {
+    flex: 0 0 auto;
+    overflow: visible;
+  }
+
+  .dock-section-body .arch-detail,
+  .dock-section-body .trace-rows,
+  .dock-section-body .trace-panel,
+  .dock-section-body .lesson-panel,
+  .dock-section-body .lab-panel,
+  .dock-section-body .source-outline,
+  .dock-section-body .source-code-wrap,
+  .dock-section-body .source-code,
+  .dock-section-body .source-context {
+    overflow: visible;
+    max-height: none;
+    min-height: 0;
+    flex: 0 0 auto;
+  }
+
+  /*
+   * React Flow is the exception that proves the rule: it is a PAN surface, not
+   * a scroller — `overflow: hidden` and a fixed box are what it needs to place
+   * nodes at real coordinates, and L6's lesson step clicks one of those nodes.
+   * So it keeps a box; the box just gets much bigger, because there is one
+   * column here instead of three.
+   */
+  .dock-section-body .arch-canvas {
+    flex: 0 0 auto;
+    height: 52vh;
+    min-height: 340px;
+  }
+
+  /* The export is a `<textarea>`; a text control's own scrollbar is not a
+     layout scroller, but it should still not be a four-line slot. */
+  .dock-section-body .lab-code {
+    min-height: 320px;
+    font-size: 12.5px;
+  }
+
+  /*
+   * The source pane's three regions stack at their natural heights.
+   *
+   * U5 bounded them at 130 / 1fr-min-200 / 220 px because an auto row lets the
+   * code region grow to all 429 lines while L4's "selecting a joint SCROLLED
+   * the code to the symbol's first line" assertion keeps passing and stops
+   * meaning anything. That argument still holds AT WIDE, where the bounds and
+   * the assertion both live. Below Wide the code region is bounded by LINE
+   * COUNT instead — `SourceExplorer` renders a window around the selected
+   * symbol and says in the UI which lines it is showing, and the harness
+   * asserts the rendered `.src-line` count matches that announcement and stays
+   * under the budget. A cap you can read beats a mystery gutter.
+   */
+  .dock-section-body .source-body {
+    grid-template-rows: auto auto auto;
+  }
+
+  .dock-section-body .source-panel {
+    overflow: visible;
+    flex: 0 0 auto;
+  }
+
+  .dock-section[data-dock-section='source'].is-open {
+    min-height: 0;
+  }
+
+  /* --------------------------------------------------------- LEGIBILITY
+   *
+   * "Everything is too small ... I still cannot read any of the content."
+   * There is ONE column below Wide instead of three, and the overlay is wider
+   * than the Wide dock, so nothing here has any reason to be smaller than it is
+   * at Wide. These raise the floor rather than lowering it; nothing in this
+   * file reduces a font size below Wide, and the harness asserts that by
+   * comparing computed sizes at Medium against the same nodes at Wide.
+   */
+  .dock-body {
+    font-size: 14px;
+    line-height: 1.6;
+    padding: 10px;
+  }
+
+  .dock-section-body {
+    padding: 12px;
+    gap: 12px;
+  }
+
+  .dock-section-body .small,
+  .dock-section-body .note,
+  .dock-section-body .dim,
+  .dock-section-body .muted,
+  .dock-section-body .panel-sub {
+    font-size: 13px;
+  }
+
+  .dock-section-body .src-line,
+  .dock-section-body .source-code {
+    font-size: 13px;
+  }
+
+  .dock-section-body .source-outline-row,
+  .dock-section-body .source-tab,
+  .dock-section-body .cmd,
+  .dock-section-body button,
+  .dock-section-body input,
+  .dock-section-body select {
+    font-size: 13.5px;
+  }
+
+  .dock-section-body .cmd {
+    padding: 7px 10px;
+  }
+
+  /* A wider single column has room for the whole string. Truncation that made
+     sense in a 400 px gutter hides content that now fits. */
+  .dock-section-body .source-outline-name,
+  .dock-section-body .joint-name,
+  .dock-section-body .lesson-card-title {
+    overflow: visible;
+    text-overflow: clip;
+    white-space: normal;
+  }
 }
 
 /* =============================================================== COMPACT
  *
- * Below 900 px the dock cannot sit beside the stage at all, so it opens as a
- * full-height sheet. Every pane is still reachable; none of them is hidden.
+ * Below 900 px a dock cannot sit beside the stage at all, so the open one is a
+ * full-height sheet. Every pane is still reachable; none of them is hidden, and
+ * the one-open-section rule means the sheet always has content in it.
  */
 @media (max-width: 899px) {
-  .dock[data-open='true'] {
-    width: min(420px, 100vw);
-  }
-
-  .stage-strip {
-    height: clamp(112px, 18vh, 150px);
-  }
-
-  .stage-strip .command-bar {
-    min-width: 260px;
+  .dock[data-open='true'],
+  .dock[data-dock='control'][data-open='true'] {
+    width: min(560px, 86vw);
   }
 }
 

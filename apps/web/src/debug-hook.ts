@@ -26,7 +26,7 @@ import { LESSONS, POLISHED_LESSON_IDS } from './generated/lessons.js';
 import { IMPLEMENTED_CHECKS, IMPLEMENTED_CONTROLS, UNIMPLEMENTED_CONTROLS } from './lessons/registry.js';
 import type { LessonRuntime } from './lessons/runtime.js';
 import type { SelectionState } from './state/selection.js';
-import type { Breakpoint, SectionId } from './ui/shell-state.js';
+import type { Breakpoint, DockId, SectionId } from './ui/shell-state.js';
 import type { TelemetryStore } from './state/telemetry-store.js';
 import { traceBadge, type TraceStore } from './state/trace-store.js';
 import type { WorldFrameReading } from './three/RobotScene.js';
@@ -335,17 +335,69 @@ export interface LabReading {
  * with the dock shut, open the dock, measure it again, and below Wide the two
  * must be identical.
  */
+export interface DockReading {
+  readonly id: DockId;
+  readonly open: boolean;
+  /** The dock's stored width preference. Only in force at Wide. */
+  readonly widthPx: number;
+  /** The dock's measured width on screen, 0 when it is not laid out. */
+  readonly rectWidthPx: number;
+  /**
+   * The deepest chain of NESTED SCROLLABLE ancestors inside this dock.
+   *
+   * A reader on a laptop reported "everything is too small and too many
+   * scrollbars": `.dock-body`, then `.dock-section-body`, then a pane's own
+   * `overflow-y: auto` made three, and a reader dragging a scrollbar could not
+   * tell which of the three would move. Counted here rather than argued about,
+   * and the harness requires no more than 2 at Medium.
+   *
+   * An element counts only when it is actually scrollable RIGHT NOW —
+   * `scrollHeight > clientHeight` and a computed `overflow-y` of `auto` or
+   * `scroll` — because an `auto` box whose content fits has no scrollbar and
+   * costs a reader nothing.
+   */
+  readonly maxScrollerDepth: number;
+  /** The chain that produced {@link maxScrollerDepth}, outermost first. */
+  readonly scrollerChain: readonly string[];
+  /**
+   * Every scrollable box in this dock, outermost first.
+   *
+   * Below Wide there must be exactly one — `.dock-body` — because one section
+   * is open, it renders at its natural height, and the reader scrolls the dock.
+   * Form controls are excluded: a `<textarea>` of exported C++ has its own
+   * scrollbar by being a text control, which is not the nested-layout-scroller
+   * problem a reader complained about.
+   */
+  readonly scrollers: readonly string[];
+}
+
 export interface ShellReading {
   readonly breakpoint: Breakpoint;
   readonly windowWidthPx: number;
   readonly windowHeightPx: number;
-  readonly dockOpen: boolean;
+  /** True below Wide, where both docks float over the stage instead of pushing it. */
   readonly dockOverlays: boolean;
-  readonly dockWidthPx: number;
-  /** The dock's measured width on screen, 0 when it is not laid out. */
-  readonly dockRectWidthPx: number;
+  readonly docks: Readonly<Record<DockId, DockReading>>;
   readonly stageWidthPx: number;
   readonly stageHeightPx: number;
+  /** The status line under the robot. The strip it replaced was 120-176 px. */
+  readonly statusBarHeightPx: number;
+  /** Which of the status line's optional segments are on screen at this width. */
+  readonly statusSegments: readonly string[];
+  /**
+   * Quick-run buttons on the status line, hit-tested.
+   *
+   * `reachable` means the button has a box AND is the topmost element at the
+   * centre of it. A `hidden` button inside a collapsed dock section, or one
+   * covered by an open overlay, is not reachable — which is the difference
+   * between this and the "is it in the DOM" check it replaces.
+   */
+  readonly quickCommands: readonly {
+    readonly name: string;
+    readonly visible: boolean;
+    readonly reachable: boolean;
+    readonly enabled: boolean;
+  }[];
   /** The WebGL canvas itself, on screen. */
   readonly canvasWidthPx: number;
   readonly canvasHeightPx: number;
@@ -354,12 +406,16 @@ export interface ShellReading {
   readonly viewportWidthSharePct: number;
   readonly openSections: readonly SectionId[];
   /**
-   * One entry per section, in draw order: what its header says while it is
-   * collapsed, and whether that badge is about the current selection (§5.1).
+   * One entry per section, in draw order: which dock draws it, what its header
+   * says while it is collapsed, and whether that badge is about the current
+   * selection (§5.1).
    */
   readonly sections: readonly {
     readonly id: SectionId;
+    readonly dock: DockId;
     readonly open: boolean;
+    /** Expanded AND its dock showing — what a reader can actually see. */
+    readonly visible: boolean;
     readonly badge: string | null;
     readonly badgeIsSelection: boolean;
     /** The header's rendered text, which is what a reader actually sees. */
@@ -445,10 +501,10 @@ export interface SesameDebugApi {
   shell(): ShellReading;
   /** Open or close one dock section, as clicking its header would. */
   setSection(id: SectionId, open: boolean): void;
-  /** Show or hide the dock itself, as clicking the strip's chevron would. */
-  setDockOpen(open: boolean): void;
-  /** Wide only. Clamped to [320, 520], exactly as the drag handle is. */
-  setDockWidth(px: number): void;
+  /** Show or hide one dock, as clicking that strip's chevron would. */
+  setDockOpen(dock: DockId, open: boolean): void;
+  /** Wide only. Clamped to [320, 560], exactly as the drag handle is. */
+  setDockWidth(dock: DockId, px: number): void;
   /** Everything at once, for a single CDP round trip. */
   snapshot(): Record<string, unknown>;
 }
@@ -478,15 +534,15 @@ export interface DebugHookWiring {
   setJoint(joint: JointName, deg: number): Promise<void>;
   stop(): void;
   reset(): void;
-  /** The shell controller, for the three layout accessors above. */
+  /** The shell controller, for the layout accessors above. */
   shellBreakpoint(): Breakpoint;
-  shellDockOpen(): boolean;
+  shellDockOpen(dock: DockId): boolean;
   shellDockOverlays(): boolean;
-  shellDockWidthPx(): number;
+  shellDockWidthPx(dock: DockId): number;
   shellOpenSections(): readonly SectionId[];
   setSection(id: SectionId, open: boolean): void;
-  setDockOpen(open: boolean): void;
-  setDockWidth(px: number): void;
+  setDockOpen(dock: DockId, open: boolean): void;
+  setDockWidth(dock: DockId, px: number): void;
 }
 
 declare global {
@@ -1023,7 +1079,7 @@ export function installDebugHook(wiring: DebugHookWiring): () => void {
         return { width: rect.width, height: rect.height };
       };
       const stage = rectOf('[data-testid="stage"]');
-      const dock = rectOf('[data-testid="dock"]');
+      const statusBar = rectOf('[data-testid="stage-status"]');
       // The renderer's canvas is found by asking each `<canvas>` for a WebGL
       // context, exactly as `canvasPixelCount()` does: the OLED panel's canvas
       // is a 2D one and answers `null`, so there is no dependence on a class
@@ -1040,28 +1096,131 @@ export function installDebugHook(wiring: DebugHookWiring): () => void {
       const canvasHeightPx = canvasRect?.height ?? 0;
       const w = globalThis.innerWidth;
       const h = globalThis.innerHeight;
+
       const sections = [...document.querySelectorAll('[data-dock-section]')].map((el) => {
         const id = (el.getAttribute('data-dock-section') ?? '') as SectionId;
+        const dock = (el.getAttribute('data-dock') ?? 'analysis') as DockId;
         const badge = el.querySelector('[data-dock-badge]');
         const header = el.querySelector('.dock-section-toggle');
+        const open = el.getAttribute('data-open') === 'true';
         return {
           id,
-          open: el.getAttribute('data-open') === 'true',
+          dock,
+          open,
+          visible: open && wiring.shellDockOpen(dock),
           badge: badge === null ? null : (badge.textContent ?? '').trim(),
           badgeIsSelection: badge?.getAttribute('data-selection') === 'true',
           headerText: (header?.textContent ?? '').trim(),
         };
       });
+
+      /**
+       * How many NESTED scrollable boxes stand between a dock's root and its
+       * deepest laid-out content.
+       *
+       * `overflow-y: auto` on a box whose content fits produces no scrollbar
+       * and costs a reader nothing, so an element counts only when it is
+       * scrollable right now.
+       */
+      const scrollersIn = (
+        root: Element,
+      ): { depth: number; chain: readonly string[]; scrollers: readonly string[] } => {
+        const describe = (el: Element): string => {
+          const testid = el.getAttribute('data-testid');
+          if (testid !== null) return `[${testid}]`;
+          const cls = (el.getAttribute('class') ?? '').split(/\s+/).filter((c) => c !== '')[0];
+          return cls === undefined ? el.tagName.toLowerCase() : `.${cls}`;
+        };
+        // A `<textarea>` of exported C++ scrolls because it is a text control,
+        // not because the layout nested three boxes; that is a different thing
+        // from the problem a reader reported and is excluded on purpose.
+        const FORM = new Set(['TEXTAREA', 'INPUT', 'SELECT']);
+        const isScroller = (el: Element): boolean => {
+          if (FORM.has(el.tagName)) return false;
+          // Cheap first: an `auto` box whose content fits shows no scrollbar and
+          // costs a reader nothing, and this avoids a `getComputedStyle` call
+          // for almost every element in the dock.
+          if (el.scrollHeight <= el.clientHeight + 1) return false;
+          const overflow = getComputedStyle(el).overflowY;
+          return overflow === 'auto' || overflow === 'scroll';
+        };
+        const found: Element[] = [];
+        if (isScroller(root)) found.push(root);
+        for (const el of root.querySelectorAll('*')) if (isScroller(el)) found.push(el);
+        // Depth is the longest ancestor chain WITHIN that set — how many
+        // scrollbars a reader is looking through to see the deepest content.
+        let depth = 0;
+        let chain: readonly string[] = [];
+        for (const el of found) {
+          const here = found.filter((other) => other === el || other.contains(el));
+          if (here.length > depth) {
+            depth = here.length;
+            chain = here.map(describe);
+          }
+        }
+        return { depth, chain, scrollers: found.map(describe) };
+      };
+
+      const docks = Object.fromEntries(
+        (['control', 'analysis'] as const).map((dock) => {
+          const root = document.querySelector(`[data-testid="dock-${dock}"]`);
+          const scrollers =
+            root === null ? { depth: 0, chain: [], scrollers: [] } : scrollersIn(root);
+          return [
+            dock,
+            {
+              id: dock,
+              open: wiring.shellDockOpen(dock),
+              widthPx: wiring.shellDockWidthPx(dock),
+              rectWidthPx: rectOf(`[data-testid="dock-${dock}"]`).width,
+              maxScrollerDepth: scrollers.depth,
+              scrollerChain: scrollers.chain,
+              scrollers: scrollers.scrollers,
+            },
+          ];
+        }),
+      ) as Record<DockId, DockReading>;
+
+      const statusSegments = [
+        ...document.querySelectorAll('[data-testid="stage-status"] [data-testid]'),
+      ]
+        .map((el) => (el.getAttribute('data-testid') ?? '').replace(/^status-/, ''))
+        .filter((name) => name !== '');
+
+      /*
+       * Reachability, hit-tested rather than merely present.
+       *
+       * The assertion this replaces was `querySelector !== null && !disabled`,
+       * which a `hidden` element inside a collapsed dock section passes. What
+       * matters is whether a reader can press the thing, so the button must
+       * have a box AND be the topmost element at the centre of that box — an
+       * open dock overlay or a scrim covering it counts as not reachable.
+       */
+      const quickCommands = [...document.querySelectorAll('[data-quick-command]')].map((el) => {
+        const rect = el.getBoundingClientRect();
+        const visible = rect.width > 0 && rect.height > 0;
+        const hit = visible
+          ? document.elementFromPoint(rect.left + rect.width / 2, rect.top + rect.height / 2)
+          : null;
+        return {
+          name: el.getAttribute('data-quick-command') ?? '',
+          visible,
+          reachable: hit !== null && (hit === el || el.contains(hit)),
+          enabled: !(el as HTMLButtonElement).disabled,
+        };
+      });
+
       return {
         breakpoint: wiring.shellBreakpoint(),
         windowWidthPx: w,
         windowHeightPx: h,
-        dockOpen: wiring.shellDockOpen(),
         dockOverlays: wiring.shellDockOverlays(),
-        dockWidthPx: wiring.shellDockWidthPx(),
-        dockRectWidthPx: dock.width,
+        docks,
         stageWidthPx: stage.width,
         stageHeightPx: stage.height,
+        statusBarHeightPx: statusBar.height,
+        statusSegments,
+        quickCommands,
         canvasWidthPx,
         canvasHeightPx,
         viewportHeightSharePct: h === 0 ? 0 : (canvasHeightPx / h) * 100,
@@ -1072,8 +1231,8 @@ export function installDebugHook(wiring: DebugHookWiring): () => void {
     },
 
     setSection: (id, open) => wiring.setSection(id, open),
-    setDockOpen: (open) => wiring.setDockOpen(open),
-    setDockWidth: (px) => wiring.setDockWidth(px),
+    setDockOpen: (dock, open) => wiring.setDockOpen(dock, open),
+    setDockWidth: (dock, px) => wiring.setDockWidth(dock, px),
 
     renderStats() {
       const stats = wiring.renderStats();

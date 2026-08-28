@@ -1,5 +1,6 @@
 /**
- * The three-zone shell: a 56 px rail, a stage, and a collapsible right dock.
+ * The four-zone shell: a 56 px rail, a stage with a status line under it, and
+ * two collapsible docks — `control` inboard, `analysis` outboard.
  *
  * Everything here is layout. Not one pane's *content* is touched: the
  * architecture graph, the trace, the source explorer, Learn and Lab are handed
@@ -7,6 +8,16 @@
  * rows. Provenance, `isPhysicallyObserved()`, the `conceptual` badges, the NOT
  * BUILT panels and the modifying-this-robot banner are correctness surfaces and
  * none of them is styling.
+ *
+ * ```text
+ * +--+----------------------------+-----------+-------------+
+ * |R |         CENTER STAGE       | CONTROL   | ANALYSIS    |
+ * |A |      3D robot (>= 45vh)    | v Commands| v Inspector |
+ * |I |                            | > Face    | > Modules   |
+ * |L +----------------------------+ > Lab     | > Signal    |
+ * |  |  status line (~34 px)      |           | > Source... |
+ * +--+----------------------------+-----------+-------------+
+ * ```
  *
  * The rail never collapses. That is not decoration: the provenance chip lives
  * on it, and the product's central honesty claim is that a reader can always
@@ -33,7 +44,20 @@
  * L7's opposite requirement is preserved by not touching it: the Lab pane's own
  * closed-strip state, where it does not subscribe to `LessonRuntime` at all,
  * still belongs to `LabMode` and is unchanged by whether its dock section is
- * expanded.
+ * expanded — or by which dock now draws it.
+ *
+ * ## One scroller between the dock frame and the content
+ *
+ * A reader on a laptop reported "everything is too small and too many
+ * scrollbars", and the dock nested three deep: `.dock-body`, then
+ * `.dock-section-body`, then a pane's own `overflow-y: auto`. The rule now is
+ * that the OPEN section's body is the single scroller; `.dock-body` does not
+ * scroll while a section is open, and the panes size to content. `.source-code`
+ * is the one honest exception — 429 lines of C++ genuinely needs its own
+ * viewport, and L4's "selecting a joint scrolled the code to its first line"
+ * assertion is measured against exactly that viewport. `capture-web-
+ * screenshots.mjs` counts the nested scrollable ancestors at Medium and
+ * requires no more than two.
  */
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactElement, type ReactNode } from 'react';
 
@@ -44,15 +68,22 @@ import {
   breakpointForWidth,
   clampDockWidth,
   DEFAULT_SHELL,
+  DOCK_DEFAULT_PX,
+  DOCK_IDS,
+  DOCK_SECTIONS,
+  dockForSection,
+  dockIsOpen,
   isSingleOpen,
   loadShell,
   saveShell,
   SECTION_IDS,
   sectionIsOpen,
+  sectionIsVisible,
   withDockOpen,
   withDockWidth,
   withSection,
   type Breakpoint,
+  type DockId,
   type SectionId,
   type ShellState,
 } from './shell-state.js';
@@ -60,28 +91,32 @@ import {
 export interface ShellController {
   readonly breakpoint: Breakpoint;
   readonly state: ShellState;
-  readonly dockVisible: boolean;
-  /** True when the dock floats above the stage instead of taking width from it. */
+  /** True when the docks float above the stage instead of taking width from it. */
   readonly dockOverlays: boolean;
+  isDockOpen(dock: DockId): boolean;
+  /** The section's accordion state, regardless of whether its dock is showing. */
   isOpen(id: SectionId): boolean;
+  /** Expanded AND its dock showing — what a reader can actually see. */
+  isVisible(id: SectionId): boolean;
   setSection(id: SectionId, open: boolean): void;
   toggleSection(id: SectionId): void;
-  setDockOpen(open: boolean): void;
-  setDockWidth(px: number): void;
+  setDockOpen(dock: DockId, open: boolean): void;
+  setDockWidth(dock: DockId, px: number): void;
   /**
    * Put a section where it can be seen — §5.2.
    *
-   * Opens the dock if it is shut and expands the section, which below Wide
-   * closes whatever else was open. Called from the selection path, and only
-   * for selections that originated in the 3D scene: a click inside a pane
-   * that is already on screen needs no help, and hijacking the dock while a
-   * learner is mid-lesson would be worse than the problem it solves.
+   * Opens the section's own dock if it is shut and expands the section, which
+   * below Wide closes whatever else was open IN THAT DOCK and shuts the other
+   * dock. Called from the selection path, and only for selections that
+   * originated in the 3D scene: a click inside a pane that is already on screen
+   * needs no help, and hijacking the dock while a learner is mid-lesson would
+   * be worse than the problem it solves.
    */
   reveal(id: SectionId): void;
 }
 
 /**
- * Breakpoint, open sections and dock width, restored from `localStorage`.
+ * Breakpoint, open sections and dock widths, restored from `localStorage`.
  *
  * The width is read once on mount and then from `resize`. `matchMedia` would do
  * as well; `innerWidth` is used because the same number is what the harness
@@ -128,33 +163,38 @@ export function useShell(): ShellController {
   );
 
   const setDockOpen = useCallback(
-    (open: boolean) => update((previous) => withDockOpen(previous, breakpoint, open)),
+    (dock: DockId, open: boolean) => update((previous) => withDockOpen(previous, dock, breakpoint, open)),
     [breakpoint, update],
   );
 
-  const setDockWidth = useCallback((px: number) => update((previous) => withDockWidth(previous, px)), [update]);
+  const setDockWidth = useCallback(
+    (dock: DockId, px: number) => update((previous) => withDockWidth(previous, dock, px)),
+    [update],
+  );
 
   const reveal = useCallback(
     (id: SectionId) =>
-      update((previous) => withSection(withDockOpen(previous, breakpoint, true), breakpoint, id, true)),
+      update((previous) =>
+        withSection(withDockOpen(previous, dockForSection(id), breakpoint, true), breakpoint, id, true),
+      ),
     [breakpoint, update],
   );
 
-  const dockVisible = state.dockOpen[breakpoint];
   return useMemo(
     () => ({
       breakpoint,
       state,
-      dockVisible,
       dockOverlays: breakpoint !== 'wide',
+      isDockOpen: (dock: DockId) => dockIsOpen(state, breakpoint, dock),
       isOpen: (id: SectionId) => sectionIsOpen(state, breakpoint, id),
+      isVisible: (id: SectionId) => sectionIsVisible(state, breakpoint, id),
       setSection,
       toggleSection,
       setDockOpen,
       setDockWidth,
       reveal,
     }),
-    [breakpoint, state, dockVisible, setSection, toggleSection, setDockOpen, setDockWidth, reveal],
+    [breakpoint, state, setSection, toggleSection, setDockOpen, setDockWidth, reveal],
   );
 }
 
@@ -191,7 +231,7 @@ export function Rail(props: RailProps): ReactElement {
       <div className="rail-group">
         <button
           type="button"
-          className={`rail-btn${shell.isOpen('learn') && shell.dockVisible ? ' active' : ''}`}
+          className={`rail-btn${shell.isVisible('learn') ? ' active' : ''}`}
           data-rail-mode="learn"
           title="Learn — guided lessons against the live robot"
           onClick={() => shell.reveal('learn')}
@@ -203,7 +243,7 @@ export function Rail(props: RailProps): ReactElement {
         </button>
         <button
           type="button"
-          className={`rail-btn${shell.isOpen('lab') && shell.dockVisible ? ' active' : ''}`}
+          className={`rail-btn${shell.isVisible('lab') ? ' active' : ''}`}
           data-rail-mode="lab"
           title="Lab — the unrestricted surface"
           onClick={() => shell.reveal('lab')}
@@ -262,7 +302,7 @@ export function Rail(props: RailProps): ReactElement {
   );
 }
 
-// -------------------------------------------------------------- right dock
+// ------------------------------------------------------------------- docks
 
 export interface DockSectionSpec {
   readonly id: SectionId;
@@ -281,31 +321,87 @@ export interface DockSectionSpec {
   readonly body: ReactNode;
 }
 
+export interface DocksProps {
+  readonly shell: ShellController;
+  readonly sections: readonly DockSectionSpec[];
+}
+
+const DOCK_META: Readonly<Record<DockId, { label: string; hint: string }>> = {
+  control: { label: 'controls', hint: 'commands, face and the Lab — the surfaces that drive this robot' },
+  analysis: { label: 'analysis', hint: 'inspector, modules, signal, source and lessons' },
+};
+
+/**
+ * Both docks, and the scrim that closes an overlay.
+ *
+ * At Wide `.docks` is in flow and the two docks take width from the stage; that
+ * is correct there, because the stage is still 1,400 px or more. Below Wide
+ * `.docks` is `position: absolute` (see `styles.css`) so it floats over the
+ * stage and the stage's measured width does not change when either dock opens —
+ * the rule that fixes the laptop, and the one the harness asserts by measuring
+ * the stage before and after, once per dock.
+ */
+export function Docks(props: DocksProps): ReactElement {
+  const { shell, sections } = props;
+  const anyOverlayOpen = shell.dockOverlays && DOCK_IDS.some((dock) => shell.isDockOpen(dock));
+
+  return (
+    <>
+      {/*
+        The scrim. Only below Wide, where a dock floats: it is what closes an
+        overlay by clicking beside it, and it is deliberately NOT rendered at
+        Wide, where the docks are in flow and the stage is still interactive.
+      */}
+      {anyOverlayOpen && (
+        <button
+          type="button"
+          className="dock-scrim"
+          data-testid="dock-scrim"
+          aria-label="close the open dock"
+          onClick={() => {
+            for (const dock of DOCK_IDS) if (shell.isDockOpen(dock)) shell.setDockOpen(dock, false);
+          }}
+        />
+      )}
+
+      <div className="docks" data-testid="docks" data-overlay={String(shell.dockOverlays)}>
+        {DOCK_IDS.map((dock) => (
+          <Dock
+            key={dock}
+            dock={dock}
+            shell={shell}
+            sections={sections.filter((s) => dockForSection(s.id) === dock)}
+          />
+        ))}
+      </div>
+    </>
+  );
+}
+
 export interface DockProps {
+  readonly dock: DockId;
   readonly shell: ShellController;
   readonly sections: readonly DockSectionSpec[];
 }
 
 /**
- * The dock, its icon strip, its accordion and its drag handle.
+ * One dock: its icon strip, its accordion and its drag handle.
  *
- * At Wide it is in flow and takes width from the stage. At Medium and Compact
- * it is `position: absolute` (see `styles.css`) so it floats over the stage and
- * the stage's measured width does not change when it opens — the rule that
- * fixes the laptop, and the one the harness asserts by measuring the stage
- * before and after.
+ * The 44 px icon strip is all the dock shows until it is opened, which is how
+ * every pane stays REACHABLE at every breakpoint without any of them costing
+ * the stage a pixel.
  */
 export function Dock(props: DockProps): ReactElement {
-  const { shell, sections } = props;
-  const dockRef = useRef<HTMLElement | null>(null);
+  const { dock, shell, sections } = props;
   const drag = useRef<{ startX: number; startWidth: number } | null>(null);
+  const open = shell.isDockOpen(dock);
 
   const onResizeDown = useCallback(
     (event: React.PointerEvent<HTMLDivElement>) => {
-      drag.current = { startX: event.clientX, startWidth: shell.state.dockWidthPx };
+      drag.current = { startX: event.clientX, startWidth: shell.state.dockWidthPx[dock] };
       event.currentTarget.setPointerCapture(event.pointerId);
     },
-    [shell.state.dockWidthPx],
+    [dock, shell.state.dockWidthPx],
   );
 
   const onResizeMove = useCallback(
@@ -313,9 +409,9 @@ export function Dock(props: DockProps): ReactElement {
       const start = drag.current;
       if (start === null) return;
       // The handle is on the dock's LEFT edge, so dragging left widens it.
-      shell.setDockWidth(clampDockWidth(start.startWidth + (start.startX - event.clientX)));
+      shell.setDockWidth(dock, clampDockWidth(start.startWidth + (start.startX - event.clientX)));
     },
-    [shell],
+    [dock, shell],
   );
 
   const onResizeUp = useCallback((event: React.PointerEvent<HTMLDivElement>) => {
@@ -326,136 +422,115 @@ export function Dock(props: DockProps): ReactElement {
   const anyOpen = sections.some((s) => shell.isOpen(s.id));
 
   return (
-    <>
-      {/*
-        The scrim. Only below Wide, where the dock floats: it is what closes an
-        overlay by clicking beside it, and it is deliberately NOT rendered at
-        Wide, where the dock is in flow and the stage is still interactive.
-      */}
-      {shell.dockOverlays && shell.dockVisible && (
+    <aside
+      className="dock"
+      data-testid={`dock-${dock}`}
+      data-dock={dock}
+      data-open={String(open)}
+      data-overlay={String(shell.dockOverlays)}
+      data-breakpoint={shell.breakpoint}
+      aria-label={DOCK_META[dock].label}
+      style={{ ['--dock-w' as string]: `${String(shell.state.dockWidthPx[dock])}px` }}
+    >
+      <div className="dock-strip" data-testid={`dock-strip-${dock}`}>
         <button
           type="button"
-          className="dock-scrim"
-          data-testid="dock-scrim"
-          aria-label="close the dock"
-          onClick={() => shell.setDockOpen(false)}
+          className="dock-strip-btn dock-toggle"
+          data-testid={`dock-toggle-${dock}`}
+          data-dock-toggle-for={dock}
+          aria-expanded={open}
+          title={`${open ? 'close' : 'open'} the ${DOCK_META[dock].label} dock — ${DOCK_META[dock].hint}`}
+          onClick={() => shell.setDockOpen(dock, !open)}
+        >
+          {open ? '›' : '‹'}
+        </button>
+        {sections.map((section) => (
+          <button
+            key={section.id}
+            type="button"
+            className={`dock-strip-btn${shell.isVisible(section.id) ? ' active' : ''}${
+              section.badgeIsSelection ? ' has-selection' : ''
+            }`}
+            data-dock-strip={section.id}
+            title={section.badge === null ? section.label : `${section.label} — ${section.badge}`}
+            onClick={() => shell.reveal(section.id)}
+          >
+            <span aria-hidden="true">{section.glyph}</span>
+            {section.badgeIsSelection && <i className="dock-strip-dot" aria-hidden="true" />}
+          </button>
+        ))}
+      </div>
+
+      <div className="dock-body" data-testid={`dock-body-${dock}`} data-any-open={String(anyOpen)}>
+        {sections.map((section) => {
+          const sectionOpen = shell.isOpen(section.id);
+          return (
+            <section
+              key={section.id}
+              className={`dock-section${sectionOpen ? ' is-open' : ''}`}
+              data-dock-section={section.id}
+              data-dock={dock}
+              data-open={String(sectionOpen)}
+            >
+              <h2 className="dock-section-header">
+                <button
+                  type="button"
+                  className="dock-section-toggle"
+                  data-dock-toggle={section.id}
+                  aria-expanded={sectionOpen}
+                  onClick={() => shell.toggleSection(section.id)}
+                >
+                  <span className="dock-caret" aria-hidden="true">
+                    {sectionOpen ? '▾' : '▸'}
+                  </span>
+                  <span className="dock-section-label">{section.label}</span>
+                  {/*
+                    §5.1. Shown only while the section is collapsed: an open
+                    section shows the real thing, and a badge beside it would
+                    be a second, staler statement of the same fact.
+                  */}
+                  {!sectionOpen && section.badge !== null && (
+                    <span
+                      className={`dock-badge${section.badgeIsSelection ? ' is-selection' : ''}`}
+                      data-dock-badge={section.id}
+                      data-selection={String(section.badgeIsSelection)}
+                    >
+                      {section.badgeIsSelection && <i className="dock-badge-dot" aria-hidden="true" />}
+                      {section.badge}
+                    </span>
+                  )}
+                </button>
+              </h2>
+              {/*
+                `hidden` rather than an unmount. See the module comment: four
+                separate harness invariants depend on these panes staying
+                mounted and live while they are shut.
+              */}
+              <div className="dock-section-body" hidden={!sectionOpen}>
+                {section.body}
+              </div>
+            </section>
+          );
+        })}
+      </div>
+
+      {!shell.dockOverlays && open && (
+        <div
+          className="dock-resizer"
+          data-testid={`dock-resizer-${dock}`}
+          role="separator"
+          aria-orientation="vertical"
+          onPointerDown={onResizeDown}
+          onPointerMove={onResizeMove}
+          onPointerUp={onResizeUp}
+          onDoubleClick={() => shell.setDockWidth(dock, DOCK_DEFAULT_PX[dock])}
+          title="drag to resize · double-click to reset"
         />
       )}
-
-      <aside
-        className="dock"
-        ref={dockRef}
-        data-testid="dock"
-        data-open={String(shell.dockVisible)}
-        data-overlay={String(shell.dockOverlays)}
-        data-breakpoint={shell.breakpoint}
-        style={{ ['--dock-w' as string]: `${String(shell.state.dockWidthPx)}px` }}
-      >
-        {/*
-          The 44 px icon strip. At Medium this is all the dock shows until it is
-          opened, which is how every pane stays REACHABLE at every breakpoint
-          without any of them costing the stage a pixel.
-        */}
-        <div className="dock-strip" data-testid="dock-strip">
-          <button
-            type="button"
-            className="dock-strip-btn dock-toggle"
-            data-testid="dock-toggle"
-            aria-expanded={shell.dockVisible}
-            title={shell.dockVisible ? 'close the dock' : 'open the dock'}
-            onClick={() => shell.setDockOpen(!shell.dockVisible)}
-          >
-            {shell.dockVisible ? '›' : '‹'}
-          </button>
-          {sections.map((section) => (
-            <button
-              key={section.id}
-              type="button"
-              className={`dock-strip-btn${shell.isOpen(section.id) && shell.dockVisible ? ' active' : ''}${
-                section.badgeIsSelection ? ' has-selection' : ''
-              }`}
-              data-dock-strip={section.id}
-              title={section.badge === null ? section.label : `${section.label} — ${section.badge}`}
-              onClick={() => shell.reveal(section.id)}
-            >
-              <span aria-hidden="true">{section.glyph}</span>
-              {section.badgeIsSelection && <i className="dock-strip-dot" aria-hidden="true" />}
-            </button>
-          ))}
-        </div>
-
-        <div className="dock-body" data-testid="dock-body" data-any-open={String(anyOpen)}>
-          {sections.map((section) => {
-            const open = shell.isOpen(section.id);
-            return (
-              <section
-                key={section.id}
-                className={`dock-section${open ? ' is-open' : ''}`}
-                data-dock-section={section.id}
-                data-open={String(open)}
-              >
-                <h2 className="dock-section-header">
-                  <button
-                    type="button"
-                    className="dock-section-toggle"
-                    data-dock-toggle={section.id}
-                    aria-expanded={open}
-                    onClick={() => shell.toggleSection(section.id)}
-                  >
-                    <span className="dock-caret" aria-hidden="true">
-                      {open ? '▾' : '▸'}
-                    </span>
-                    <span className="dock-section-label">{section.label}</span>
-                    {/*
-                      §5.1. Shown only while the section is collapsed: an open
-                      section shows the real thing, and a badge beside it would
-                      be a second, staler statement of the same fact.
-                    */}
-                    {!open && section.badge !== null && (
-                      <span
-                        className={`dock-badge${section.badgeIsSelection ? ' is-selection' : ''}`}
-                        data-dock-badge={section.id}
-                        data-selection={String(section.badgeIsSelection)}
-                      >
-                        {section.badgeIsSelection && <i className="dock-badge-dot" aria-hidden="true" />}
-                        {section.badge}
-                      </span>
-                    )}
-                  </button>
-                </h2>
-                {/*
-                  `hidden` rather than an unmount. See the module comment: four
-                  separate harness invariants depend on these panes staying
-                  mounted and live while they are shut.
-                */}
-                <div className="dock-section-body" hidden={!open}>
-                  {section.body}
-                </div>
-              </section>
-            );
-          })}
-        </div>
-
-        {!shell.dockOverlays && shell.dockVisible && (
-          <div
-            className="dock-resizer"
-            data-testid="dock-resizer"
-            role="separator"
-            aria-orientation="vertical"
-            onPointerDown={onResizeDown}
-            onPointerMove={onResizeMove}
-            onPointerUp={onResizeUp}
-            onDoubleClick={() => shell.setDockWidth(DEFAULT_DOCK_WIDTH)}
-            title="drag to resize · double-click to reset"
-          />
-        )}
-      </aside>
-    </>
+    </aside>
   );
 }
 
-const DEFAULT_DOCK_WIDTH = 460;
-
 /** Every section id, in draw order. Re-exported so `App` need not import both. */
-export { SECTION_IDS, isSingleOpen };
-export type { SectionId, Breakpoint };
+export { SECTION_IDS, DOCK_IDS, DOCK_SECTIONS, dockForSection, isSingleOpen };
+export type { SectionId, Breakpoint, DockId };
