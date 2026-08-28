@@ -45,9 +45,21 @@ import {
   withDockOpen,
   withDockWidth,
   withSection,
+  modeForState,
+  MODE_LABEL,
+  usesWorkbench,
+  WORKBENCH_MAX_PX,
+  WORKBENCH_MIN_PX,
+  WORKBENCH_TARGET_PX,
   type ShellState,
 } from '../ui/shell-state.js';
-import { PRIMARY_COMMANDS, primaryCommandCount, primaryCommandsAreInVocabulary } from '../ui/StatusBar.js';
+import {
+  environmentHardware,
+  environmentSystemName,
+  PRIMARY_COMMANDS,
+  primaryCommandCount,
+  primaryCommandsAreInVocabulary,
+} from '../ui/StatusBar.js';
 
 const STORAGE_KEY = 'sesame-lab.shell.v2';
 
@@ -71,15 +83,34 @@ afterEach(() => {
 describe('breakpoints', () => {
   it('puts the laptop the bug was reported on in Medium, not Wide', () => {
     expect(breakpointForWidth(1440)).toBe('medium');
-    expect(breakpointForWidth(1441)).toBe('wide');
     expect(breakpointForWidth(1280)).toBe('medium');
     expect(breakpointForWidth(2560)).toBe('wide');
   });
 
-  it('closes Compact at 899 and opens Medium at 900', () => {
+  it('moves the two-dock regime up to 1700 — Phase 4 W3, by arithmetic', () => {
+    // Two 360 px docks and a 64 px rail leave a 1440 px laptop 43.9% of its
+    // screen area, and two 320 px docks leave 49.3%. The user's rule is 50%, so
+    // two docks in flow are simply not available on a laptop; at 1700 they
+    // leave >= 1276 px of stage and they are.
+    expect(breakpointForWidth(1600)).toBe('medium');
+    expect(breakpointForWidth(1699)).toBe('medium');
+    expect(breakpointForWidth(1700)).toBe('wide');
+  });
+
+  it('closes Compact at 1199 and opens Medium at 1200', () => {
+    // 64 px rail + the brief's 500 px workbench minimum + a stage that still
+    // holds half the screen area stops fitting at about 1185 px. Below that the
+    // workbench is a sheet again, which is the only thing that fits.
+    expect(breakpointForWidth(1199)).toBe('compact');
+    expect(breakpointForWidth(1200)).toBe('medium');
     expect(breakpointForWidth(899)).toBe('compact');
-    expect(breakpointForWidth(900)).toBe('medium');
     expect(breakpointForWidth(320)).toBe('compact');
+  });
+
+  it('draws one workbench below Wide and two docks at and above it', () => {
+    expect(usesWorkbench('compact')).toBe(true);
+    expect(usesWorkbench('medium')).toBe(true);
+    expect(usesWorkbench('wide')).toBe(false);
   });
 
   it('holds one open section below Wide and a set at Wide', () => {
@@ -206,13 +237,101 @@ describe('section updates', () => {
   });
 
   it('reports visibility as expanded AND its dock showing', () => {
-    // `commands` is open by default at Medium, but the control dock is shut, so
-    // nobody can see it — which is exactly why the status line carries the
-    // quick-run cluster.
+    // At Medium the workbench is in flow and starts OPEN — W3 — so `commands`
+    // is both open and visible there. At Compact it is a sheet and starts shut,
+    // which is why the status line carries the quick-run cluster.
     expect(sectionIsOpen(DEFAULT_SHELL, 'medium', 'commands')).toBe(true);
-    expect(sectionIsVisible(DEFAULT_SHELL, 'medium', 'commands')).toBe(false);
-    const shown = withDockOpen(DEFAULT_SHELL, 'control', 'medium', true);
-    expect(sectionIsVisible(shown, 'medium', 'commands')).toBe(true);
+    expect(sectionIsVisible(DEFAULT_SHELL, 'medium', 'commands')).toBe(true);
+    expect(sectionIsOpen(DEFAULT_SHELL, 'compact', 'commands')).toBe(true);
+    expect(sectionIsVisible(DEFAULT_SHELL, 'compact', 'commands')).toBe(false);
+    const shown = withDockOpen(DEFAULT_SHELL, 'control', 'compact', true);
+    expect(sectionIsVisible(shown, 'compact', 'commands')).toBe(true);
+  });
+});
+
+/**
+ * The mode switch — Phase 4 W3.
+ *
+ * `Control | Analyze` is not new state. It is the dock split U6 already made,
+ * shown as two modes of one workbench instead of two columns, so everything
+ * these tests check is a consequence of `withDockOpen` and `withSection`
+ * rather than of a second machine that has to be kept in step with the first.
+ */
+describe('the workbench mode switch', () => {
+  it('names the two modes with the brief’s words', () => {
+    expect(MODE_LABEL.control).toBe('Control');
+    expect(MODE_LABEL.analysis).toBe('Analyze');
+  });
+
+  it('derives the mode from the open section, so it cannot disagree with it', () => {
+    expect(modeForState(DEFAULT_SHELL, 'medium')).toBe('control');
+    const analysing = withSection(DEFAULT_SHELL, 'medium', 'signal', true);
+    expect(modeForState(analysing, 'medium')).toBe('analysis');
+    // And back, which also closes `signal` — one pane at a time.
+    const driving = withSection(analysing, 'medium', 'lab', true);
+    expect(modeForState(driving, 'medium')).toBe('control');
+    expect(driving.open.medium).toEqual(['lab']);
+  });
+
+  it('shows the mode’s first pane when nothing in it is open', () => {
+    const analysing = withDockOpen(DEFAULT_SHELL, 'analysis', 'medium', true);
+    expect(modeForState(analysing, 'medium')).toBe('analysis');
+    expect(analysing.open.medium).toEqual(['inspector']);
+    expect(analysing.dockOpen.control.medium).toBe(false);
+  });
+
+  it('survives a reload because the open section does', () => {
+    installStorage();
+    saveShell(withSection(DEFAULT_SHELL, 'medium', 'source', true));
+    expect(modeForState(loadShell(), 'medium')).toBe('analysis');
+  });
+
+  it('falls back to Control with nothing open at all', () => {
+    const empty: ShellState = {
+      ...DEFAULT_SHELL,
+      open: { ...DEFAULT_SHELL.open, medium: [] },
+    };
+    expect(modeForState(empty, 'medium')).toBe('control');
+  });
+
+  it('keeps the brief’s three workbench widths', () => {
+    // Mirrored in styles.css as `clamp(500px, 37.5vw, 560px)`, and 37.5vw is
+    // exactly 540 at 1440 — the width §3's arithmetic spends.
+    expect(WORKBENCH_MIN_PX).toBe(500);
+    expect(WORKBENCH_TARGET_PX).toBe(540);
+    expect(WORKBENCH_MAX_PX).toBe(560);
+    expect(Math.round(1440 * 0.375)).toBe(WORKBENCH_TARGET_PX);
+    // §3's table, recomputed rather than quoted: one workbench clears the
+    // user's 50% rule at 1440x900 and neither two-dock configuration does.
+    const share = (docks: number): number => ((1440 - 64 - docks) * 868) / (1440 * 900);
+    expect(share(WORKBENCH_TARGET_PX)).toBeGreaterThan(0.5);
+    expect(share(320 + 320)).toBeLessThan(0.5);
+    expect(share(360 + 360)).toBeLessThan(0.5);
+  });
+});
+
+/** The environment line the brief asks for, and the two facts it states. */
+describe('the environment line', () => {
+  it('names the system from the origin, never from a constant', () => {
+    expect(environmentSystemName({ kind: 'emulator', engine: 'qemu-system-xtensa/9.2.2' }, 'sim')).toBe(
+      'QEMU EMULATOR',
+    );
+    expect(environmentSystemName({ kind: 'host-model', engine: '@sesame-lab/sesame-sim' }, 'qemu')).toBe(
+      'HOST MODEL',
+    );
+    expect(environmentSystemName({ kind: 'replay' }, 'qemu')).toBe('RECORDED REPLAY');
+  });
+
+  it('falls back to the selected backend before anything has driven the scene', () => {
+    expect(environmentSystemName(null, 'qemu')).toBe('QEMU EMULATOR');
+    expect(environmentSystemName(null, 'sim')).toBe('HOST MODEL');
+    expect(environmentSystemName(null, 'bridge')).toBe('BRIDGE STREAM');
+    expect(environmentSystemName({ kind: 'unknown' }, 'qemu')).toBe('QEMU EMULATOR');
+  });
+
+  it('reads PHYSICAL HARDWARE off the counter, so NONE is a measurement', () => {
+    expect(environmentHardware(0)).toBe('NONE');
+    expect(environmentHardware(3)).toBe('3 OBSERVED EVENTS');
   });
 });
 

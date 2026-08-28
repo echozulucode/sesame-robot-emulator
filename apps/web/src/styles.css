@@ -216,10 +216,34 @@
    * at Wide — see the LEGIBILITY block at the end of the Medium section.
    * ========================================================================== */
   .shell {
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+    overflow: hidden;
+  }
+
+  /*
+   * The shell is a COLUMN now — Phase 4 W3.
+   *
+   * `.shell-main` is the rail/stage/workbench row, and the status strip is a
+   * full-width row under all three rather than a strip inside the stage. Two
+   * reasons, and the second is the load-bearing one:
+   *
+   *  1. It is the plan's own arithmetic. §3 computes the stage as
+   *     `1440 - 64 rail - 540 workbench` wide by `900 - 32 status` tall, which
+   *     is a status strip spanning the whole shell.
+   *  2. The environment line has to fit. `SYSTEM: QEMU EMULATOR · PHYSICAL
+   *     HARDWARE: NONE` is a correctness surface that may not be truncated, and
+   *     it needs about 340 px on a line that also carries the connection, the
+   *     provenance chips and the quick-run cluster. Inside the stage at Compact
+   *     it had 750 px and no margin; across the shell it has the window.
+   */
+  .shell-main {
     position: relative;
+    flex: 1 1 auto;
+    min-height: 0;
     display: flex;
     align-items: stretch;
-    height: 100%;
     overflow: hidden;
   }
 
@@ -230,26 +254,26 @@
    * be closed is a zone that can hide whether what is on screen was measured,
    * simulated or inferred.
    *
-   * 72 px, up from 56 - the one width W1 changed, and it changed because of
-   * type rather than layout. At 56 px the usable column was 48, and the
-   * protocol's own origin words ("emulated" 58 px, "physical hardware",
-   * "origin not stated") do not fit on a line at the 14 px floor: they broke
-   * mid-word into "emulat / ed", which is not more readable than the 9 px
-   * ellipsis it replaced. 64 px of usable column fits every one of them whole.
+   * 64 px — the brief's number, reached in W3 by spending the horizontal
+   * padding instead of the width.
    *
-   * W3 owns the rail properly and the plan already specifies 64 px there with a
-   * readable 14 px label; this is the minimum that makes the honesty zone
-   * legible in the meantime, and it costs the stage 16 px.
+   * W1 had to make it 72 to get 64 px of usable column, because at 56 the
+   * protocol's own origin words ("emulated" 58 px, "physical hardware",
+   * "origin not stated") broke mid-word at the 14 px floor. 64 px total with
+   * 2 px of side padding is 60 px of usable column, and that still fits
+   * "emulated" whole. The rail's own chips are a SUMMARY: the full origin
+   * string is rendered whole on the status line and in `#prov-banner`, and the
+   * environment line under the stage now states the system outright.
    */
   .rail {
-    flex: 0 0 72px;
-    width: 72px;
-    min-width: 72px;
+    flex: 0 0 64px;
+    width: 64px;
+    min-width: 64px;
     display: flex;
     flex-direction: column;
     align-items: center;
     gap: 10px;
-    padding: 8px 4px;
+    padding: 8px 2px;
     border-right: 1px solid var(--line);
     background: #0b0e13;
     overflow: hidden;
@@ -270,6 +294,7 @@
 
   .rail-btn {
     width: 60px;
+    min-height: 36px;
     padding: var(--space-1) var(--space-1);
     background: var(--panel-2);
     color: var(--dim);
@@ -425,16 +450,18 @@
 
   /* ------------------------------------------------------- the status line
    *
-   * 34 px, one row, never scrolls and never wraps. It replaced a 120-176 px strip
-   * that held the whole command vocabulary and the OLED; both are sections of the
-   * control dock now. What is left here is a glance line whose content scales
-   * with the breakpoint (see `ui/StatusBar.tsx`), plus the commands worth one
-   * click — which is what keeps `wave` reachable at every breakpoint without
-   * opening anything.
+   * 32 px, one row, never scrolls and never wraps, and it spans the whole shell
+   * rather than sitting inside the stage — Phase 4 W3, the plan's 30-32 px.
+   *
+   * It replaced a 120-176 px strip that held the whole command vocabulary and
+   * the OLED; both are panes of the workbench now. What is left is a glance
+   * line whose content scales with the breakpoint (see `ui/StatusBar.tsx`), the
+   * commands worth one click, and the ENVIRONMENT LINE below — which is the one
+   * thing on it that is not a glance.
    */
   .stage-status {
     flex: 0 0 auto;
-    height: 34px;
+    height: 32px;
     display: flex;
     align-items: center;
     gap: 8px;
@@ -444,6 +471,56 @@
     font-size: var(--font-badge);
     white-space: nowrap;
     overflow: hidden;
+  }
+
+  /* ------------------------------------------------- the environment line
+   *
+   * `SYSTEM: QEMU EMULATOR · PHYSICAL HARDWARE: NONE`, permanently, at the head
+   * of the line.
+   *
+   * The brief is blunt about why this exists: a novice reads "observed" as
+   * *observed on hardware*, and the app's most honest badge is therefore its
+   * most misreadable one. So the two facts a reader needs in order to interpret
+   * every other number on screen are stated in words, in the one region that is
+   * always visible, and NOT in a legend somebody has to open.
+   *
+   * It is a correctness surface, which here means three things mechanically:
+   * `flex: 0 0 auto` so it is never the thing that gives when the line is
+   * short of room, `overflow: visible` and `text-overflow: clip` so it can
+   * never be ellipsised, and it is in the harness's correctness-selector list
+   * so a run that DOES cut it fails instead of looking fine.
+   */
+  /*
+   * `display: inline`, NOT `inline-flex`, and this was measured rather than
+   * chosen: a flex item is blockified, and a block box drops the trailing
+   * whitespace inside it. With `inline-flex` and a `gap` the line LOOKS right
+   * and reads `SYSTEM:HOST MODEL·PHYSICAL HARDWARE:NONE` to a screen reader, to
+   * `textContent`, and to anyone who copies it. Keeping the spaces in the text
+   * and the spans inline is the only arrangement where the rendered line and
+   * the accessible line are the same sentence.
+   */
+  .status-env {
+    flex: 0 0 auto;
+    display: inline;
+    max-width: none;
+    overflow: visible;
+    text-overflow: clip;
+    white-space: nowrap;
+    letter-spacing: 0.05em;
+    color: var(--text);
+  }
+
+  .status-env-label {
+    color: var(--muted);
+  }
+
+  .status-env-value {
+    color: #cfe0fb;
+  }
+
+  /* `NONE` is the whole claim, so it is the word that is coloured. */
+  .status-env-none {
+    color: var(--ok, #7fd18a);
   }
 
   .status-dot {
@@ -498,8 +575,8 @@
     cursor: pointer;
     font: inherit;
     font-size: var(--font-ui);
-    padding: 3px 10px;
-    min-height: 24px;
+    padding: 1px 10px;
+    min-height: 26px;
   }
 
   .status-cmd:hover:not(:disabled) {
@@ -535,6 +612,248 @@
     display: flex;
     align-items: stretch;
     min-width: 0;
+  }
+
+  /* ==================================================== THE ONE WORKBENCH
+   *
+   * Phase 4 W3, and §3 of the plan resolved by the user's rule: *"I'd rather
+   * the robot area shrink. 50% of the screen area is more than enough."*
+   *
+   * Below 1700 px there is ONE workbench, IN FLOW, and the stage genuinely
+   * resizes. Everything the overlay existed to protect — the stage's width —
+   * the user has now said is fine to spend, and spending it buys the one thing
+   * two docks could not: a pane wide enough to read.
+   *
+   *   1440 - 64 rail - 540 workbench = 836 px of stage, 868 tall  -> 56.0%
+   *   two 320 px docks                                            -> 49.3%
+   *   two 360 px docks                                            -> 43.9%
+   *
+   * `--workbench-w` IS the brief's triple. `37.5vw` is 540 px at exactly
+   * 1440 — the recommended target — and the clamp is the recommended 500/560
+   * min and max. Written as one `clamp()` rather than three media queries
+   * because a width that steps is a width that has a wrong value on either side
+   * of the step.
+   */
+  .workbench {
+    --workbench-w: clamp(500px, 37.5vw, 560px);
+    flex: 0 0 auto;
+    display: flex;
+    align-items: stretch;
+    position: relative;
+    min-width: 44px;
+    background: #10141a;
+    border-left: 1px solid var(--line);
+    overflow: hidden;
+  }
+
+  /*
+   * The inset is PADDING on the workbench, not a margin on the frame, so that
+   * `--workbench-w` is the whole footprint the stage arithmetic above spends.
+   * 540 px of footprint leaves a 526 px card and about a 494 px pane, which is
+   * roughly 53 ch of 17 px prose — inside the brief's 45-75 band, and the
+   * number W2 handed forward.
+   */
+  .workbench[data-open='true'] {
+    flex: 0 1 var(--workbench-w);
+    width: var(--workbench-w);
+    padding: 12px 12px 12px 0;
+    border-left-color: transparent;
+    background: transparent;
+  }
+
+  /* Shut, the workbench is its 44 px icon strip and every pane is still one
+     click away — U6's reachability promise, kept with one strip instead of
+     two, which is 44 px the stage gets back. */
+  .workbench[data-open='false'] {
+    flex: 0 0 44px;
+    width: 44px;
+  }
+
+  .workbench-strip {
+    border-right: 0;
+    border-left: 1px solid var(--line);
+  }
+
+  .workbench-frame {
+    flex: 1 1 auto;
+    min-width: 0;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    background: #10141a;
+    overflow: hidden;
+  }
+
+  /* --------------------------------------------- Control | Analyze
+   *
+   * The brief: *"preserve Control and Analyze as top-level concepts, but make
+   * them two modes of a single laptop workbench"*. Two segments, 36 px high
+   * (the brief's control size), 14 px floor, and nothing else on the row except
+   * the collapse chevron.
+   */
+  .workbench-head {
+    flex: 0 0 auto;
+    display: flex;
+    align-items: center;
+    gap: var(--space-2);
+    padding: var(--space-2);
+    border-bottom: 1px solid var(--line);
+    background: var(--panel-2);
+  }
+
+  .workbench-modes {
+    flex: 1 1 auto;
+    display: flex;
+    min-width: 0;
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    overflow: hidden;
+  }
+
+  .workbench-mode {
+    flex: 1 1 0;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: var(--space-1);
+    min-height: 36px;
+    padding: var(--space-1) var(--space-2);
+    background: var(--panel);
+    color: var(--dim);
+    border: 0;
+    cursor: pointer;
+    font: inherit;
+    font-size: var(--font-ui);
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+  }
+
+  .workbench-mode + .workbench-mode {
+    border-left: 1px solid var(--line);
+  }
+
+  .workbench-mode:hover {
+    color: var(--text);
+  }
+
+  .workbench-mode.active {
+    background: #1d2938;
+    color: #cfe0fb;
+  }
+
+  .workbench-collapse {
+    flex: 0 0 auto;
+    width: 36px;
+    min-height: 36px;
+    background: var(--panel);
+    color: var(--dim);
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    cursor: pointer;
+    font: inherit;
+    font-size: var(--font-heading);
+    line-height: 1;
+  }
+
+  .workbench-collapse:hover {
+    color: var(--text);
+    border-color: var(--accent);
+  }
+
+  /* ------------------------------------------- the section navigator
+   *
+   * *"Use tabs or a compact section navigator BEFORE using nested
+   * accordions."* This is that navigator: one row per mode, three tabs in
+   * Control and five in Analyze, wrapping rather than scrolling because a
+   * horizontal scroller for five words is chrome pretending to be a control.
+   */
+  .workbench-nav {
+    flex: 0 0 auto;
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--space-1);
+    padding: var(--space-2);
+    border-bottom: 1px solid var(--line);
+    background: var(--panel);
+  }
+
+  .workbench-tab {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--space-1);
+    min-height: 36px;
+    padding: var(--space-1) var(--space-2);
+    background: transparent;
+    color: var(--dim);
+    border: 1px solid transparent;
+    border-radius: 7px;
+    cursor: pointer;
+    font: inherit;
+    font-size: var(--font-ui);
+  }
+
+  .workbench-tab:hover {
+    color: var(--text);
+    border-color: var(--line);
+  }
+
+  .workbench-tab.active {
+    background: #1d2938;
+    border-color: var(--accent);
+    color: #cfe0fb;
+  }
+
+  .workbench-tab .dock-badge {
+    margin-left: 0;
+  }
+
+  /* --------------------------------------------------- the current pane
+   *
+   * A pane that is not the current one is `display: none` — the same
+   * relationship the accordion's `hidden` body had, and mounted for the same
+   * four reasons (see ui/Shell.tsx). It is NOT an unmount.
+   */
+  .workbench-pane[data-open='false'] {
+    display: none;
+  }
+
+  .workbench-pane {
+    border: 0;
+    border-radius: 0;
+    background: transparent;
+  }
+
+  /*
+   * The pane's own title: a heading, not a toggle. *"Once a learner is in
+   * Signal, that pane should feel like the current task"* — so it gets the
+   * pane-title token, the whole column, and no chevron suggesting there is
+   * another accordion underneath it.
+   */
+  .workbench-pane-title {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    gap: var(--space-1) var(--space-2);
+    padding: 0 var(--space-1) var(--space-2);
+    border-bottom: 1px solid var(--line);
+    color: var(--text);
+    font-size: var(--font-title);
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+  }
+
+  .workbench-pane-note {
+    margin-left: auto;
+    color: var(--muted);
+    font-size: var(--font-badge);
+    letter-spacing: 0;
+    text-transform: none;
+  }
+
+  .workbench-pane-note.is-selection {
+    color: #cfe0fb;
   }
 
   .dock {
@@ -845,6 +1164,15 @@
     padding: var(--space-3);
   }
 
+  /* The workbench IS `one` by definition, and this is the seam W2 built: every
+     rule above and in `@layer panes` that reads `[data-sections]` — the Source
+     pane's two height regimes, the arch canvas, the lab code block, scroll
+     ownership, pane spacing — went on working when W3 changed what SETS the
+     attribute, with no pane-rule edits at all. */
+  .workbench-body {
+    gap: 0;
+  }
+
   /*
    * The pane's OWN spacing moved to a container query (see `panes`), and the
    * container sweep is what forced it: `.dock-section-body` carried 10px of
@@ -883,71 +1211,66 @@
 
   /* ================================================================ MEDIUM
    *
-   * 900-1440 px, the laptop. Both docks come out of flow entirely, so the stage
-   * keeps every pixel it had with them shut. That is the whole fix, and it is
-   * also what makes the overlay's width FREE: it costs the robot nothing, so the
-   * open dock is 620-720 px rather than the 460 it was.
+   * 1200-1699 px, the laptop. ONE workbench, IN FLOW — Phase 4 W3.
+   *
+   * There is nothing left in this block. That is the finding, not an omission:
+   * the workbench is an ordinary flex item in an ordinary row, so the laptop
+   * regime needs no viewport rule at all beyond the two that select it
+   * (`Docks` renders a workbench instead of two docks below 1700 px, and the
+   * COMPACT block below floats it under 1200). Everything else — the width,
+   * the inset, the mode switch, the navigator, the single scroller — is either
+   * a `clamp()` that is correct at every width or a `[data-sections]` rule that
+   * is about the column rather than the window.
+   *
+   * What used to be here was the overlay: `.docks { position: absolute }`, a
+   * 92vw cap, two overlay widths, a `margin-right: 88px` on the stage to
+   * reserve the two icon strips, and a suppressed resizer. All of it existed to
+   * stop the stage losing width. The user's rule is that losing width is fine,
+   * so all of it is gone, and with it the scrim, the z-order and the shadow.
    */
-  @media (max-width: 1440px) {
+
+  /* =============================================================== COMPACT
+   *
+   * Below 1200 px the workbench cannot sit beside the stage AND leave it half
+   * the screen: 64 px of rail plus the brief's 500 px minimum leaves the stage
+   * about 48% of the area at 1150 px. So below that it is a SHEET over the
+   * stage — the only arrangement a 1000 px window can hold — and §7's area rule
+   * gives way to the Compact floors it names as the backstop.
+   */
+  @media (max-width: 1199px) {
     .docks {
       position: absolute;
       z-index: 5;
       top: 0;
       right: 0;
       bottom: 0;
-      /* Capped so the robot is still visibly there behind the overlay. An
-         overlay that covers everything is a modal, and this is not one. */
+      /* Capped so the robot is still visibly there behind the sheet. A sheet
+         that covers everything is a modal, and this is not one. */
       max-width: 92vw;
     }
 
-    .dock {
+    .workbench[data-open='true'] {
       flex: 0 1 auto;
-      width: min(var(--dock-overlay-w, 720px), 84vw);
+      width: min(640px, 86vw);
+      padding: 0;
+      border-left: 1px solid var(--line);
+      background: #10141a;
       box-shadow: -14px 0 34px rgba(0, 0, 0, 0.5);
     }
 
-    .dock[data-dock='control'] {
-      --dock-overlay-w: 620px;
+    .workbench[data-open='true'] .workbench-frame {
+      border: 0;
+      border-radius: 0;
     }
 
-    /* Shut, a dock is its 44 px icon strip and nothing else — still absolute, so
-       it costs the stage nothing there either. */
-    .dock[data-open='false'] {
-      width: 44px;
-      flex: 0 0 44px;
-      box-shadow: none;
-    }
-
-    /* The stage reserves the two strips' width and no more. A margin rather than
-       two flex columns, because a column is a thing that could later grow. */
+    /* The stage reserves the strip's width and no more. A margin rather than a
+       flex column, because a column is a thing that could later grow. */
     .stage {
-      margin-right: 88px;
+      margin-right: 44px;
     }
 
     .dock-resizer {
       display: none;
-    }
-
-    /*
-     * What used to be here - "one scroller, one pane", and the spacing that
-     * goes with it - moved OUT of this media query in W2 and is keyed on
-     * `[data-sections='one']` above. It was never a statement about the window;
-     * it was a statement about whether one pane owns the dock. What is left in
-     * this block is shell GEOMETRY, which is what a viewport query is for:
-     * overlay versus flow, dock widths, the stage's reserved margin.
-     */
-  }
-
-  /* =============================================================== COMPACT
-   *
-   * Below 900 px a dock cannot sit beside the stage at all, so the open one is a
-   * full-height sheet. Every pane is still reachable; none of them is hidden, and
-   * the one-open-section rule means the sheet always has content in it.
-   */
-  @media (max-width: 899px) {
-    .dock[data-open='true'],
-    .dock[data-dock='control'][data-open='true'] {
-      width: min(560px, 86vw);
     }
   }
 }

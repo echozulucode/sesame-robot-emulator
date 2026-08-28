@@ -1,6 +1,6 @@
 /**
- * The four-zone shell: a 56 px rail, a stage with a status line under it, and
- * two collapsible docks — `control` inboard, `analysis` outboard.
+ * The shell: a 64 px rail, a stage, ONE workbench below 1700 px or TWO docks
+ * above it, and a status strip across the bottom.
  *
  * Everything here is layout. Not one pane's *content* is touched: the
  * architecture graph, the trace, the source explorer, Learn and Lab are handed
@@ -10,14 +10,30 @@
  * none of them is styling.
  *
  * ```text
- * +--+----------------------------+-----------+-------------+
- * |R |         CENTER STAGE       | CONTROL   | ANALYSIS    |
- * |A |      3D robot (>= 45vh)    | v Commands| v Inspector |
- * |I |                            | > Face    | > Modules   |
- * |L +----------------------------+ > Lab     | > Signal    |
- * |  |  status line (~34 px)      |           | > Source... |
- * +--+----------------------------+-----------+-------------+
+ * 1200-1699 px — ONE workbench, IN FLOW           >= 1700 px — U6's two docks
+ * +--+--------------------+---------------+       +--+--------+-------+-------+
+ * |R |                    | Control|Analyze|      |R |        |CONTROL|ANALYSIS|
+ * |A |    CENTER STAGE    |Inspector Signal|      |A | STAGE  |v Cmds |v Inspec|
+ * |I |  3D robot, >= 50%  |----------------|      |I |        |> Face |> Module|
+ * |L |  of the SCREEN AREA|                |      |L |        |> Lab  |> Signal|
+ * |  |                    |   ONE PANE     |      |  |        |       |> Source|
+ * +--+--------------------+---------------+       +--+--------+-------+-------+
+ * | SYSTEM: ... · PHYSICAL HARDWARE: NONE |       | ... the same 32 px strip   |
+ * +---------------------------------------+       +----------------------------+
  * ```
+ *
+ * ## Why one workbench — Phase 4 W3, §3 of the plan
+ *
+ * The brief recommended one workbench at 1440x900 and the user resolved it with
+ * a sharper rule: *"I'd rather the robot area shrink. 50% of the screen area is
+ * more than enough."* That rule makes the decision arithmetic. At 1440x900 with
+ * a 64 px rail and a 32 px status strip, two 360 px docks leave the stage 43.9%
+ * of the screen area and two 320 px docks leave 49.3%; one 540 px workbench
+ * leaves 56.0%. Two docks are not available on a laptop at any usable width.
+ *
+ * Above 1700 px they are — two 360 px docks plus the rail still leave 1276 px
+ * of stage — so U6's two-dock shell is not deleted. It is the wide-desktop
+ * regime, and `Docks` chooses between the two.
  *
  * The rail never collapses. That is not decoration: the provenance chip lives
  * on it, and the product's central honesty claim is that a reader can always
@@ -87,6 +103,8 @@ import {
   dockIsOpen,
   isSingleOpen,
   loadShell,
+  MODE_LABEL,
+  modeForState,
   saveShell,
   SECTION_IDS,
   sectionIsOpen,
@@ -94,6 +112,7 @@ import {
   withDockOpen,
   withDockWidth,
   withSection,
+  usesWorkbench,
   type Breakpoint,
   type DockId,
   type SectionId,
@@ -103,8 +122,23 @@ import {
 export interface ShellController {
   readonly breakpoint: Breakpoint;
   readonly state: ShellState;
-  /** True when the docks float above the stage instead of taking width from it. */
+  /**
+   * True where the workbench floats above the stage instead of taking width
+   * from it — Compact only, from Phase 4 W3.
+   *
+   * It used to be `breakpoint !== 'wide'`, because U6 floated both docks at
+   * Medium so the stage never lost a pixel. §3 replaced that with the 50%-area
+   * rule and the workbench went back into flow, so at Medium the stage really
+   * does shrink and this is `false` there. Below 1100 px nothing else fits and
+   * the workbench is a sheet again.
+   */
   readonly dockOverlays: boolean;
+  /** True where the shell draws ONE workbench instead of two docks. */
+  readonly usesWorkbench: boolean;
+  /** Which mode the workbench is in. Derived from the open section. */
+  readonly mode: DockId;
+  /** Switch mode. Shows that mode's first pane if none of its panes is open. */
+  setMode(mode: DockId): void;
   isDockOpen(dock: DockId): boolean;
   /** The section's accordion state, regardless of whether its dock is showing. */
   isOpen(id: SectionId): boolean;
@@ -192,11 +226,21 @@ export function useShell(): ShellController {
     [breakpoint, update],
   );
 
+  const mode = modeForState(state, breakpoint);
+
+  const setMode = useCallback(
+    (next: DockId) => update((previous) => withDockOpen(previous, next, breakpoint, true)),
+    [breakpoint, update],
+  );
+
   return useMemo(
     () => ({
       breakpoint,
       state,
-      dockOverlays: breakpoint !== 'wide',
+      dockOverlays: breakpoint === 'compact',
+      usesWorkbench: usesWorkbench(breakpoint),
+      mode,
+      setMode,
       isDockOpen: (dock: DockId) => dockIsOpen(state, breakpoint, dock),
       isOpen: (id: SectionId) => sectionIsOpen(state, breakpoint, id),
       isVisible: (id: SectionId) => sectionIsVisible(state, breakpoint, id),
@@ -206,7 +250,7 @@ export function useShell(): ShellController {
       setDockWidth,
       reveal,
     }),
-    [breakpoint, state, setSection, toggleSection, setDockOpen, setDockWidth, reveal],
+    [breakpoint, state, mode, setMode, setSection, toggleSection, setDockOpen, setDockWidth, reveal],
   );
 }
 
@@ -344,32 +388,45 @@ const DOCK_META: Readonly<Record<DockId, { label: string; hint: string }>> = {
 };
 
 /**
- * Both docks, and the scrim that closes an overlay.
+ * The workbench regime and the two-dock regime, and the scrim that closes a
+ * Compact sheet.
  *
- * At Wide `.docks` is in flow and the two docks take width from the stage; that
- * is correct there, because the stage is still 1,400 px or more. Below Wide
- * `.docks` is `position: absolute` (see `styles.css`) so it floats over the
- * stage and the stage's measured width does not change when either dock opens —
- * the rule that fixes the laptop, and the one the harness asserts by measuring
- * the stage before and after, once per dock.
+ * At Wide (>= 1700 px) `.docks` is in flow and the two docks U6 built take
+ * width from the stage; two 360 px docks plus a 64 px rail still leave >=
+ * 1276 px of stage there, which clears the 50%-area rule comfortably.
+ *
+ * Below Wide there is ONE workbench — Phase 4 W3, §3 of the plan. Two docks
+ * cannot give a laptop 45 ch of prose AND the stage half the screen: 360+360
+ * leaves 43.9% of the area at 1440x900 and 320+320 leaves 49.3%, so the choice
+ * was made by arithmetic rather than by preference. One 540 px workbench leaves
+ * 56.0%.
+ *
+ * `.docks` still wraps both regimes, and it still carries `data-sections`. That
+ * is deliberate: every pane rule W2 keyed on `[data-sections='one']` — the
+ * Source pane's two height regimes, the arch canvas, pane spacing, scroll
+ * ownership — goes on working through the change with no pane-rule edits at
+ * all, because what those rules describe is "one pane owns this column", which
+ * is exactly what a workbench is.
  */
 export function Docks(props: DocksProps): ReactElement {
   const { shell, sections } = props;
-  const anyOverlayOpen = shell.dockOverlays && DOCK_IDS.some((dock) => shell.isDockOpen(dock));
+  const overlayOpen = shell.dockOverlays && DOCK_IDS.some((dock) => shell.isDockOpen(dock));
 
   return (
     <>
       {/*
-        The scrim. Only below Wide, where a dock floats: it is what closes an
-        overlay by clicking beside it, and it is deliberately NOT rendered at
-        Wide, where the docks are in flow and the stage is still interactive.
+        The scrim. Only at Compact, where the workbench is a sheet over the
+        stage: it is what closes it by clicking beside it. It is deliberately
+        NOT rendered at Medium any more — the workbench is in flow there, there
+        is nothing to click "beside", and a scrim over an interactive stage
+        would be the overlay model surviving its own retirement.
       */}
-      {anyOverlayOpen && (
+      {overlayOpen && (
         <button
           type="button"
           className="dock-scrim"
           data-testid="dock-scrim"
-          aria-label="close the open dock"
+          aria-label="close the workbench"
           onClick={() => {
             for (const dock of DOCK_IDS) if (shell.isDockOpen(dock)) shell.setDockOpen(dock, false);
           }}
@@ -378,36 +435,297 @@ export function Docks(props: DocksProps): ReactElement {
 
       {/*
         `data-sections` is the STRUCTURAL form of what used to be a viewport
-        media query — Phase 4 W2.
+        media query — Phase 4 W2, and W3 is the change it was built for.
 
-        `one` means one pane owns the dock's height: it renders at its natural
-        height, the dock body is the single scroller, and the panes inside it do
-        not bound themselves. `many` means several open sections share the dock
-        column, each bounded, which is what keeps the architecture graph and the
-        Signal trace on screen together at Wide.
+        `one` means one pane owns the column's height: it renders at its natural
+        height, the body is the single scroller, and the panes inside it do not
+        bound themselves. `many` means several open sections share the column,
+        each bounded, which is what keeps the architecture graph and the Signal
+        trace on screen together at Wide.
 
-        It is the same condition `isSingleOpen()` already governs the accordion
-        with, published to CSS so that PANE rules can respond to the regime they
-        are actually in rather than to `@media (max-width: 1440px)`, which is a
-        statement about the window and not about this pane. W3 changes what sets
-        it; nothing downstream of it has to change with it.
+        W3 changed what SETS it — a workbench is `one` by definition — and
+        nothing that reads it changed with it. That was the whole point of
+        publishing it as state rather than leaving it inside `@media`.
       */}
       <div
         className="docks"
         data-testid="docks"
         data-overlay={String(shell.dockOverlays)}
+        data-regime={shell.usesWorkbench ? 'workbench' : 'docks'}
         data-sections={isSingleOpen(shell.breakpoint) ? 'one' : 'many'}
       >
-        {DOCK_IDS.map((dock) => (
-          <Dock
-            key={dock}
-            dock={dock}
-            shell={shell}
-            sections={sections.filter((s) => dockForSection(s.id) === dock)}
-          />
-        ))}
+        {shell.usesWorkbench ? (
+          <Workbench shell={shell} sections={sections} />
+        ) : (
+          DOCK_IDS.map((dock) => (
+            <Dock
+              key={dock}
+              dock={dock}
+              shell={shell}
+              sections={sections.filter((s) => dockForSection(s.id) === dock)}
+            />
+          ))
+        )}
       </div>
     </>
+  );
+}
+
+export interface WorkbenchProps {
+  readonly shell: ShellController;
+  readonly sections: readonly DockSectionSpec[];
+}
+
+/**
+ * ONE workbench: a mode switch, a section navigator, and the current pane.
+ *
+ * ```text
+ * +----------------------------------+
+ * |  Control | Analyze          [>]  |  <- the mode switch, 2 top-level ideas
+ * |  Inspector Modules Signal Source |  <- the section navigator, this mode's
+ * +----------------------------------+
+ * |  Signal                          |  <- the pane title
+ * |  ...the pane, and nothing else   |
+ * ```
+ *
+ * The brief's words, and the three things they rule out:
+ *
+ *  - *"preserve Control and Analyze as top-level concepts, but make them two
+ *    modes of a single laptop workbench"* — so the two domains survive; what
+ *    does not survive is two of them being on screen at once, each with its own
+ *    navigation, its own open state and its own scroll position.
+ *  - *"use tabs or a compact section navigator before using nested
+ *    accordions"* — so the collapsed-accordion column is gone below Wide. A
+ *    pane is chosen from a row of tabs, and the panes that are not chosen are
+ *    `display: none` rather than a stack of headers competing for the column.
+ *  - *"once a learner is in Signal, that pane should feel like the current
+ *    task, not like one accordion section inside a dock inside another dock
+ *    beside another dock"* — so the chosen pane gets a plain `<h2>` title and
+ *    the entire column, and there is exactly one scroller under it.
+ *
+ * ## What did NOT change, on purpose
+ *
+ * **Every pane is still mounted.** `data-open="false"` is `display: none`, the
+ * same relationship the accordion's `hidden` body had, and for the same four
+ * reasons in this module's header comment: L4's refusal check counts
+ * `.src-line` nodes, L6's lesson checks sample while a movement runs, L4 counts
+ * `concept-text` elements, and V8 reads the drawn quaternion. An unmounted pane
+ * makes all four vacuous.
+ *
+ * **§5.1 still holds.** A selection that lands in a pane the reader is not
+ * looking at is still announced where they ARE looking — on that pane's tab in
+ * the navigator, and, when it landed in the other mode, as a dot on the mode
+ * switch. It is the same `badge`/`badgeIsSelection` pair the collapsed
+ * accordion header used, rendered on the thing that is now on screen.
+ *
+ * **The mode is derived, not stored.** See `modeForState()`.
+ */
+export function Workbench(props: WorkbenchProps): ReactElement {
+  const { shell, sections } = props;
+  const mode = shell.mode;
+  const open = shell.isDockOpen(mode);
+  const inMode = sections.filter((s) => dockForSection(s.id) === mode);
+  const active = inMode.find((s) => shell.isOpen(s.id)) ?? null;
+
+  return (
+    <aside
+      className="workbench"
+      data-testid="workbench"
+      data-workbench=""
+      data-mode={mode}
+      data-open={String(open)}
+      data-overlay={String(shell.dockOverlays)}
+      data-breakpoint={shell.breakpoint}
+      aria-label="workbench"
+    >
+      {/*
+        Collapsed, the workbench is a 44 px icon strip and every one of the
+        eight panes is still one click away — the reachability promise U6 made
+        with two strips, kept with one, and 44 px cheaper for the stage.
+      */}
+      {!open && (
+        <div className="dock-strip workbench-strip" data-testid="workbench-strip">
+          <button
+            type="button"
+            className="dock-strip-btn dock-toggle"
+            data-testid="workbench-toggle"
+            data-dock-toggle-for={mode}
+            aria-expanded={false}
+            title="open the workbench"
+            onClick={() => shell.setDockOpen(mode, true)}
+          >
+            ‹
+          </button>
+          {sections.map((section) => (
+            <button
+              key={section.id}
+              type="button"
+              className={`dock-strip-btn${section.badgeIsSelection ? ' has-selection' : ''}`}
+              data-dock-strip={section.id}
+              title={section.badge === null ? section.label : `${section.label} — ${section.badge}`}
+              onClick={() => shell.reveal(section.id)}
+            >
+              <span aria-hidden="true">{section.glyph}</span>
+              {section.badgeIsSelection && <i className="dock-strip-dot" aria-hidden="true" />}
+            </button>
+          ))}
+        </div>
+      )}
+
+      {open && (
+        <div className="workbench-frame">
+          {/* ------------------------------------------------ the mode switch */}
+          <div className="workbench-head">
+            <div className="workbench-modes" role="radiogroup" aria-label="workbench mode">
+              {DOCK_IDS.map((id) => {
+                /* A selection sitting in the OTHER mode is still announced —
+                   as a dot here, because the navigator only lists one mode's
+                   panes and §5.1 does not stop at a mode boundary. */
+                const carries = sections.some(
+                  (s) => dockForSection(s.id) === id && s.badgeIsSelection && s.id !== active?.id,
+                );
+                return (
+                  <button
+                    key={id}
+                    type="button"
+                    role="radio"
+                    aria-checked={mode === id}
+                    className={`workbench-mode${mode === id ? ' active' : ''}`}
+                    data-workbench-mode={id}
+                    title={DOCK_META[id].hint}
+                    onClick={() => shell.setMode(id)}
+                  >
+                    {MODE_LABEL[id]}
+                    {carries && <i className="dock-badge-dot" aria-hidden="true" />}
+                  </button>
+                );
+              })}
+            </div>
+            <button
+              type="button"
+              className="workbench-collapse"
+              data-testid="workbench-toggle"
+              data-dock-toggle-for={mode}
+              aria-expanded
+              title="close the workbench — the robot takes the whole shell"
+              onClick={() => shell.setDockOpen(mode, false)}
+            >
+              ›
+            </button>
+          </div>
+
+          {/* -------------------------------------------- the section navigator */}
+          <div
+            className="workbench-nav"
+            role="tablist"
+            data-testid="workbench-nav"
+            aria-label={`${MODE_LABEL[mode]} panes`}
+          >
+            {inMode.map((section) => {
+              const isActive = section.id === active?.id;
+              return (
+                <button
+                  key={section.id}
+                  type="button"
+                  role="tab"
+                  id={`nav-${section.id}`}
+                  aria-selected={isActive}
+                  aria-controls={`pane-${section.id}`}
+                  className={`workbench-tab${isActive ? ' active' : ''}`}
+                  data-section-nav={section.id}
+                  title={section.badge === null ? section.label : `${section.label} — ${section.badge}`}
+                  onClick={() => shell.setSection(section.id, true)}
+                >
+                  <span className="workbench-tab-label">{section.label}</span>
+                  {/*
+                    §5.1, on the navigator.
+
+                    Only a SELECTION badge, never a count. "13 commands" beside
+                    every tab is the density the brief is complaining about;
+                    `Inspector ● R4` is the thing a reader would otherwise miss,
+                    and it is the one the harness asserts is legible.
+                  */}
+                  {!isActive && section.badgeIsSelection && section.badge !== null && (
+                    <span
+                      className="dock-badge is-selection"
+                      data-dock-badge={section.id}
+                      data-selection="true"
+                    >
+                      <i className="dock-badge-dot" aria-hidden="true" />
+                      {section.badge}
+                    </span>
+                  )}
+                </button>
+              );
+            })}
+          </div>
+
+          {/*
+            THE single scroller. `data-scroll-owner` is a contract, not a hint:
+            the harness asserts that every OTHER vertical scroller inside a pane
+            either carries `data-2d-surface` or does not exist. `.dock-body` is
+            kept as a class because W2's `[data-sections='one'] .dock-body`
+            spacing rule is about a column owned by one pane, which is what this
+            is.
+          */}
+          <div
+            className="dock-body workbench-body"
+            data-testid="workbench-body"
+            data-any-open={String(active !== null)}
+            data-scroll-owner="workbench"
+          >
+            {sections.map((section) => {
+              const sectionOpen = shell.isOpen(section.id);
+              return (
+                <section
+                  key={section.id}
+                  className={`pane dock-section workbench-pane${sectionOpen ? ' is-open' : ''}`}
+                  id={`pane-${section.id}`}
+                  role="tabpanel"
+                  data-pane={section.id}
+                  data-dock-section={section.id}
+                  data-dock={dockForSection(section.id)}
+                  data-open={String(sectionOpen)}
+                  aria-labelledby={`pane-${section.id}-title`}
+                >
+                  {/*
+                    A TITLE, not a toggle. The navigator above already decides
+                    which pane is showing, and a chevron that collapses the one
+                    pane on screen is the accordion-inside-a-dock idiom the
+                    brief asked us to stop using. The `<h2>` and the id stay
+                    exactly as the pane contract specifies them.
+                  */}
+                  <h2
+                    className="pane__header dock-section-header workbench-pane-title"
+                    data-pane-chrome="header"
+                  >
+                    <span className="dock-section-label" id={`pane-${section.id}-title`}>
+                      {section.label}
+                    </span>
+                    {section.badge !== null && (
+                      <span
+                        className={`workbench-pane-note${section.badgeIsSelection ? ' is-selection' : ''}`}
+                        data-pane-note={section.id}
+                      >
+                        {section.badge}
+                      </span>
+                    )}
+                  </h2>
+                  <div
+                    className="pane__content dock-section-body"
+                    data-pane-content={section.id}
+                    data-scroll-owner="pane"
+                    hidden={!sectionOpen}
+                  >
+                    {section.body}
+                  </div>
+                </section>
+              );
+            })}
+          </div>
+        </div>
+      )}
+    </aside>
   );
 }
 

@@ -27,7 +27,8 @@
  *
  * | Breakpoint | What is on the line |
  * |---|---|
- * | Compact | connection · provenance · origin · `wave` `stop` |
+ * | every one | **the environment line** · connection · provenance · origin |
+ * | Compact | + `wave` `stop` |
  * | Medium  | + event count, physically-observed count, backend, board · `stand` `rest` |
  * | Wide    | + joint summary, boot attempts, ground plane, origin engine |
  *
@@ -67,6 +68,68 @@ import type { Breakpoint } from './shell-state.js';
  * `forward` is continuous and never clears `currentCommand` on its own.
  */
 export const PRIMARY_COMMANDS = ['wave', 'stand', 'rest'] as const;
+
+/**
+ * The persistent environment line — Phase 4 W3, and the brief's sharpest
+ * correctness point applied to the shell rather than to a badge.
+ *
+ * > *"observed" alone is insufficient, because a novice reads it as observed
+ * > on hardware.*
+ *
+ * Every origin badge in this app is already honest, and every one of them is
+ * one word a reader has to already understand. So the two facts that decide how
+ * to read every other number on screen are stated in words, permanently, in the
+ * one region that never closes:
+ *
+ * ```text
+ * SYSTEM: QEMU EMULATOR · PHYSICAL HARDWARE: NONE
+ * ```
+ *
+ * **Neither half is a slogan.** The system name is derived from the driving
+ * origin — the same `TelemetryOrigin` the badges render — and falls back to the
+ * selected backend only before anything has driven the scene. The second half
+ * is `store.physicallyObservedEvents`, a counter, and if it were ever non-zero
+ * this line would say so rather than keeping the reassuring word. That it is
+ * permanently zero is a property of every backend this project has, not a
+ * constant in this file.
+ *
+ * It may not be truncated. `.status-env` is `flex: 0 0 auto` with
+ * `text-overflow: clip`, and the selector is in the harness's
+ * correctness-surface list, so a window that cannot fit it fails the run.
+ */
+export function environmentSystemName(
+  origin: TelemetryOrigin | null | undefined,
+  backendId: BackendId,
+): string {
+  const engine = (origin?.engine ?? '').toLowerCase();
+  switch (origin?.kind) {
+    case 'emulator':
+      return engine.includes('qemu') ? 'QEMU EMULATOR' : 'EMULATOR';
+    case 'host-model':
+      return 'HOST MODEL';
+    case 'replay':
+      return 'RECORDED REPLAY';
+    case 'physical-robot':
+      return 'PHYSICAL ROBOT';
+    default:
+      break;
+  }
+  // Nothing has driven the scene yet, so there is no origin to read. Name what
+  // the reader has SELECTED rather than inventing one, and keep the words the
+  // origin branch above would use once telemetry arrives.
+  switch (backendId) {
+    case 'qemu':
+      return 'QEMU EMULATOR';
+    case 'sim':
+      return 'HOST MODEL';
+    default:
+      return 'BRIDGE STREAM';
+  }
+}
+
+/** The second half of the line: a count, rendered as the word it evaluates to. */
+export const environmentHardware = (physicallyObservedEvents: number): string =>
+  physicallyObservedEvents === 0 ? 'NONE' : `${physicallyObservedEvents} OBSERVED EVENTS`;
 
 /** Every {@link PRIMARY_COMMANDS} entry really is in the firmware's vocabulary. */
 export const primaryCommandsAreInVocabulary = (): boolean =>
@@ -126,9 +189,48 @@ export function StatusBar(props: StatusBarProps): ReactElement {
   const disabled = !canCommand || !ready || busy !== null;
   const board = emulatorFacts?.board ?? drivingOrigin?.board ?? null;
   const attempts = status.attempts ?? 1;
+  const systemName = environmentSystemName(drivingOrigin, backendId);
 
   return (
     <div className="stage-status" data-testid="stage-status" data-detail={breakpoint}>
+      {/*
+        The environment line, first on the row and never abbreviated. It is
+        `<span>`-per-fact rather than one interpolated string so a test can read
+        the system name and the hardware verdict separately without parsing
+        prose, and so the word that carries the claim can be the word that is
+        coloured.
+      */}
+      <span
+        className="status-env"
+        data-testid="status-environment"
+        data-system={systemName}
+        data-physically-observed={String(physicallyObservedEvents)}
+        title={
+          `Every number in this app comes from ${systemName.toLowerCase()}. ` +
+          `${physicallyObservedEvents === 0 ? 'No' : String(physicallyObservedEvents)} event has ` +
+          `crossed a physical boundary, so nothing on screen is a measurement of a real servo.`
+        }
+      >
+        {/*
+          The spaces are inside the spans on purpose. A flex container drops
+          whitespace-only anonymous items, so a `gap` looks right on screen and
+          reads as `SYSTEM:HOST MODEL·PHYSICAL HARDWARE:NONE` to anything that
+          takes `textContent` — a screen reader, a harness assertion, a copy and
+          paste. A correctness surface has to be correct in the accessibility
+          tree too.
+        */}
+        <span className="status-env-label">{'SYSTEM: '}</span>
+        <span className="status-env-value">{systemName}</span>
+        <span aria-hidden="true">{' · '}</span>
+        <span className="status-env-label">{'PHYSICAL HARDWARE: '}</span>
+        <span
+          className={`status-env-value${physicallyObservedEvents === 0 ? ' status-env-none' : ''}`}
+        >
+          {environmentHardware(physicallyObservedEvents)}
+        </span>
+      </span>
+      <span className="status-sep" aria-hidden="true" />
+
       <span
         className={`status-dot conn-${status.connection}`}
         data-testid="status-conn"

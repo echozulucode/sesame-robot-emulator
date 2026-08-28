@@ -28,14 +28,17 @@
  * The rules that make the laptop case work are here rather than in CSS, because
  * they are decisions rather than styling:
  *
- *  1. **Below Wide both docks overlay; neither pushes.** The stage keeps its
- *     full width and a dock floats above it. That is what buys the laptop its
- *     robot back, and it is asserted by measuring the stage's width with the
- *     docks shut and again with each one open.
- *  2. **Below Wide exactly ONE section is open, across BOTH docks, and it gets
- *     the whole dock.** Opening `Commands` in the control dock collapses
- *     `Learn` in the analysis dock and shuts it. One pane at a time, at its
- *     natural height, inside a single scroller — because the reader's words
+ *  1. **Below Wide there is ONE workbench, in flow, and the stage really
+ *     shrinks** — Phase 4 W3. U6 floated two docks over the stage so it never
+ *     lost a pixel; the user replaced that with a better rule, *"I'd rather the
+ *     robot area shrink, 50% of the screen area is more than enough"*, and that
+ *     rule makes two docks impossible on a laptop at any usable width and one
+ *     540 px workbench comfortable. So the overlay is retired above 1100 px,
+ *     the two docks become two MODES of one workbench, and what is asserted is
+ *     the stage's share of the screen AREA rather than the absence of a push.
+ *  2. **Below Wide exactly ONE section is open and it gets the whole
+ *     workbench.** Choosing `Learn` closes `Commands`. One pane at a time, at
+ *     its natural height, inside a single scroller — because the reader's words
  *     were "I'd rather have to scroll through the pane vertically on smaller
  *     screens than tiny content and many scrollbars". At Wide both docks are in
  *     flow and both hold a set, which is what keeps V8's cross-highlight
@@ -126,10 +129,52 @@ export const DOCK_DEFAULT_PX: Readonly<Record<DockId, number>> = Object.freeze({
   analysis: 460,
 });
 
-/** Below this the dock cannot sit beside the stage at all. */
-export const COMPACT_MAX_PX = 899;
-/** Above this the docks are docked rather than floating. */
-export const MEDIUM_MAX_PX = 1440;
+/**
+ * The workbench's width, and the three numbers the brief gives for it.
+ *
+ * Mirrored in `styles.css` as `--workbench-w: clamp(500px, 37.5vw, 560px)`,
+ * which is exactly this triple: 37.5vw is 540 px at 1440 - the brief's target -
+ * and the clamp is what keeps a 1280 px laptop from spending more on the
+ * workbench than the 50%-area rule leaves it.
+ */
+export const WORKBENCH_MIN_PX = 500;
+export const WORKBENCH_TARGET_PX = 540;
+export const WORKBENCH_MAX_PX = 560;
+
+/**
+ * Below this the workbench cannot sit beside the stage AT ALL - Phase 4 W3.
+ *
+ * It was 899, which was the width below which a *dock* could not sit beside the
+ * stage. The workbench is bigger than a dock and it is IN FLOW, so the number
+ * that matters is different arithmetic and it is worth writing out:
+ *
+ *   64 px rail + 500 px workbench (its minimum) + 480 px stage floor = 1044.
+ *
+ * That is the floor arithmetic, but it is not the binding one. §7's rule is
+ * that the stage keeps >= 50% of the screen AREA, and with a 32 px status strip
+ * the stage needs about 52.5% of the WIDTH to get there. At a window of width W
+ * that allows a workbench of at most 0.476W - 64 px, and 500 px - the brief's
+ * minimum - stops fitting at about 1185 px.
+ *
+ * So 1200 is the first width at which one in-flow workbench, the brief's 500 px
+ * floor for it and the user's 50%-area rule are all satisfiable at once. Below
+ * it the workbench goes back to being a sheet over the stage, which is the only
+ * thing a 1000 px window can hold, and §7 does not apply there - it says
+ * "Medium and above" and keeps the Compact floors as the backstop instead.
+ */
+export const COMPACT_MAX_PX = 1199;
+
+/**
+ * Above this the two docks come back - Phase 4 W3, §3 of the plan.
+ *
+ * It was 1440. The user's rule is that the stage keeps >= 50% of the screen
+ * AREA, and two in-flow docks cannot do that on a laptop at any usable dock
+ * width (43.9% at 360+360, 49.3% at 320+320, both at 1440x900). At 1700 px two
+ * 360 px docks plus a 64 px rail still leave >= 1276 px of stage, which clears
+ * 50% comfortably - so the two-dock shell U6 built is not deleted, it is the
+ * WIDE-DESKTOP regime, and this is the width at which it starts being true.
+ */
+export const MEDIUM_MAX_PX = 1699;
 
 export function breakpointForWidth(width: number): Breakpoint {
   if (width <= COMPACT_MAX_PX) return 'compact';
@@ -138,13 +183,47 @@ export function breakpointForWidth(width: number): Breakpoint {
 }
 
 /**
- * Compact and Medium hold exactly one open section ACROSS BOTH DOCKS, and
- * therefore exactly one open dock. Wide holds a set in each of two docks that
- * are both in flow.
+ * Compact and Medium hold exactly one open section, and therefore exactly one
+ * open dock. Wide holds a set in each of two docks that are both in flow.
+ *
+ * Below Wide there is only ONE dock on screen now - the workbench - so "across
+ * both docks" has become "in the workbench", which is what the rule always
+ * meant. `[data-sections='one'|'many']` is published from this predicate and
+ * W2's pane rules read it; nothing that reads it had to change.
  */
 export function isSingleOpen(breakpoint: Breakpoint): boolean {
   return breakpoint !== 'wide';
 }
+
+/**
+ * True where the shell draws ONE workbench instead of two docks - Phase 4 W3.
+ *
+ * The same predicate as {@link isSingleOpen} today, and deliberately a separate
+ * name: one is about how many panes share a column's height, the other is about
+ * how many columns there are. They agree now because a workbench holds one pane
+ * at a time; they are not the same statement and a future regime could split
+ * them.
+ */
+export function usesWorkbench(breakpoint: Breakpoint): boolean {
+  return breakpoint !== 'wide';
+}
+
+/**
+ * The workbench's two modes, and the words on the switch.
+ *
+ * The brief: *"preserve Control and Analyze as top-level concepts, but make
+ * them two modes of a single laptop workbench"*. They are the same two domains
+ * U6 split the docks along, so the mode IS the {@link DockId} - there is no
+ * second taxonomy to keep in step with the first, and at Wide the identical
+ * split draws as two columns instead of two modes.
+ *
+ * "Analyze" rather than "Analysis" because the brief writes the switch as
+ * `CONTROL | ANALYZE`, two verbs; the dock's own aria label keeps the noun.
+ */
+export const MODE_LABEL: Readonly<Record<DockId, string>> = Object.freeze({
+  control: 'Control',
+  analysis: 'Analyze',
+});
 
 /**
  * What is open before anybody has expressed a preference.
@@ -166,14 +245,21 @@ export const DEFAULT_OPEN: Readonly<Record<Breakpoint, readonly SectionId[]>> = 
 /**
  * Which docks start visible.
  *
- * Below Wide neither does: the docks overlay the stage there, and a first-time
- * reader should meet the robot rather than a panel over it. The quick-run
- * cluster in the status bar under the stage is what keeps a command one click
- * away at those widths — see `ui/StatusBar.tsx`.
+ * At Compact neither does: the workbench is a SHEET over the stage there, and a
+ * first-time reader should meet the robot rather than a panel over it. The
+ * quick-run cluster in the status bar under the stage is what keeps a command
+ * one click away at that width — see `ui/StatusBar.tsx`.
+ *
+ * At Medium the workbench starts OPEN, and that is a Phase 4 W3 change with a
+ * reason. U6 started it shut because it was an overlay: a panel floating over
+ * the robot on first paint is a panel in the way. In flow it is not in the way
+ * — it takes 540 px and leaves the stage 56% of the screen, which is the whole
+ * point of §3 — and a reader who meets an empty rail has to guess that the
+ * product has any panes at all.
  */
 export const DEFAULT_DOCK_OPEN: Readonly<Record<DockId, Readonly<Record<Breakpoint, boolean>>>> =
   Object.freeze({
-    control: Object.freeze({ compact: false, medium: false, wide: true }),
+    control: Object.freeze({ compact: false, medium: true, wide: true }),
     analysis: Object.freeze({ compact: false, medium: false, wide: true }),
   });
 
@@ -400,6 +486,32 @@ export const sectionIsVisible = (
   breakpoint: Breakpoint,
   id: SectionId,
 ): boolean => sectionIsOpen(state, breakpoint, id) && dockIsOpen(state, breakpoint, dockForSection(id));
+
+/**
+ * Which mode the workbench is in — Phase 4 W3.
+ *
+ * DERIVED, never stored. Below Wide exactly one section is open, and a section
+ * belongs to exactly one dock, so the open section already says which mode is
+ * showing. Storing it separately would create a second source of truth that can
+ * disagree with the first — "mode: analyze, open section: commands" is a state
+ * this shell simply cannot reach — and it would need its own migration, its own
+ * validation and its own clean-up in {@link loadShell}.
+ *
+ * The consequence worth stating: the mode survives a reload for free, because
+ * the open section does.
+ *
+ * With nothing open (the reader collapsed the workbench and then closed its
+ * pane) the mode falls back to whichever dock is showing, and then to
+ * `control` — the reading order this shell has always used is the robot, then
+ * the surfaces that drive it, then the surfaces that explain it.
+ */
+export function modeForState(state: ShellState, breakpoint: Breakpoint): DockId {
+  const open = state.open[breakpoint][0];
+  if (open !== undefined) return dockForSection(open);
+  return state.dockOpen.analysis[breakpoint] && !state.dockOpen.control[breakpoint]
+    ? 'analysis'
+    : 'control';
+}
 
 // -------------------------------------------------------- the §5 mitigation
 

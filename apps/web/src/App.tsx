@@ -229,12 +229,12 @@ export function App(): ReactElement {
       // playing it: `LessonRunner` calls `selectSymbol` with origin `source`,
       // and hijacking the accordion there would break Learn at Medium to fix a
       // problem Learn does not have.
-      if (shell.dockOverlays && next.origin === 'scene') {
+      if (shell.usesWorkbench && next.origin === 'scene') {
         const target = sectionForSelection(next);
         if (target !== null) shell.reveal(target);
       }
     },
-    [shell.dockOverlays, shell.reveal],
+    [shell.usesWorkbench, shell.reveal],
   );
 
   const selectJointFrom = useCallback(
@@ -1113,7 +1113,16 @@ export function App(): ReactElement {
       data-control-dock-open={String(shell.isDockOpen('control'))}
       data-analysis-dock-open={String(shell.isDockOpen('analysis'))}
       data-dock-overlay={String(shell.dockOverlays)}
+      data-shell-regime={shell.usesWorkbench ? 'workbench' : 'docks'}
+      data-workbench-mode={shell.mode}
     >
+      {/*
+        The rail/stage/workbench row. The status line is a sibling BELOW it
+        rather than a strip inside the stage — Phase 4 W3 — because that is the
+        plan's own geometry (a 900 px window is 868 px of stage and 32 px of
+        status) and because the environment line needs the whole width.
+      */}
+      <div className="shell-main" data-testid="shell-main">
       <Rail
         shell={shell}
         backendId={backendId}
@@ -1125,16 +1134,20 @@ export function App(): ReactElement {
       />
 
       {/*
-        The stage. Its width is what this whole change is about, so nothing is
-        allowed to take a column out of it below Wide: the dock floats over it
-        instead (`.dock[data-overlay="true"]` in styles.css), and the harness
-        asserts the measured width is identical with the dock shut and with it
-        open.
+        The stage, and it really is a stage now — Phase 4 W3.
+
+        U6 floated the docks so this box never lost a pixel below Wide. The
+        user replaced that rule with a better one: *"I'd rather the robot area
+        shrink. 50% of the screen area is more than enough."* So the workbench
+        is in flow, this box genuinely resizes when it opens, and what the
+        harness asserts is the stage's share of the screen AREA rather than the
+        absence of a push.
 
         ISSUE-20260823-023 was a sliding ground plane found by a user AFTER a
-        layout change, and this is a layout change, so phase 12 re-runs the
-        world-frame check at every breakpoint and across a dock resize - the one
-        remaining path that still resizes the renderer's canvas.
+        layout change. It is MORE load-bearing now, not less: the canvas
+        resizes on every workbench open, every mode switch that changes the
+        navigator's height, and every dock drag at Wide, so phase 12 sweeps the
+        world frame at every breakpoint and across every one of those.
       */}
       <main className="stage" data-testid="stage">
         <div className="viewport" data-testid="viewport">
@@ -1157,40 +1170,44 @@ export function App(): ReactElement {
               : 'showing commanded angles'}
           </div>
         </div>
+        </main>
 
-        {/*
-          The status line. 34 px, never scrolls, never wraps, and its content
-          scales with the breakpoint rather than with its own box - see
-          `ui/StatusBar.tsx`. It replaced a 120-176 px strip that held the
-          command vocabulary and the OLED; both moved into the control dock, and
-          the commands worth one click are here as `data-quick-command` buttons
-          so `wave` stays reachable at every breakpoint without opening
-          anything.
-        */}
-        <StatusBar
-          breakpoint={shell.breakpoint}
-          status={status}
-          backendId={backendId}
-          drivingProvenance={store.drivingProvenance}
-          drivingOrigin={store.drivingOrigin}
-          provenanceCounts={store.provenanceCounts}
-          originCounts={store.originCounts}
-          totalEvents={store.totalEvents}
-          physicallyObservedEvents={store.physicallyObservedEvents}
-          emulatorFacts={emulatorFacts}
-          groundPlaneMm={groundPlaneMm}
-          jointsCommanded={JOINT_ORDER.filter((j) => store.joints[j].commandedDeg !== null).length}
-          jointCount={JOINT_ORDER.length}
-          selectedJoint={selected}
-          selectedJointDeg={selected === null ? null : store.joints[selected].commandedDeg}
-          canCommand={backend?.canCommand ?? false}
-          busy={busy}
-          onCommand={(name) => void runCommand(name)}
-          onStop={stopMotion}
-        />
-      </main>
+        <Docks shell={shell} sections={sections} />
+      </div>
 
-      <Docks shell={shell} sections={sections} />
+      {/*
+        The status line. 32 px, never scrolls, never wraps, spans the whole
+        shell, and its content scales with the breakpoint rather than with its
+        own box - see `ui/StatusBar.tsx`.
+
+        It carries the ENVIRONMENT LINE - `SYSTEM: ... · PHYSICAL HARDWARE:
+        NONE` - which is a correctness surface rather than a glance value. The
+        brief's point is that a novice reads "observed" as *observed on
+        hardware*, so the two facts that decide how to read every other number
+        on screen are stated in words, permanently, in a region that never
+        closes, and not in a legend.
+      */}
+      <StatusBar
+        breakpoint={shell.breakpoint}
+        status={status}
+        backendId={backendId}
+        drivingProvenance={store.drivingProvenance}
+        drivingOrigin={store.drivingOrigin}
+        provenanceCounts={store.provenanceCounts}
+        originCounts={store.originCounts}
+        totalEvents={store.totalEvents}
+        physicallyObservedEvents={store.physicallyObservedEvents}
+        emulatorFacts={emulatorFacts}
+        groundPlaneMm={groundPlaneMm}
+        jointsCommanded={JOINT_ORDER.filter((j) => store.joints[j].commandedDeg !== null).length}
+        jointCount={JOINT_ORDER.length}
+        selectedJoint={selected}
+        selectedJointDeg={selected === null ? null : store.joints[selected].commandedDeg}
+        canCommand={backend?.canCommand ?? false}
+        busy={busy}
+        onCommand={(name) => void runCommand(name)}
+        onStop={stopMotion}
+      />
     </div>
   );
 }

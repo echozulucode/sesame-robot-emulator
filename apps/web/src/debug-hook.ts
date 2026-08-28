@@ -371,12 +371,46 @@ export interface DockReading {
   readonly scrollers: readonly string[];
 }
 
+/**
+ * The one workbench, below Wide — Phase 4 W3.
+ *
+ * `docks` still reports both, because the SECTIONS are still split along the
+ * two domains and the mode switch is that split; what changes below Wide is
+ * that there is one column on screen rather than two, so the scroller
+ * inventory, the measured width and the navigator all belong to this object
+ * instead. At Wide `workbench` is `null` and `docks` is the whole story, which
+ * is U6's shell unchanged.
+ */
+export interface WorkbenchReading {
+  readonly open: boolean;
+  /** `control` or `analysis` — the mode the switch is on. Derived, never stored. */
+  readonly mode: DockId;
+  readonly rectWidthPx: number;
+  /** Every scrollable box inside the workbench, outermost first. Must be <= 1. */
+  readonly scrollers: readonly string[];
+  /** The section navigator's tabs, in order, and which one is selected. */
+  readonly nav: readonly { readonly id: SectionId; readonly selected: boolean; readonly label: string }[];
+  /** The mode switch's two segments, and which is checked. */
+  readonly modes: readonly { readonly id: DockId; readonly checked: boolean; readonly label: string }[];
+}
+
 export interface ShellReading {
   readonly breakpoint: Breakpoint;
   readonly windowWidthPx: number;
   readonly windowHeightPx: number;
-  /** True below Wide, where both docks float over the stage instead of pushing it. */
+  /**
+   * True only at Compact, where the workbench is a sheet over the stage.
+   *
+   * It used to be true below Wide, because U6 floated both docks so the stage
+   * never lost a pixel. §3 of the Phase 4 plan replaced that with the user's
+   * 50%-area rule and the workbench went back into flow, so at Medium the stage
+   * really does shrink — which is what {@link stageAreaSharePct} measures and
+   * what replaced the `overlay-not-push` assertion.
+   */
   readonly dockOverlays: boolean;
+  /** True where the shell draws ONE workbench instead of two docks. */
+  readonly usesWorkbench: boolean;
+  readonly workbench: WorkbenchReading | null;
   readonly docks: Readonly<Record<DockId, DockReading>>;
   readonly stageWidthPx: number;
   readonly stageHeightPx: number;
@@ -404,6 +438,23 @@ export interface ShellReading {
   /** `canvasHeightPx / innerHeight`, as a percentage. The plan's floor is 45. */
   readonly viewportHeightSharePct: number;
   readonly viewportWidthSharePct: number;
+  /**
+   * **The metric, from Phase 4 §7.** The 3D canvas's area as a percentage of
+   * the window's, and the floor is 50 at Medium and above.
+   *
+   * It replaces `overlay-not-push`, which measured that opening a dock cost the
+   * stage 0.0 px. That assertion was true and is now false BY DESIGN: the user
+   * said *"I'd rather the robot area shrink. 50% of the screen area is more
+   * than enough"*, so what has to be checked is how much is left rather than
+   * whether anything moved. Left in place it would have gone on passing against
+   * a layout that no longer overlays.
+   *
+   * Area rather than height, because height was the half of the problem that
+   * was already fixed: a full-bleed stage behind an overlay reads ~96% tall and
+   * ~100% wide while the robot sits behind a panel, and that is precisely the
+   * measurement §7 says stopped meaning anything.
+   */
+  readonly stageAreaSharePct: number;
   readonly openSections: readonly SectionId[];
   /**
    * One entry per section, in draw order: which dock draws it, what its header
@@ -1097,11 +1148,25 @@ export function installDebugHook(wiring: DebugHookWiring): () => void {
       const w = globalThis.innerWidth;
       const h = globalThis.innerHeight;
 
+      /*
+       * §5.1, read from wherever it is actually rendered.
+       *
+       * In the two-dock regime a collapsed section announces its selection on
+       * its own accordion header. In the workbench regime that header is not on
+       * screen at all — the pane is `display: none` and the navigator is what a
+       * reader is looking at — so the badge is rendered on the navigator tab
+       * instead. Both carry `data-dock-badge="<id>"`, so this is one
+       * document-wide lookup rather than two code paths, and the CLAIM the
+       * harness asserts ("a selection that lands where the reader is not
+       * looking is still announced where they are") is measured against the
+       * thing that is on screen in either regime.
+       */
       const sections = [...document.querySelectorAll('[data-dock-section]')].map((el) => {
         const id = (el.getAttribute('data-dock-section') ?? '') as SectionId;
         const dock = (el.getAttribute('data-dock') ?? 'analysis') as DockId;
-        const badge = el.querySelector('[data-dock-badge]');
-        const header = el.querySelector('.dock-section-toggle');
+        const badge = document.querySelector(`[data-dock-badge="${id}"]`);
+        const nav = document.querySelector(`[data-section-nav="${id}"]`);
+        const header = nav ?? el.querySelector('.dock-section-toggle');
         const open = el.getAttribute('data-open') === 'true';
         return {
           id,
@@ -1181,6 +1246,27 @@ export function installDebugHook(wiring: DebugHookWiring): () => void {
         }),
       ) as Record<DockId, DockReading>;
 
+      const workbenchRoot = document.querySelector('[data-testid="workbench"]');
+      const workbench: WorkbenchReading | null =
+        workbenchRoot === null
+          ? null
+          : {
+              open: workbenchRoot.getAttribute('data-open') === 'true',
+              mode: (workbenchRoot.getAttribute('data-mode') ?? 'control') as DockId,
+              rectWidthPx: workbenchRoot.getBoundingClientRect().width,
+              scrollers: scrollersIn(workbenchRoot).scrollers,
+              nav: [...workbenchRoot.querySelectorAll('[data-section-nav]')].map((el) => ({
+                id: (el.getAttribute('data-section-nav') ?? '') as SectionId,
+                selected: el.getAttribute('aria-selected') === 'true',
+                label: (el.textContent ?? '').trim(),
+              })),
+              modes: [...workbenchRoot.querySelectorAll('[data-workbench-mode]')].map((el) => ({
+                id: (el.getAttribute('data-workbench-mode') ?? 'control') as DockId,
+                checked: el.getAttribute('aria-checked') === 'true',
+                label: (el.textContent ?? '').trim(),
+              })),
+            };
+
       const statusSegments = [
         ...document.querySelectorAll('[data-testid="stage-status"] [data-testid]'),
       ]
@@ -1215,6 +1301,8 @@ export function installDebugHook(wiring: DebugHookWiring): () => void {
         windowWidthPx: w,
         windowHeightPx: h,
         dockOverlays: wiring.shellDockOverlays(),
+        usesWorkbench: workbenchRoot !== null,
+        workbench,
         docks,
         stageWidthPx: stage.width,
         stageHeightPx: stage.height,
@@ -1225,6 +1313,7 @@ export function installDebugHook(wiring: DebugHookWiring): () => void {
         canvasHeightPx,
         viewportHeightSharePct: h === 0 ? 0 : (canvasHeightPx / h) * 100,
         viewportWidthSharePct: w === 0 ? 0 : (canvasWidthPx / w) * 100,
+        stageAreaSharePct: w === 0 || h === 0 ? 0 : ((canvasWidthPx * canvasHeightPx) / (w * h)) * 100,
         openSections: wiring.shellOpenSections(),
         sections,
       };

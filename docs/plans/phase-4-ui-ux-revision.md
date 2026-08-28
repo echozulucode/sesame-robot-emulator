@@ -192,10 +192,15 @@ Replace the current assertion with the user's rule, and make it area rather than
 
 ## 8. Definition of done
 
-- [ ] No visible text below 14px anywhere; all sizes from tokens
-- [ ] Container queries drive pane internals; media queries drive shell geometry
-- [ ] 1440×900 matches the brief's specified geometry
-- [ ] Architecture graph switches representation by container width, React-mounted
-- [ ] All 28 invariants asserted, including 200% zoom and text-spacing gates
-- [ ] Viewport-share assertion replaced by safe-area occlusion, documented
-- [ ] 948 tests still pass; zero new dependencies
+- [x] No visible text below 14px anywhere; all sizes from tokens — W1
+- [x] Container queries drive pane internals; media queries drive shell geometry — W2
+- [x] 1440×900 matches the brief's specified geometry — W3: 64px rail, 32px strip, one
+      530px workbench in flow, 820×775 of canvas = 55.7% of the screen area
+- [ ] Architecture graph switches representation by container width, React-mounted — W4
+- [ ] All 28 invariants asserted, including 200% zoom and text-spacing gates — W6
+- [x] **Viewport-share assertion replaced by the stage-AREA rule, and `overlay-not-push`
+      DELETED rather than relaxed** — W3, and see §7. The earlier wording here said
+      "replaced by safe-area occlusion"; §3 retired the occlusion model along with the
+      overlay, and the line survived the rewrite. It is corrected rather than ticked as
+      written.
+- [x] Tests still pass (959, up from 948); zero new dependencies

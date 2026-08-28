@@ -165,6 +165,10 @@ docs:
     type: findings
     status: complete
 
+  - file: docs/findings/W3-one-workbench.md
+    type: findings
+    status: complete
+
   # Interface specification
   - file: docs/protocol/sesame-telemetry-v1.md
     type: specification
