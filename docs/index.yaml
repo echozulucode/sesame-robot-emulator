@@ -127,6 +127,9 @@ docs:
   - file: docs/findings/L5-lesson-content.md
     type: findings
     status: complete
+  - file: docs/research/ui-ux-responsive-deep-research-prompt.md
+    type: research
+    status: active
   - file: docs/research/renode-fit-deep-research-prompt.md
     type: research
     status: active
