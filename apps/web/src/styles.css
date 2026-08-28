@@ -1,3091 +1,3385 @@
-:root {
-  --bg: #0d1015;
-  --panel: #151a22;
-  --panel-2: #1b212b;
-  --line: #262d39;
-  --text: #dfe5ee;
-  --dim: #8b95a6;
-  --muted: #6b7688;
-  --accent: #6e9ee6;
-  --warn: #e6b45a;
-  --observed: #4ec9a0;
-  --simulated: #6e9ee6;
-  --inferred: #c08de0;
-  color-scheme: dark;
-}
-
-* {
-  box-sizing: border-box;
-}
-
-html,
-body,
-#root {
-  height: 100%;
-  margin: 0;
-}
-
-body {
-  background: var(--bg);
-  color: var(--text);
-  font: 13px/1.5 ui-sans-serif, system-ui, 'Segoe UI', sans-serif;
-}
-
-code,
-.mono {
-  font-family: ui-monospace, 'Cascadia Code', 'Consolas', monospace;
-  font-size: 0.92em;
-}
-
 /* ==========================================================================
- * THE SHELL — rail | stage + status line | control dock | analysis dock
+ * SESAME LAB — THE STYLESHEET
  *
- * What was here before U1-U5: `.app` as a `minmax(0,1fr) minmax(0,520px) 400px`
- * grid with a fixed 380 px source row, and not one `@media` query in 2,407
- * lines. On a 1440x900 laptop that left the 3D viewport roughly 500x280 — about
- * 13% of the screen — and the robot is the product.
+ * ## Cascade layers
  *
- * U1-U5 fixed the width and then took some of it back in height: the command
- * vocabulary and the OLED went into a `clamp(120px, 20vh, 176px)` strip under
- * the stage. That strip is gone. The two panes it held are sections of a SECOND
- * dock, and what is under the robot now is a 34 px status line.
+ * Everything in this file lives in a layer, and the order below is the whole
+ * specificity policy:
  *
- *   Compact  <  900 px   docks hidden; one opens as a sheet over the stage
- *   Medium   900-1440    two 44 px icon strips; one opens as a wide OVERLAY
- *   Wide     > 1440 px   both docks in flow at 320-560 px, resizable, persisted
+ *   reset       the two rules that make the box model and the page sane
+ *   tokens      `:root` — colour, TYPE and SPACE. Nothing else defines a size.
+ *   base        element defaults that read the tokens (`body`, `code`)
+ *   shell       rail | stage | status line | docks, and the two shell regimes
+ *   components  panels, badges, provenance, commands, joints, OLED
+ *   panes       architecture, signal, source, Learn, Lab
+ *   utilities   single-purpose helpers, allowed to beat a pane
+ *   overrides   user-preference and escape-hatch rules, allowed to beat all
  *
- * **The rule that fixes the laptop is that below Wide the docks overlay rather
- * than push.** `.docks` is `position: absolute` there, so both are out of flow
- * and the stage's measured width is identical with them shut and with either
- * open. The harness asserts precisely that, by measuring the stage twice per
- * dock.
+ * A layered rule always loses to an unlayered one, so "add it outside a layer"
+ * is not a shortcut anyone should reach for: put it in `overrides`.
  *
- * ## One scroller, and the panes at their natural height
+ * ## Why the type block is the first thing in the file
  *
- * The second reader complaint was "everything is too small and too many
- * scrollbars ... I'd rather have to scroll through the pane vertically on
- * smaller screens". Below Wide the dock BODY is the only scrollable box in the
- * dock: `.dock-section-body` and every pane inside it render at content height,
- * one section is open at a time across both docks, and it gets the full width
- * of a 480-720 px overlay. Nothing in the dock is smaller below Wide than it is
- * at Wide — see the LEGIBILITY block at the end of the Medium section.
+ * Phase 4 W1. The measurement that started it: 128 of 144 `font-size`
+ * declarations in this file were 12px or smaller — 18 at 10px, 13 at 9px — on
+ * a 13px base, and the reader's report was "I still cannot read any of the
+ * content", which survived two layout fixes. The external brief's verdict is
+ * that 13px is already below the 16px reference point for older children and
+ * that 9-12px secondary text is "dramatically below" it, and that this must be
+ * fixed BEFORE any further usability feedback is interpreted.
+ *
+ * So there are no `font-size` literals left outside the token block. The
+ * harness enforces that by parsing this file, and enforces the sizes
+ * themselves by reading computed styles out of a real browser at four window
+ * sizes — because a token that is never used proves nothing.
  * ========================================================================== */
-.shell {
-  position: relative;
-  display: flex;
-  align-items: stretch;
-  height: 100%;
-  overflow: hidden;
-}
 
-/* ------------------------------------------------------------- left rail
- *
- * 56 px, and it never collapses at any width. That is a product-honesty
- * requirement rather than decoration: the provenance chip lives here, and a
- * zone that can be closed is a zone that can hide whether what is on screen was
- * measured, simulated or inferred.
- */
-.rail {
-  flex: 0 0 56px;
-  width: 56px;
-  min-width: 56px;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 10px;
-  padding: 8px 4px;
-  border-right: 1px solid var(--line);
-  background: #0b0e13;
-  overflow: hidden;
-}
-
-.rail-group {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-  width: 100%;
-  align-items: center;
-}
-
-.rail-spacer {
-  flex: 1 1 auto;
-  min-height: 0;
-}
-
-.rail-btn {
-  width: 44px;
-  padding: 5px 2px;
-  background: var(--panel-2);
-  color: var(--dim);
-  border: 1px solid var(--line);
-  border-radius: 6px;
-  cursor: pointer;
-  font: inherit;
-  font-size: 10px;
-  line-height: 1.15;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 2px;
-}
-
-.rail-btn:hover {
-  color: var(--text);
-  border-color: #35455c;
-}
-
-.rail-btn.active {
-  border-color: var(--accent);
-  background: #1d2938;
-  color: #cfe0fb;
-}
-
-.rail-glyph {
-  font-size: 15px;
-  line-height: 1;
-}
-
-.rail-label {
-  letter-spacing: 0.02em;
-}
-
-.rail-backend {
-  font-family: ui-monospace, 'Cascadia Code', 'Consolas', monospace;
-  letter-spacing: 0.04em;
-}
-
-.rail-status {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 6px;
-  width: 100%;
-  padding-bottom: 2px;
-}
-
-.rail-conn {
-  font-size: 12px;
-  line-height: 1;
-}
-
-/* The rail's two badges are a SUMMARY of the banner in the inspector — same
-   two values, read from the same store — so they cannot disagree with it. */
-.rail-prov {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 3px;
-  width: 100%;
-  font-size: 9px;
-  text-align: center;
-}
-
-.rail-prov .prov,
-.rail-prov .origin {
-  max-width: 100%;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  font-size: 9px;
-  padding: 1px 3px;
-}
-
-.rail-events {
-  font-size: 9px;
-}
-
-/* ----------------------------------------------------------- center stage */
-.stage {
-  flex: 1 1 auto;
-  /*
-   * The stage's floor outranks the docks' widths. Both docks are
-   * `flex-shrink: 1`, so at a narrow Wide window they give way rather than
-   * squeezing the robot below the 480 px the harness asserts.
-   */
-  min-width: min(480px, 100%);
-  min-height: 0;
-  display: flex;
-  flex-direction: column;
-  overflow: hidden;
-}
+@layer reset, tokens, base, shell, components, panes, utilities, overrides;
 
 /*
- * The floor. `45vh` and `480px` are the plan's numbers, and phase 12 measures
- * the CANVAS rather than this box — a container that is tall while the drawing
- * buffer is not would be exactly the kind of green-but-wrong the old harness
- * had.
- */
-.viewport {
-  position: relative;
-  flex: 1 1 auto;
-  min-width: min(480px, 100%);
-  min-height: 45vh;
-}
-
-.viewport canvas {
-  display: block;
-}
-
-.viewport-caption {
-  position: absolute;
-  left: 12px;
-  bottom: 10px;
-  color: var(--dim);
-  font-size: 12px;
-  pointer-events: none;
-  text-shadow: 0 1px 3px #000;
-}
-
-/* ------------------------------------------------------- the status line
+ * React Flow's own stylesheet, pulled into the FIRST layer.
  *
- * 34 px, one row, never scrolls and never wraps. It replaced a 120-176 px strip
- * that held the whole command vocabulary and the OLED; both are sections of the
- * control dock now. What is left here is a glance line whose content scales
- * with the breakpoint (see `ui/StatusBar.tsx`), plus the commands worth one
- * click — which is what keeps `wave` reachable at every breakpoint without
- * opening anything.
+ * It used to be `import '@xyflow/react/dist/style.css'` in `ArchitectureGraph.tsx`,
+ * and a stylesheet imported that way is UNLAYERED — which in the cascade beats
+ * every layer, including `overrides`. The symptom was precise: the library's
+ * `.react-flow__edge-text { font-size: 10px }` and its 10px attribution link
+ * outranked this entire file, and the browser check found 10px text on a page
+ * whose stylesheet had no literal left in it. Third-party base styles belong in
+ * `reset`, which is exactly what the layer is for.
  */
-.stage-status {
-  flex: 0 0 auto;
-  height: 34px;
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 0 10px;
-  border-top: 1px solid var(--line);
-  background: #0f1319;
-  font-size: 12px;
-  white-space: nowrap;
-  overflow: hidden;
-}
+@import '@xyflow/react/dist/style.css' layer(reset);
 
-.status-dot {
-  font-size: 11px;
-  line-height: 1;
-}
-
-.status-word {
-  color: var(--dim);
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-.status-word.warn-word {
-  color: var(--warn);
-}
-
-.status-prov {
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-}
-
-.status-prov .prov,
-.status-prov .origin {
-  font-size: 10px;
-  padding: 1px 5px;
-}
-
-.status-sep {
-  width: 1px;
-  height: 15px;
-  background: var(--line);
-  flex: 0 0 auto;
-}
-
-/* The quick-run cluster sits at the end of the line, so the reading order is
-   "what is happening" and then "what you can do about it". */
-.status-run {
-  margin-left: auto;
-  display: flex;
-  align-items: center;
-  gap: 5px;
-  flex: 0 0 auto;
-}
-
-.status-cmd {
-  background: var(--panel-2);
-  color: var(--text);
-  border: 1px solid var(--line);
-  border-radius: 5px;
-  cursor: pointer;
-  font: inherit;
-  font-size: 12px;
-  padding: 3px 10px;
-  min-height: 24px;
-}
-
-.status-cmd:hover:not(:disabled) {
-  border-color: var(--accent);
-  color: #cfe0fb;
-}
-
-.status-cmd:disabled {
-  opacity: 0.45;
-  cursor: not-allowed;
-}
-
-.status-cmd-stop {
-  border-color: #4a3340;
-  color: var(--warn);
-}
-
-.loading {
-  display: grid;
-  place-items: center;
-  height: 100%;
-  color: var(--dim);
-}
-
-/* ---------------------------------------------------------------- the docks
- *
- * `.docks` is the flex row that holds both. At Wide it is in flow and the two
- * docks take width from the stage, which is correct there — the stage is still
- * 1,400 px or more. Below Wide it is absolutely positioned against the shell's
- * right edge, so neither dock can take a pixel from the stage.
- */
-.docks {
-  display: flex;
-  align-items: stretch;
-  min-width: 0;
-}
-
-.dock {
-  flex: 0 1 var(--dock-w, 460px);
-  width: var(--dock-w, 460px);
-  min-width: 44px;
-  display: flex;
-  align-items: stretch;
-  position: relative;
-  border-left: 1px solid var(--line);
-  background: #10141a;
-  overflow: hidden;
-}
-
-/*
- * Closed at Wide: the 44 px icon strip is all that is left, and every pane is
- * still one click away. `flex-basis` is what shrinks, so the stage grows into
- * the space — at Wide the docks ARE in flow and pushing is the correct
- * behaviour.
- */
-.dock[data-open='false'] {
-  flex: 0 0 44px;
-  width: 44px;
-}
-
-.dock-strip {
-  flex: 0 0 44px;
-  width: 44px;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 4px;
-  padding: 8px 2px;
-  border-right: 1px solid var(--line);
-  background: #0d1117;
-}
-
-.dock-strip-btn {
-  position: relative;
-  width: 34px;
-  height: 30px;
-  background: transparent;
-  color: var(--dim);
-  border: 1px solid transparent;
-  border-radius: 6px;
-  cursor: pointer;
-  font: inherit;
-  font-size: 14px;
-  line-height: 1;
-}
-
-.dock-strip-btn:hover {
-  color: var(--text);
-  border-color: var(--line);
-}
-
-.dock-strip-btn.active {
-  border-color: var(--accent);
-  background: #1d2938;
-  color: #cfe0fb;
-}
-
-/* §5.1 again, at icon size: a selection that landed in a closed section is
-   still announced, here as a dot on the strip button. */
-.dock-strip-dot {
-  position: absolute;
-  top: 3px;
-  right: 3px;
-  width: 6px;
-  height: 6px;
-  border-radius: 50%;
-  background: var(--accent);
-}
-
-/*
- * THE dock scroller.
- *
- * At Wide several sections are open at once and each bounds itself, so this
- * rarely has anything to scroll. Below Wide it is the ONLY scrollable box in
- * the dock: one section is open, it renders at its content height, and this is
- * what a reader drags. See the MEDIUM block below.
- */
-.dock-body {
-  flex: 1 1 auto;
-  min-width: 0;
-  min-height: 0;
-  display: flex;
-  flex-direction: column;
-  overflow-y: auto;
-  padding: 8px;
-  gap: 8px;
-}
-
-.dock[data-open='false'] .dock-body {
-  display: none;
-}
-
-.dock-section {
-  display: flex;
-  flex-direction: column;
-  min-height: 0;
-  border: 1px solid var(--line);
-  border-radius: 8px;
-  background: var(--panel);
-  overflow: hidden;
-}
-
-/*
- * An OPEN section shares the dock's height with the other open ones rather than
- * stacking to its natural height. That is what keeps V8's requirement true at
- * Wide: the architecture graph and the Signal trace are both open by default
- * and both on screen at once, because the cross-highlight between them is the
- * feature and a scroll between them destroys it.
- *
- * Below Wide this is overridden: one section, natural height, one scroller.
- */
-.dock-section.is-open {
-  flex: 1 1 0;
-  min-height: 220px;
-}
-
-.dock-section-header {
-  margin: 0;
-  font-size: 12px;
-  font-weight: 600;
-}
-
-.dock-section-toggle {
-  width: 100%;
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  padding: 7px 9px;
-  background: var(--panel-2);
-  color: var(--dim);
-  border: 0;
-  border-bottom: 1px solid var(--line);
-  cursor: pointer;
-  font: inherit;
-  font-size: 12px;
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
-  text-align: left;
-}
-
-.dock-section.is-open .dock-section-toggle {
-  color: var(--text);
-}
-
-.dock-caret {
-  color: var(--muted);
-  font-size: 10px;
-}
-
-.dock-section-label {
-  flex: 0 0 auto;
-}
-
-/*
- * §5.1 — the badge on a collapsed header.
- *
- * Clicking `R4` in the 3D scene highlights it in the graph, the trace and the
- * inspector. If those sections are collapsed the highlight happens where nobody
- * can see it and the app appears to do nothing, which would be a regression in
- * the feature Phase 2 spent the most effort on. So a collapsed header carries a
- * dot and a summary — `Modules ● R4` — and the selection is still visible, just
- * summarised.
- */
-.dock-badge {
-  margin-left: auto;
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-  max-width: 55%;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  font-size: 10px;
-  letter-spacing: 0;
-  text-transform: none;
-  color: var(--muted);
-}
-
-.dock-badge.is-selection {
-  color: #cfe0fb;
-}
-
-.dock-badge-dot {
-  flex: 0 0 auto;
-  width: 6px;
-  height: 6px;
-  border-radius: 50%;
-  background: var(--accent);
-}
-
-.dock-section-body {
-  flex: 1 1 auto;
-  min-height: 0;
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-  overflow-y: auto;
-  padding: 10px;
-}
-
-/* Collapsed is `hidden`, never an unmount: four separate harness invariants
-   depend on these panes staying mounted and live while they are shut. See the
-   module comment in ui/Shell.tsx. */
-.dock-section-body[hidden] {
-  display: none;
-}
-
-.dock-resizer {
-  position: absolute;
-  left: 0;
-  top: 0;
-  bottom: 0;
-  width: 6px;
-  cursor: col-resize;
-  background: transparent;
-  touch-action: none;
-  z-index: 2;
-}
-
-.dock-resizer:hover {
-  background: #253247;
-}
-
-.dock-scrim {
-  position: absolute;
-  inset: 0;
-  z-index: 4;
-  border: 0;
-  padding: 0;
-  background: rgba(6, 9, 13, 0.55);
-  cursor: pointer;
-}
-
-/* ================================================================ MEDIUM
- *
- * 900-1440 px, the laptop. Both docks come out of flow entirely, so the stage
- * keeps every pixel it had with them shut. That is the whole fix, and it is
- * also what makes the overlay's width FREE: it costs the robot nothing, so the
- * open dock is 620-720 px rather than the 460 it was.
- */
-@media (max-width: 1440px) {
-  .docks {
-    position: absolute;
-    z-index: 5;
-    top: 0;
-    right: 0;
-    bottom: 0;
-    /* Capped so the robot is still visibly there behind the overlay. An
-       overlay that covers everything is a modal, and this is not one. */
-    max-width: 92vw;
+@layer reset {
+  * {
+    box-sizing: border-box;
   }
 
-  .dock {
-    flex: 0 1 auto;
-    width: min(var(--dock-overlay-w, 720px), 84vw);
-    box-shadow: -14px 0 34px rgba(0, 0, 0, 0.5);
+  html,
+  body,
+  #root {
+    height: 100%;
+    margin: 0;
   }
+}
 
-  .dock[data-dock='control'] {
-    --dock-overlay-w: 620px;
+@layer tokens {
+  :root {
+    /* ------------------------------------------------------------ colour
+     * Endorsed by the brief as "mostly better than the current typography
+     * suggests" — W1 is not a repaint, so these are unchanged.
+     */
+    --bg: #0d1015;
+    --panel: #151a22;
+    --panel-2: #1b212b;
+    --line: #262d39;
+    --text: #dfe5ee;
+    --dim: #8b95a6;
+    --muted: #6b7688;
+    --accent: #6e9ee6;
+    --warn: #e6b45a;
+    --observed: #4ec9a0;
+    --simulated: #6e9ee6;
+    --inferred: #c08de0;
+    color-scheme: dark;
+
+    /* --------------------------------------------------------------- type
+     *
+     * The brief's 1440x900 table, one token per ROLE rather than per t-shirt
+     * size, because the invariants are role-shaped: "code >= 15", "prose >=
+     * 17", "nothing below 14".
+     *
+     *   --font-badge      14px   badges, chips, line numbers, counters
+     *   --font-code       15px   monospace, telemetry values, table cells
+     *   --font-ui         16px   the default: body, labels, buttons, inputs
+     *   --font-prose      17px   lesson and explanation prose
+     *   --font-heading    18px   section headings inside a pane
+     *   --font-title      20px   pane titles
+     *   --font-workspace  24px   mode/workspace titles
+     *   --font-display    28px   milestones. Rare.
+     *
+     * Every `clamp()` MINIMUM is the 1440x900 value, so at 1440 and at every
+     * width below it the size is exactly what the table says and never a pixel
+     * less. Above 1440 they interpolate to the table's upper bound at 2560.
+     * That is the brief's rule stated precisely: fluid upward, floored
+     * downward — "do not fluidly shrink below the readability floor". There is
+     * deliberately no path by which a narrower window produces smaller text,
+     * because "no compact mode as a default" is a product rule and not a
+     * preference: responsiveness changes ARRANGEMENT, not type size.
+     *
+     * The vw slopes are 1px per 1120px of viewport (0.0893vw) for the four
+     * text roles and twice or four times that for the display roles.
+     */
+    --font-badge: clamp(0.875rem, 0.7946rem + 0.0893vw, 0.9375rem); /* 14 -> 15 */
+    --font-code: clamp(0.9375rem, 0.8571rem + 0.0893vw, 1rem); /* 15 -> 16 */
+    --font-ui: clamp(1rem, 0.9196rem + 0.0893vw, 1.0625rem); /* 16 -> 17 */
+    --font-prose: clamp(1.0625rem, 0.9821rem + 0.0893vw, 1.125rem); /* 17 -> 18 */
+    --font-heading: clamp(1.125rem, 0.9643rem + 0.1786vw, 1.25rem); /* 18 -> 20 */
+    --font-title: clamp(1.25rem, 0.9286rem + 0.3571vw, 1.5rem); /* 20 -> 24 */
+    --font-workspace: clamp(1.5rem, 1.1786rem + 0.3571vw, 1.75rem); /* 24 -> 28 */
+    --font-display: clamp(1.75rem, 1.4286rem + 0.3571vw, 2rem); /* 28 -> 32 */
+
+    /* Line height by role. The brief's bands: 1.30-1.40 for badges, 1.45-1.55
+       for UI and code, 1.55-1.65 for reading. */
+    --leading-tight: 1.35;
+    --leading-ui: 1.45;
+    --leading-code: 1.5;
+    --leading-body: 1.55;
+    --leading-prose: 1.62;
+    --leading-heading: 1.3;
+    --leading-title: 1.25;
+    --leading-display: 1.2;
+
+    --font-sans: ui-sans-serif, system-ui, -apple-system, 'Segoe UI', sans-serif;
+    --font-mono: ui-monospace, 'Cascadia Code', 'Consolas', 'Liberation Mono', monospace;
+
+    /* -------------------------------------------------------------- space
+     *
+     * The brief's "small, boring spacing system". Tiny type encourages tiny
+     * spacing, and the two have to be corrected together or the result reads
+     * as an IDE with the font size turned up.
+     *
+     *   1 icon-to-label, badge padding      5 group-to-group
+     *   2 closely related fields            6 major section
+     *   3 row fields, pane padding narrow   7 reading block
+     *   4 pane padding                      8 page gutter
+     */
+    --space-0: 0;
+    --space-1: 0.25rem; /* 4 */
+    --space-2: 0.5rem; /* 8 */
+    --space-3: 0.75rem; /* 12 */
+    --space-4: 1rem; /* 16 */
+    --space-5: 1.5rem; /* 24 */
+    --space-6: 2rem; /* 32 */
+    --space-7: 3rem; /* 48 */
+    --space-8: 4rem; /* 64 */
+
+    --shell-gap: clamp(0.75rem, 0.55rem + 0.45vw, 1.5rem);
+
+    /* Reading measure. The brief: 45-75ch, target ~64ch. */
+    --measure-prose: 68ch;
   }
+}
 
-  /* Shut, a dock is its 44 px icon strip and nothing else — still absolute, so
-     it costs the stage nothing there either. */
-  .dock[data-open='false'] {
-    width: 44px;
-    flex: 0 0 44px;
-    box-shadow: none;
-  }
-
-  /* The stage reserves the two strips' width and no more. A margin rather than
-     two flex columns, because a column is a thing that could later grow. */
-  .stage {
-    margin-right: 88px;
-  }
-
-  .dock-resizer {
-    display: none;
-  }
-
-  /* ------------------------------------------------- ONE scroller, one pane
-   *
-   * `.dock-body` is the only scrollable box below Wide. The open section takes
-   * its natural height inside it, and every pane inside the section renders at
-   * content height — no inner `overflow-y`, no bounded box, no share of a short
-   * column. `capture-web-screenshots.mjs` counts the scrollable elements inside
-   * each dock at Compact and Medium and requires exactly one.
-   */
-  /* Collapsed headers must not be squeezed away by an open section that is
-     taller than the dock. `0 1 auto` lets a flex item shrink below its content,
-     and with one pane at natural height there is always more content than
-     dock. */
-  .dock-section,
-  .dock-section.is-open {
-    flex: 0 0 auto;
-    min-height: 0;
-  }
-
-  .dock-section-body {
-    flex: 0 0 auto;
-    overflow: visible;
-  }
-
-  .dock-section-body .arch-detail,
-  .dock-section-body .trace-rows,
-  .dock-section-body .trace-panel,
-  .dock-section-body .lesson-panel,
-  .dock-section-body .lab-panel,
-  .dock-section-body .source-outline,
-  .dock-section-body .source-code-wrap,
-  .dock-section-body .source-code,
-  .dock-section-body .source-context {
-    overflow: visible;
-    max-height: none;
-    min-height: 0;
-    flex: 0 0 auto;
+@layer base {
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font: 400 var(--font-ui) / var(--leading-ui) var(--font-sans);
   }
 
   /*
-   * React Flow is the exception that proves the rule: it is a PAN surface, not
-   * a scroller — `overflow: hidden` and a fixed box are what it needs to place
-   * nodes at real coordinates, and L6's lesson step clicks one of those nodes.
-   * So it keeps a box; the box just gets much bigger, because there is one
-   * column here instead of three.
-   */
-  .dock-section-body .arch-canvas {
-    flex: 0 0 auto;
-    height: 52vh;
-    min-height: 340px;
-  }
-
-  /* The export is a `<textarea>`; a text control's own scrollbar is not a
-     layout scroller, but it should still not be a four-line slot. */
-  .dock-section-body .lab-code {
-    min-height: 320px;
-    font-size: 12.5px;
-  }
-
-  /*
-   * The source pane's three regions stack at their natural heights.
+   * Monospace is set ABSOLUTELY rather than with an `em` multiplier.
    *
-   * U5 bounded them at 130 / 1fr-min-200 / 220 px because an auto row lets the
-   * code region grow to all 429 lines while L4's "selecting a joint SCROLLED
-   * the code to the symbol's first line" assertion keeps passing and stops
-   * meaning anything. That argument still holds AT WIDE, where the bounds and
-   * the assertion both live. Below Wide the code region is bounded by LINE
-   * COUNT instead — `SourceExplorer` renders a window around the selected
-   * symbol and says in the UI which lines it is showing, and the harness
-   * asserts the rendered `.src-line` count matches that announcement and stays
-   * under the budget. A cap you can read beats a mystery gutter.
+   * It was `0.92em`, which compounds: a `<code>` inside a badge inherited 14px
+   * and rendered at 12.9, which is exactly the class of below-floor text this
+   * workstream exists to remove. A role token cannot compound.
    */
-  .dock-section-body .source-body {
-    grid-template-rows: auto auto auto;
+  code,
+  .mono {
+    font-family: var(--font-mono);
+    font-size: var(--font-code);
+  }
+}
+
+@layer shell {
+  /* ==========================================================================
+   * THE SHELL — rail | stage + status line | control dock | analysis dock
+   *
+   * What was here before U1-U5: `.app` as a `minmax(0,1fr) minmax(0,520px) 400px`
+   * grid with a fixed 380 px source row, and not one `@media` query in 2,407
+   * lines. On a 1440x900 laptop that left the 3D viewport roughly 500x280 — about
+   * 13% of the screen — and the robot is the product.
+   *
+   * U1-U5 fixed the width and then took some of it back in height: the command
+   * vocabulary and the OLED went into a `clamp(120px, 20vh, 176px)` strip under
+   * the stage. That strip is gone. The two panes it held are sections of a SECOND
+   * dock, and what is under the robot now is a 34 px status line.
+   *
+   *   Compact  <  900 px   docks hidden; one opens as a sheet over the stage
+   *   Medium   900-1440    two 44 px icon strips; one opens as a wide OVERLAY
+   *   Wide     > 1440 px   both docks in flow at 320-560 px, resizable, persisted
+   *
+   * **The rule that fixes the laptop is that below Wide the docks overlay rather
+   * than push.** `.docks` is `position: absolute` there, so both are out of flow
+   * and the stage's measured width is identical with them shut and with either
+   * open. The harness asserts precisely that, by measuring the stage twice per
+   * dock.
+   *
+   * ## One scroller, and the panes at their natural height
+   *
+   * The second reader complaint was "everything is too small and too many
+   * scrollbars ... I'd rather have to scroll through the pane vertically on
+   * smaller screens". Below Wide the dock BODY is the only scrollable box in the
+   * dock: `.dock-section-body` and every pane inside it render at content height,
+   * one section is open at a time across both docks, and it gets the full width
+   * of a 480-720 px overlay. Nothing in the dock is smaller below Wide than it is
+   * at Wide — see the LEGIBILITY block at the end of the Medium section.
+   * ========================================================================== */
+  .shell {
+    position: relative;
+    display: flex;
+    align-items: stretch;
+    height: 100%;
+    overflow: hidden;
   }
 
-  .dock-section-body .source-panel {
-    overflow: visible;
-    flex: 0 0 auto;
+  /* ------------------------------------------------------------- left rail
+   *
+   * It never collapses at any width. That is a product-honesty requirement
+   * rather than decoration: the provenance chip lives here, and a zone that can
+   * be closed is a zone that can hide whether what is on screen was measured,
+   * simulated or inferred.
+   *
+   * 72 px, up from 56 - the one width W1 changed, and it changed because of
+   * type rather than layout. At 56 px the usable column was 48, and the
+   * protocol's own origin words ("emulated" 58 px, "physical hardware",
+   * "origin not stated") do not fit on a line at the 14 px floor: they broke
+   * mid-word into "emulat / ed", which is not more readable than the 9 px
+   * ellipsis it replaced. 64 px of usable column fits every one of them whole.
+   *
+   * W3 owns the rail properly and the plan already specifies 64 px there with a
+   * readable 14 px label; this is the minimum that makes the honesty zone
+   * legible in the meantime, and it costs the stage 16 px.
+   */
+  .rail {
+    flex: 0 0 72px;
+    width: 72px;
+    min-width: 72px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 10px;
+    padding: 8px 4px;
+    border-right: 1px solid var(--line);
+    background: #0b0e13;
+    overflow: hidden;
   }
 
-  .dock-section[data-dock-section='source'].is-open {
+  .rail-group {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    width: 100%;
+    align-items: center;
+  }
+
+  .rail-spacer {
+    flex: 1 1 auto;
     min-height: 0;
   }
 
-  /* --------------------------------------------------------- LEGIBILITY
+  .rail-btn {
+    width: 60px;
+    padding: var(--space-1) var(--space-1);
+    background: var(--panel-2);
+    color: var(--dim);
+    border: 1px solid var(--line);
+    border-radius: 6px;
+    cursor: pointer;
+    font: inherit;
+    font-size: var(--font-badge);
+    line-height: var(--leading-tight);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: var(--space-1);
+  }
+
+  .rail-btn:hover {
+    color: var(--text);
+    border-color: #35455c;
+  }
+
+  .rail-btn.active {
+    border-color: var(--accent);
+    background: #1d2938;
+    color: #cfe0fb;
+  }
+
+  .rail-glyph {
+    font-size: var(--font-heading);
+    line-height: 1;
+  }
+
+  .rail-label {
+    letter-spacing: 0.02em;
+  }
+
+  .rail-backend {
+    font-family: ui-monospace, 'Cascadia Code', 'Consolas', monospace;
+    letter-spacing: 0.04em;
+  }
+
+  .rail-status {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 6px;
+    width: 100%;
+    padding-bottom: 2px;
+  }
+
+  .rail-conn {
+    font-size: var(--font-badge);
+    line-height: 1;
+  }
+
+  /* The rail's two badges are a SUMMARY of the banner in the inspector — same
+     two values, read from the same store — so they cannot disagree with it. */
+  .rail-prov {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 3px;
+    width: 100%;
+    font-size: var(--font-badge);
+    text-align: center;
+  }
+
+  /*
+   * No ellipsis here, at any width.
    *
-   * "Everything is too small ... I still cannot read any of the content."
-   * There is ONE column below Wide instead of three, and the overlay is wider
-   * than the Wide dock, so nothing here has any reason to be smaller than it is
-   * at Wide. These raise the floor rather than lowering it; nothing in this
-   * file reduces a font size below Wide, and the harness asserts that by
-   * comparing computed sizes at Medium against the same nodes at Wide.
+   * These two chips were 9px and cut off with `text-overflow: ellipsis` — a
+   * provenance surface that a reader cannot finish reading, in the one zone
+   * the product promises never closes. W1's invariant forbids both halves of
+   * that. They are at the 14px floor now and they WRAP, and `OriginTag` is
+   * given `compact` in the rail so what has to wrap is `host model` rather
+   * than `host model (@sesame-lab/sesame-sim)`; the full string is still
+   * rendered whole on the status line and in `#prov-banner`.
    */
-  .dock-body {
-    font-size: 14px;
-    line-height: 1.6;
-    padding: 10px;
-  }
-
-  .dock-section-body {
-    padding: 12px;
-    gap: 12px;
-  }
-
-  .dock-section-body .small,
-  .dock-section-body .note,
-  .dock-section-body .dim,
-  .dock-section-body .muted,
-  .dock-section-body .panel-sub {
-    font-size: 13px;
-  }
-
-  .dock-section-body .src-line,
-  .dock-section-body .source-code {
-    font-size: 13px;
-  }
-
-  .dock-section-body .source-outline-row,
-  .dock-section-body .source-tab,
-  .dock-section-body .cmd,
-  .dock-section-body button,
-  .dock-section-body input,
-  .dock-section-body select {
-    font-size: 13.5px;
-  }
-
-  .dock-section-body .cmd {
-    padding: 7px 10px;
-  }
-
-  /* A wider single column has room for the whole string. Truncation that made
-     sense in a 400 px gutter hides content that now fits. */
-  .dock-section-body .source-outline-name,
-  .dock-section-body .joint-name,
-  .dock-section-body .lesson-card-title {
+  .rail-prov .prov,
+  .rail-prov .origin {
+    max-width: 100%;
     overflow: visible;
     text-overflow: clip;
     white-space: normal;
+    overflow-wrap: break-word;
+    line-height: var(--leading-tight);
+    font-size: var(--font-badge);
+    padding: 1px var(--space-1);
   }
-}
 
-/* =============================================================== COMPACT
- *
- * Below 900 px a dock cannot sit beside the stage at all, so the open one is a
- * full-height sheet. Every pane is still reachable; none of them is hidden, and
- * the one-open-section rule means the sheet always has content in it.
- */
-@media (max-width: 899px) {
-  .dock[data-open='true'],
-  .dock[data-dock='control'][data-open='true'] {
-    width: min(560px, 86vw);
+  .rail-events {
+    font-size: var(--font-badge);
   }
-}
 
-.panel {
-  background: var(--panel);
-  border: 1px solid var(--line);
-  border-radius: 8px;
-  padding: 12px;
-}
+  /* ----------------------------------------------------------- center stage */
+  .stage {
+    flex: 1 1 auto;
+    /*
+     * The stage's floor outranks the docks' widths. Both docks are
+     * `flex-shrink: 1`, so at a narrow Wide window they give way rather than
+     * squeezing the robot below the 480 px the harness asserts.
+     */
+    min-width: min(480px, 100%);
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+  }
 
-.panel-header {
-  display: flex;
-  align-items: baseline;
-  justify-content: space-between;
-  gap: 8px;
-  margin: 4px 0 8px;
-}
-
-.panel-header h2 {
-  font-size: 13px;
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
-  margin: 0;
-  color: var(--dim);
-}
-
-.panel-sub {
-  font-size: 11px;
-  color: var(--muted);
-}
-
-.muted {
-  color: var(--muted);
-}
-
-.dim {
-  color: var(--dim);
-}
-
-.small {
-  font-size: 12px;
-}
-
-.note {
-  font-size: 12px;
-  color: var(--dim);
-  margin: 6px 0;
-}
-
-.wrap {
-  overflow-wrap: anywhere;
-}
-
-/* ---------------------------------------------------------------- backend */
-
-.backend-switch {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 6px;
-}
-
-.backend-switch button {
-  padding: 8px;
-  background: var(--panel-2);
-  color: var(--text);
-  border: 1px solid var(--line);
-  border-radius: 6px;
-  cursor: pointer;
-  font: inherit;
-}
-
-.backend-switch button.active {
-  border-color: var(--accent);
-  background: #1d2938;
-  color: #cfe0fb;
-}
-
-.conn {
-  font-size: 11px;
-  padding: 2px 7px;
-  border-radius: 999px;
-  border: 1px solid var(--line);
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-}
-
-.conn-connected {
-  color: var(--observed);
-  border-color: #245344;
-}
-
-.conn-connecting {
-  color: var(--warn);
-  border-color: #4d3f22;
-}
-
-.conn-error {
-  color: #e2757a;
-  border-color: #5a2b2e;
-}
-
-.field {
-  display: flex;
-  flex-direction: column;
-  gap: 3px;
-  font-size: 12px;
-  color: var(--dim);
-}
-
-.field input {
-  background: #0c0f14;
-  border: 1px solid var(--line);
-  border-radius: 5px;
-  color: var(--text);
-  padding: 6px;
-  font-family: ui-monospace, monospace;
-  font-size: 12px;
-}
-
-/* ------------------------------------------------------------- provenance */
-
-.prov {
-  display: inline-block;
-  font-size: 11px;
-  padding: 1px 6px;
-  border-radius: 4px;
-  border: 1px solid currentColor;
-  letter-spacing: 0.04em;
-}
-
-.prov-observed {
-  color: var(--observed);
-}
-
-.prov-simulated {
-  color: var(--simulated);
-}
-
-.prov-inferred {
-  color: var(--inferred);
-}
-
-.prov-none {
-  color: var(--muted);
-}
-
-.prov-zero {
-  opacity: 0.35;
-}
-
-.prov-lg {
-  font-size: 14px;
-  padding: 3px 10px;
-  text-transform: uppercase;
-  font-weight: 600;
-}
-
-.prov-banner {
-  margin: 10px 0;
-  padding: 10px;
-  border-radius: 7px;
-  border: 1px solid var(--line);
-  background: var(--panel-2);
-}
-
-.prov-banner.prov-observed {
-  border-color: #245344;
-}
-
-.prov-banner.prov-simulated {
-  border-color: #2b3f5e;
-}
-
-.prov-banner.prov-inferred {
-  border-color: #46305a;
-}
-
-.prov-banner-head {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  font-size: 11px;
-  text-transform: uppercase;
-  letter-spacing: 0.06em;
-  color: var(--muted);
-}
-
-.prov-banner p {
-  margin: 7px 0 0;
-  font-size: 12px;
-  color: var(--dim);
-}
-
-.prov-counts {
-  display: flex;
-  gap: 6px;
-  align-items: center;
-  margin-top: 8px;
-  font-size: 11px;
-}
-
-/* ------------------------------------------------------------------ origin
-   The second axis. Provenance is coloured by epistemic weight; origin is
-   coloured by which boundary was crossed, and `emulator` deliberately does NOT
-   share a colour with `observed` — the whole point of the field is that the two
-   are not the same claim. */
-
-.prov-counts {
-  flex-wrap: wrap;
-}
-
-.origin {
-  font-style: normal;
-  border-style: dashed;
-}
-
-.origin-physical-robot {
-  color: var(--observed);
-  border-style: solid;
-}
-
-.origin-emulator {
-  color: #d8a657;
-}
-
-.origin-host-model {
-  color: var(--simulated);
-}
-
-.origin-replay {
-  color: var(--inferred);
-}
-
-.origin-unknown {
-  color: var(--muted);
-}
-
-.chip {
-  display: inline-block;
-  margin: 2px 4px 2px 0;
-  padding: 1px 5px;
-  border-radius: 4px;
-  background: var(--panel-2);
-  border: 1px solid var(--line);
-  font-size: 10px;
-}
-
-ul.tight {
-  margin: 6px 0 0;
-  padding-left: 18px;
-  font-size: 12px;
-  line-height: 1.5;
-}
-
-ul.tight li {
-  margin-bottom: 4px;
-}
-
-details.note summary {
-  cursor: pointer;
-  font-size: 11px;
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-}
-
-details.note p {
-  margin: 6px 0 0;
-}
-
-/* --------------------------------------------------------------- commands */
-
-.cmd-grid {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 5px;
-}
-
-.cmd-grid.faces {
-  margin-top: 8px;
-}
-
-.cmd {
-  padding: 5px 9px;
-  border-radius: 5px;
-  border: 1px solid var(--line);
-  background: var(--panel-2);
-  color: var(--text);
-  font: inherit;
-  font-size: 12px;
-  cursor: pointer;
-}
-
-.cmd:hover:not(:disabled) {
-  border-color: var(--accent);
-}
-
-.cmd:disabled {
-  opacity: 0.35;
-  cursor: not-allowed;
-}
-
-.cmd-continuous {
-  border-style: dashed;
-}
-
-.cmd-stop {
-  color: #e2757a;
-}
-
-.cmd-face {
-  color: var(--inferred);
-}
-
-.cmd-broken {
-  color: var(--warn);
-}
-
-/* ----------------------------------------------------------------- joints */
-
-table.joints {
-  width: 100%;
-  border-collapse: collapse;
-  font-size: 12px;
-}
-
-table.joints th {
-  text-align: left;
-  font-weight: 500;
-  color: var(--muted);
-  border-bottom: 1px solid var(--line);
-  padding: 3px 4px;
-}
-
-table.joints td {
-  padding: 3px 4px;
-  border-bottom: 1px solid #1c222b;
-}
-
-table.joints tbody tr {
-  cursor: pointer;
-}
-
-table.joints tbody tr:hover {
-  background: #1a212b;
-}
-
-table.joints tbody tr.selected {
-  background: #1d2c3f;
-}
-
-.joint-name {
-  font-family: ui-monospace, monospace;
-  font-weight: 600;
-}
-
-.num {
-  text-align: right;
-  font-variant-numeric: tabular-nums;
-}
-
-.null-cell {
-  color: var(--muted);
-  font-style: italic;
-}
-
-.feedback-note {
-  margin-top: 10px;
-  padding: 9px;
-  border-radius: 6px;
-  border: 1px solid #4a3c1f;
-  background: #1e1a12;
-  font-size: 12px;
-}
-
-.feedback-note strong {
-  color: var(--warn);
-}
-
-.feedback-note p {
-  margin: 5px 0 0;
-  color: var(--dim);
-}
-
-.joint-detail {
-  margin-top: 12px;
-  padding-top: 10px;
-  border-top: 1px solid var(--line);
-}
-
-.joint-detail h3 {
-  margin: 0 0 8px;
-  font-size: 13px;
-}
-
-dl.kv {
-  display: grid;
-  grid-template-columns: 108px minmax(0, 1fr);
-  gap: 4px 10px;
-  margin: 0;
-  font-size: 12px;
-}
-
-dl.kv dt {
-  color: var(--muted);
-}
-
-dl.kv dd {
-  margin: 0;
-  min-width: 0;
-  overflow-wrap: anywhere;
-}
-
-ul.tight {
-  margin: 2px 0;
-  padding-left: 16px;
-}
-
-.warn {
-  margin-top: 10px;
-  padding: 9px;
-  border-radius: 6px;
-  border: 1px solid #5a2b2e;
-  background: #1e1315;
-  font-size: 12px;
-}
-
-.warn strong {
-  color: #f0a0a4;
-}
-
-.warn p {
-  margin: 5px 0 0;
-  color: var(--dim);
-}
-
-.warn-inline {
-  color: var(--warn);
-}
-
-.slider {
-  display: flex;
-  flex-direction: column;
-  gap: 3px;
-  margin-top: 10px;
-  font-size: 12px;
-  color: var(--dim);
-}
-
-/* ------------------------------------------------------------------- OLED */
-
-.oled-canvas {
-  width: 100%;
-  height: auto;
-  display: block;
-  image-rendering: pixelated;
-  border: 1px solid var(--line);
-  border-radius: 4px;
-  background: #0a0d11;
-}
-
-.oled-readout {
-  font-family: ui-monospace, monospace;
-  font-size: 11px;
-  color: var(--dim);
-  margin: 6px 0 8px;
-  min-height: 1.4em;
-}
-
-/* ------------------------------------------------------------------ misc */
-
-.toggles {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 12px;
-  font-size: 12px;
-  color: var(--dim);
-  margin-bottom: 8px;
-}
-
-.toggles label {
-  display: flex;
-  align-items: center;
-  gap: 5px;
-  cursor: pointer;
-}
-
-.toggles label.disabled {
-  opacity: 0.4;
-  cursor: not-allowed;
-}
-
-/* ============================================================ architecture */
-
-/*
- * The graph and the trace are two dock sections now rather than two halves of
- * one `.workbench` column, and V8's argument for keeping them apart is
- * unchanged: one tall scrolling column pushed the trace below the fold, so the
- * cross-highlight was never visible at the same time as the thing it
- * highlights. At Wide they are both open by default and `.dock-section.is-open`
- * makes them share the dock's height, so clicking R4 in the graph and watching
- * R4's trace rows light up is still one glance and not one scroll.
- */
-.arch-panel,
-.trace-panel {
-  display: flex;
-  flex-direction: column;
-  flex: 1 1 auto;
-  min-height: 0;
-  overflow: hidden;
-}
-
-.arch-canvas {
-  flex: 1 1 auto;
-  min-height: 180px;
-  border: 1px solid var(--line);
-  border-radius: 6px;
-  overflow: hidden;
-  background: #0b0e13;
-}
-
-/* React Flow paints its own light chrome; pull it into the dark theme. */
-.arch-canvas .react-flow__controls button {
-  background: var(--panel-2);
-  border-bottom: 1px solid var(--line);
-  fill: var(--dim);
-}
-
-.arch-canvas .react-flow__attribution {
-  background: transparent;
-  color: var(--muted);
-  font-size: 9px;
-}
-
-.arch-canvas .react-flow__edge-path {
-  stroke: #33465e;
-  stroke-width: 1.4;
-}
-
-.arch-edge-lifted .react-flow__edge-path {
-  stroke: #2b3949;
-  stroke-dasharray: 2 3;
-}
-
-.arch-edge-active .react-flow__edge-path {
-  stroke: var(--accent);
-  stroke-width: 2.2;
-}
-
-.arch-edge-hand .react-flow__edge-path {
-  stroke: var(--warn);
-}
-
-.arch-canvas .react-flow__edge-text {
-  fill: var(--muted);
-  font-size: 9px;
-}
-
-.arch-node {
-  position: relative;
-  background: var(--panel-2);
-  border: 1px solid var(--line);
-  border-radius: 7px;
-  padding: 6px 8px;
-  overflow: hidden;
-  cursor: pointer;
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-}
-
-.arch-node .react-flow__handle {
-  opacity: 0;
-}
-
-.arch-node-label {
-  font-size: 12px;
-  font-weight: 600;
-  color: var(--text);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-.arch-node-summary {
-  font-size: 9px;
-  line-height: 1.25;
-  color: var(--muted);
-  overflow: hidden;
-  display: -webkit-box;
-  -webkit-line-clamp: 2;
-  -webkit-box-orient: vertical;
-}
-
-.arch-kind-controller {
-  border-color: #3d5a86;
-  background: #16202d;
-}
-.arch-kind-subsystem {
-  border-color: #33465e;
-}
-.arch-kind-peripheral,
-.arch-kind-physical {
-  border-color: #4a3b5c;
-}
-.arch-kind-joint {
-  border-color: #245344;
-}
-.arch-kind-route,
-.arch-kind-movement {
-  border-color: #2e3a4a;
-}
-
-.arch-node.is-related {
-  border-color: var(--simulated);
-}
-
-.arch-node.is-active {
-  box-shadow: inset 0 0 0 1px rgba(110, 158, 230, 0.35);
-}
-
-.arch-node.is-selected {
-  border-color: var(--accent);
-  background: #1d2938;
-  box-shadow: 0 0 0 2px rgba(110, 158, 230, 0.35);
-}
-
-/* The two markers that say "the evidence stops here". */
-.arch-node.is-hand-authored {
-  border-style: dashed;
-}
-
-.arch-node.is-unresolved .arch-node-label {
-  color: var(--warn);
-}
-
-.arch-flag {
-  margin-left: 4px;
-  color: var(--warn);
-  font-weight: 700;
-}
-
-.arch-expand {
-  position: absolute;
-  right: 4px;
-  bottom: 3px;
-  min-width: 22px;
-  padding: 0 4px;
-  height: 15px;
-  line-height: 13px;
-  font-size: 10px;
-  font-family: ui-monospace, monospace;
-  background: #0c0f14;
-  color: var(--dim);
-  border: 1px solid var(--line);
-  border-radius: 4px;
-  cursor: pointer;
-}
-
-.arch-expand:hover {
-  color: var(--accent);
-  border-color: var(--accent);
-}
-
-.arch-detail {
-  flex: 0 1 auto;
-  min-height: 0;
-  overflow-y: auto;
-  max-height: 40%;
-  margin-top: 10px;
-  padding: 9px;
-  border: 1px solid var(--line);
-  border-radius: 6px;
-  background: #11151c;
-}
-
-.arch-detail h3 {
-  margin: 0 0 4px;
-  font-size: 13px;
-}
-
-.arch-detail-summary {
-  margin: 0 0 6px;
-  font-size: 12px;
-  color: var(--dim);
-}
-
-.arch-detail-list {
-  margin: 0 0 8px;
-  padding-left: 15px;
-  font-size: 11.5px;
-  color: var(--muted);
-}
-
-.arch-detail-list li {
-  margin-bottom: 3px;
-}
-
-/* ========================================================= see the signal */
-
-.trace-tabs {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 4px;
-  margin-bottom: 8px;
-}
-
-.trace-tabs button {
-  font: inherit;
-  font-size: 11px;
-  padding: 2px 8px;
-  border-radius: 999px;
-  border: 1px solid var(--line);
-  background: var(--panel-2);
-  color: var(--dim);
-  cursor: pointer;
-}
-
-.trace-tabs button.active {
-  border-color: var(--accent);
-  color: #cfe0fb;
-}
-
-.trace-correlation {
-  font-size: 11.5px;
-  color: var(--dim);
-  border: 1px solid var(--line);
-  border-left: 3px solid var(--warn);
-  border-radius: 5px;
-  padding: 7px 9px;
-  margin-bottom: 8px;
-}
-
-.trace-rows {
-  list-style: none;
-  margin: 0;
-  padding: 0;
-  /* Owns the leftover height of its half and scrolls inside it. */
-  flex: 1 1 auto;
-  min-height: 0;
-  overflow-y: auto;
-  display: flex;
-  flex-direction: column;
-  gap: 5px;
-}
-
-.trace-row {
-  border: 1px solid var(--line);
-  border-left: 3px solid var(--line);
-  border-radius: 5px;
-  padding: 6px 8px;
-  cursor: pointer;
-  background: #11151c;
-}
-
-.trace-tone-observed {
-  border-left-color: var(--observed);
-}
-.trace-tone-simulated {
-  border-left-color: var(--simulated);
-}
-.trace-tone-inferred {
-  border-left-color: var(--inferred);
-}
-
-.trace-row.hit {
-  background: #1a2231;
-  border-color: var(--accent);
-}
-
-.trace-row-head {
-  display: flex;
-  align-items: baseline;
-  gap: 8px;
-}
-
-.trace-layer {
-  color: var(--muted);
-  font-size: 10.5px;
-  min-width: 108px;
-}
-
-.trace-label {
-  flex: 1;
-  font-size: 12.5px;
-  font-weight: 600;
-  font-family: ui-monospace, monospace;
-}
-
-.trace-badge {
-  font-size: 9px;
-  letter-spacing: 0.05em;
-  white-space: nowrap;
-}
-
-.trace-row-detail {
-  margin-top: 3px;
-  font-size: 11px;
-  color: var(--dim);
-}
-
-.trace-row-witness {
-  margin-top: 4px;
-  font-size: 10.5px;
-  color: var(--muted);
-  border-top: 1px dotted var(--line);
-  padding-top: 4px;
-}
-
-.trace-witness-key {
-  text-transform: uppercase;
-  letter-spacing: 0.07em;
-  font-size: 9px;
-  color: var(--muted);
-}
-
-.trace-row-meta {
-  margin-top: 4px;
-  display: flex;
-  flex-wrap: wrap;
-  gap: 6px;
-  align-items: center;
-  font-size: 10px;
-}
-
-.trace-match {
-  border: 1px solid var(--line);
-  border-radius: 3px;
-  padding: 0 4px;
-  font-family: ui-monospace, monospace;
-}
-
-.trace-match-time-window {
-  color: var(--warn);
-  border-color: #4d3f22;
-}
-
-.trace-match-trace-id {
-  color: var(--observed);
-  border-color: #245344;
-}
-
-.trace-source {
-  font-size: 9.5px;
-}
-
-.trace-legend {
-  flex: 0 0 auto;
-  margin-top: 10px;
-  font-size: 11.5px;
-  color: var(--muted);
-}
-
-.trace-legend summary {
-  cursor: pointer;
-  color: var(--dim);
-}
-
-.trace-legend dl.kv {
-  margin-top: 6px;
-  grid-template-columns: 120px minmax(0, 1fr);
-}
-
-/* =========================================================== source explorer
- *
- * WAS three sub-columns spanning the viewport and the workbench — the outline a
- * learner scans, the code they read, and the context that explains it, side by
- * side. That needed roughly 700 px, and the dock is 320-520.
- *
- * So the three columns become three STACKED regions, each scrolling on its own,
- * and nothing is hidden: the outline keeps its own scroller at the top, the
- * code takes the space that is left, and the context sits underneath. This is
- * the one pane the responsive shell genuinely costs something, and it is
- * recorded rather than quietly dropped — L4's assertions all still hold,
- * because they are about `.source-code`'s own scroll container, the painted
- * line numbers and the three registers' computed styles, none of which is about
- * the columns being beside one another.
- */
-.source-panel {
-  flex: 1 1 auto;
-  min-height: 0;
-  min-width: 0;
-  display: flex;
-  flex-direction: column;
-  overflow: hidden;
-}
-
-.source-tabs {
-  display: flex;
-  gap: 4px;
-  margin-bottom: 8px;
-  flex-wrap: wrap;
-}
-
-.source-tab {
-  background: var(--panel-2);
-  border: 1px solid var(--line);
-  border-radius: 6px;
-  color: var(--dim);
-  cursor: pointer;
-  font: inherit;
-  font-size: 11px;
-  padding: 3px 8px;
-}
-
-.source-tab.active {
-  background: #23303f;
-  border-color: var(--accent);
-  color: var(--text);
-}
-
-.source-body {
-  display: grid;
-  /* One column in the dock. See `.source-panel`. */
-  grid-template-columns: minmax(0, 1fr);
   /*
-   * Three bounded rows, each scrolling on its own. The bounds are the load-
-   * bearing part: L4 asserts that selecting a joint SCROLLS the code view to
-   * the symbol's first line, measured against `.source-code`'s own
-   * `clientHeight`. An auto row would let the code region grow to all 429 lines
-   * of `movement-sequences.h`, and then the pane would never scroll and the
-   * assertion would pass without meaning anything.
+   * The floor. `45vh` and `480px` are the plan's numbers, and phase 12 measures
+   * the CANVAS rather than this box — a container that is tall while the drawing
+   * buffer is not would be exactly the kind of green-but-wrong the old harness
+   * had.
    */
-  grid-template-rows: minmax(0, 130px) minmax(200px, 1fr) minmax(0, 220px);
-  gap: 10px;
-  min-height: 0;
-  flex: 1;
-}
-
-/* Enough room for those three rows to exist at their minimums; the dock's own
-   scroller takes the overflow when several sections are open at once, and the
-   code region gets the whole remainder when the source section has the dock to
-   itself. */
-.dock-section[data-dock-section='source'].is-open {
-  min-height: 480px;
-}
-
-.source-outline,
-.source-code-wrap,
-.source-context {
-  min-height: 0;
-  overflow-y: auto;
-}
-
-/* ------------------------------------------------------------------ outline */
-.source-outline-row {
-  align-items: baseline;
-  background: none;
-  border: none;
-  border-left: 2px solid transparent;
-  color: var(--dim);
-  cursor: pointer;
-  display: flex;
-  font: inherit;
-  font-size: 11.5px;
-  gap: 6px;
-  padding: 2px 4px;
-  text-align: left;
-  width: 100%;
-}
-
-.source-outline-row:hover {
-  background: var(--panel-2);
-}
-
-.source-outline-row.is-selected {
-  background: #23303f;
-  border-left-color: var(--accent);
-  color: var(--text);
-}
-
-.source-kind {
-  color: var(--muted);
-  flex: none;
-  width: 12px;
-}
-
-.source-outline-name {
-  flex: 1;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.source-outline-lines {
-  color: var(--muted);
-  flex: none;
-  font-size: 10px;
-}
-
-/* --------------------------------------------------------------------- code */
-.source-code-wrap {
-  display: flex;
-  flex-direction: column;
-  overflow: hidden;
-}
-
-.source-code {
-  background: #0b0e13;
-  position: relative;
-  border: 1px solid var(--line);
-  border-radius: 6px;
-  flex: 1;
-  font-family: ui-monospace, 'Cascadia Code', 'Consolas', monospace;
-  font-size: 11.5px;
-  line-height: 1.45;
-  min-height: 0;
-  overflow: auto;
-  padding: 4px 0;
-}
-
-.src-line {
-  display: flex;
-  gap: 8px;
-  padding: 0 8px 0 0;
-  white-space: pre;
-}
-
-/* Outside the selected symbol: present, readable, clearly not the subject. */
-.src-line {
-  opacity: 0.45;
-}
-
-.src-line.in-symbol {
-  background: #121a24;
-  opacity: 1;
-}
-
-/* A line some artefact in this repository cites, by file:line. */
-.src-line.is-cited {
-  box-shadow: inset 3px 0 0 var(--warn);
-}
-
-.src-line.did-run {
-  background: #142219;
-}
-
-.src-num {
-  color: var(--muted);
-  flex: none;
-  text-align: right;
-  user-select: none;
-  width: 44px;
-}
-
-.src-text {
-  flex: 1;
-  font-size: inherit;
-}
-
-.src-ran {
-  align-self: center;
-  background: #1d3a29;
-  border-radius: 3px;
-  color: var(--observed);
-  flex: none;
-  font-size: 9px;
-  letter-spacing: 0.06em;
-  padding: 0 4px;
-  text-transform: uppercase;
-}
-
-.source-window-note {
-  flex: none;
-  margin: 6px 0 0;
-}
-
-/* C++ tokens. Legibility only — nothing in this app rests on a token colour. */
-.cpp-comment { color: #6b8a63; }
-.cpp-string { color: #d69d78; }
-.cpp-preproc { color: #c08de0; }
-.cpp-number { color: #b8cea0; }
-.cpp-keyword { color: #7aa2f7; }
-.cpp-type { color: #4ec9a0; }
-.cpp-plain { color: #cdd6e4; }
-
-/* ------------------------------------------------------------- integrity */
-.source-integrity {
-  flex: none;
-  font-size: 11px;
-  margin: 0 0 6px;
-}
-
-.source-integrity.ok {
-  color: var(--dim);
-}
-
-/* ------------------------------------------------------------- context */
-.source-detail h3 {
-  font-size: 13px;
-  margin: 0 0 2px;
-}
-
-.source-h4 {
-  border-top: 1px solid var(--line);
-  color: var(--dim);
-  font-size: 10px;
-  letter-spacing: 0.09em;
-  margin: 12px 0 6px;
-  padding-top: 8px;
-  text-transform: uppercase;
-}
-
-.source-signature {
-  color: var(--dim);
-  margin: 4px 0;
-  overflow-wrap: anywhere;
-}
-
-/*
- * FACT. Checkable line by line against the pinned tree. Ordinary body text on
- * purpose: it is the default register, and everything else is marked against
- * it.
- */
-.source-description {
-  color: var(--text);
-  font-size: 12px;
-  margin: 6px 0;
-}
-
-/*
- * JUDGEMENT. Amber, indented, italic, and labelled in words — three signals,
- * because the one thing a learner must never do is read one of these as if the
- * code said it.
- */
-.source-commentary {
-  background: #241d10;
-  border-left: 3px solid var(--warn);
-  border-radius: 0 4px 4px 0;
-  margin: 8px 0;
-  padding: 6px 8px;
-}
-
-.source-commentary-tag {
-  color: var(--warn);
-  display: block;
-  font-size: 9.5px;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-}
-
-.source-commentary p {
-  color: #e8dcc4;
-  font-size: 11.5px;
-  font-style: italic;
-  margin: 4px 0 0;
-}
-
-.source-disagreement {
-  font-size: 11px;
-}
-
-/* ------------------------------------------------------------------ chips */
-.chip-row {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 4px;
-  margin: 4px 0;
-}
-
-.chip-node,
-.chip-joint,
-.chip-concept,
-.chip-symbol,
-.chip-module {
-  background: var(--panel-2);
-  border: 1px solid var(--line);
-  border-radius: 10px;
-  color: var(--dim);
-  cursor: pointer;
-  font: inherit;
-  font-size: 10.5px;
-  padding: 1px 8px;
-}
-
-.chip-joint {
-  font-family: ui-monospace, 'Cascadia Code', 'Consolas', monospace;
-}
-
-.chip-node.is-selected,
-.chip-joint.is-selected,
-.chip-concept.is-selected {
-  background: #23303f;
-  border-color: var(--accent);
-  color: var(--text);
-}
-
-.chip-symbol.is-anchor {
-  border-color: var(--observed);
-  color: var(--observed);
-}
-
-.chip-module {
-  cursor: default;
-}
-
-.chip-module.is-conceptual {
-  border-color: var(--warn);
-  color: var(--warn);
-}
-
-.chip-badge {
-  background: #2a3240;
-  border-radius: 6px;
-  color: var(--dim);
-  font-size: 9px;
-  margin-left: 5px;
-  padding: 0 4px;
-}
-
-.chip-module.is-conceptual .chip-badge {
-  background: #3a2e12;
-  color: var(--warn);
-}
-
-.linkish {
-  background: none;
-  border: none;
-  color: var(--accent);
-  cursor: pointer;
-  font: inherit;
-  padding: 0 3px;
-  text-decoration: underline dotted;
-}
-
-.linkish:disabled {
-  color: var(--muted);
-  cursor: default;
-  text-decoration: none;
-}
-
-/* ------------------------------------------------------------ quantisation */
-.source-quantisation {
-  background: var(--panel-2);
-  border: 1px solid var(--line);
-  border-radius: 6px;
-  margin: 6px 0;
-  padding: 6px 8px;
-}
-
-.source-quantisation-head {
-  align-items: center;
-  display: flex;
-  font-size: 11px;
-  gap: 6px;
-}
-
-.source-quantisation-head input {
-  flex: 1;
-}
-
-.source-quantisation p {
-  margin: 4px 0 0;
-}
-
-/* ---------------------------------------------------------- teaching notes */
-.teaching-note {
-  border: 1px solid var(--line);
-  border-left-width: 3px;
-  border-radius: 0 6px 6px 0;
-  margin: 8px 0;
-  padding: 6px 8px;
-}
-
-.tn-surprise { border-left-color: var(--accent); }
-.tn-defect { border-left-color: #e0736e; }
-.tn-design { border-left-color: var(--inferred); }
-
-.teaching-note header {
-  align-items: baseline;
-  display: flex;
-  flex-wrap: wrap;
-  gap: 6px;
-  font-size: 11.5px;
-}
-
-.tn-kind {
-  border-radius: 6px;
-  background: #2a3240;
-  font-size: 9px;
-  letter-spacing: 0.07em;
-  padding: 0 5px;
-  text-transform: uppercase;
-}
-
-.tn-defect .tn-kind { background: #3d1f1e; color: #e0736e; }
-
-.tn-id {
-  color: var(--muted);
-  font-size: 10px;
-}
-
-.tn-summary {
-  color: var(--dim);
-  font-size: 11.5px;
-  margin: 5px 0;
-}
-
-.tn-evidence {
-  list-style: none;
-  margin: 4px 0;
-  padding: 0;
-}
-
-.tn-evidence li {
-  font-size: 10.5px;
-  margin: 2px 0;
-  overflow-wrap: anywhere;
-}
-
-.tn-line {
-  color: #cdd6e4;
-}
-
-/*
- * LIBRARY EVIDENCE. A different tree entirely — ESP32Servo 3.0.9, which lives
- * under the gitignored `tools/`. Violet, boxed and labelled, because the line
- * checker that guarantees every other citation on this screen cannot resolve
- * this one and must not appear to.
- */
-.tn-library {
-  background: #1e1830;
-  border: 1px dashed var(--inferred);
-  border-radius: 4px;
-  margin: 6px 0;
-  padding: 5px 7px;
-}
-
-.tn-library-tag {
-  color: var(--inferred);
-  display: block;
-  font-size: 9.5px;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-}
-
-.tn-library p {
-  margin: 3px 0 0;
-}
-
-.tn-refs {
-  overflow-wrap: anywhere;
-}
-
-/* ---------------------------------------------------------------- concepts */
-.level-switch {
-  display: flex;
-  gap: 3px;
-  margin: 6px 0 4px;
-}
-
-.level-tab {
-  background: var(--panel-2);
-  border: 1px solid var(--line);
-  border-radius: 5px;
-  color: var(--muted);
-  cursor: pointer;
-  font: inherit;
-  font-size: 10px;
-  padding: 2px 7px;
-}
-
-.level-tab.active {
-  background: #23303f;
-  border-color: var(--accent);
-  color: var(--text);
-}
-
-.concept-text {
-  color: var(--text);
-  font-size: 12px;
-  margin: 4px 0;
-}
-
-.concept-symbols {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 4px;
-  margin: 6px 0;
-}
-
-.source-rows {
-  list-style: none;
-  margin: 4px 0;
-  padding: 0;
-}
-
-.source-row {
-  background: none;
-  border: none;
-  color: var(--dim);
-  cursor: pointer;
-  font: inherit;
-  font-size: 11px;
-  padding: 1px 0;
-  text-align: left;
-  width: 100%;
-}
-
-.source-row:hover {
-  color: var(--text);
-}
-
-/* ============================================================== Learn mode
- *
- * A dock section now, not a third grid row. The old argument — a column has to
- * come out of the viewport's width, and the viewport is where
- * ISSUE-20260823-023 lived — is answered by the overlay rule instead: below
- * Wide the dock is out of flow, so opening Learn takes nothing from the stage,
- * and at Wide the stage is 1,900 px or more. The world-frame check is re-run at
- * every breakpoint anyway, which is the part of that argument that was ever
- * evidence.
- */
-.lesson-panel {
-  min-width: 0;
-  min-height: 0;
-  padding: 2px;
-  overflow-y: auto;
-  max-height: none;
-}
-
-.lesson-list {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(230px, 1fr));
-  gap: 6px;
-}
-
-.lesson-card {
-  display: grid;
-  grid-template-columns: 22px 1fr auto;
-  grid-template-areas:
-    "order title badges"
-    "order progress progress"
-    "lock lock lock";
-  gap: 2px 6px;
-  align-items: baseline;
-  text-align: left;
-  background: var(--panel-2);
-  border: 1px solid var(--line);
-  border-radius: 6px;
-  color: var(--text);
-  cursor: pointer;
-  font: inherit;
-  padding: 6px 8px;
-}
-
-.lesson-card:hover:not(:disabled) {
-  border-color: var(--accent);
-}
-
-.lesson-card.is-locked {
-  opacity: 0.55;
-  cursor: not-allowed;
-}
-
-.lesson-card.is-outline {
-  border-style: dashed;
-}
-
-.lesson-card-order {
-  grid-area: order;
-  color: var(--muted);
-  font-variant-numeric: tabular-nums;
-}
-.lesson-card-title {
-  grid-area: title;
-}
-.lesson-card-badges {
-  grid-area: badges;
-  display: flex;
-  gap: 4px;
-}
-.lesson-card-progress {
-  grid-area: progress;
-  color: var(--muted);
-  font-size: 11px;
-}
-.lesson-card-lock {
-  grid-area: lock;
-  color: var(--warn);
-  font-size: 11px;
-}
-
-.badge {
-  border: 1px solid var(--line);
-  border-radius: 4px;
-  color: var(--dim);
-  font-size: 10px;
-  letter-spacing: 0.04em;
-  padding: 0 4px;
-  text-transform: uppercase;
-}
-
-.badge.is-conceptual {
-  border-color: var(--inferred);
-  color: var(--inferred);
-}
-
-.badge.is-boundary {
-  border-color: var(--warn);
-  color: var(--warn);
-  border-style: dashed;
-}
-
-.badge.is-outline {
-  border-style: dashed;
-}
-
-.badge.is-notbuilt {
-  border-color: #e0625a;
-  color: #ffb0aa;
-}
-
-/* --------------------------------------------------------- lesson header */
-
-/*
- * The conceptual badge and the grounding note are DIFFERENT treatments on
- * purpose. The first says this module asserts nothing about how Sesame works;
- * the second says a factual module has a boundary it will not cross. Rendering
- * them the same would flatten the distinction L3 spent a whole artefact making.
- */
-.lesson-conceptual {
-  border: 1px solid var(--inferred);
-  border-left-width: 4px;
-  border-radius: 4px;
-  background: #1d1626;
-  color: #e5d3f5;
-  font-size: 12px;
-  margin: 6px 0;
-  padding: 6px 8px;
-}
-
-.lesson-grounding-note {
-  border: 1px dashed var(--warn);
-  border-radius: 4px;
-  background: #201c12;
-  color: #f0dcae;
-  font-size: 12px;
-  margin: 6px 0;
-  padding: 6px 8px;
-}
-
-.lesson-goal {
-  color: var(--dim);
-  font-size: 12px;
-  margin: 6px 0;
-}
-
-.lesson-steps {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 4px;
-  margin: 6px 0;
-}
-
-.lesson-step-chip {
-  background: var(--panel-2);
-  border: 1px solid var(--line);
-  border-radius: 4px;
-  color: var(--dim);
-  cursor: pointer;
-  font: inherit;
-  font-size: 11px;
-  min-width: 26px;
-  padding: 1px 5px;
-}
-
-.lesson-step-chip.is-current {
-  border-color: var(--accent);
-  color: #cfe0fb;
-}
-.lesson-step-chip.is-passed {
-  color: var(--observed);
-}
-.lesson-step-chip.is-skipped {
-  color: var(--warn);
-}
-
-/* ----------------------------------------------------------- lesson step */
-
-.lesson-step-head {
-  align-items: baseline;
-  display: flex;
-  gap: 8px;
-  justify-content: space-between;
-}
-
-.lesson-step-head h3 {
-  font-size: 13px;
-  margin: 6px 0;
-}
-
-.lesson-kind {
-  border: 1px solid var(--line);
-  border-radius: 3px;
-  color: var(--muted);
-  font-size: 10px;
-  padding: 0 4px;
-  text-transform: uppercase;
-}
-
-.lesson-kind[data-kind="debug"] {
-  border-color: var(--warn);
-  color: var(--warn);
-}
-
-.lesson-explanation {
-  font-size: 13px;
-  margin: 6px 0;
-}
-
-.lesson-godeeper {
-  border-left: 2px solid var(--line);
-  font-size: 12px;
-  margin: 6px 0;
-  padding-left: 8px;
-}
-
-.lesson-godeeper summary {
-  color: var(--dim);
-  cursor: pointer;
-}
-
-/* ---------------------------------------------------------------- claims */
-
-.lesson-claim {
-  background: #11151c;
-  border: 1px solid var(--line);
-  border-radius: 6px;
-  margin: 6px 0;
-  padding: 6px 8px;
-}
-
-.lesson-claim-text {
-  font-size: 12px;
-  margin: 0 0 4px;
-}
-
-.lesson-claim-conceptual {
-  color: var(--inferred);
-  font-size: 12px;
-  margin: 4px 0;
-}
-
-/*
- * `boundaryNote` gets a register of its own — dashed, labelled with WHICH world
- * the fact belongs to, and never the same as ordinary prose. It is not a hedge
- * on a Sesame fact; it is a statement that the fact is not about Sesame.
- */
-.lesson-boundary {
-  border: 1px dashed var(--inferred);
-  border-radius: 4px;
-  background: #171425;
-  margin: 6px 0;
-  padding: 6px 8px;
-}
-
-.lesson-boundary[data-domain="emulator"] {
-  border-color: #7fb6d8;
-  background: #121b21;
-}
-.lesson-boundary[data-domain="lab"] {
-  border-color: var(--warn);
-  background: #201c12;
-}
-
-.lesson-boundary-label {
-  color: var(--dim);
-  display: block;
-  font-size: 10px;
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
-}
-
-.lesson-boundary p {
-  font-size: 12px;
-  margin: 3px 0 0;
-}
-
-.lesson-observability {
-  color: var(--dim);
-  font-size: 11px;
-  margin: 4px 0 0;
-}
-
-.lesson-citations {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 4px;
-  margin: 4px 0 0;
-}
-
-.cite {
-  border: 1px solid var(--line);
-  border-radius: 3px;
-  color: var(--muted);
-  font-size: 10px;
-  padding: 0 4px;
-}
-
-.cite-symbol {
-  border-color: #35506e;
-  color: #9fc2ee;
-  cursor: pointer;
-}
-.cite-library {
-  border-style: dashed;
-  border-color: var(--inferred);
-  color: #cdb0e4;
-}
-.cite-document {
-  border-color: #4d6a58;
-  color: #a8d3bd;
-}
-.cite-teaching-note {
-  border-color: var(--warn);
-  color: var(--warn);
-}
-
-/* -------------------------------------------------------------- controls */
-
-.lesson-affordance {
-  color: var(--dim);
-  font-size: 12px;
-  margin: 6px 0 4px;
-}
-
-.lesson-control {
-  border-top: 1px solid var(--line);
-  margin-top: 8px;
-  padding-top: 6px;
-}
-
-.lesson-button {
-  background: var(--panel-2);
-  border: 1px solid var(--line);
-  border-radius: 5px;
-  color: var(--text);
-  cursor: pointer;
-  font: inherit;
-  font-size: 12px;
-  padding: 3px 8px;
-}
-
-.lesson-button.is-primary {
-  border-color: var(--accent);
-  background: #1d2938;
-  color: #cfe0fb;
-}
-
-.lesson-button:disabled {
-  cursor: not-allowed;
-  opacity: 0.5;
-}
-
-.lesson-select {
-  background: var(--panel-2);
-  border: 1px solid var(--line);
-  border-radius: 5px;
-  color: var(--text);
-  font: inherit;
-  font-size: 12px;
-  padding: 2px 4px;
-}
-
-.editor-row {
-  align-items: center;
-  display: flex;
-  flex-wrap: wrap;
-  gap: 6px;
-  margin: 4px 0;
-}
-
-.editor-label {
-  color: var(--dim);
-  font-size: 11px;
-  min-width: 44px;
-}
-
-.editor-value {
-  color: var(--text);
-  font-variant-numeric: tabular-nums;
-  min-width: 42px;
-}
-
-.lesson-quiz {
-  align-items: center;
-  display: flex;
-  flex-wrap: wrap;
-  font-size: 12px;
-  gap: 4px;
-  margin: 6px 0;
-}
-
-/*
- * The refusal. A control that is not built must be impossible to mistake for a
- * control that is: a learner who sees an empty box concludes the lab is broken,
- * and a learner who sees nothing at all concludes the step is decorative.
- */
-.lesson-notbuilt {
-  border: 2px solid #e0625a;
-  border-radius: 6px;
-  background: #2a1614;
-  color: #ffcbc6;
-  font-size: 12px;
-  padding: 8px 10px;
-}
-
-.lesson-notbuilt p {
-  margin: 4px 0 0;
-}
-
-.lesson-lab-note {
-  border: 1px dashed var(--warn);
-  border-radius: 4px;
-  color: #f0dcae;
-  font-size: 11px;
-  margin: 0 0 6px;
-  padding: 4px 6px;
-}
-
-.lesson-lab-note.is-inferred {
-  border-color: var(--inferred);
-  color: #ddc4ef;
-}
-
-/* ----------------------------------------------------------------- check */
-
-.lesson-check {
-  border: 1px solid var(--line);
-  border-left-width: 4px;
-  border-radius: 6px;
-  margin: 8px 0 0;
-  padding: 6px 8px;
-}
-
-.lesson-check.is-pending {
-  border-left-color: var(--muted);
-}
-.lesson-check.is-passed {
-  border-left-color: var(--observed);
-  background: #10201a;
-}
-.lesson-check.is-failed {
-  border-left-color: var(--warn);
-  background: #201c12;
-}
-.lesson-check.is-unsupported {
-  border-color: #e0625a;
-  border-left-color: #e0625a;
-  background: #2a1614;
-}
-
-.lesson-check-head {
-  display: flex;
-  gap: 8px;
-  justify-content: space-between;
-}
-
-.lesson-check-status {
-  font-size: 11px;
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
-}
-
-.lesson-check-type {
-  color: var(--muted);
-  font-size: 11px;
-}
-
-.lesson-check-summary {
-  font-size: 12px;
-  margin: 4px 0;
-}
-
-.lesson-check-detail {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 14px;
-  margin: 4px 0;
-}
-
-.lesson-check-detail dt {
-  color: var(--muted);
-  font-size: 10px;
-  text-transform: uppercase;
-}
-
-.lesson-check-detail dd {
-  font-size: 11px;
-  margin: 0;
-}
-
-.lesson-failure-normal {
-  border-left: 2px solid var(--accent);
-  color: #bfd4f0;
-  font-size: 11px;
-  margin: 4px 0;
-  padding-left: 6px;
-}
-
-.lesson-hint {
-  color: var(--muted);
-  font-size: 11px;
-  margin: 4px 0;
-}
-
-.lesson-skipped-note {
-  color: var(--warn);
-  font-size: 11px;
-}
-
-.lesson-expect {
-  color: var(--dim);
-  font-size: 12px;
-}
-
-.lesson-observables {
-  list-style: none;
-  margin: 4px 0;
-  padding: 0;
-}
-
-.lesson-observables li {
-  font-size: 11px;
-}
-
-.lesson-layer {
-  color: var(--accent);
-}
-
-/* ------------------------------------------------------------ challenges */
-
-.lesson-challenges h4 {
-  color: var(--dim);
-  font-size: 11px;
-  letter-spacing: 0.06em;
-  margin: 10px 0 4px;
-  text-transform: uppercase;
-}
-
-.lesson-challenge {
-  border: 1px solid var(--line);
-  border-radius: 5px;
-  font-size: 12px;
-  margin: 4px 0;
-  padding: 5px 7px;
-}
-
-.lesson-challenge.is-locked {
-  opacity: 0.6;
-}
-
-/* -------------------------------------------------------------- outlines */
-
-.lesson-outline-note {
-  border: 1px dashed var(--line);
-  border-radius: 5px;
-  color: var(--dim);
-  font-size: 12px;
-  padding: 6px 8px;
-}
-
-.lesson-outline-steps {
-  font-size: 12px;
-  padding-left: 18px;
-}
-
-/* --------------------------------------------------------------- editors */
-
-.sequence-table {
-  border-collapse: collapse;
-  font-size: 11px;
-}
-
-.sequence-table th {
-  color: var(--muted);
-  font-weight: normal;
-  padding: 1px 3px;
-}
-
-.sequence-cell {
-  background: var(--panel-2);
-  border: 1px solid var(--line);
-  border-radius: 3px;
-  color: var(--text);
-  font: inherit;
-  font-size: 11px;
-  padding: 1px 3px;
-  width: 40px;
-}
-
-.pixel-canvas {
-  background: #0b0f14;
-  border: 1px solid var(--line);
-  border-radius: 4px;
-  cursor: crosshair;
-  image-rendering: pixelated;
-  max-width: 100%;
-  touch-action: none;
-}
-
-.pwm-readout {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 14px;
-  margin: 4px 0;
-}
-
-.pwm-readout dt {
-  color: var(--muted);
-  font-size: 10px;
-  text-transform: uppercase;
-}
-
-.pwm-readout dd {
-  margin: 0;
-}
-
-.fault-group {
-  color: var(--dim);
-  font-size: 11px;
-  letter-spacing: 0.05em;
-  margin: 8px 0 4px;
-  text-transform: uppercase;
-}
-
-.fault-card {
-  border: 1px solid var(--line);
-  border-radius: 5px;
-  font-size: 12px;
-  margin: 4px 0;
-  padding: 5px 7px;
-}
-
-/*
- * The whole point of the panel: a fault that ships with the firmware looks
- * different from one this lab turned on, and neither can be mistaken for the
- * other at a glance.
- */
-.fault-card.is-shipped {
-  border-color: var(--observed);
-  background: #101c18;
-}
-
-.fault-card.is-injected {
-  border-color: var(--warn);
-  border-style: dashed;
-  background: #201c12;
-}
-
-.fault-title {
-  align-items: baseline;
-  display: flex;
-  gap: 8px;
-  justify-content: space-between;
-}
-
-.fault-badge {
-  border: 1px solid;
-  border-radius: 3px;
-  font-size: 10px;
-  padding: 0 4px;
-}
-
-.fault-badge.is-shipped {
-  border-color: var(--observed);
-  color: var(--observed);
-}
-.fault-badge.is-injected {
-  border-color: var(--warn);
-  color: var(--warn);
-}
-
-.boot-log {
-  background: #0b0f14;
-  border: 1px solid var(--line);
-  border-radius: 4px;
-  font-size: 11px;
-  margin: 4px 0;
-  padding: 5px 7px;
-  white-space: pre-wrap;
-}
-
-.http-body {
-  background: var(--panel-2);
-  border: 1px solid var(--line);
-  border-radius: 4px;
-  color: var(--text);
-  font: inherit;
-  font-size: 11px;
-  padding: 3px 5px;
-  width: 100%;
-}
-
-.http-log {
-  font-size: 11px;
-  margin: 4px 0;
-  padding-left: 18px;
-}
-
-.is-fail {
-  color: #ff9d95;
-}
-
-/* ---------------------------------------------------------- exploded view */
-
-.explode-svg {
-  display: block;
-  max-height: 190px;
-  width: 100%;
-}
-
-.explode-body {
-  fill: #1b212b;
-  stroke: var(--line);
-}
-
-.explode-body-label {
-  fill: var(--dim);
-  font-size: 11px;
-}
-
-.explode-body-sub {
-  fill: var(--muted);
-  font-size: 9px;
-}
-
-.explode-module rect {
-  fill: var(--panel-2);
-  stroke: var(--line);
-  cursor: pointer;
-}
-
-.explode-module:hover rect {
-  stroke: var(--accent);
-}
-
-.explode-module.is-selected rect {
-  fill: #1d2938;
-  stroke: var(--accent);
-}
-
-.explode-module.is-right rect {
-  stroke: var(--observed);
-}
-
-.explode-module.is-wrong rect {
-  stroke: #e0625a;
-}
-
-.explode-wire {
-  stroke: var(--line);
-  stroke-dasharray: 3 3;
-}
-
-.explode-name {
-  fill: var(--text);
-  font-size: 12px;
-}
-
-.explode-pin {
-  fill: var(--muted);
-  font-size: 9px;
-}
-
-.lesson-labmods {
-  border: 1px dashed var(--warn);
-  border-radius: 4px;
-  background: #241d10;
-  color: #f0dcae;
-  font-size: 12px;
-  margin: 6px 0;
-  padding: 5px 8px;
-}
-
-
-/* ================================================================ Lab mode
- *
- * A dock section now, not a fourth grid row — same reasoning as Learn's above.
- * The panel's OWN closed strip is untouched and still matters for a different
- * reason: while it is closed it does not subscribe to `LessonRuntime` at all,
- * and losing that once turned phase 7's trace into a seven-rung ladder missing
- * `visual.joint`. Collapsing the dock section around it does not change that
- * state either way.
- */
-.lab-panel {
-  min-width: 0;
-  min-height: 0;
-  padding: 2px;
-  overflow-y: auto;
-  max-height: none;
-}
-
-.lab-name {
-  background: var(--panel-2, #10151c);
-  color: inherit;
-  border: 1px solid var(--line);
-  border-radius: 4px;
-  padding: 2px 6px;
-  font: inherit;
-  width: 160px;
-}
-
-.lab-tabs {
-  display: flex;
-  gap: 4px;
-  margin: 8px 0 6px;
-  border-bottom: 1px solid var(--line);
-}
-
-.lab-tab {
-  background: none;
-  border: 1px solid transparent;
-  border-bottom: none;
-  border-radius: 5px 5px 0 0;
-  color: var(--muted, #8b97a6);
-  cursor: pointer;
-  font: inherit;
-  padding: 4px 12px;
-}
-
-.lab-tab.is-active {
-  background: var(--panel-2, #10151c);
-  border-color: var(--line);
-  color: inherit;
-}
-
-.lab-body {
-  display: grid;
-  gap: 10px;
-}
-
-.lab-details > summary {
-  cursor: pointer;
-  color: var(--muted, #8b97a6);
-  font-size: 12px;
-  padding: 4px 0;
-}
-
-.lab-export {
-  border: 1px solid var(--line);
-  border-radius: 6px;
-  padding: 8px 10px;
-}
-
-.lab-export h4 {
-  margin: 0 0 6px;
-  font-size: 13px;
-}
-
-.lab-code {
-  width: 100%;
-  box-sizing: border-box;
-  background: #0b0f14;
-  color: #cfe6dd;
-  border: 1px solid var(--line);
-  border-radius: 4px;
-  padding: 6px 8px;
-  font-size: 11px;
-  line-height: 1.45;
-  resize: vertical;
-  white-space: pre;
-  overflow-x: auto;
-}
-
-.http-freeform {
-  flex: 1 1 220px;
-  min-width: 0;
-  background: var(--panel-2, #10151c);
-  color: inherit;
-  border: 1px solid var(--line);
-  border-radius: 4px;
-  padding: 2px 6px;
-}
-
-/*
- * The pose table carries eight columns of arithmetic. It scrolls on its own
- * rather than widening the row, for the ISSUE-20260823-023 reason again.
- */
-.pose-table {
-  width: 100%;
-  border-collapse: collapse;
-  font-size: 11px;
-  display: block;
-  overflow-x: auto;
-}
-
-.pose-table th {
-  text-align: left;
-  color: var(--muted, #8b97a6);
-  font-weight: 500;
-  padding: 2px 6px;
-  white-space: nowrap;
-}
-
-.pose-table td {
-  padding: 1px 6px;
-  white-space: nowrap;
-  vertical-align: middle;
-}
-
-.pose-table input[type='range'] {
-  width: 120px;
-  vertical-align: middle;
+  .viewport {
+    position: relative;
+    flex: 1 1 auto;
+    min-width: min(480px, 100%);
+    min-height: 45vh;
+  }
+
+  .viewport canvas {
+    display: block;
+  }
+
+  .viewport-caption {
+    position: absolute;
+    left: 12px;
+    bottom: 10px;
+    color: var(--dim);
+    font-size: var(--font-badge);
+    pointer-events: none;
+    text-shadow: 0 1px 3px #000;
+  }
+
+  /* ------------------------------------------------------- the status line
+   *
+   * 34 px, one row, never scrolls and never wraps. It replaced a 120-176 px strip
+   * that held the whole command vocabulary and the OLED; both are sections of the
+   * control dock now. What is left here is a glance line whose content scales
+   * with the breakpoint (see `ui/StatusBar.tsx`), plus the commands worth one
+   * click — which is what keeps `wave` reachable at every breakpoint without
+   * opening anything.
+   */
+  .stage-status {
+    flex: 0 0 auto;
+    height: 34px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 0 10px;
+    border-top: 1px solid var(--line);
+    background: #0f1319;
+    font-size: var(--font-badge);
+    white-space: nowrap;
+    overflow: hidden;
+  }
+
+  .status-dot {
+    font-size: var(--font-badge);
+    line-height: 1;
+  }
+
+  .status-word {
+    color: var(--dim);
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .status-word.warn-word {
+    color: var(--warn);
+  }
+
+  .status-prov {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+  }
+
+  .status-prov .prov,
+  .status-prov .origin {
+    font-size: var(--font-badge);
+    padding: 1px 5px;
+  }
+
+  .status-sep {
+    width: 1px;
+    height: 15px;
+    background: var(--line);
+    flex: 0 0 auto;
+  }
+
+  /* The quick-run cluster sits at the end of the line, so the reading order is
+     "what is happening" and then "what you can do about it". */
+  .status-run {
+    margin-left: auto;
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    flex: 0 0 auto;
+  }
+
+  .status-cmd {
+    background: var(--panel-2);
+    color: var(--text);
+    border: 1px solid var(--line);
+    border-radius: 5px;
+    cursor: pointer;
+    font: inherit;
+    font-size: var(--font-ui);
+    padding: 3px 10px;
+    min-height: 24px;
+  }
+
+  .status-cmd:hover:not(:disabled) {
+    border-color: var(--accent);
+    color: #cfe0fb;
+  }
+
+  .status-cmd:disabled {
+    opacity: 0.45;
+    cursor: not-allowed;
+  }
+
+  .status-cmd-stop {
+    border-color: #4a3340;
+    color: var(--warn);
+  }
+
+  .loading {
+    display: grid;
+    place-items: center;
+    height: 100%;
+    color: var(--dim);
+  }
+
+  /* ---------------------------------------------------------------- the docks
+   *
+   * `.docks` is the flex row that holds both. At Wide it is in flow and the two
+   * docks take width from the stage, which is correct there — the stage is still
+   * 1,400 px or more. Below Wide it is absolutely positioned against the shell's
+   * right edge, so neither dock can take a pixel from the stage.
+   */
+  .docks {
+    display: flex;
+    align-items: stretch;
+    min-width: 0;
+  }
+
+  .dock {
+    flex: 0 1 var(--dock-w, 460px);
+    width: var(--dock-w, 460px);
+    min-width: 44px;
+    display: flex;
+    align-items: stretch;
+    position: relative;
+    border-left: 1px solid var(--line);
+    background: #10141a;
+    overflow: hidden;
+  }
+
+  /*
+   * Closed at Wide: the 44 px icon strip is all that is left, and every pane is
+   * still one click away. `flex-basis` is what shrinks, so the stage grows into
+   * the space — at Wide the docks ARE in flow and pushing is the correct
+   * behaviour.
+   */
+  .dock[data-open='false'] {
+    flex: 0 0 44px;
+    width: 44px;
+  }
+
+  .dock-strip {
+    flex: 0 0 44px;
+    width: 44px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 4px;
+    padding: 8px 2px;
+    border-right: 1px solid var(--line);
+    background: #0d1117;
+  }
+
+  .dock-strip-btn {
+    position: relative;
+    width: 34px;
+    height: 30px;
+    background: transparent;
+    color: var(--dim);
+    border: 1px solid transparent;
+    border-radius: 6px;
+    cursor: pointer;
+    font: inherit;
+    font-size: var(--font-heading);
+    line-height: 1;
+  }
+
+  .dock-strip-btn:hover {
+    color: var(--text);
+    border-color: var(--line);
+  }
+
+  .dock-strip-btn.active {
+    border-color: var(--accent);
+    background: #1d2938;
+    color: #cfe0fb;
+  }
+
+  /* §5.1 again, at icon size: a selection that landed in a closed section is
+     still announced, here as a dot on the strip button. */
+  .dock-strip-dot {
+    position: absolute;
+    top: 3px;
+    right: 3px;
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: var(--accent);
+  }
+
+  /*
+   * THE dock scroller.
+   *
+   * At Wide several sections are open at once and each bounds itself, so this
+   * rarely has anything to scroll. Below Wide it is the ONLY scrollable box in
+   * the dock: one section is open, it renders at its content height, and this is
+   * what a reader drags. See the MEDIUM block below.
+   */
+  .dock-body {
+    flex: 1 1 auto;
+    min-width: 0;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+    overflow-y: auto;
+    padding: 8px;
+    gap: 8px;
+  }
+
+  .dock[data-open='false'] .dock-body {
+    display: none;
+  }
+
+  .dock-section {
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    background: var(--panel);
+    overflow: hidden;
+  }
+
+  /*
+   * An OPEN section shares the dock's height with the other open ones rather than
+   * stacking to its natural height. That is what keeps V8's requirement true at
+   * Wide: the architecture graph and the Signal trace are both open by default
+   * and both on screen at once, because the cross-highlight between them is the
+   * feature and a scroll between them destroys it.
+   *
+   * Below Wide this is overridden: one section, natural height, one scroller.
+   */
+  .dock-section.is-open {
+    flex: 1 1 0;
+    min-height: 220px;
+  }
+
+  .dock-section-header {
+    margin: 0;
+    font-size: var(--font-title);
+    font-weight: 600;
+  }
+
+  /* `flex-wrap` because the title is 20px now: a 12px title left room for the
+     §5.1 badge beside it in a 230px dock, and a 20px one does not. The badge
+     drops to its own line rather than being cut, which is the same trade the
+     rest of this workstream makes. */
+  .dock-section-toggle {
+    width: 100%;
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--space-1) var(--space-2);
+    padding: var(--space-2) var(--space-2);
+    background: var(--panel-2);
+    color: var(--dim);
+    border: 0;
+    border-bottom: 1px solid var(--line);
+    cursor: pointer;
+    font: inherit;
+    font-size: var(--font-title);
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    text-align: left;
+  }
+
+  .dock-section.is-open .dock-section-toggle {
+    color: var(--text);
+  }
+
+  .dock-caret {
+    color: var(--muted);
+    font-size: var(--font-badge);
+  }
+
+  .dock-section-label {
+    flex: 0 1 auto;
+    min-inline-size: 0;
+  }
+
+  /*
+   * §5.1 — the badge on a collapsed header.
+   *
+   * Clicking `R4` in the 3D scene highlights it in the graph, the trace and the
+   * inspector. If those sections are collapsed the highlight happens where nobody
+   * can see it and the app appears to do nothing, which would be a regression in
+   * the feature Phase 2 spent the most effort on. So a collapsed header carries a
+   * dot and a summary — `Modules ● R4` — and the selection is still visible, just
+   * summarised.
+   */
+  .dock-badge {
+    margin-left: auto;
+    display: inline-flex;
+    align-items: center;
+    gap: var(--space-1);
+    max-width: 100%;
+    overflow: visible;
+    text-overflow: clip;
+    white-space: normal;
+    text-align: right;
+    font-size: var(--font-badge);
+    letter-spacing: 0;
+    text-transform: none;
+    color: var(--muted);
+  }
+
+  .dock-badge.is-selection {
+    color: #cfe0fb;
+  }
+
+  .dock-badge-dot {
+    flex: 0 0 auto;
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: var(--accent);
+  }
+
+  .dock-section-body {
+    flex: 1 1 auto;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    overflow-y: auto;
+    padding: 10px;
+  }
+
+  /* Collapsed is `hidden`, never an unmount: four separate harness invariants
+     depend on these panes staying mounted and live while they are shut. See the
+     module comment in ui/Shell.tsx. */
+  .dock-section-body[hidden] {
+    display: none;
+  }
+
+  .dock-resizer {
+    position: absolute;
+    left: 0;
+    top: 0;
+    bottom: 0;
+    width: 6px;
+    cursor: col-resize;
+    background: transparent;
+    touch-action: none;
+    z-index: 2;
+  }
+
+  .dock-resizer:hover {
+    background: #253247;
+  }
+
+  .dock-scrim {
+    position: absolute;
+    inset: 0;
+    z-index: 4;
+    border: 0;
+    padding: 0;
+    background: rgba(6, 9, 13, 0.55);
+    cursor: pointer;
+  }
+
+  /* ================================================================ MEDIUM
+   *
+   * 900-1440 px, the laptop. Both docks come out of flow entirely, so the stage
+   * keeps every pixel it had with them shut. That is the whole fix, and it is
+   * also what makes the overlay's width FREE: it costs the robot nothing, so the
+   * open dock is 620-720 px rather than the 460 it was.
+   */
+  @media (max-width: 1440px) {
+    .docks {
+      position: absolute;
+      z-index: 5;
+      top: 0;
+      right: 0;
+      bottom: 0;
+      /* Capped so the robot is still visibly there behind the overlay. An
+         overlay that covers everything is a modal, and this is not one. */
+      max-width: 92vw;
+    }
+
+    .dock {
+      flex: 0 1 auto;
+      width: min(var(--dock-overlay-w, 720px), 84vw);
+      box-shadow: -14px 0 34px rgba(0, 0, 0, 0.5);
+    }
+
+    .dock[data-dock='control'] {
+      --dock-overlay-w: 620px;
+    }
+
+    /* Shut, a dock is its 44 px icon strip and nothing else — still absolute, so
+       it costs the stage nothing there either. */
+    .dock[data-open='false'] {
+      width: 44px;
+      flex: 0 0 44px;
+      box-shadow: none;
+    }
+
+    /* The stage reserves the two strips' width and no more. A margin rather than
+       two flex columns, because a column is a thing that could later grow. */
+    .stage {
+      margin-right: 88px;
+    }
+
+    .dock-resizer {
+      display: none;
+    }
+
+    /* ------------------------------------------------- ONE scroller, one pane
+     *
+     * `.dock-body` is the only scrollable box below Wide. The open section takes
+     * its natural height inside it, and every pane inside the section renders at
+     * content height — no inner `overflow-y`, no bounded box, no share of a short
+     * column. `capture-web-screenshots.mjs` counts the scrollable elements inside
+     * each dock at Compact and Medium and requires exactly one.
+     */
+    /* Collapsed headers must not be squeezed away by an open section that is
+       taller than the dock. `0 1 auto` lets a flex item shrink below its content,
+       and with one pane at natural height there is always more content than
+       dock. */
+    .dock-section,
+    .dock-section.is-open {
+      flex: 0 0 auto;
+      min-height: 0;
+    }
+
+    .dock-section-body {
+      flex: 0 0 auto;
+      overflow: visible;
+    }
+
+    .dock-section[data-dock-section='source'].is-open {
+      min-height: 0;
+    }
+
+    /* --------------------------------------------------------- LEGIBILITY
+     *
+     * "Everything is too small ... I still cannot read any of the content."
+     *
+     * This block used to RAISE five families of text below Wide - 13 to 13.5px
+     * against an 11-12px base - on the argument that there is one column here
+     * instead of three and the overlay is wider than the Wide dock. Every one of
+     * those overrides is gone, because 13px is now BELOW the floor and a media
+     * query that sets a size at all is a compact mode by another name.
+     *
+     * What replaces them is that there is nothing left to override. The type
+     * tokens do not vary with the viewport at or below 1440px - every clamp()
+     * MINIMUM is the 1440x900 value - so a node is the same size at Compact, at
+     * Medium and at Wide by construction rather than by two media queries
+     * agreeing with each other. The harness asserts it twice: statically, that
+     * no `font-size` appears inside any @media block in this file at all, and
+     * in the browser, that the same five nodes are not smaller at Compact or
+     * Medium than they are at 1440. Above 1440 they legitimately grow, which is
+     * the one direction the brief's clamp() is allowed to move them.
+     *
+     * SPACING still opens up below Wide. One wide column can afford it, and the
+     * brief is explicit that type and space have to be corrected together.
+     */
+    .dock-body {
+      line-height: var(--leading-body);
+      padding: var(--space-3);
+    }
+
+    .dock-section-body {
+      padding: var(--space-3);
+      gap: var(--space-3);
+    }
+  }
+
+  /* =============================================================== COMPACT
+   *
+   * Below 900 px a dock cannot sit beside the stage at all, so the open one is a
+   * full-height sheet. Every pane is still reachable; none of them is hidden, and
+   * the one-open-section rule means the sheet always has content in it.
+   */
+  @media (max-width: 899px) {
+    .dock[data-open='true'],
+    .dock[data-dock='control'][data-open='true'] {
+      width: min(560px, 86vw);
+    }
+  }
+}
+
+@layer components {
+  .panel {
+    background: var(--panel);
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    padding: 12px;
+  }
+
+  .panel-header {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 8px;
+    margin: 4px 0 8px;
+  }
+
+  .panel-header h2 {
+    font-size: var(--font-heading);
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    margin: 0;
+    color: var(--dim);
+  }
+
+  .panel-sub {
+    font-size: var(--font-ui);
+    color: var(--muted);
+  }
+
+  .small {
+    font-size: var(--font-ui);
+  }
+
+  .note {
+    font-size: var(--font-ui);
+    color: var(--dim);
+    margin: 6px 0;
+  }
+
+  /* ---------------------------------------------------------------- backend */
+
+  .backend-switch {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 6px;
+  }
+
+  .backend-switch button {
+    padding: 8px;
+    background: var(--panel-2);
+    color: var(--text);
+    border: 1px solid var(--line);
+    border-radius: 6px;
+    cursor: pointer;
+    font: inherit;
+  }
+
+  .backend-switch button.active {
+    border-color: var(--accent);
+    background: #1d2938;
+    color: #cfe0fb;
+  }
+
+  .conn {
+    font-size: var(--font-badge);
+    padding: 2px 7px;
+    border-radius: 999px;
+    border: 1px solid var(--line);
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+  }
+
+  .conn-connected {
+    color: var(--observed);
+    border-color: #245344;
+  }
+
+  .conn-connecting {
+    color: var(--warn);
+    border-color: #4d3f22;
+  }
+
+  .conn-error {
+    color: #e2757a;
+    border-color: #5a2b2e;
+  }
+
+  .field {
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+    font-size: var(--font-ui);
+    color: var(--dim);
+  }
+
+  .field input {
+    background: #0c0f14;
+    border: 1px solid var(--line);
+    border-radius: 5px;
+    color: var(--text);
+    padding: 6px;
+    font-family: ui-monospace, monospace;
+    font-size: var(--font-ui);
+  }
+
+  /* ------------------------------------------------------------- provenance */
+
+  .prov {
+    display: inline-block;
+    font-size: var(--font-badge);
+    padding: 1px 6px;
+    border-radius: 4px;
+    border: 1px solid currentColor;
+    letter-spacing: 0.04em;
+  }
+
+  .prov-observed {
+    color: var(--observed);
+  }
+
+  .prov-simulated {
+    color: var(--simulated);
+  }
+
+  .prov-inferred {
+    color: var(--inferred);
+  }
+
+  .prov-none {
+    color: var(--muted);
+  }
+
+  .prov-zero {
+    opacity: 0.35;
+  }
+
+  .prov-lg {
+    font-size: var(--font-ui);
+    padding: 3px 10px;
+    text-transform: uppercase;
+    font-weight: 600;
+  }
+
+  .prov-banner {
+    margin: 10px 0;
+    padding: 10px;
+    border-radius: 7px;
+    border: 1px solid var(--line);
+    background: var(--panel-2);
+  }
+
+  .prov-banner.prov-observed {
+    border-color: #245344;
+  }
+
+  .prov-banner.prov-simulated {
+    border-color: #2b3f5e;
+  }
+
+  .prov-banner.prov-inferred {
+    border-color: #46305a;
+  }
+
+  .prov-banner-head {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: var(--font-ui);
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: var(--muted);
+  }
+
+  .prov-banner p {
+    margin: 7px 0 0;
+    font-size: var(--font-prose);
+    color: var(--dim);
+  }
+
+  .prov-counts {
+    display: flex;
+    gap: 6px;
+    align-items: center;
+    margin-top: 8px;
+    font-size: var(--font-badge);
+  }
+
+  /* ------------------------------------------------------------------ origin
+     The second axis. Provenance is coloured by epistemic weight; origin is
+     coloured by which boundary was crossed, and `emulator` deliberately does NOT
+     share a colour with `observed` — the whole point of the field is that the two
+     are not the same claim. */
+
+  .prov-counts {
+    flex-wrap: wrap;
+  }
+
+  .origin {
+    font-style: normal;
+    border-style: dashed;
+  }
+
+  .origin-physical-robot {
+    color: var(--observed);
+    border-style: solid;
+  }
+
+  .origin-emulator {
+    color: #d8a657;
+  }
+
+  .origin-host-model {
+    color: var(--simulated);
+  }
+
+  .origin-replay {
+    color: var(--inferred);
+  }
+
+  .origin-unknown {
+    color: var(--muted);
+  }
+
+  .chip {
+    display: inline-block;
+    margin: 2px 4px 2px 0;
+    padding: 1px 5px;
+    border-radius: 4px;
+    background: var(--panel-2);
+    border: 1px solid var(--line);
+    font-size: var(--font-badge);
+  }
+
+  ul.tight {
+    margin: 6px 0 0;
+    padding-left: 18px;
+    font-size: var(--font-ui);
+    line-height: 1.5;
+  }
+
+  ul.tight li {
+    margin-bottom: 4px;
+  }
+
+  details.note summary {
+    cursor: pointer;
+    font-size: var(--font-ui);
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+  }
+
+  details.note p {
+    margin: 6px 0 0;
+  }
+
+  /* --------------------------------------------------------------- commands */
+
+  .cmd-grid {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 5px;
+  }
+
+  .cmd-grid.faces {
+    margin-top: 8px;
+  }
+
+  .cmd {
+    padding: 5px 9px;
+    border-radius: 5px;
+    border: 1px solid var(--line);
+    background: var(--panel-2);
+    color: var(--text);
+    font: inherit;
+    font-size: var(--font-ui);
+    cursor: pointer;
+  }
+
+  .cmd:hover:not(:disabled) {
+    border-color: var(--accent);
+  }
+
+  .cmd:disabled {
+    opacity: 0.35;
+    cursor: not-allowed;
+  }
+
+  .cmd-continuous {
+    border-style: dashed;
+  }
+
+  .cmd-stop {
+    color: #e2757a;
+  }
+
+  .cmd-face {
+    color: var(--inferred);
+  }
+
+  .cmd-broken {
+    color: var(--warn);
+  }
+
+  /* ----------------------------------------------------------------- joints */
+
+  table.joints {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: var(--font-code);
+  }
+
+  table.joints th {
+    text-align: left;
+    font-weight: 500;
+    color: var(--muted);
+    border-bottom: 1px solid var(--line);
+    padding: 3px 4px;
+  }
+
+  table.joints td {
+    padding: 3px 4px;
+    border-bottom: 1px solid #1c222b;
+  }
+
+  table.joints tbody tr {
+    cursor: pointer;
+  }
+
+  table.joints tbody tr:hover {
+    background: #1a212b;
+  }
+
+  table.joints tbody tr.selected {
+    background: #1d2c3f;
+  }
+
+  .joint-name {
+    font-family: ui-monospace, monospace;
+    font-weight: 600;
+  }
+
+  .num {
+    text-align: right;
+    font-variant-numeric: tabular-nums;
+  }
+
+  .null-cell {
+    color: var(--muted);
+    font-style: italic;
+  }
+
+  .feedback-note {
+    margin-top: 10px;
+    padding: 9px;
+    border-radius: 6px;
+    border: 1px solid #4a3c1f;
+    background: #1e1a12;
+    font-size: var(--font-ui);
+  }
+
+  .feedback-note strong {
+    color: var(--warn);
+  }
+
+  .feedback-note p {
+    margin: 5px 0 0;
+    color: var(--dim);
+  }
+
+  .joint-detail {
+    margin-top: 12px;
+    padding-top: 10px;
+    border-top: 1px solid var(--line);
+  }
+
+  .joint-detail h3 {
+    margin: 0 0 8px;
+    font-size: var(--font-heading);
+  }
+
+  /*
+   * The key column was a flat 108px, which was a third of a 320px dock at 11px
+   * type and is two thirds of a 190px one at 15px — the OLED readout ended up
+   * breaking `simulated` across two lines to fit what was left. `fit-content`
+   * caps it at a share of whatever width the pane actually has instead of a
+   * number chosen for one dock size. Stacking the pair outright below a
+   * threshold is a container query, and belongs to W2.
+   */
+  dl.kv {
+    display: grid;
+    grid-template-columns: fit-content(40%) minmax(0, 1fr);
+    gap: var(--space-1) var(--space-2);
+    margin: 0;
+    font-size: var(--font-code);
+  }
+
+  dl.kv dt {
+    color: var(--muted);
+  }
+
+  dl.kv dd {
+    margin: 0;
+    min-width: 0;
+    overflow-wrap: anywhere;
+  }
+
+  ul.tight {
+    margin: 2px 0;
+    padding-left: 16px;
+  }
+
+  .warn {
+    margin-top: 10px;
+    padding: 9px;
+    border-radius: 6px;
+    border: 1px solid #5a2b2e;
+    background: #1e1315;
+    font-size: var(--font-ui);
+  }
+
+  .warn strong {
+    color: #f0a0a4;
+  }
+
+  .warn p {
+    margin: 5px 0 0;
+    color: var(--dim);
+  }
+
+  .warn-inline {
+    color: var(--warn);
+  }
+
+  .slider {
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+    margin-top: 10px;
+    font-size: var(--font-ui);
+    color: var(--dim);
+  }
+
+  /* ------------------------------------------------------------------- OLED */
+
+  .oled-canvas {
+    width: 100%;
+    height: auto;
+    display: block;
+    image-rendering: pixelated;
+    border: 1px solid var(--line);
+    border-radius: 4px;
+    background: #0a0d11;
+  }
+
+  .oled-readout {
+    font-family: ui-monospace, monospace;
+    font-size: var(--font-code);
+    color: var(--dim);
+    margin: 6px 0 8px;
+    min-height: 1.4em;
+  }
+
+  /* ------------------------------------------------------------------ misc */
+
+  .toggles {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 12px;
+    font-size: var(--font-ui);
+    color: var(--dim);
+    margin-bottom: 8px;
+  }
+
+  .toggles label {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    cursor: pointer;
+  }
+
+  .toggles label.disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+  }
+}
+
+@layer panes {
+  /* ============================================================ architecture */
+
+  /*
+   * The graph and the trace are two dock sections now rather than two halves of
+   * one `.workbench` column, and V8's argument for keeping them apart is
+   * unchanged: one tall scrolling column pushed the trace below the fold, so the
+   * cross-highlight was never visible at the same time as the thing it
+   * highlights. At Wide they are both open by default and `.dock-section.is-open`
+   * makes them share the dock's height, so clicking R4 in the graph and watching
+   * R4's trace rows light up is still one glance and not one scroll.
+   */
+  .arch-panel,
+  .trace-panel {
+    display: flex;
+    flex-direction: column;
+    flex: 1 1 auto;
+    min-height: 0;
+    overflow: hidden;
+  }
+
+  .arch-canvas {
+    flex: 1 1 auto;
+    min-height: 180px;
+    border: 1px solid var(--line);
+    border-radius: 6px;
+    overflow: hidden;
+    background: #0b0e13;
+  }
+
+  /* React Flow paints its own light chrome; pull it into the dark theme. */
+  .arch-canvas .react-flow__controls button {
+    background: var(--panel-2);
+    border-bottom: 1px solid var(--line);
+    fill: var(--dim);
+  }
+
+  /* The library's stylesheet sets 10px on the anchor, not on the wrapper, so
+     the wrapper rule alone left a 10px link on the screen. */
+  .arch-canvas .react-flow__attribution,
+  .arch-canvas .react-flow__attribution a {
+    background: transparent;
+    color: var(--muted);
+    font-size: var(--font-badge);
+  }
+
+  .arch-canvas .react-flow__edge-path {
+    stroke: #33465e;
+    stroke-width: 1.4;
+  }
+
+  .arch-edge-lifted .react-flow__edge-path {
+    stroke: #2b3949;
+    stroke-dasharray: 2 3;
+  }
+
+  .arch-edge-active .react-flow__edge-path {
+    stroke: var(--accent);
+    stroke-width: 2.2;
+  }
+
+  .arch-edge-hand .react-flow__edge-path {
+    stroke: var(--warn);
+  }
+
+  .arch-canvas .react-flow__edge-text {
+    fill: var(--muted);
+    font-size: var(--font-badge);
+  }
+
+  /*
+   * W1: the node box grew because the text inside it did.
+   *
+   * It was 124x46 holding a 12px label over a 9px summary. At 15px and 14px
+   * that box clipped both, and `arch/layout.ts` grew with it (192x112, rows
+   * 136 apart). The bottom padding is the room the expand affordance needs,
+   * because it is absolutely positioned and would otherwise sit on the last
+   * line of the summary.
+   *
+   * Growing the graph makes React Flow's `fitView` zoom out further, which is
+   * the real, unfixed problem: a 63-node map does not belong in a 460px pane
+   * at any type size. That is W4's three-representation split, not W1's.
+   */
+  .arch-node {
+    position: relative;
+    background: var(--panel-2);
+    border: 1px solid var(--line);
+    border-radius: 7px;
+    padding: var(--space-2) var(--space-2) 24px;
+    overflow: hidden;
+    cursor: pointer;
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-1);
+  }
+
+  .arch-node .react-flow__handle {
+    opacity: 0;
+  }
+
+  .arch-node-label {
+    font-size: var(--font-code);
+    font-weight: 600;
+    color: var(--text);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .arch-node-summary {
+    font-size: var(--font-badge);
+    line-height: var(--leading-tight);
+    color: var(--muted);
+    overflow: hidden;
+    display: -webkit-box;
+    -webkit-line-clamp: 3;
+    -webkit-box-orient: vertical;
+  }
+
+  .arch-kind-controller {
+    border-color: #3d5a86;
+    background: #16202d;
+  }
+  .arch-kind-subsystem {
+    border-color: #33465e;
+  }
+  .arch-kind-peripheral,
+  .arch-kind-physical {
+    border-color: #4a3b5c;
+  }
+  .arch-kind-joint {
+    border-color: #245344;
+  }
+  .arch-kind-route,
+  .arch-kind-movement {
+    border-color: #2e3a4a;
+  }
+
+  .arch-node.is-related {
+    border-color: var(--simulated);
+  }
+
+  .arch-node.is-active {
+    box-shadow: inset 0 0 0 1px rgba(110, 158, 230, 0.35);
+  }
+
+  .arch-node.is-selected {
+    border-color: var(--accent);
+    background: #1d2938;
+    box-shadow: 0 0 0 2px rgba(110, 158, 230, 0.35);
+  }
+
+  /* The two markers that say "the evidence stops here". */
+  .arch-node.is-hand-authored {
+    border-style: dashed;
+  }
+
+  .arch-node.is-unresolved .arch-node-label {
+    color: var(--warn);
+  }
+
+  .arch-flag {
+    margin-left: 4px;
+    color: var(--warn);
+    font-weight: 700;
+  }
+
+  .arch-expand {
+    position: absolute;
+    right: var(--space-1);
+    bottom: var(--space-1);
+    min-width: 26px;
+    padding: 0 var(--space-1);
+    height: 20px;
+    line-height: 18px;
+    font-size: var(--font-badge);
+    font-family: ui-monospace, monospace;
+    background: #0c0f14;
+    color: var(--dim);
+    border: 1px solid var(--line);
+    border-radius: 4px;
+    cursor: pointer;
+  }
+
+  .arch-expand:hover {
+    color: var(--accent);
+    border-color: var(--accent);
+  }
+
+  .arch-detail {
+    flex: 0 1 auto;
+    min-height: 0;
+    overflow-y: auto;
+    max-height: 40%;
+    margin-top: 10px;
+    padding: 9px;
+    border: 1px solid var(--line);
+    border-radius: 6px;
+    background: #11151c;
+  }
+
+  .arch-detail h3 {
+    margin: 0 0 4px;
+    font-size: var(--font-heading);
+  }
+
+  .arch-detail-summary {
+    margin: 0 0 6px;
+    font-size: var(--font-ui);
+    color: var(--dim);
+  }
+
+  .arch-detail-list {
+    margin: 0 0 8px;
+    padding-left: 15px;
+    font-size: var(--font-ui);
+    color: var(--muted);
+  }
+
+  .arch-detail-list li {
+    margin-bottom: 3px;
+  }
+
+  /* ========================================================= see the signal */
+
+  .trace-tabs {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px;
+    margin-bottom: 8px;
+  }
+
+  .trace-tabs button {
+    font: inherit;
+    font-size: var(--font-ui);
+    padding: 2px 8px;
+    border-radius: 999px;
+    border: 1px solid var(--line);
+    background: var(--panel-2);
+    color: var(--dim);
+    cursor: pointer;
+  }
+
+  .trace-tabs button.active {
+    border-color: var(--accent);
+    color: #cfe0fb;
+  }
+
+  .trace-correlation {
+    font-size: var(--font-ui);
+    color: var(--dim);
+    border: 1px solid var(--line);
+    border-left: 3px solid var(--warn);
+    border-radius: 5px;
+    padding: 7px 9px;
+    margin-bottom: 8px;
+  }
+
+  .trace-rows {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    /* Owns the leftover height of its half and scrolls inside it. */
+    flex: 1 1 auto;
+    min-height: 0;
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+  }
+
+  .trace-row {
+    border: 1px solid var(--line);
+    border-left: 3px solid var(--line);
+    border-radius: 5px;
+    padding: 6px 8px;
+    cursor: pointer;
+    background: #11151c;
+  }
+
+  .trace-tone-observed {
+    border-left-color: var(--observed);
+  }
+  .trace-tone-simulated {
+    border-left-color: var(--simulated);
+  }
+  .trace-tone-inferred {
+    border-left-color: var(--inferred);
+  }
+
+  .trace-row.hit {
+    background: #1a2231;
+    border-color: var(--accent);
+  }
+
+  /*
+   * W1: this row wraps now.
+   *
+   * It was `layer | label | badge` on one unwrappable line with a 108 px
+   * minimum on the layer column, which fitted while the three were 10.5, 12.5
+   * and 9 px. At 14, 16 and 14 the head overflowed its row by up to 145 px —
+   * and every row here carries `data-origin-kind`, so what was overflowing was
+   * a correctness surface. The fix is wrapping and `min-inline-size: 0`, never
+   * the type: the column alignment the minimum bought is worth less than a
+   * provenance badge a reader can finish reading.
+   */
+  .trace-row-head {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    gap: var(--space-1) var(--space-2);
+  }
+
+  .trace-layer {
+    color: var(--muted);
+    font-size: var(--font-badge);
+    flex: 0 0 auto;
+    min-inline-size: 0;
+  }
+
+  .trace-label {
+    flex: 1 1 auto;
+    min-inline-size: 0;
+    overflow-wrap: anywhere;
+    font-size: var(--font-ui);
+    font-weight: 600;
+    font-family: var(--font-mono);
+  }
+
+  .trace-badge {
+    flex: 0 0 auto;
+    font-size: var(--font-badge);
+    letter-spacing: 0.05em;
+    white-space: nowrap;
+  }
+
+  .trace-row-detail {
+    margin-top: 3px;
+    font-size: var(--font-ui);
+    color: var(--dim);
+    overflow-wrap: anywhere;
+  }
+
+  /*
+   * `overflow-wrap: anywhere` because the witness is the sentence that says who
+   * is asserting this, and one of them contains
+   * `HSCH0/HSCH1/HSCH2/HSCH3/LSCH0/LSCH1/LSCH2/LSCH3` — 47 characters with
+   * nowhere to break. In a 271px Wide dock that ran 155px past the row, so the
+   * end of the sentence explaining that no pin has ever emitted this pulse was
+   * off the edge of a correctness surface. It was already off the edge at 10.5px;
+   * raising the type is what made the harness able to see it.
+   */
+  .trace-row-witness {
+    margin-top: 4px;
+    font-size: var(--font-code);
+    color: var(--muted);
+    border-top: 1px dotted var(--line);
+    padding-top: 4px;
+    overflow-wrap: anywhere;
+  }
+
+  .trace-witness-key {
+    text-transform: uppercase;
+    letter-spacing: 0.07em;
+    font-size: var(--font-badge);
+    color: var(--muted);
+  }
+
+  .trace-row-meta {
+    margin-top: 4px;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    align-items: center;
+    font-size: var(--font-badge);
+  }
+
+  .trace-match {
+    border: 1px solid var(--line);
+    border-radius: 3px;
+    padding: 0 4px;
+    font-family: ui-monospace, monospace;
+  }
+
+  .trace-match-time-window {
+    color: var(--warn);
+    border-color: #4d3f22;
+  }
+
+  .trace-match-trace-id {
+    color: var(--observed);
+    border-color: #245344;
+  }
+
+  .trace-source {
+    font-size: var(--font-badge);
+  }
+
+  .trace-legend {
+    flex: 0 0 auto;
+    margin-top: 10px;
+    font-size: var(--font-ui);
+    color: var(--muted);
+  }
+
+  .trace-legend summary {
+    cursor: pointer;
+    color: var(--dim);
+  }
+
+  .trace-legend dl.kv {
+    margin-top: 6px;
+    grid-template-columns: 120px minmax(0, 1fr);
+  }
+
+  /* =========================================================== source explorer
+   *
+   * WAS three sub-columns spanning the viewport and the workbench — the outline a
+   * learner scans, the code they read, and the context that explains it, side by
+   * side. That needed roughly 700 px, and the dock is 320-520.
+   *
+   * So the three columns become three STACKED regions, each scrolling on its own,
+   * and nothing is hidden: the outline keeps its own scroller at the top, the
+   * code takes the space that is left, and the context sits underneath. This is
+   * the one pane the responsive shell genuinely costs something, and it is
+   * recorded rather than quietly dropped — L4's assertions all still hold,
+   * because they are about `.source-code`'s own scroll container, the painted
+   * line numbers and the three registers' computed styles, none of which is about
+   * the columns being beside one another.
+   */
+  .source-panel {
+    flex: 1 1 auto;
+    min-height: 0;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+  }
+
+  .source-tabs {
+    display: flex;
+    gap: 4px;
+    margin-bottom: 8px;
+    flex-wrap: wrap;
+  }
+
+  .source-tab {
+    background: var(--panel-2);
+    border: 1px solid var(--line);
+    border-radius: 6px;
+    color: var(--dim);
+    cursor: pointer;
+    font: inherit;
+    font-size: var(--font-ui);
+    padding: 3px 8px;
+  }
+
+  .source-tab.active {
+    background: #23303f;
+    border-color: var(--accent);
+    color: var(--text);
+  }
+
+  .source-body {
+    display: grid;
+    /* One column in the dock. See `.source-panel`. */
+    grid-template-columns: minmax(0, 1fr);
+    /*
+     * Three bounded rows, each scrolling on its own. The bounds are the load-
+     * bearing part: L4 asserts that selecting a joint SCROLLS the code view to
+     * the symbol's first line, measured against `.source-code`'s own
+     * `clientHeight`. An auto row would let the code region grow to all 429 lines
+     * of `movement-sequences.h`, and then the pane would never scroll and the
+     * assertion would pass without meaning anything.
+     */
+    grid-template-rows: minmax(0, 130px) minmax(200px, 1fr) minmax(0, 220px);
+    gap: 10px;
+    min-height: 0;
+    flex: 1;
+  }
+
+  /* Enough room for those three rows to exist at their minimums; the dock's own
+     scroller takes the overflow when several sections are open at once, and the
+     code region gets the whole remainder when the source section has the dock to
+     itself. */
+  .dock-section[data-dock-section='source'].is-open {
+    min-height: 480px;
+  }
+
+  .source-outline,
+  .source-code-wrap,
+  .source-context {
+    min-height: 0;
+    overflow-y: auto;
+  }
+
+  /* ------------------------------------------------------------------ outline */
+  .source-outline-row {
+    align-items: baseline;
+    background: none;
+    border: none;
+    border-left: 2px solid transparent;
+    color: var(--dim);
+    cursor: pointer;
+    display: flex;
+    font: inherit;
+    font-size: var(--font-ui);
+    gap: 6px;
+    padding: 2px 4px;
+    text-align: left;
+    width: 100%;
+  }
+
+  .source-outline-row:hover {
+    background: var(--panel-2);
+  }
+
+  .source-outline-row.is-selected {
+    background: #23303f;
+    border-left-color: var(--accent);
+    color: var(--text);
+  }
+
+  .source-kind {
+    color: var(--muted);
+    flex: none;
+    width: 12px;
+  }
+
+  .source-outline-name {
+    flex: 1;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .source-outline-lines {
+    color: var(--muted);
+    flex: none;
+    font-size: var(--font-badge);
+  }
+
+  /* --------------------------------------------------------------------- code */
+  .source-code-wrap {
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+  }
+
+  .source-code {
+    background: #0b0e13;
+    position: relative;
+    border: 1px solid var(--line);
+    border-radius: 6px;
+    flex: 1;
+    font-family: ui-monospace, 'Cascadia Code', 'Consolas', monospace;
+    font-size: var(--font-code);
+    line-height: 1.45;
+    min-height: 0;
+    overflow: auto;
+    padding: 4px 0;
+  }
+
+  .src-line {
+    display: flex;
+    gap: 8px;
+    padding: 0 8px 0 0;
+    white-space: pre;
+  }
+
+  /* Outside the selected symbol: present, readable, clearly not the subject. */
+  .src-line {
+    opacity: 0.45;
+  }
+
+  .src-line.in-symbol {
+    background: #121a24;
+    opacity: 1;
+  }
+
+  /* A line some artefact in this repository cites, by file:line. */
+  .src-line.is-cited {
+    box-shadow: inset 3px 0 0 var(--warn);
+  }
+
+  .src-line.did-run {
+    background: #142219;
+  }
+
+  .src-num {
+    color: var(--muted);
+    flex: none;
+    text-align: right;
+    user-select: none;
+    width: 44px;
+  }
+
+  .src-text {
+    flex: 1;
+    font-size: inherit;
+  }
+
+  .src-ran {
+    align-self: center;
+    background: #1d3a29;
+    border-radius: 3px;
+    color: var(--observed);
+    flex: none;
+    font-size: var(--font-badge);
+    letter-spacing: 0.06em;
+    padding: 0 4px;
+    text-transform: uppercase;
+  }
+
+  .source-window-note {
+    flex: none;
+    margin: 6px 0 0;
+  }
+
+  /* C++ tokens. Legibility only — nothing in this app rests on a token colour. */
+  .cpp-comment { color: #6b8a63; }
+  .cpp-string { color: #d69d78; }
+  .cpp-preproc { color: #c08de0; }
+  .cpp-number { color: #b8cea0; }
+  .cpp-keyword { color: #7aa2f7; }
+  .cpp-type { color: #4ec9a0; }
+  .cpp-plain { color: #cdd6e4; }
+
+  /* ------------------------------------------------------------- integrity */
+  .source-integrity {
+    flex: none;
+    font-size: var(--font-badge);
+    margin: 0 0 6px;
+  }
+
+  .source-integrity.ok {
+    color: var(--dim);
+  }
+
+  /* ------------------------------------------------------------- context */
+  .source-detail h3 {
+    font-size: var(--font-heading);
+    margin: 0 0 2px;
+  }
+
+  .source-h4 {
+    border-top: 1px solid var(--line);
+    color: var(--dim);
+    font-size: var(--font-ui);
+    letter-spacing: 0.09em;
+    margin: 12px 0 6px;
+    padding-top: 8px;
+    text-transform: uppercase;
+  }
+
+  .source-signature {
+    color: var(--dim);
+    margin: 4px 0;
+    overflow-wrap: anywhere;
+  }
+
+  /*
+   * FACT. Checkable line by line against the pinned tree. Ordinary body text on
+   * purpose: it is the default register, and everything else is marked against
+   * it.
+   */
+  .source-description {
+    color: var(--text);
+    font-size: var(--font-prose);
+    margin: 6px 0;
+  }
+
+  /*
+   * JUDGEMENT. Amber, indented, italic, and labelled in words — three signals,
+   * because the one thing a learner must never do is read one of these as if the
+   * code said it.
+   */
+  .source-commentary {
+    background: #241d10;
+    border-left: 3px solid var(--warn);
+    border-radius: 0 4px 4px 0;
+    margin: 8px 0;
+    padding: 6px 8px;
+  }
+
+  .source-commentary-tag {
+    color: var(--warn);
+    display: block;
+    font-size: var(--font-badge);
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+  }
+
+  .source-commentary p {
+    color: #e8dcc4;
+    font-size: var(--font-prose);
+    font-style: italic;
+    margin: 4px 0 0;
+  }
+
+  .source-disagreement {
+    font-size: var(--font-ui);
+  }
+
+  /* ------------------------------------------------------------------ chips */
+  .chip-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px;
+    margin: 4px 0;
+  }
+
+  .chip-node,
+  .chip-joint,
+  .chip-concept,
+  .chip-symbol,
+  .chip-module {
+    background: var(--panel-2);
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    color: var(--dim);
+    cursor: pointer;
+    font: inherit;
+    font-size: var(--font-badge);
+    padding: 1px 8px;
+  }
+
+  .chip-joint {
+    font-family: ui-monospace, 'Cascadia Code', 'Consolas', monospace;
+  }
+
+  .chip-node.is-selected,
+  .chip-joint.is-selected,
+  .chip-concept.is-selected {
+    background: #23303f;
+    border-color: var(--accent);
+    color: var(--text);
+  }
+
+  .chip-symbol.is-anchor {
+    border-color: var(--observed);
+    color: var(--observed);
+  }
+
+  .chip-module {
+    cursor: default;
+  }
+
+  .chip-module.is-conceptual {
+    border-color: var(--warn);
+    color: var(--warn);
+  }
+
+  .chip-badge {
+    background: #2a3240;
+    border-radius: 6px;
+    color: var(--dim);
+    font-size: var(--font-badge);
+    margin-left: 5px;
+    padding: 0 4px;
+  }
+
+  .chip-module.is-conceptual .chip-badge {
+    background: #3a2e12;
+    color: var(--warn);
+  }
+
+  .linkish {
+    background: none;
+    border: none;
+    color: var(--accent);
+    cursor: pointer;
+    font: inherit;
+    padding: 0 3px;
+    text-decoration: underline dotted;
+  }
+
+  .linkish:disabled {
+    color: var(--muted);
+    cursor: default;
+    text-decoration: none;
+  }
+
+  /* ------------------------------------------------------------ quantisation */
+  .source-quantisation {
+    background: var(--panel-2);
+    border: 1px solid var(--line);
+    border-radius: 6px;
+    margin: 6px 0;
+    padding: 6px 8px;
+  }
+
+  .source-quantisation-head {
+    align-items: center;
+    display: flex;
+    font-size: var(--font-ui);
+    gap: 6px;
+  }
+
+  .source-quantisation-head input {
+    flex: 1;
+  }
+
+  .source-quantisation p {
+    margin: 4px 0 0;
+  }
+
+  /* ---------------------------------------------------------- teaching notes */
+  .teaching-note {
+    border: 1px solid var(--line);
+    border-left-width: 3px;
+    border-radius: 0 6px 6px 0;
+    margin: 8px 0;
+    padding: 6px 8px;
+  }
+
+  .tn-surprise { border-left-color: var(--accent); }
+  .tn-defect { border-left-color: #e0736e; }
+  .tn-design { border-left-color: var(--inferred); }
+
+  .teaching-note header {
+    align-items: baseline;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    font-size: var(--font-ui);
+  }
+
+  .tn-kind {
+    border-radius: 6px;
+    background: #2a3240;
+    font-size: var(--font-badge);
+    letter-spacing: 0.07em;
+    padding: 0 5px;
+    text-transform: uppercase;
+  }
+
+  .tn-defect .tn-kind { background: #3d1f1e; color: #e0736e; }
+
+  .tn-id {
+    color: var(--muted);
+    font-size: var(--font-badge);
+  }
+
+  .tn-summary {
+    color: var(--dim);
+    font-size: var(--font-prose);
+    margin: 5px 0;
+  }
+
+  .tn-evidence {
+    list-style: none;
+    margin: 4px 0;
+    padding: 0;
+  }
+
+  .tn-evidence li {
+    font-size: var(--font-ui);
+    margin: 2px 0;
+    overflow-wrap: anywhere;
+  }
+
+  .tn-line {
+    color: #cdd6e4;
+  }
+
+  /*
+   * LIBRARY EVIDENCE. A different tree entirely — ESP32Servo 3.0.9, which lives
+   * under the gitignored `tools/`. Violet, boxed and labelled, because the line
+   * checker that guarantees every other citation on this screen cannot resolve
+   * this one and must not appear to.
+   */
+  .tn-library {
+    background: #1e1830;
+    border: 1px dashed var(--inferred);
+    border-radius: 4px;
+    margin: 6px 0;
+    padding: 5px 7px;
+  }
+
+  .tn-library-tag {
+    color: var(--inferred);
+    display: block;
+    font-size: var(--font-badge);
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+  }
+
+  .tn-library p {
+    margin: 3px 0 0;
+  }
+
+  .tn-refs {
+    overflow-wrap: anywhere;
+  }
+
+  /* ---------------------------------------------------------------- concepts */
+  .level-switch {
+    display: flex;
+    gap: 3px;
+    margin: 6px 0 4px;
+  }
+
+  .level-tab {
+    background: var(--panel-2);
+    border: 1px solid var(--line);
+    border-radius: 5px;
+    color: var(--muted);
+    cursor: pointer;
+    font: inherit;
+    font-size: var(--font-ui);
+    padding: 2px 7px;
+  }
+
+  .level-tab.active {
+    background: #23303f;
+    border-color: var(--accent);
+    color: var(--text);
+  }
+
+  .concept-text {
+    color: var(--text);
+    font-size: var(--font-prose);
+    margin: 4px 0;
+  }
+
+  .concept-symbols {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px;
+    margin: 6px 0;
+  }
+
+  .source-rows {
+    list-style: none;
+    margin: 4px 0;
+    padding: 0;
+  }
+
+  .source-row {
+    background: none;
+    border: none;
+    color: var(--dim);
+    cursor: pointer;
+    font: inherit;
+    font-size: var(--font-code);
+    padding: 1px 0;
+    text-align: left;
+    width: 100%;
+  }
+
+  .source-row:hover {
+    color: var(--text);
+  }
+
+  /* ============================================================== Learn mode
+   *
+   * A dock section now, not a third grid row. The old argument — a column has to
+   * come out of the viewport's width, and the viewport is where
+   * ISSUE-20260823-023 lived — is answered by the overlay rule instead: below
+   * Wide the dock is out of flow, so opening Learn takes nothing from the stage,
+   * and at Wide the stage is 1,900 px or more. The world-frame check is re-run at
+   * every breakpoint anyway, which is the part of that argument that was ever
+   * evidence.
+   */
+  .lesson-panel {
+    min-width: 0;
+    min-height: 0;
+    padding: 2px;
+    overflow-y: auto;
+    max-height: none;
+  }
+
+  .lesson-list {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(230px, 1fr));
+    gap: 6px;
+  }
+
+  .lesson-card {
+    display: grid;
+    grid-template-columns: 22px 1fr auto;
+    grid-template-areas:
+      "order title badges"
+      "order progress progress"
+      "lock lock lock";
+    gap: 2px 6px;
+    align-items: baseline;
+    text-align: left;
+    background: var(--panel-2);
+    border: 1px solid var(--line);
+    border-radius: 6px;
+    color: var(--text);
+    cursor: pointer;
+    font: inherit;
+    padding: 6px 8px;
+  }
+
+  .lesson-card:hover:not(:disabled) {
+    border-color: var(--accent);
+  }
+
+  .lesson-card.is-locked {
+    opacity: 0.55;
+    cursor: not-allowed;
+  }
+
+  .lesson-card.is-outline {
+    border-style: dashed;
+  }
+
+  .lesson-card-order {
+    grid-area: order;
+    color: var(--muted);
+    font-variant-numeric: tabular-nums;
+  }
+  .lesson-card-title {
+    grid-area: title;
+  }
+  .lesson-card-badges {
+    grid-area: badges;
+    display: flex;
+    gap: 4px;
+  }
+  .lesson-card-progress {
+    grid-area: progress;
+    color: var(--muted);
+    font-size: var(--font-badge);
+  }
+  .lesson-card-lock {
+    grid-area: lock;
+    color: var(--warn);
+    font-size: var(--font-badge);
+  }
+
+  .badge {
+    border: 1px solid var(--line);
+    border-radius: 4px;
+    color: var(--dim);
+    font-size: var(--font-badge);
+    letter-spacing: 0.04em;
+    padding: 0 4px;
+    text-transform: uppercase;
+  }
+
+  .badge.is-conceptual {
+    border-color: var(--inferred);
+    color: var(--inferred);
+  }
+
+  .badge.is-boundary {
+    border-color: var(--warn);
+    color: var(--warn);
+    border-style: dashed;
+  }
+
+  .badge.is-outline {
+    border-style: dashed;
+  }
+
+  .badge.is-notbuilt {
+    border-color: #e0625a;
+    color: #ffb0aa;
+  }
+
+  /* --------------------------------------------------------- lesson header */
+
+  /*
+   * The conceptual badge and the grounding note are DIFFERENT treatments on
+   * purpose. The first says this module asserts nothing about how Sesame works;
+   * the second says a factual module has a boundary it will not cross. Rendering
+   * them the same would flatten the distinction L3 spent a whole artefact making.
+   */
+  .lesson-conceptual {
+    border: 1px solid var(--inferred);
+    border-left-width: 4px;
+    border-radius: 4px;
+    background: #1d1626;
+    color: #e5d3f5;
+    font-size: var(--font-prose);
+    margin: 6px 0;
+    padding: 6px 8px;
+  }
+
+  .lesson-grounding-note {
+    border: 1px dashed var(--warn);
+    border-radius: 4px;
+    background: #201c12;
+    color: #f0dcae;
+    font-size: var(--font-prose);
+    margin: 6px 0;
+    padding: 6px 8px;
+  }
+
+  .lesson-goal {
+    color: var(--dim);
+    font-size: var(--font-prose);
+    margin: 6px 0;
+  }
+
+  .lesson-steps {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px;
+    margin: 6px 0;
+  }
+
+  .lesson-step-chip {
+    background: var(--panel-2);
+    border: 1px solid var(--line);
+    border-radius: 4px;
+    color: var(--dim);
+    cursor: pointer;
+    font: inherit;
+    font-size: var(--font-badge);
+    min-width: 26px;
+    padding: 1px 5px;
+  }
+
+  .lesson-step-chip.is-current {
+    border-color: var(--accent);
+    color: #cfe0fb;
+  }
+  .lesson-step-chip.is-passed {
+    color: var(--observed);
+  }
+  .lesson-step-chip.is-skipped {
+    color: var(--warn);
+  }
+
+  /* ----------------------------------------------------------- lesson step */
+
+  .lesson-step-head {
+    align-items: baseline;
+    display: flex;
+    gap: 8px;
+    justify-content: space-between;
+  }
+
+  .lesson-step-head h3 {
+    font-size: var(--font-heading);
+    margin: 6px 0;
+  }
+
+  .lesson-kind {
+    border: 1px solid var(--line);
+    border-radius: 3px;
+    color: var(--muted);
+    font-size: var(--font-badge);
+    padding: 0 4px;
+    text-transform: uppercase;
+  }
+
+  .lesson-kind[data-kind="debug"] {
+    border-color: var(--warn);
+    color: var(--warn);
+  }
+
+  .lesson-explanation {
+    font-size: var(--font-prose);
+    margin: 6px 0;
+  }
+
+  .lesson-godeeper {
+    border-left: 2px solid var(--line);
+    font-size: var(--font-prose);
+    margin: 6px 0;
+    padding-left: 8px;
+  }
+
+  .lesson-godeeper summary {
+    color: var(--dim);
+    cursor: pointer;
+  }
+
+  /* ---------------------------------------------------------------- claims */
+
+  .lesson-claim {
+    background: #11151c;
+    border: 1px solid var(--line);
+    border-radius: 6px;
+    margin: 6px 0;
+    padding: 6px 8px;
+  }
+
+  .lesson-claim-text {
+    font-size: var(--font-prose);
+    margin: 0 0 4px;
+  }
+
+  .lesson-claim-conceptual {
+    color: var(--inferred);
+    font-size: var(--font-prose);
+    margin: 4px 0;
+  }
+
+  /*
+   * `boundaryNote` gets a register of its own — dashed, labelled with WHICH world
+   * the fact belongs to, and never the same as ordinary prose. It is not a hedge
+   * on a Sesame fact; it is a statement that the fact is not about Sesame.
+   */
+  .lesson-boundary {
+    border: 1px dashed var(--inferred);
+    border-radius: 4px;
+    background: #171425;
+    margin: 6px 0;
+    padding: 6px 8px;
+  }
+
+  .lesson-boundary[data-domain="emulator"] {
+    border-color: #7fb6d8;
+    background: #121b21;
+  }
+  .lesson-boundary[data-domain="lab"] {
+    border-color: var(--warn);
+    background: #201c12;
+  }
+
+  .lesson-boundary-label {
+    color: var(--dim);
+    display: block;
+    font-size: var(--font-badge);
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+  }
+
+  .lesson-boundary p {
+    font-size: var(--font-prose);
+    margin: 3px 0 0;
+  }
+
+  .lesson-observability {
+    color: var(--dim);
+    font-size: var(--font-ui);
+    margin: 4px 0 0;
+  }
+
+  .lesson-citations {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px;
+    margin: 4px 0 0;
+  }
+
+  .cite {
+    border: 1px solid var(--line);
+    border-radius: 3px;
+    color: var(--muted);
+    font-size: var(--font-badge);
+    padding: 0 4px;
+  }
+
+  .cite-symbol {
+    border-color: #35506e;
+    color: #9fc2ee;
+    cursor: pointer;
+  }
+  .cite-library {
+    border-style: dashed;
+    border-color: var(--inferred);
+    color: #cdb0e4;
+  }
+  .cite-document {
+    border-color: #4d6a58;
+    color: #a8d3bd;
+  }
+  .cite-teaching-note {
+    border-color: var(--warn);
+    color: var(--warn);
+  }
+
+  /* -------------------------------------------------------------- controls */
+
+  .lesson-affordance {
+    color: var(--dim);
+    font-size: var(--font-ui);
+    margin: 6px 0 4px;
+  }
+
+  .lesson-control {
+    border-top: 1px solid var(--line);
+    margin-top: 8px;
+    padding-top: 6px;
+  }
+
+  .lesson-button {
+    background: var(--panel-2);
+    border: 1px solid var(--line);
+    border-radius: 5px;
+    color: var(--text);
+    cursor: pointer;
+    font: inherit;
+    font-size: var(--font-ui);
+    padding: 3px 8px;
+  }
+
+  .lesson-button.is-primary {
+    border-color: var(--accent);
+    background: #1d2938;
+    color: #cfe0fb;
+  }
+
+  .lesson-button:disabled {
+    cursor: not-allowed;
+    opacity: 0.5;
+  }
+
+  .lesson-select {
+    background: var(--panel-2);
+    border: 1px solid var(--line);
+    border-radius: 5px;
+    color: var(--text);
+    font: inherit;
+    font-size: var(--font-ui);
+    padding: 2px 4px;
+  }
+
+  .editor-row {
+    align-items: center;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    margin: 4px 0;
+  }
+
+  .editor-label {
+    color: var(--dim);
+    font-size: var(--font-ui);
+    min-width: 44px;
+  }
+
+  .editor-value {
+    color: var(--text);
+    font-variant-numeric: tabular-nums;
+    min-width: 42px;
+  }
+
+  .lesson-quiz {
+    align-items: center;
+    display: flex;
+    flex-wrap: wrap;
+    font-size: var(--font-ui);
+    gap: 4px;
+    margin: 6px 0;
+  }
+
+  /*
+   * The refusal. A control that is not built must be impossible to mistake for a
+   * control that is: a learner who sees an empty box concludes the lab is broken,
+   * and a learner who sees nothing at all concludes the step is decorative.
+   */
+  .lesson-notbuilt {
+    border: 2px solid #e0625a;
+    border-radius: 6px;
+    background: #2a1614;
+    color: #ffcbc6;
+    font-size: var(--font-prose);
+    padding: 8px 10px;
+  }
+
+  .lesson-notbuilt p {
+    margin: 4px 0 0;
+  }
+
+  .lesson-lab-note {
+    border: 1px dashed var(--warn);
+    border-radius: 4px;
+    color: #f0dcae;
+    font-size: var(--font-ui);
+    margin: 0 0 6px;
+    padding: 4px 6px;
+  }
+
+  .lesson-lab-note.is-inferred {
+    border-color: var(--inferred);
+    color: #ddc4ef;
+  }
+
+  /* ----------------------------------------------------------------- check */
+
+  .lesson-check {
+    border: 1px solid var(--line);
+    border-left-width: 4px;
+    border-radius: 6px;
+    margin: 8px 0 0;
+    padding: 6px 8px;
+  }
+
+  .lesson-check.is-pending {
+    border-left-color: var(--muted);
+  }
+  .lesson-check.is-passed {
+    border-left-color: var(--observed);
+    background: #10201a;
+  }
+  .lesson-check.is-failed {
+    border-left-color: var(--warn);
+    background: #201c12;
+  }
+  .lesson-check.is-unsupported {
+    border-color: #e0625a;
+    border-left-color: #e0625a;
+    background: #2a1614;
+  }
+
+  .lesson-check-head {
+    display: flex;
+    gap: 8px;
+    justify-content: space-between;
+  }
+
+  .lesson-check-status {
+    font-size: var(--font-ui);
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+  }
+
+  .lesson-check-type {
+    color: var(--muted);
+    font-size: var(--font-badge);
+  }
+
+  .lesson-check-summary {
+    font-size: var(--font-ui);
+    margin: 4px 0;
+  }
+
+  .lesson-check-detail {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 14px;
+    margin: 4px 0;
+  }
+
+  .lesson-check-detail dt {
+    color: var(--muted);
+    font-size: var(--font-badge);
+    text-transform: uppercase;
+  }
+
+  .lesson-check-detail dd {
+    font-size: var(--font-code);
+    margin: 0;
+  }
+
+  .lesson-failure-normal {
+    border-left: 2px solid var(--accent);
+    color: #bfd4f0;
+    font-size: var(--font-ui);
+    margin: 4px 0;
+    padding-left: 6px;
+  }
+
+  .lesson-hint {
+    color: var(--muted);
+    font-size: var(--font-ui);
+    margin: 4px 0;
+  }
+
+  .lesson-skipped-note {
+    color: var(--warn);
+    font-size: var(--font-ui);
+  }
+
+  .lesson-expect {
+    color: var(--dim);
+    font-size: var(--font-ui);
+  }
+
+  .lesson-observables {
+    list-style: none;
+    margin: 4px 0;
+    padding: 0;
+  }
+
+  .lesson-observables li {
+    font-size: var(--font-ui);
+  }
+
+  .lesson-layer {
+    color: var(--accent);
+  }
+
+  /* ------------------------------------------------------------ challenges */
+
+  .lesson-challenges h4 {
+    color: var(--dim);
+    font-size: var(--font-heading);
+    letter-spacing: 0.06em;
+    margin: 10px 0 4px;
+    text-transform: uppercase;
+  }
+
+  .lesson-challenge {
+    border: 1px solid var(--line);
+    border-radius: 5px;
+    font-size: var(--font-ui);
+    margin: 4px 0;
+    padding: 5px 7px;
+  }
+
+  .lesson-challenge.is-locked {
+    opacity: 0.6;
+  }
+
+  /* -------------------------------------------------------------- outlines */
+
+  .lesson-outline-note {
+    border: 1px dashed var(--line);
+    border-radius: 5px;
+    color: var(--dim);
+    font-size: var(--font-ui);
+    padding: 6px 8px;
+  }
+
+  .lesson-outline-steps {
+    font-size: var(--font-ui);
+    padding-left: 18px;
+  }
+
+  /* --------------------------------------------------------------- editors */
+
+  .sequence-table {
+    border-collapse: collapse;
+    font-size: var(--font-code);
+  }
+
+  .sequence-table th {
+    color: var(--muted);
+    font-weight: normal;
+    padding: 1px 3px;
+  }
+
+  .sequence-cell {
+    background: var(--panel-2);
+    border: 1px solid var(--line);
+    border-radius: 3px;
+    color: var(--text);
+    font: inherit;
+    font-size: var(--font-code);
+    padding: 1px 3px;
+    width: 40px;
+  }
+
+  .pixel-canvas {
+    background: #0b0f14;
+    border: 1px solid var(--line);
+    border-radius: 4px;
+    cursor: crosshair;
+    image-rendering: pixelated;
+    max-width: 100%;
+    touch-action: none;
+  }
+
+  .pwm-readout {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 14px;
+    margin: 4px 0;
+  }
+
+  .pwm-readout dt {
+    color: var(--muted);
+    font-size: var(--font-badge);
+    text-transform: uppercase;
+  }
+
+  .pwm-readout dd {
+    margin: 0;
+  }
+
+  .fault-group {
+    color: var(--dim);
+    font-size: var(--font-ui);
+    letter-spacing: 0.05em;
+    margin: 8px 0 4px;
+    text-transform: uppercase;
+  }
+
+  .fault-card {
+    border: 1px solid var(--line);
+    border-radius: 5px;
+    font-size: var(--font-ui);
+    margin: 4px 0;
+    padding: 5px 7px;
+  }
+
+  /*
+   * The whole point of the panel: a fault that ships with the firmware looks
+   * different from one this lab turned on, and neither can be mistaken for the
+   * other at a glance.
+   */
+  .fault-card.is-shipped {
+    border-color: var(--observed);
+    background: #101c18;
+  }
+
+  .fault-card.is-injected {
+    border-color: var(--warn);
+    border-style: dashed;
+    background: #201c12;
+  }
+
+  .fault-title {
+    align-items: baseline;
+    display: flex;
+    gap: 8px;
+    justify-content: space-between;
+  }
+
+  .fault-badge {
+    border: 1px solid;
+    border-radius: 3px;
+    font-size: var(--font-badge);
+    padding: 0 4px;
+  }
+
+  .fault-badge.is-shipped {
+    border-color: var(--observed);
+    color: var(--observed);
+  }
+  .fault-badge.is-injected {
+    border-color: var(--warn);
+    color: var(--warn);
+  }
+
+  .boot-log {
+    background: #0b0f14;
+    border: 1px solid var(--line);
+    border-radius: 4px;
+    font-size: var(--font-code);
+    margin: 4px 0;
+    padding: 5px 7px;
+    white-space: pre-wrap;
+  }
+
+  .http-body {
+    background: var(--panel-2);
+    border: 1px solid var(--line);
+    border-radius: 4px;
+    color: var(--text);
+    font: inherit;
+    font-size: var(--font-code);
+    padding: 3px 5px;
+    width: 100%;
+  }
+
+  .http-log {
+    font-size: var(--font-code);
+    margin: 4px 0;
+    padding-left: 18px;
+  }
+
+  .is-fail {
+    color: #ff9d95;
+  }
+
+  /* ---------------------------------------------------------- exploded view */
+
+  .explode-svg {
+    display: block;
+    max-height: 190px;
+    width: 100%;
+  }
+
+  .explode-body {
+    fill: #1b212b;
+    stroke: var(--line);
+  }
+
+  .explode-body-label {
+    fill: var(--dim);
+    font-size: var(--font-badge);
+  }
+
+  .explode-body-sub {
+    fill: var(--muted);
+    font-size: var(--font-badge);
+  }
+
+  .explode-module rect {
+    fill: var(--panel-2);
+    stroke: var(--line);
+    cursor: pointer;
+  }
+
+  .explode-module:hover rect {
+    stroke: var(--accent);
+  }
+
+  .explode-module.is-selected rect {
+    fill: #1d2938;
+    stroke: var(--accent);
+  }
+
+  .explode-module.is-right rect {
+    stroke: var(--observed);
+  }
+
+  .explode-module.is-wrong rect {
+    stroke: #e0625a;
+  }
+
+  .explode-wire {
+    stroke: var(--line);
+    stroke-dasharray: 3 3;
+  }
+
+  .explode-name {
+    fill: var(--text);
+    font-size: var(--font-ui);
+  }
+
+  .explode-pin {
+    fill: var(--muted);
+    font-size: var(--font-badge);
+  }
+
+  .lesson-labmods {
+    border: 1px dashed var(--warn);
+    border-radius: 4px;
+    background: #241d10;
+    color: #f0dcae;
+    font-size: var(--font-ui);
+    margin: 6px 0;
+    padding: 5px 8px;
+  }
+
+  /* ================================================================ Lab mode
+   *
+   * A dock section now, not a fourth grid row — same reasoning as Learn's above.
+   * The panel's OWN closed strip is untouched and still matters for a different
+   * reason: while it is closed it does not subscribe to `LessonRuntime` at all,
+   * and losing that once turned phase 7's trace into a seven-rung ladder missing
+   * `visual.joint`. Collapsing the dock section around it does not change that
+   * state either way.
+   */
+  .lab-panel {
+    min-width: 0;
+    min-height: 0;
+    padding: 2px;
+    overflow-y: auto;
+    max-height: none;
+  }
+
+  .lab-name {
+    background: var(--panel-2, #10151c);
+    color: inherit;
+    border: 1px solid var(--line);
+    border-radius: 4px;
+    padding: 2px 6px;
+    font: inherit;
+    width: 160px;
+  }
+
+  .lab-tabs {
+    display: flex;
+    gap: 4px;
+    margin: 8px 0 6px;
+    border-bottom: 1px solid var(--line);
+  }
+
+  .lab-tab {
+    background: none;
+    border: 1px solid transparent;
+    border-bottom: none;
+    border-radius: 5px 5px 0 0;
+    color: var(--muted, #8b97a6);
+    cursor: pointer;
+    font: inherit;
+    padding: 4px 12px;
+  }
+
+  .lab-tab.is-active {
+    background: var(--panel-2, #10151c);
+    border-color: var(--line);
+    color: inherit;
+  }
+
+  .lab-body {
+    display: grid;
+    gap: 10px;
+  }
+
+  .lab-details > summary {
+    cursor: pointer;
+    color: var(--muted, #8b97a6);
+    font-size: var(--font-ui);
+    padding: 4px 0;
+  }
+
+  .lab-export {
+    border: 1px solid var(--line);
+    border-radius: 6px;
+    padding: 8px 10px;
+  }
+
+  .lab-export h4 {
+    margin: 0 0 6px;
+    font-size: var(--font-heading);
+  }
+
+  .lab-code {
+    width: 100%;
+    box-sizing: border-box;
+    background: #0b0f14;
+    color: #cfe6dd;
+    border: 1px solid var(--line);
+    border-radius: 4px;
+    padding: 6px 8px;
+    font-size: var(--font-code);
+    line-height: 1.45;
+    resize: vertical;
+    white-space: pre;
+    overflow-x: auto;
+  }
+
+  .http-freeform {
+    flex: 1 1 220px;
+    min-width: 0;
+    background: var(--panel-2, #10151c);
+    color: inherit;
+    border: 1px solid var(--line);
+    border-radius: 4px;
+    padding: 2px 6px;
+  }
+
+  /*
+   * The pose table carries eight columns of arithmetic. It scrolls on its own
+   * rather than widening the row, for the ISSUE-20260823-023 reason again.
+   */
+  .pose-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: var(--font-code);
+    display: block;
+    overflow-x: auto;
+  }
+
+  .pose-table th {
+    text-align: left;
+    color: var(--muted, #8b97a6);
+    font-weight: 500;
+    padding: 2px 6px;
+    white-space: nowrap;
+  }
+
+  .pose-table td {
+    padding: 1px 6px;
+    white-space: nowrap;
+    vertical-align: middle;
+  }
+
+  .pose-table input[type='range'] {
+    width: 120px;
+    vertical-align: middle;
+  }
+
+  /* ======================================================= BELOW WIDE
+   *
+   * The pane-internal half of the Medium/Compact regime, and it lives at the
+   * end of the `panes` layer rather than beside the dock geometry in `shell`
+   * for one reason: layer order. `shell` loses to `panes`, so while these
+   * rules sat in the shell block the pane defaults they exist to override beat
+   * them, and `.source-outline` and `.source-context` grew their own
+   * scrollbars back the moment cascade layers were introduced. The harness
+   * caught it — three scrollable boxes in a dock that is allowed one.
+   *
+   * The split is also the honest one: `.docks`/`.dock`/`.stage` in `shell` are
+   * SHELL GEOMETRY, and these are PANE INTERNALS. W2 replaces the pane half
+   * with container queries, at which point this block goes away and the media
+   * query keeps only what it should have kept.
+   */
+  @media (max-width: 1440px) {
+    .dock-section-body .arch-detail,
+    .dock-section-body .trace-rows,
+    .dock-section-body .trace-panel,
+    .dock-section-body .lesson-panel,
+    .dock-section-body .lab-panel,
+    .dock-section-body .source-outline,
+    .dock-section-body .source-code-wrap,
+    .dock-section-body .source-context {
+      overflow: visible;
+      max-height: none;
+      min-height: 0;
+      flex: 0 0 auto;
+    }
+
+    /*
+     * The code region is the one box below Wide that keeps an overflow, and it
+     * keeps it on the HORIZONTAL axis only.
+     *
+     * W5's rule for this pane is "preserve real code, do not reflow C++ as
+     * prose", so a 96-column line of `movement-sequences.h` at the 15px code
+     * size is simply wider than a 560px sheet and there are only three things
+     * to do about it: wrap it (forbidden), shrink it (the thing this whole
+     * workstream exists to stop), or let it scroll sideways. It scrolls.
+     *
+     * `overflow-y: hidden` rather than `visible` is deliberate and is not a
+     * clip: the box takes its content height below Wide, so there is nothing
+     * to hide vertically, and it stops the browser promoting `overflow-x: auto`
+     * into a scroller on BOTH axes — which would put a second vertical
+     * scrollbar inside the dock and break the one-scroller rule the reader
+     * asked for in as many words.
+     */
+    .dock-section-body .source-code {
+      max-height: none;
+      min-height: 0;
+      flex: 0 0 auto;
+      overflow-x: auto;
+      overflow-y: hidden;
+    }
+
+    /* So the row backgrounds — in-symbol, cited, did-run — span the whole
+       scrollable width instead of stopping at the fold. */
+    .dock-section-body .src-line {
+      width: max-content;
+      min-width: 100%;
+    }
+
+    /*
+     * React Flow is the exception that proves the rule: it is a PAN surface, not
+     * a scroller — `overflow: hidden` and a fixed box are what it needs to place
+     * nodes at real coordinates, and L6's lesson step clicks one of those nodes.
+     * So it keeps a box; the box just gets much bigger, because there is one
+     * column here instead of three.
+     */
+    .dock-section-body .arch-canvas {
+      flex: 0 0 auto;
+      height: 52vh;
+      min-height: 340px;
+    }
+
+    /* The export is a `<textarea>`; a text control's own scrollbar is not a
+       layout scroller, but it should still not be a four-line slot. */
+    .dock-section-body .lab-code {
+      min-height: 320px;
+    }
+
+    /*
+     * The source pane's three regions stack at their natural heights.
+     *
+     * U5 bounded them at 130 / 1fr-min-200 / 220 px because an auto row lets the
+     * code region grow to all 429 lines while L4's "selecting a joint SCROLLED
+     * the code to the symbol's first line" assertion keeps passing and stops
+     * meaning anything. That argument still holds AT WIDE, where the bounds and
+     * the assertion both live. Below Wide the code region is bounded by LINE
+     * COUNT instead — `SourceExplorer` renders a window around the selected
+     * symbol and says in the UI which lines it is showing, and the harness
+     * asserts the rendered `.src-line` count matches that announcement and stays
+     * under the budget. A cap you can read beats a mystery gutter.
+     */
+    .dock-section-body .source-body {
+      grid-template-rows: auto auto auto;
+    }
+
+    .dock-section-body .source-panel {
+      overflow: visible;
+      flex: 0 0 auto;
+    }
+
+    .dock-section-body .cmd {
+      padding: 7px 10px;
+    }
+
+    /* A wider single column has room for the whole string. Truncation that made
+       sense in a 400 px gutter hides content that now fits. */
+    .dock-section-body .source-outline-name,
+    .dock-section-body .joint-name,
+    .dock-section-body .lesson-card-title {
+      overflow: visible;
+      text-overflow: clip;
+      white-space: normal;
+    }
+  }
+}
+
+@layer utilities {
+  /*
+   * Single-purpose helpers, in a layer that beats every pane rule on purpose:
+   * `.wrap` on a node whose pane says `nowrap` should win, and today it wins by
+   * source order, which is not a policy.
+   *
+   * `.small` and `.note` deliberately stayed in `components`: they carry a
+   * font-size, and promoting them here would silently re-rank them above the
+   * pane rules that currently follow them. That is a W2 decision, not a W1 one.
+   */
+  .muted {
+    color: var(--muted);
+  }
+
+  .dim {
+    color: var(--dim);
+  }
+
+  .wrap {
+    overflow-wrap: anywhere;
+  }
+}
+
+@layer overrides {
+  /*
+   * Empty on purpose, and declared on purpose.
+   *
+   * The layer exists so that the escape hatch has a name. Anything that must
+   * beat a pane - a user-preference query such as `prefers-reduced-motion`, a
+   * print rule, a temporary fix with an issue number on it - belongs here rather
+   * than outside the layers, where it would silently outrank all of them.
+   *
+   * W6 fills it: reduced motion disables the camera tweens and the accordion
+   * slides.
+   */
 }

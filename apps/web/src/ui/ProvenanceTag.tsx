@@ -77,21 +77,48 @@ export const ORIGIN_MEANING: Readonly<Record<OriginKind, string>> = {
 export function OriginTag({
   origin,
   size,
+  compact,
 }: {
   readonly origin: TelemetryOrigin | null | undefined;
   readonly size?: 'lg';
+  /**
+   * Render the origin's KIND without its engine and board — Phase 4 W1.
+   *
+   * The 56 px rail is the one place on screen where the full string cannot be
+   * shown at the 14px readability floor: `"host model (@sesame-lab/sesame-sim)"`
+   * needs about 240 px and the rail has 48. It used to be set in 9px type and
+   * cut off with an ellipsis, which is the failure this workstream's invariant
+   * names outright — a correctness surface may not be truncated.
+   *
+   * So the rail shows the kind, complete, at 14px; the status line under the
+   * robot and `#prov-banner` in the inspector both still render the whole
+   * string, and the tooltip here carries the meaning. The short form is
+   * produced by calling `describeOrigin()` with the engine and board stripped
+   * rather than by a second table of words, so the two cannot drift apart by
+   * construction: there is no local copy of the protocol's wording to update.
+   */
+  readonly compact?: boolean;
 }): ReactElement {
   const kind: OriginKind = origin?.kind ?? 'unknown';
   return (
     <span
       className={`prov origin origin-${kind}${size === 'lg' ? ' prov-lg' : ''}`}
-      title={ORIGIN_MEANING[kind]}
+      title={compact === true ? `${describeOrigin(origin ?? undefined)} — ${ORIGIN_MEANING[kind]}` : ORIGIN_MEANING[kind]}
       data-origin-kind={kind}
     >
-      {describeOrigin(origin ?? undefined)}
+      {compact === true ? describeOriginKind(kind) : describeOrigin(origin ?? undefined)}
     </span>
   );
 }
+
+/**
+ * The origin's kind, in the protocol's own words, with no engine or board.
+ *
+ * Deliberately `describeOrigin()` with the detail removed rather than a local
+ * copy of its head table: there is exactly one place in the codebase that
+ * decides what an `emulator` origin is called.
+ */
+export const describeOriginKind = (kind: OriginKind): string => describeOrigin({ kind });
 
 /**
  * One line that settles "is this a measurement?" for a whole stream.

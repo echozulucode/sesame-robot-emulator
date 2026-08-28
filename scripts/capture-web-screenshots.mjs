@@ -355,6 +355,140 @@ const RESPONSIVE_WINDOWS = [
   { label: 'desktop', width: 2560, height: 1440, breakpoint: 'wide', u5SharePct: 86.9 },
 ];
 
+// ===========================================================================
+// THE TYPE SCALE, CHECKED IN THE STYLESHEET — Phase 4 W1
+// ===========================================================================
+//
+// Static, and first, because it is the one invariant a browser cannot prove.
+// A page can render every visible node at 16px and still carry a `font-size:
+// 9px` rule on a pane nobody happened to open in this run; the measurement
+// that started Phase 4 was made by grepping the stylesheet, so that is where
+// the "no arbitrary literals" rule is enforced.
+//
+// The browser checks below it prove the other half: that the tokens are used,
+// and that what a reader actually sees is at or above the floor.
+//
+// The eight role tokens ARE the brief's 1440x900 table. Asserting each clamp
+// minimum against the table here is what stops the scale drifting back down a
+// pixel at a time — an override in a media query would have to lower a token,
+// and there is nothing left to lower it to.
+const TYPE_ROLES = {
+  badge: { px: 14, what: 'badges, chips, line numbers, counters — the absolute floor' },
+  code: { px: 15, what: 'monospace, telemetry values, table cells' },
+  ui: { px: 16, what: 'the default: body, labels, buttons, inputs' },
+  prose: { px: 17, what: 'lesson and explanation prose' },
+  heading: { px: 18, what: 'section headings inside a pane' },
+  title: { px: 20, what: 'pane titles' },
+  workspace: { px: 24, what: 'mode and workspace titles' },
+  display: { px: 28, what: 'milestones' },
+};
+const TEXT_FLOOR_PX = 14;
+const CASCADE_LAYERS = 'reset, tokens, base, shell, components, panes, utilities, overrides';
+
+{
+  const cssPath = path.join(REPO, 'apps/web/src/styles.css');
+  const css = fs.readFileSync(cssPath, 'utf8');
+
+  check(
+    css.includes(`@layer ${CASCADE_LAYERS};`),
+    `apps/web/src/styles.css does not declare the cascade layers in order — expected ` +
+      `"@layer ${CASCADE_LAYERS};". Without the declaration the layer order is source order, ` +
+      `which is the thing the layers exist to replace.`,
+  );
+
+  // Every declaration, with the line it is on, so a failure names the line.
+  const declarations = [];
+  css.split(/\r?\n/).forEach((line, i) => {
+    const m = /font-size:\s*([^;]+);/.exec(line);
+    if (m !== null) declarations.push({ line: i + 1, value: m[1].trim() });
+  });
+  const literals = declarations.filter(
+    (d) => !/^var\(--font-(badge|code|ui|prose|heading|title|workspace|display)\)$/.test(d.value) &&
+      d.value !== 'inherit',
+  );
+  check(
+    literals.length === 0,
+    `apps/web/src/styles.css has ${literals.length} font-size declaration(s) that are not a role ` +
+      `token: ${literals.slice(0, 6).map((d) => `line ${d.line}: ${d.value}`).join(', ')}. Every ` +
+      `size comes from the token block; a literal is how 128 of 144 declarations ended up at 12px ` +
+      `or below, and it is how they would get back there.`,
+  );
+
+  // The tokens themselves, against the brief's table. `clamp(MIN, …, MAX)` with
+  // MIN equal to the 1440x900 value is the whole "fluid upward, floored
+  // downward" rule; a token whose minimum drifts below the table has silently
+  // reintroduced a compact mode.
+  const tokenSizes = {};
+  for (const [role, spec] of Object.entries(TYPE_ROLES)) {
+    const m = new RegExp(`--font-${role}:\\s*clamp\\(([^,]+),`).exec(css);
+    if (m === null) {
+      problems.push(`--font-${role} (${spec.what}) is not defined as a clamp() in the token block`);
+      continue;
+    }
+    const min = /^([0-9.]+)rem$/.exec(m[1].trim());
+    const px = min === null ? Number.NaN : Number(min[1]) * 16;
+    tokenSizes[role] = px;
+    check(
+      Math.abs(px - spec.px) < 0.01,
+      `--font-${role} floors at ${String(px)}px; the brief's 1440x900 table says ${spec.px}px ` +
+        `(${spec.what}). The clamp MINIMUM is the floor, so this is the number a narrow window ` +
+        `gets.`,
+    );
+  }
+  check(
+    tokenSizes.badge === TEXT_FLOOR_PX,
+    `the smallest role token is ${String(tokenSizes.badge)}px, not the ${TEXT_FLOOR_PX}px floor`,
+  );
+
+  // No media query may set a size. Responsive behaviour changes arrangement,
+  // column count, representation and disclosure — never type size. The tokens
+  // are viewport-fluid ABOVE 1440 and constant below it, so a font-size inside
+  // an `@media` block can only ever be a compact mode by another name.
+  const mediaFontSizes = [];
+  {
+    let depth = 0;
+    let inMedia = -1;
+    css.split(/\r?\n/).forEach((line, i) => {
+      if (/^\s*@media/.test(line) && inMedia < 0) inMedia = depth;
+      for (const ch of line) {
+        if (ch === '{') depth += 1;
+        if (ch === '}') {
+          depth -= 1;
+          if (inMedia >= 0 && depth <= inMedia) inMedia = -1;
+        }
+      }
+      if (inMedia >= 0 && /font-size:/.test(line)) mediaFontSizes.push(i + 1);
+    });
+  }
+  check(
+    mediaFontSizes.length === 0,
+    `apps/web/src/styles.css sets a font-size inside an @media block at line(s) ` +
+      `${mediaFontSizes.join(', ')}. "No compact mode as a default" is a product rule: a ` +
+      `breakpoint may change arrangement, column count, representation and disclosure, and may ` +
+      `not change how big the text is.`,
+  );
+
+  phases.typeScale = {
+    ok: problems.length === 0,
+    source: 'docs/research/Sesame Lab_ responsive UI_UX research brief.md, "The typography problem is real and severe"',
+    layers: CASCADE_LAYERS,
+    tokens: Object.fromEntries(
+      Object.entries(TYPE_ROLES).map(([role, spec]) => [
+        `--font-${role}`,
+        { floorPx: spec.px, role: spec.what },
+      ]),
+    ),
+    fontSizeDeclarations: declarations.length,
+    arbitraryLiterals: literals.length,
+    fontSizesInsideMediaQueries: mediaFontSizes.length,
+    was: '144 declarations, 128 of them <= 12px, 18 at 10px, 13 at 9px, on a 13px base',
+  };
+  console.log(
+    `[web] type scale: ${declarations.length} font-size declarations, ${literals.length} literals, ` +
+      `${mediaFontSizes.length} inside media queries; floor ${TEXT_FLOOR_PX}px`,
+  );
+}
+
 async function launchBrowser(url, window = DEFAULT_WINDOW) {
   const cdpPort = await freePort();
   const profile = fs.mkdtempSync(path.join(os.tmpdir(), 'sesame-web-'));
@@ -5076,6 +5210,157 @@ if (SKIP_QEMU) {
 
   const fonts = {};
 
+  /**
+   * Every visible run of text on the page, measured — Phase 4 W1.
+   *
+   * The brief and the plan both say this explicitly: the floor is checked by
+   * reading computed styles in a browser, not by grepping the source. The
+   * static check before phase 1 proves no literal survives in the stylesheet;
+   * this proves what a reader actually sees, and the two catch different
+   * things. A pane could inherit 9px from a parent without a literal anywhere.
+   *
+   * "Meaningful text" is an element's OWN text — its direct child text nodes —
+   * so a paragraph is measured once instead of once per ancestor.
+   *
+   * ## Two sizes, because one of them is a lie inside a pan/zoom surface
+   *
+   * `authoredPx` is the computed `font-size`. `screenPx` is that multiplied by
+   * the transform actually in force, which is what a reader's eye gets. They
+   * differ in exactly one place: React Flow draws the architecture graph
+   * through a CSS transform the reader controls, and `fitView` on 63 nodes in a
+   * 620px pane lands 14px edge labels on screen at 3-5px.
+   *
+   * Shrinking that type would not help and enlarging it would not either. So
+   * the surface declares itself `[data-zoom-surface]`, the floor is asserted on
+   * `authoredPx` inside it and on `screenPx` everywhere else, and the harness
+   * RECORDS the worst on-screen size it found there. That number is W4's
+   * problem — three representations instead of one shrunk graph — and writing
+   * it into the report is what stops this invariant absorbing that debt
+   * silently, which is this project's known failure mode.
+   */
+  const CORRECTNESS_SELECTORS = [
+    '.prov',
+    '[data-origin-kind]',
+    '#prov-banner',
+    '.prov-banner p',
+    '.trace-row-witness',
+    '.trace-witness-key',
+    '.lesson-check-status',
+    '.lesson-check-summary',
+    '.lesson-notbuilt',
+    '[data-testid="lesson-control-notbuilt"]',
+    '.badge.is-notbuilt',
+  ];
+
+  const typeScan = (evaluate) =>
+    evaluate(`(() => {
+      const FLOOR = ${TEXT_FLOOR_PX};
+      const out = { below: [], zoomed: [], truncated: [], roles: {}, nodes: 0 };
+      const own = (el) => {
+        let t = '';
+        for (const n of el.childNodes) if (n.nodeType === 3) t += n.nodeValue;
+        return t.replace(/\\s+/g, ' ').trim();
+      };
+      const nameOf = (el) =>
+        el.tagName.toLowerCase() +
+        (typeof el.className === 'string' && el.className.trim().length > 0
+          ? '.' + el.className.trim().split(/\\s+/).join('.')
+          : '');
+      // The accumulated vertical scale of every transform between this element
+      // and the root. Read out of the matrices rather than inferred from
+      // getBoundingClientRect()/offsetHeight, which disagree for inline boxes
+      // and would report a scale on text nobody transformed.
+      const scaleOf = (el) => {
+        if (el.ownerSVGElement !== null && el.ownerSVGElement !== undefined && typeof el.getScreenCTM === 'function') {
+          const ctm = el.getScreenCTM();
+          return ctm === null ? 1 : Math.abs(ctm.d);
+        }
+        let scale = 1;
+        let node = el;
+        let guard = 0;
+        while (node !== null && node !== document.documentElement && guard < 60) {
+          const t = getComputedStyle(node).transform;
+          if (t !== 'none' && t !== '') {
+            const nums = t.slice(t.indexOf('(') + 1, -1).split(',').map((v) => parseFloat(v));
+            if (t.startsWith('matrix3d') && nums.length >= 6) scale *= Math.abs(nums[5]);
+            else if (nums.length >= 4) scale *= Math.abs(nums[3]);
+          }
+          node = node.parentElement;
+          guard += 1;
+        }
+        return scale;
+      };
+      const smallest = (selector, key) => {
+        for (const el of document.querySelectorAll(selector)) {
+          const cs = getComputedStyle(el);
+          if (cs.display === 'none' || cs.visibility === 'hidden') continue;
+          const r = el.getBoundingClientRect();
+          if (r.width < 1 || r.height < 1) continue;
+          if (own(el).length === 0) continue;
+          const px = parseFloat(cs.fontSize);
+          if (out.roles[key] === undefined || px < out.roles[key].px) {
+            out.roles[key] = { px, sel: selector, text: own(el).slice(0, 40) };
+          }
+        }
+      };
+
+      for (const el of document.querySelectorAll('body *')) {
+        const cs = getComputedStyle(el);
+        if (cs.display === 'none' || cs.visibility === 'hidden' || cs.opacity === '0') continue;
+        const rect = el.getBoundingClientRect();
+        if (rect.width < 1 || rect.height < 1) continue;
+        const text = own(el);
+        if (text.length === 0) continue;
+        out.nodes += 1;
+        const authoredPx = parseFloat(cs.fontSize);
+        const screenPx = authoredPx * scaleOf(el);
+        const zoomSurface = el.closest('[data-zoom-surface]');
+        const where = zoomSurface === null ? null : zoomSurface.getAttribute('data-zoom-surface');
+        if (authoredPx < FLOOR - 0.01) {
+          out.below.push({ name: nameOf(el), authoredPx, screenPx, text: text.slice(0, 48), zoomSurface: where });
+        } else if (where === null && screenPx < FLOOR - 0.01) {
+          out.below.push({ name: nameOf(el), authoredPx, screenPx, text: text.slice(0, 48), zoomSurface: null });
+        } else if (where !== null && screenPx < FLOOR - 0.01) {
+          out.zoomed.push({ surface: where, name: nameOf(el), authoredPx, screenPx: Math.round(screenPx * 100) / 100, text: text.slice(0, 40) });
+        }
+      }
+
+      for (const selector of ${JSON.stringify(CORRECTNESS_SELECTORS)}) {
+        for (const el of document.querySelectorAll(selector)) {
+          const cs = getComputedStyle(el);
+          if (cs.display === 'none' || cs.visibility === 'hidden') continue;
+          const rect = el.getBoundingClientRect();
+          if (rect.width < 1 || rect.height < 1) continue;
+          const text = (el.textContent ?? '').replace(/\\s+/g, ' ').trim();
+          if (text.length === 0) continue;
+          const clamped = cs.webkitLineClamp !== undefined && cs.webkitLineClamp !== '' && cs.webkitLineClamp !== 'none';
+          const ellipsised = cs.textOverflow === 'ellipsis';
+          const cut = el.scrollWidth > el.clientWidth + 1 || el.scrollHeight > el.clientHeight + 1;
+          if (clamped || ellipsised || cut) {
+            out.truncated.push({
+              selector,
+              name: nameOf(el),
+              text: text.slice(0, 60),
+              ellipsised,
+              clamped,
+              cut,
+              scrollWidth: el.scrollWidth,
+              clientWidth: el.clientWidth,
+            });
+          }
+        }
+      }
+
+      out.roles.body = { px: parseFloat(getComputedStyle(document.body).fontSize), sel: 'body', text: '' };
+      smallest('.src-line, .src-text, table.joints td, dl.kv dd, .lab-code, .pose-table td', 'code');
+      smallest('.lesson-explanation, .lesson-conceptual, .lesson-goal, .lesson-claim-text, .source-description, .prov-banner p, .concept-text', 'prose');
+      return out;
+    })()`);
+
+  /** Everything the scan found, per breakpoint, unioned across the sections. */
+  const typeReadings = {};
+  const zoomedText = [];
+
   // --------------------------------------------------- one pass per window
   for (const window of RESPONSIVE_WINDOWS) {
     const where = `${window.width}x${window.height} (${window.breakpoint})`;
@@ -5296,7 +5581,7 @@ if (SKIP_QEMU) {
       await shellPage.evaluate('window.__sesame.selectSymbol("runWavePose")');
       await sleep(800);
       const opened = await shellPage.evaluate('window.__sesame.shell()');
-      fonts[window.breakpoint] = await fontFingerprint(shellPage.evaluate);
+      fonts[window.label] = await fontFingerprint(shellPage.evaluate);
 
       const sourceView = await shellPage.evaluate(`(() => {
         const lines = document.querySelectorAll('.src-line').length;
@@ -5355,6 +5640,80 @@ if (SKIP_QEMU) {
           `at ${where} the source pane rendered ${sourceView.lines} lines with no scroller of its ` +
             `own; the announced budget below Wide is 140`,
         );
+      }
+
+      // ------------------- THE FLOOR, in every pane, at this window size
+      //
+      // One pass per dock section, because a collapsed section has no laid-out
+      // box and text that is never laid out is text this check cannot see. The
+      // sections are the eight the shell has; `focusSection` closes the others,
+      // which below Wide is the arrangement a reader meets anyway.
+      {
+        const seen = new Map();
+        const roles = {};
+        for (const section of ['commands', 'face', 'lab', 'inspector', 'modules', 'signal', 'source', 'learn']) {
+          await focusSection(shellPage.evaluate, section);
+          const scan = await typeScan(shellPage.evaluate);
+          for (const row of scan.below) seen.set(`${row.name}|${row.text}`, { ...row, section });
+          for (const row of scan.truncated) seen.set(`T:${row.name}|${row.text}`, { ...row, section, truncation: true });
+          for (const row of scan.zoomed) zoomedText.push({ ...row, section, window: where });
+          for (const [role, reading] of Object.entries(scan.roles)) {
+            if (roles[role] === undefined || reading.px < roles[role].px) roles[role] = { ...reading, section };
+          }
+        }
+        const below = [...seen.values()].filter((r) => r.truncation !== true);
+        const truncated = [...seen.values()].filter((r) => r.truncation === true);
+        typeReadings[window.breakpoint] = { roles, belowFloor: below.length, truncatedCorrectness: truncated.length };
+
+        check(
+          below.length === 0,
+          `at ${where}, ${below.length} run(s) of visible text compute below the ${TEXT_FLOOR_PX}px ` +
+            `floor: ${below
+              .slice(0, 5)
+              .map((r) => `${r.name} ${r.authoredPx.toFixed(1)}px in ${r.section} ("${r.text}")`)
+              .join('; ')}. The brief is explicit that this is measured in a browser rather than ` +
+            `grepped, and that 9-12px secondary text is "dramatically below" what a 12-year-old ` +
+            `can read.`,
+        );
+
+        // Correctness text may never be ellipsised or clamped, and may never be
+        // cut off. Provenance, origin, witness lines, lesson results and NOT
+        // BUILT states are the surfaces this whole product is built to be
+        // trusted on; a truncated one is a claim a reader cannot finish
+        // reading, which is worse than a small one.
+        check(
+          truncated.length === 0,
+          `at ${where}, ${truncated.length} correctness surface(s) are truncated: ${truncated
+            .slice(0, 5)
+            .map(
+              (r) =>
+                `${r.name} (${[r.ellipsised ? 'ellipsis' : '', r.clamped ? 'line-clamp' : '', r.cut ? `cut ${r.scrollWidth}>${r.clientWidth}` : ''].filter((x) => x.length > 0).join('+')}) "${r.text}"`,
+            )
+            .join('; ')}. Raising the type is allowed to break a layout; it is never allowed to ` +
+            `hide a provenance badge, an origin, a witness line, a lesson result or a NOT BUILT ` +
+            `state.`,
+        );
+
+        // The brief's table, at the window it was written for.
+        if (window.width === 1440) {
+          const at = (role) => roles[role]?.px ?? Number.NaN;
+          check(
+            at('body') >= TYPE_ROLES.ui.px - 0.01,
+            `at 1440x900 the body font is ${at('body').toFixed(2)}px; the brief's default UI size ` +
+              `is ${TYPE_ROLES.ui.px}px`,
+          );
+          check(
+            at('code') >= TYPE_ROLES.code.px - 0.01,
+            `at 1440x900 the smallest code/telemetry/table text is ${at('code').toFixed(2)}px ` +
+              `(${roles.code?.sel}); the brief's floor for it is ${TYPE_ROLES.code.px}px`,
+          );
+          check(
+            at('prose') >= TYPE_ROLES.prose.px - 0.01,
+            `at 1440x900 the smallest reading prose is ${at('prose').toFixed(2)}px ` +
+              `(${roles.prose?.sel} — "${roles.prose?.text}"); the brief's reading size is ` +
+              `${TYPE_ROLES.prose.px}px, and it calls prose a reading surface rather than UI chrome`,
+          );
+        }
       }
 
       // ------------------------------------ the collapse state survives reload
@@ -5482,7 +5841,7 @@ if (SKIP_QEMU) {
         quickCommands: glance.quickCommands,
         openSectionsWithSourceUp: opened.openSections,
         sourceLinesRendered: sourceView.lines,
-        fontSizesPx: fonts[window.breakpoint],
+        fontSizesPx: fonts[window.label],
         robotPixels: pixels,
         worldFrame: frame,
         analysisResizeWorldFrame: resize,
@@ -5505,22 +5864,69 @@ if (SKIP_QEMU) {
   // --------------------------------------------------------- legibility
   //
   // "Everything is too small ... I still cannot read any of the content." The
-  // machine-checkable form: the same five nodes, in the same open section, must
-  // not be smaller at Medium or Compact than they are at Wide.
-  for (const narrow of ['compact', 'medium']) {
+  // machine-checkable form, restated for Phase 4 W1.
+  //
+  // U6 asserted that the same five nodes are not smaller at Medium or Compact
+  // than at WIDE. That comparison no longer says what it was written to say:
+  // the type scale is now fluid UPWARD, so a 2560 px desktop legitimately reads
+  // 17px body against 1440's 16px, and asserting parity with Wide would mean
+  // asserting that a bigger screen may not use its width. The rule the
+  // complaint actually deserves is that a NARROWER window never shrinks
+  // anything, so the reference is the laptop the brief was written for, and
+  // Wide is checked separately in the other direction.
+  const LAPTOP = 'laptop';
+  for (const narrow of ['compact', 'laptop-small']) {
     const here = fonts[narrow] ?? {};
-    const wide = fonts.wide ?? {};
+    const laptop = fonts[LAPTOP] ?? {};
     for (const [what, size] of Object.entries(here)) {
-      const reference = wide[what];
+      const reference = laptop[what];
       if (typeof size !== 'number' || typeof reference !== 'number') continue;
       check(
         size >= reference - 0.01,
-        `${what} is ${size.toFixed(1)} px at ${narrow} but ${reference.toFixed(1)} px at Wide. ` +
+        `${what} is ${size.toFixed(1)} px at ${narrow} but ${reference.toFixed(1)} px at 1440x900. ` +
           `Below Wide the dock has ONE column instead of three and a wider overlay, so nothing has ` +
           `any reason to be smaller there — and "I cannot read the content" is what happens when ` +
           `it is.`,
       );
     }
+  }
+  for (const [what, size] of Object.entries(fonts.desktop ?? {})) {
+    const reference = fonts[LAPTOP]?.[what];
+    if (typeof size !== 'number' || typeof reference !== 'number') continue;
+    check(
+      size >= reference - 0.01,
+      `${what} is ${size.toFixed(1)} px at 2560x1440 but ${reference.toFixed(1)} px at 1440x900 — ` +
+        `clamp() is allowed to grow the scale on a wider screen and never to shrink it`,
+    );
+  }
+
+  // And the three role floors, at every window. Every clamp() minimum IS the
+  // 1440x900 value, so this can only fail if something reintroduces a rule that
+  // sets a size — which the static check before phase 1 also forbids outright.
+  // Two independent checks on the same product rule: "no compact mode as a
+  // default" is an invariant, not a preference.
+  for (const role of ['ui', 'code', 'prose']) {
+    const floor = TYPE_ROLES[role].px;
+    for (const [bp, reading] of Object.entries(typeReadings)) {
+      const px = reading.roles[role === 'ui' ? 'body' : role]?.px;
+      if (typeof px !== 'number') continue;
+      check(
+        px >= floor - 0.01,
+        `${role} text is ${px.toFixed(2)}px at ${bp}; its floor is ${floor}px at every window size`,
+      );
+    }
+  }
+
+  if (zoomedText.length > 0) {
+    const worst = zoomedText.reduce((a, b) => (a.screenPx <= b.screenPx ? a : b));
+    notes.push(
+      `the architecture graph draws ${zoomedText.length} run(s) of text below the ${TEXT_FLOOR_PX}px ` +
+        `floor ON SCREEN, at as little as ${worst.screenPx}px ("${worst.text}"), because React ` +
+        `Flow's fitView zooms 63 nodes into a dock-width pane. The type inside it is authored at ` +
+        `${worst.authoredPx}px and the reader can zoom; the map not fitting the pane is W4's ` +
+        `three-representation split, not a type-size problem, and W1 deliberately did not disguise ` +
+        `it by shrinking anything else.`,
+    );
   }
 
   // ======================================================================
@@ -5892,6 +6298,9 @@ if (SKIP_QEMU) {
     windows: measured,
     persistenceKey: 'sesame-lab.shell.v2',
     fontSizesPx: fonts,
+    typeFloorPx: TEXT_FLOOR_PX,
+    typeReadings,
+    textBelowFloorInsideZoomSurfaces: zoomedText.length,
     shots: shellShots.map((s) => s.name),
   };
   for (const row of measured) {

@@ -24,11 +24,19 @@ import {
   type ArchNode,
 } from '../generated/architecture-graph.js';
 
-export const NODE_W = 124;
-export const NODE_H = 46;
-const GAP_X = 10;
-const ROW_H = 62;
-const GAP_GROUP = 48;
+/*
+ * Phase 4 W1 grew these.
+ *
+ * They were 124x46 with 62 px rows, which fitted a 12px label over a 9px
+ * summary and nothing larger. At the brief's floor — 15px for the label, 14px
+ * for the summary, three lines of it — the old box clipped both, and the fix
+ * for clipped text is never to put the type back.
+ */
+export const NODE_W = 192;
+export const NODE_H = 112;
+const GAP_X = 14;
+const ROW_H = 136;
+const GAP_GROUP = 56;
 /**
  * Wrap wider rows rather than run off.
  *

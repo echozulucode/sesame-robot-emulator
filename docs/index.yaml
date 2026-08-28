@@ -154,6 +154,13 @@ docs:
     type: findings
     status: complete
 
+  - file: docs/findings/U6-two-dock-shell.md
+    type: findings
+    status: complete
+  - file: docs/findings/W1-typography-and-tokens.md
+    type: findings
+    status: complete
+
   # Interface specification
   - file: docs/protocol/sesame-telemetry-v1.md
     type: specification

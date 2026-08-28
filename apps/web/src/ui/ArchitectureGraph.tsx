@@ -40,7 +40,8 @@ import {
   type Node,
   type NodeProps,
 } from '@xyflow/react';
-import '@xyflow/react/dist/style.css';
+/* React Flow's stylesheet is imported by `styles.css` into the `reset` cascade
+   layer — an unlayered import here outranks every layer in that file. */
 import { useCallback, useEffect, useMemo, useRef, type ReactElement } from 'react';
 
 import {
@@ -260,7 +261,21 @@ function ArchitectureGraphInner(props: ArchitectureGraphProps): ReactElement {
         </span>
       </header>
 
-      <div className="arch-canvas" data-testid="arch-canvas">
+      {/*
+        `data-zoom-surface` — Phase 4 W1.
+
+        Everything inside React Flow's viewport is drawn through a CSS
+        transform the READER controls: node labels are authored at 15px and
+        edge labels at 14px, and at the zoom `fitView` picks for 63 nodes in a
+        620px pane they land on screen at 3-5px. The harness measures the
+        AUTHORED size inside this box rather than the transformed one, and
+        records the zoom beside it, because the honest description of the
+        problem is "the map does not fit in this pane", not "the type is too
+        small". Shrinking the type would not help and enlarging it would not
+        either; W4's three representations are the fix, and this attribute is
+        what stops the type invariant from silently absorbing that debt.
+      */}
+      <div className="arch-canvas" data-testid="arch-canvas" data-zoom-surface="architecture">
         <ReactFlow
           nodes={nodes}
           edges={edges}

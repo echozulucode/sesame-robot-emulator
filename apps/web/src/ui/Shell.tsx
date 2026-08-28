@@ -294,7 +294,7 @@ export function Rail(props: RailProps): ReactElement {
           ) : (
             <ProvenanceTag value={drivingProvenance} />
           )}
-          <OriginTag origin={drivingOrigin} />
+          <OriginTag origin={drivingOrigin} compact />
           <span className="dim rail-events">{totalEvents}</span>
         </div>
       </div>
