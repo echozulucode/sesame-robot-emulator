@@ -355,7 +355,23 @@ export function SourceExplorer(props: SourceExplorerProps): ReactElement {
 
           {load.status === 'ok' && (
             <>
-              <div className="source-code" ref={codeRef} data-testid="source-code">
+              <div
+                className="source-code"
+                ref={codeRef}
+                data-testid="source-code"
+                /*
+                  The first declared two-dimensional surface - Phase 4 W2.
+
+                  A pane owns exactly one ordinary vertical scroller. This is
+                  the exemption, and it is the brief's own: 429 lines of C++ at
+                  the 15px code size, with 96-column lines that W5's rule
+                  forbids reflowing as prose, genuinely need their own viewport
+                  in one regime and their own horizontal scroll in the other.
+                  L4 measures its "selecting a joint scrolled the code to the
+                  symbol's first line" assertion against exactly this box.
+                */
+                data-2d-surface="code"
+              >
                 {rendered.map(({ line, tokens }) => {
                   const inSymbol =
                     symbol !== null && line >= symbol.startLine && line <= symbol.endLine;

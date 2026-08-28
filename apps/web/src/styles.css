@@ -365,7 +365,25 @@
 
   /* ----------------------------------------------------------- center stage */
   .stage {
-    flex: 1 1 auto;
+    /*
+     * `flex-basis: 0`, not `auto` - Phase 4 W2, and this is a defect fix rather
+     * than a preference.
+     *
+     * With `auto` the stage's basis is its CONTENT width, and its content is a
+     * WebGL canvas that keeps whatever width it was last given. At 1600x900
+     * with both docks in flow that basis was 844 px, the row overflowed, and
+     * flexbox took the difference out of the only shrinkable items - the docks.
+     * The measured result was a dock 306 px wide whose own state said 400,
+     * while `clampDockWidth()` promises never to return less than 320. A dock
+     * that renders narrower than the width it reports is not a styling
+     * preference; it is the layout and the model disagreeing, and W1 measured
+     * what it cost: about 25 characters of lesson prose against the brief's
+     * 45-75.
+     *
+     * With `0` the docks get the width they claim and the stage takes the rest.
+     * They still shrink, but only once the stage has hit its own floor below.
+     */
+    flex: 1 1 0;
     /*
      * The stage's floor outranks the docks' widths. Both docks are
      * `flex-shrink: 1`, so at a narrow Wide window they give way rather than
@@ -736,6 +754,107 @@
     display: none;
   }
 
+  /* ======================================================= THE PANE CONTRACT
+   *
+   * Phase 4 W2. Every pane is
+   *
+   *   <section class="pane" data-pane=ID aria-labelledby=pane-ID-title>
+   *     <h2 class="pane__header" data-pane-chrome="header"> ... </h2>
+   *     <div class="pane__content" data-pane-content=ID data-scroll-owner="pane">
+   *
+   * and the whole reason the contract is worth writing down is the single
+   * declaration below: `container: pane / inline-size`. Everything inside a
+   * pane can now ask **how wide this pane is**, which is the question that
+   * actually decides whether Signal fits a five-column row or the Inspector
+   * fits a key beside its value. A viewport query cannot answer it: the same
+   * 1440 px window holds a 399 px pane in a docked column and a 651 px pane in
+   * an overlay, and W3's workbench will hold a third width again.
+   *
+   * `container-type: inline-size` also applies layout and inline-size
+   * containment, so a pane becomes a containing block for absolutely positioned
+   * descendants. The one absolutely positioned thing inside a pane is
+   * `.arch-expand`, positioned against `.arch-node` - a nearer positioned
+   * ancestor - so nothing moves.
+   *
+   * The dock-era class names stay alongside these. Renaming 3,000 lines of
+   * selectors in the same change that introduces container queries is exactly
+   * the "visual regressions become unattributable" mistake the brief warns
+   * against.
+   */
+  .pane {
+    container: pane / inline-size;
+  }
+
+  .pane__header {
+    flex: 0 0 auto;
+  }
+
+  /*
+   * `min-inline-size: 0` is the brief's, and it is load bearing: without it a
+   * flex or grid child refuses to shrink below its content's min-content width,
+   * which is how a 96-column line of C++ or a 47-character witness string
+   * pushes a whole pane wider than its dock. Every pane's own overflow rule is
+   * written assuming this holds.
+   */
+  .pane__content {
+    min-inline-size: 0;
+  }
+
+  /* ============================================== ONE PANE, OR SEVERAL - W2
+   *
+   * These rules used to be the second half of `@media (max-width: 1440px)`,
+   * and they were never really about the window. What they describe is a
+   * REGIME: whether one pane owns the dock's height, or several open sections
+   * share it. `Docks` publishes that as `data-sections` on `.docks`, from the
+   * same `isSingleOpen()` the accordion already obeys, so the rule now says
+   * what it means.
+   *
+   * `one`  - the open pane renders at its natural height, `.dock-body` is the
+   *          single scroller, and no pane bounds itself. This is the reader's
+   *          "I'd rather scroll through the pane vertically than have tiny
+   *          content and many scrollbars".
+   * `many` - each open section is bounded and scrolls its own content, which is
+   *          what keeps the architecture graph and the Signal trace on screen
+   *          together at Wide.
+   *
+   * Collapsed headers must not be squeezed away by an open section taller than
+   * the dock, which is why `one` pins every section to `0 0 auto`.
+   *
+   * W3 changes what SETS the attribute. Nothing that reads it has to change.
+   */
+  [data-sections='one'] .dock-section,
+  [data-sections='one'] .dock-section.is-open {
+    flex: 0 0 auto;
+    min-height: 0;
+  }
+
+  [data-sections='one'] .dock-section-body {
+    flex: 0 0 auto;
+    overflow: visible;
+  }
+
+  /* ------------------------------------------------------------- LEGIBILITY
+   *
+   * This block used to RAISE five families of text below Wide - 13 to 13.5px
+   * against an 11-12px base. Every one of those overrides is gone (W1): 13px is
+   * below the floor, and a query that sets a size at all is a compact mode by
+   * another name. What is left is SPACING, which one wide column can afford and
+   * which the brief is explicit has to be corrected alongside type.
+   */
+  [data-sections='one'] .dock-body {
+    padding: var(--space-3);
+  }
+
+  /*
+   * The pane's OWN spacing moved to a container query (see `panes`), and the
+   * container sweep is what forced it: `.dock-section-body` carried 10px of
+   * padding at Wide and 12 below it, so the architecture canvas inside a pane
+   * driven to exactly 720px measured 672px in one window and 668px in another.
+   * Four pixels, and the invariant that says a pane at a given container width
+   * renders identically regardless of viewport was right to fail on them. A
+   * pane wide enough to afford roomier padding is a fact about the pane.
+   */
+
   .dock-resizer {
     position: absolute;
     left: 0;
@@ -809,65 +928,14 @@
       display: none;
     }
 
-    /* ------------------------------------------------- ONE scroller, one pane
-     *
-     * `.dock-body` is the only scrollable box below Wide. The open section takes
-     * its natural height inside it, and every pane inside the section renders at
-     * content height — no inner `overflow-y`, no bounded box, no share of a short
-     * column. `capture-web-screenshots.mjs` counts the scrollable elements inside
-     * each dock at Compact and Medium and requires exactly one.
+    /*
+     * What used to be here - "one scroller, one pane", and the spacing that
+     * goes with it - moved OUT of this media query in W2 and is keyed on
+     * `[data-sections='one']` above. It was never a statement about the window;
+     * it was a statement about whether one pane owns the dock. What is left in
+     * this block is shell GEOMETRY, which is what a viewport query is for:
+     * overlay versus flow, dock widths, the stage's reserved margin.
      */
-    /* Collapsed headers must not be squeezed away by an open section that is
-       taller than the dock. `0 1 auto` lets a flex item shrink below its content,
-       and with one pane at natural height there is always more content than
-       dock. */
-    .dock-section,
-    .dock-section.is-open {
-      flex: 0 0 auto;
-      min-height: 0;
-    }
-
-    .dock-section-body {
-      flex: 0 0 auto;
-      overflow: visible;
-    }
-
-    .dock-section[data-dock-section='source'].is-open {
-      min-height: 0;
-    }
-
-    /* --------------------------------------------------------- LEGIBILITY
-     *
-     * "Everything is too small ... I still cannot read any of the content."
-     *
-     * This block used to RAISE five families of text below Wide - 13 to 13.5px
-     * against an 11-12px base - on the argument that there is one column here
-     * instead of three and the overlay is wider than the Wide dock. Every one of
-     * those overrides is gone, because 13px is now BELOW the floor and a media
-     * query that sets a size at all is a compact mode by another name.
-     *
-     * What replaces them is that there is nothing left to override. The type
-     * tokens do not vary with the viewport at or below 1440px - every clamp()
-     * MINIMUM is the 1440x900 value - so a node is the same size at Compact, at
-     * Medium and at Wide by construction rather than by two media queries
-     * agreeing with each other. The harness asserts it twice: statically, that
-     * no `font-size` appears inside any @media block in this file at all, and
-     * in the browser, that the same five nodes are not smaller at Compact or
-     * Medium than they are at 1440. Above 1440 they legitimately grow, which is
-     * the one direction the brief's clamp() is allowed to move them.
-     *
-     * SPACING still opens up below Wide. One wide column can afford it, and the
-     * brief is explicit that type and space have to be corrected together.
-     */
-    .dock-body {
-      line-height: var(--leading-body);
-      padding: var(--space-3);
-    }
-
-    .dock-section-body {
-      padding: var(--space-3);
-      gap: var(--space-3);
-    }
   }
 
   /* =============================================================== COMPACT
@@ -3228,121 +3296,502 @@
     vertical-align: middle;
   }
 
-  /* ======================================================= BELOW WIDE
+  /* ====================================================== SCROLL OWNERSHIP
    *
-   * The pane-internal half of the Medium/Compact regime, and it lives at the
-   * end of the `panes` layer rather than beside the dock geometry in `shell`
-   * for one reason: layer order. `shell` loses to `panes`, so while these
-   * rules sat in the shell block the pane defaults they exist to override beat
-   * them, and `.source-outline` and `.source-context` grew their own
-   * scrollbars back the moment cascade layers were introduced. The harness
-   * caught it — three scrollable boxes in a dock that is allowed one.
+   * Phase 4 W2. What used to be here was `@media (max-width: 1440px)` wrapped
+   * around two very different jobs, and W1 left a note saying so: the pane half
+   * of that block is replaced here by rules that hold at EVERY width, plus a
+   * short list of regime-conditional ones keyed on `[data-sections]`.
    *
-   * The split is also the honest one: `.docks`/`.dock`/`.stage` in `shell` are
-   * SHELL GEOMETRY, and these are PANE INTERNALS. W2 replaces the pane half
-   * with container queries, at which point this block goes away and the media
-   * query keeps only what it should have kept.
+   * The contract, in the brief's words: the workbench - not arbitrary pane
+   * descendants - is the ordinary vertical scroll owner. So a pane has at most
+   * ONE ordinary vertical scroller (`.pane__content`, or `.dock-body` above it
+   * when one pane owns the dock), and any second scrolling box must say out
+   * loud that it is a two-dimensional surface by carrying `data-2d-surface`.
+   * There are exactly two of those: 429 lines of C++ and a pan-and-zoom graph.
+   *
+   * Below Wide these rules were already true, by hand, because U6 wrote them
+   * into a media query. At Wide they were NOT: `.lesson-panel`, `.lab-panel`,
+   * `.arch-detail` and `.trace-rows` each carried their own `overflow-y: auto`
+   * inside a `.dock-section-body` that also scrolled, which is the nested
+   * scrollbar the reader complained about, surviving at the one breakpoint
+   * nobody had asserted it away at. Making the rule unconditional is the whole
+   * point of writing it as a contract instead of a breakpoint.
    */
-  @media (max-width: 1440px) {
-    .dock-section-body .arch-detail,
-    .dock-section-body .trace-rows,
-    .dock-section-body .trace-panel,
-    .dock-section-body .lesson-panel,
-    .dock-section-body .lab-panel,
-    .dock-section-body .source-outline,
-    .dock-section-body .source-code-wrap,
-    .dock-section-body .source-context {
-      overflow: visible;
-      max-height: none;
-      min-height: 0;
-      flex: 0 0 auto;
+  .pane__content .arch-detail,
+  .pane__content .trace-rows,
+  .pane__content .trace-panel,
+  .pane__content .lesson-panel,
+  .pane__content .lab-panel {
+    overflow: visible;
+    max-height: none;
+    min-height: 0;
+    flex: 0 0 auto;
+  }
+
+  /* So the row backgrounds - in-symbol, cited, did-run - span the whole
+     scrollable width of the code surface instead of stopping at the fold. */
+  .pane__content .src-line {
+    width: max-content;
+    min-width: 100%;
+  }
+
+  /*
+   * Truncation that made sense in a 400 px gutter hides content that now fits,
+   * and two of these three are correctness surfaces: a joint's name and a
+   * symbol's name are the identifiers the rest of the app cross-references. W1's
+   * invariant forbids a correctness surface being ellipsised; this is where the
+   * ellipsis was.
+   */
+  .pane__content .source-outline-name,
+  .pane__content .joint-name,
+  .pane__content .lesson-card-title {
+    overflow: visible;
+    text-overflow: clip;
+    white-space: normal;
+  }
+
+  /* ============================================ THE TWO-DIMENSIONAL SURFACES
+   *
+   * `data-2d-surface` is the brief's own escape hatch and it is deliberately
+   * hard to reach: an element carrying it is allowed to scroll or pan against
+   * its container, and the harness lists every one of them by name.
+   *
+   *   code   429 lines of `movement-sequences.h`. W5's rule is "preserve real
+   *          code, do not reflow C++ as prose", so a 96-column line at the 15px
+   *          code size is simply wider than the pane and scrolls sideways.
+   *   graph  React Flow. Not a scroller at all - `overflow: hidden` and a fixed
+   *          box are what let it place nodes at real coordinates - but it is a
+   *          surface a reader navigates in two dimensions, and L6 clicks a node
+   *          inside it.
+   *   pixels the 128x64 OLED. Never scrolls, and is marked anyway: 128x64
+   *          logical pixels are a spatial artifact whose zoom is a POLICY, and
+   *          W5 owns that policy. Marking it now means the scroll-ownership
+   *          invariant does not have to be taught about it later.
+   */
+  [data-2d-surface] {
+    /* Marked, not styled. Each surface's own rule sizes it. */
+    max-inline-size: 100%;
+  }
+
+  /* ================================================= ONE PANE OWNS THE DOCK
+   *
+   * The Source pane is the one place where the two regimes genuinely differ,
+   * and the difference is about HEIGHT rather than width, so it is keyed on the
+   * regime rather than on a container query. A container query cannot ask it:
+   * `container-type: size` would have to contain the block axis too, and a pane
+   * whose height no longer depends on its content is a pane that cannot render
+   * at its natural height, which is the thing this regime exists to do.
+   *
+   *   many - the source pane is a three-row bounded editor: outline, code,
+   *          context. L4 asserts that selecting a joint SCROLLS the code view
+   *          to the symbol's first line, measured against `.source-code`'s own
+   *          `clientHeight`, and an auto row would let the code region grow to
+   *          all 429 lines and make that assertion pass without meaning
+   *          anything.
+   *   one  - the three regions stack at their natural heights and the code is
+   *          bounded by a LINE BUDGET the pane announces and a button can lift.
+   *          A cap you can read beats a mystery gutter.
+   */
+  /*
+   * The Source pane's outline and context stop owning scroll AT EVERY WIDTH.
+   *
+   * They were three bounded rows - `minmax(0, 130px) minmax(200px, 1fr)
+   * minmax(0, 220px)` - and below Wide U6 already unbound them by hand. What
+   * the container-query pass found is that leaving them bound in the `many`
+   * regime was not a trade-off, it was a defect: with the analysis dock's five
+   * sections open at 2560x1440 the three rows compress into 165 px, and the
+   * measured result was an outline and a context region of clientHeight ZERO
+   * and a code view 57 px tall holding 240 lines. Three scrollbars, none of
+   * them showing anything.
+   *
+   * So the outline and the context render at their natural height inside the
+   * pane's own scroller, and the code keeps a bounded viewport because it is
+   * the declared two-dimensional surface and because L4's "selecting a joint
+   * SCROLLED the code to the symbol's first line" assertion is measured
+   * against exactly that viewport - an auto row would let it grow to all 429
+   * lines and the assertion would pass without meaning anything.
+   */
+  .pane__content .source-outline,
+  .pane__content .source-code-wrap,
+  .pane__content .source-context,
+  .pane__content .source-panel {
+    overflow: visible;
+    max-height: none;
+    min-height: 0;
+    flex: 0 0 auto;
+  }
+
+  .pane__content .source-body {
+    grid-template-rows: auto auto auto;
+  }
+
+  [data-sections='one'] .dock-section[data-dock-section='source'].is-open {
+    min-height: 0;
+  }
+
+  /*
+   * The code region, in the two regimes.
+   *
+   * `many` - a bounded viewport, 420 px, scrolling both axes. That is the box
+   *          L4 measures, and the one place in a pane where a second vertical
+   *          scroller is allowed, because it carries `data-2d-surface="code"`.
+   * `one`  - content height, and `overflow-y: hidden` rather than `visible`.
+   *          That is deliberate and is not a clip: the box takes its content
+   *          height here, so there is nothing to hide vertically, and it stops
+   *          the browser promoting `overflow-x: auto` into a scroller on BOTH
+   *          axes, which would put a second vertical scrollbar in a dock that
+   *          is allowed exactly one.
+   */
+  [data-sections='many'] .pane__content .source-code {
+    max-block-size: 420px;
+    overflow: auto;
+  }
+
+  [data-sections='one'] .pane__content .source-code {
+    max-height: none;
+    min-height: 0;
+    flex: 0 0 auto;
+    overflow-x: auto;
+    overflow-y: hidden;
+  }
+
+  /*
+   * React Flow is a PAN surface, not a scroller, so it keeps a box - the box
+   * just gets much bigger when one pane owns the dock, because there is one
+   * column here instead of three.
+   */
+  [data-sections='one'] .pane__content .arch-canvas {
+    flex: 0 0 auto;
+    height: 52vh;
+    min-height: 340px;
+  }
+
+  /* The export is a `<textarea>`; a text control's own scrollbar is not a
+     layout scroller, but it should still not be a four-line slot. */
+  [data-sections='one'] .pane__content .lab-code {
+    min-height: 320px;
+  }
+
+  /* ==========================================================================
+   * CONTAINER QUERIES - the pane-level responsive mechanism
+   * ==========================================================================
+   *
+   * The split, exactly as the brief specifies it:
+   *
+   *   Is the app phone/tablet/laptop/desktop shaped?   viewport media query
+   *   Rail, or bottom navigation?                      viewport media query
+   *   Do the docks overlay, or enter flow?             viewport / shell state
+   *   Does Signal have width for a five-column row?    CONTAINER QUERY
+   *   Inspector: a table, or stacked joint records?    CONTAINER QUERY
+   *   Learn: explanation beside the control, or above? CONTAINER QUERY
+   *   Modules: path, subsystem or full graph?          container width -> React
+   *   Reduced motion?                                  user-preference query
+   *
+   * The thresholds are the brief's, in `rem` so they move with the root size a
+   * reader chose rather than with a device:
+   *
+   *   width < 32.5rem       below 520 px   narrow representation
+   *   32.5rem <= width < 45rem   520-719   intermediate
+   *   width >= 45rem        720 px and up  wide representation
+   *
+   * Written as "the wide arrangement is the default, the narrow band overrides
+   * it" wherever the narrow band is the smaller change, so a browser that does
+   * not support container queries at all gets the arrangement that was here
+   * before rather than a broken one.
+   *
+   * What these rules must NEVER do is change a type size. The harness parses
+   * this file and fails on a `font-size` inside a `@media` block; the same rule
+   * applies here by policy and W6 extends the parser to `@container`.
+   */
+
+  /* ------------------------------------- key/value pairs, in every pane
+   *
+   * W1 §4 #7 left this one here by name: a flat 108 px key column is a third of
+   * a 320 px dock and two thirds of a 190 px one, so `simulated` broke across
+   * two lines. It became `fit-content(40%) minmax(0, 1fr)` - a share rather than
+   * a number - and the note said "stacking the pair outright below a threshold
+   * is a container query and belongs to W2". This is it.
+   */
+  @container pane (width < 32.5rem) {
+    .pane__content dl.kv,
+    .pane__content .trace-legend dl.kv {
+      grid-template-columns: minmax(0, 1fr);
+      gap: 0;
     }
 
+    .pane__content dl.kv dt {
+      margin-top: var(--space-2);
+    }
+
+    .pane__content dl.kv dt:first-child {
+      margin-top: 0;
+    }
+  }
+
+  /* ------------------------------------------------------------- SIGNAL
+   *
+   * "Does Signal have enough width for a five-column row?"
+   *
+   * W1 had to give up the trace row's column alignment: `layer | label | badge`
+   * sat on one unwrappable line with a 108 px minimum on the layer column, and
+   * it only fitted because the three were 10.5, 12.5 and 9 px. At 14/16/14 the
+   * head ran 145 px past the row, so it became `flex-wrap: wrap`. That was the
+   * right trade at a 245 px pane and the wrong one at a 650 px pane - which is
+   * precisely the distinction a viewport query cannot draw, because both of
+   * those panes exist in a 1440 px window.
+   *
+   * So the alignment comes back when the pane can pay for it, and at the wide
+   * band the row splits into two columns: what happened on the left, who says
+   * so and when on the right.
+   */
+  @container pane (width >= 32.5rem) {
+    [data-pane='signal'] .trace-row-head {
+      flex-wrap: nowrap;
+    }
+
+    [data-pane='signal'] .trace-layer {
+      min-inline-size: 7.5rem;
+    }
+
+    [data-pane='signal'] .trace-label {
+      min-inline-size: 0;
+    }
+  }
+
+  @container pane (width >= 45rem) {
+    [data-pane='signal'] .trace-row {
+      display: grid;
+      grid-template-columns: minmax(0, 3fr) minmax(0, 2fr);
+      grid-template-areas:
+        'head meta'
+        'detail witness';
+      column-gap: var(--space-4);
+      align-items: start;
+    }
+
+    [data-pane='signal'] .trace-row-head {
+      grid-area: head;
+    }
+
+    [data-pane='signal'] .trace-row-detail {
+      grid-area: detail;
+    }
+
+    [data-pane='signal'] .trace-row-witness {
+      grid-area: witness;
+      border-top: 0;
+      border-inline-start: 1px dotted var(--line);
+      padding-inline-start: var(--space-2);
+      padding-top: 0;
+      margin-top: 0;
+    }
+
+    [data-pane='signal'] .trace-row-meta {
+      grid-area: meta;
+      margin-top: 0;
+      justify-content: flex-end;
+    }
+  }
+
+  /* ---------------------------------------------------------- INSPECTOR
+   *
+   * "Should Inspector be a table or stacked joint records?"
+   *
+   * Seven columns - ch, joint, commanded, simulated, measured, prov, origin -
+   * and two of them are correctness surfaces. In a 245 px pane at the 15 px
+   * code size that is about 35 px a column, which is where a provenance badge
+   * starts being cut, and W5's rule for this pane is "change grouping before
+   * dropping columns". So nothing is dropped: below 520 px each row becomes a
+   * record with its own labels, and every column is still there.
+   *
+   * The labels are real DOM text rendered from the same `JOINT_COLUMNS` array
+   * as the `<th>`s, not `content: attr()`, so there is no second copy of the
+   * words to drift and the accessibility tree has exactly one label per cell in
+   * both bands: the header row in the table band, the in-cell label in the
+   * record band.
+   */
+  @container pane (width < 32.5rem) {
+    [data-pane='inspector'] table.joints,
+    [data-pane='inspector'] table.joints tbody {
+      display: block;
+    }
+
+    [data-pane='inspector'] table.joints thead {
+      display: none;
+    }
+
+    [data-pane='inspector'] table.joints tbody tr {
+      display: block;
+      border: 1px solid var(--line);
+      border-radius: 6px;
+      padding: var(--space-2);
+      margin-bottom: var(--space-2);
+    }
+
+    [data-pane='inspector'] table.joints tbody td {
+      display: grid;
+      grid-template-columns: fit-content(40%) minmax(0, 1fr);
+      gap: var(--space-2);
+      border-bottom: 0;
+      padding: 1px 0;
+      text-align: start;
+    }
+
+    /* The label is a label, whatever the cell it sits in is styled as: the
+       joint-name cell is monospace and semi-bold, and its label should not be. */
+    [data-pane='inspector'] table.joints tbody td .cell-label {
+      display: block;
+      color: var(--muted);
+      font-family: var(--font-sans);
+      font-weight: 400;
+      font-style: normal;
+    }
+  }
+
+  /* The table band, and the default: the label belongs to the header row. */
+  .cell-label {
+    display: none;
+  }
+
+  /* -------------------------------------------------------------- LEARN
+   *
+   * "Should Learn put the explanation beside the control?"
+   *
+   * And the measure. The brief asks for 45-75ch with a target near 64, and W1
+   * handed this workstream the measurement that says we were at about 25: a
+   * 230 px dock is about 25 characters of 17 px prose. Two things fix it and
+   * neither is a container query on its own -
+   *
+   *   1. the stage's `flex-basis` (see `shell`), which stopped the docks being
+   *      squeezed to 306 px while their own state said 400;
+   *   2. `--measure-prose`, which W1 defined at 68ch and left unused. It is a
+   *      CAP, not a width: a 651 px overlay would otherwise run to about 70ch
+   *      and keep going in W3's focus workspace.
+   *
+   * What the container query adds is the arrangement: at 720 px and up the
+   * control sits beside the reading column instead of under it, which is what
+   * stops a reader losing the sentence they are acting on.
+   */
+  .lesson-explanation,
+  .lesson-claim-text,
+  .lesson-godeeper > p,
+  .lesson-conceptual,
+  .lesson-grounding-note,
+  .lesson-boundary p,
+  .lesson-check-summary {
+    max-inline-size: var(--measure-prose);
+  }
+
+  .lesson-step-read,
+  .lesson-step-act {
+    min-inline-size: 0;
+  }
+
+  @container pane (width >= 45rem) {
     /*
-     * The code region is the one box below Wide that keeps an overflow, and it
-     * keeps it on the HORIZONTAL axis only.
+     * `1fr / 0.5fr`, not `1fr / 24rem`.
      *
-     * W5's rule for this pane is "preserve real code, do not reflow C++ as
-     * prose", so a 96-column line of `movement-sequences.h` at the 15px code
-     * size is simply wider than a 560px sheet and there are only three things
-     * to do about it: wrap it (forbidden), shrink it (the thing this whole
-     * workstream exists to stop), or let it scroll sideways. It scrolls.
-     *
-     * `overflow-y: hidden` rather than `visible` is deliberate and is not a
-     * clip: the box takes its content height below Wide, so there is nothing
-     * to hide vertically, and it stops the browser promoting `overflow-x: auto`
-     * into a scroller on BOTH axes — which would put a second vertical
-     * scrollbar inside the dock and break the one-scroller rule the reader
-     * asked for in as many words.
+     * The first cut gave the control column a 24rem maximum, and grid fills a
+     * non-flexible track to its growth limit BEFORE it distributes anything to
+     * an `fr` track: at exactly 720px of pane the control column took 384px and
+     * left the reading column 312, which is 31ch. The measure invariant caught
+     * it on the first run. A proportional split cannot do that - at the
+     * threshold the reading column is 464px (about 48ch), at 960 it is 624
+     * (about 64ch, which is the brief's target), and above that
+     * `--measure-prose` caps it at 68.
      */
-    .dock-section-body .source-code {
-      max-height: none;
-      min-height: 0;
-      flex: 0 0 auto;
-      overflow-x: auto;
-      overflow-y: hidden;
+    [data-pane='learn'] .lesson-step {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) minmax(0, 0.5fr);
+      column-gap: var(--space-5);
+      align-items: start;
     }
 
-    /* So the row backgrounds — in-symbol, cited, did-run — span the whole
-       scrollable width instead of stopping at the fold. */
-    .dock-section-body .src-line {
-      width: max-content;
-      min-width: 100%;
+    [data-pane='learn'] .lesson-step-head {
+      grid-column: 1 / -1;
     }
 
-    /*
-     * React Flow is the exception that proves the rule: it is a PAN surface, not
-     * a scroller — `overflow: hidden` and a fixed box are what it needs to place
-     * nodes at real coordinates, and L6's lesson step clicks one of those nodes.
-     * So it keeps a box; the box just gets much bigger, because there is one
-     * column here instead of three.
-     */
-    .dock-section-body .arch-canvas {
-      flex: 0 0 auto;
-      height: 52vh;
-      min-height: 340px;
+    [data-pane='learn'] .lesson-list {
+      grid-template-columns: repeat(auto-fill, minmax(18rem, 1fr));
+    }
+  }
+
+  /* -------------------------------------------------------- MODULES, W4
+   *
+   * The container exists; the three representations do not. W4 mounts them, and
+   * the decision is React's rather than CSS's - the brief is explicit that
+   * mounting all 63 nodes and hiding them at narrow widths wastes the work and
+   * duplicates the semantics. `useContainerWidth()` and `paneWidthBand()` in
+   * `ui/use-container-width.ts` are the measurement W4 reads; `ArchitectureGraph`
+   * already publishes `data-pane-band` from them so the threshold is asserted
+   * against something real before the representations land.
+   *
+   * What IS here is the pane's own chrome: a graph pane narrow enough to be in
+   * the narrow band has no room for the detail panel beside anything.
+   */
+  @container pane (width >= 45rem) {
+    [data-pane='modules'] .arch-detail {
+      max-inline-size: var(--measure-prose);
+    }
+  }
+
+  /* --------------------------------------------------------- COMMANDS
+   *
+   * The padding override that used to live in the media query is gone. It
+   * existed to make the buttons taller below Wide, and a control that is big
+   * enough to hit at one width is big enough at all of them: `min-block-size`
+   * is the honest form of that rule and it is the W6 target-size invariant
+   * (>= 36 px fine pointer) stated where it can be read.
+   */
+  .cmd {
+    min-block-size: 36px;
+  }
+
+  @container pane (width >= 32.5rem) {
+    [data-pane='commands'] .cmd-grid {
+      gap: var(--space-2);
+    }
+  }
+
+  /* -------------------------------------------- panel headers, in every pane
+   *
+   * `.panel-header` is `h2` and a subtitle on one baseline, and at a 339 px
+   * pane in the Wide control dock that gives "from hardware-map.json, not
+   * hardcoded" about 130 px and four wrapped lines beside a two-word heading.
+   * The brief's example, almost verbatim: badges wrap to a second line, and it
+   * is a presentation change, so it is CSS.
+   */
+  @container pane (width < 32.5rem) {
+    .pane__content .panel-header {
+      flex-wrap: wrap;
+      justify-content: flex-start;
+      row-gap: var(--space-1);
     }
 
-    /* The export is a `<textarea>`; a text control's own scrollbar is not a
-       layout scroller, but it should still not be a four-line slot. */
-    .dock-section-body .lab-code {
-      min-height: 320px;
+    .pane__content .panel-sub {
+      flex: 1 0 100%;
     }
+  }
 
-    /*
-     * The source pane's three regions stack at their natural heights.
-     *
-     * U5 bounded them at 130 / 1fr-min-200 / 220 px because an auto row lets the
-     * code region grow to all 429 lines while L4's "selecting a joint SCROLLED
-     * the code to the symbol's first line" assertion keeps passing and stops
-     * meaning anything. That argument still holds AT WIDE, where the bounds and
-     * the assertion both live. Below Wide the code region is bounded by LINE
-     * COUNT instead — `SourceExplorer` renders a window around the selected
-     * symbol and says in the UI which lines it is showing, and the harness
-     * asserts the rendered `.src-line` count matches that announcement and stays
-     * under the budget. A cap you can read beats a mystery gutter.
-     */
-    .dock-section-body .source-body {
-      grid-template-rows: auto auto auto;
-    }
-
-    .dock-section-body .source-panel {
-      overflow: visible;
-      flex: 0 0 auto;
-    }
-
-    .dock-section-body .cmd {
-      padding: 7px 10px;
-    }
-
-    /* A wider single column has room for the whole string. Truncation that made
-       sense in a 400 px gutter hides content that now fits. */
-    .dock-section-body .source-outline-name,
-    .dock-section-body .joint-name,
-    .dock-section-body .lesson-card-title {
-      overflow: visible;
-      text-overflow: clip;
-      white-space: normal;
+  /* ------------------------------------------------- the pane's own spacing
+   *
+   * "Tiny type encourages tiny spacing, and the two have to be corrected
+   * together" - W1. What W1 could not say yet is what "there is room" means,
+   * because a media query cannot: below Wide it guessed, and gave every pane
+   * 12px of padding on the grounds that one wide column can afford it. Some of
+   * those panes are 489px and some are 651px.
+   *
+   * Now the pane answers for itself, and the answer no longer depends on the
+   * window at all - which is what makes "the same pane at the same container
+   * width renders identically at 1280 and at 2560" a checkable statement rather
+   * than an aspiration.
+   */
+  @container pane (width >= 32.5rem) {
+    .pane__content {
+      padding: var(--space-3);
+      gap: var(--space-3);
+      line-height: var(--leading-body);
     }
   }
 }

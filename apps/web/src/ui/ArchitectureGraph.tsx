@@ -44,6 +44,8 @@ import {
    layer — an unlayered import here outranks every layer in that file. */
 import { useCallback, useEffect, useMemo, useRef, type ReactElement } from 'react';
 
+import { useContainerWidth } from './use-container-width.js';
+
 import {
   ARCH_NODE_BY_ID,
   HAND_AUTHORED,
@@ -252,6 +254,14 @@ function ArchitectureGraphInner(props: ArchitectureGraphProps): ReactElement {
 
   const detail = selection.nodeId === null ? null : (ARCH_NODE_BY_ID.get(selection.nodeId) ?? null);
 
+  /*
+   * How wide is THIS canvas — not this window. See `ui/use-container-width.ts`
+   * for why the answer has to come from a `ResizeObserver` rather than from
+   * `@container`: what changes across these thresholds is which artifact is
+   * mounted, and CSS cannot decline to mount something.
+   */
+  const { ref: paneRef, widthPx: paneWidthPx, band } = useContainerWidth();
+
   return (
     <section className="panel arch-panel" data-testid="architecture-graph">
       <header className="panel-header">
@@ -275,7 +285,42 @@ function ArchitectureGraphInner(props: ArchitectureGraphProps): ReactElement {
         either; W4's three representations are the fix, and this attribute is
         what stops the type invariant from silently absorbing that debt.
       */}
-      <div className="arch-canvas" data-testid="arch-canvas" data-zoom-surface="architecture">
+      {/*
+        `data-2d-surface` and `data-pane-band` — Phase 4 W2.
+
+        The first is the pane contract's explicit opt-out: a pane owns exactly
+        one ordinary vertical scroller, and anything else that a reader
+        navigates in two dimensions has to say so by name. React Flow is a PAN
+        surface rather than a scroller, but it is the same exemption and the
+        harness lists it.
+
+        The second is the measurement W4 will branch on. `useContainerWidth()`
+        reports this canvas's own inline size, so `band` says whether this pane
+        has room for a causal path (< 520 px), a subsystem neighbourhood
+        (520-719) or the full 63-node map (>= 720) — and it says it about THIS
+        PANE, which is the whole reason it is not a media query: the same 1440px
+        window holds this canvas at 355 px in a docked column and at 607 px in
+        an overlay.
+
+        W4 mounts the three representations. What is decided here is the one
+        thing that is not a representation: React Flow's decorative dot grid is
+        not mounted in the narrow band. At the zoom `fitView` picks for 63 nodes
+        in a 355 px canvas the nodes are already 3-5 px of text, and an 18 px
+        dot lattice behind them competes with the artifact rather than framing
+        it. It is left OUT of the tree rather than hidden with CSS, because the
+        brief is explicit that mounting work you intend not to show is the
+        mistake that makes responsive React expensive and its semantics
+        duplicated.
+      */}
+      <div
+        className="arch-canvas"
+        data-testid="arch-canvas"
+        data-zoom-surface="architecture"
+        data-2d-surface="graph"
+        data-pane-band={band}
+        data-pane-width-px={paneWidthPx === null ? '' : String(paneWidthPx)}
+        ref={paneRef}
+      >
         <ReactFlow
           nodes={nodes}
           edges={edges}
@@ -291,7 +336,9 @@ function ArchitectureGraphInner(props: ArchitectureGraphProps): ReactElement {
           nodesConnectable={false}
           elementsSelectable
         >
-          <Background variant={BackgroundVariant.Dots} gap={18} size={1} color="#222a35" />
+          {band !== 'narrow' && (
+            <Background variant={BackgroundVariant.Dots} gap={18} size={1} color="#222a35" />
+          )}
           <FlowControls showInteractive={false} />
           <Reframe layoutKey={layoutKey} expanded={expanded} visibleIds={visibleIds} />
         </ReactFlow>

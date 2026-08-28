@@ -380,7 +380,14 @@ function LessonList(props: {
               <span className="lesson-card-title">{lesson.title}</span>
               <span className="lesson-card-badges">
                 {lesson.grounding === 'conceptual' && (
-                  <span className="badge is-conceptual" data-testid={`conceptual-${lesson.id}`} title={lesson.conceptualReason ?? ''}>
+                  <span
+                    className="badge is-conceptual"
+                    data-testid={`conceptual-${lesson.id}`}
+                    /* W2: the grounding as data, not as the word "conceptual"
+                       scraped off a badge. See ProvenanceTag for the pattern. */
+                    data-grounding="conceptual"
+                    title={lesson.conceptualReason ?? ''}
+                  >
                     conceptual
                   </span>
                 )}
@@ -433,7 +440,7 @@ function LessonHeader(props: {
       </div>
 
       {lesson.grounding === 'conceptual' && (
-        <div className="lesson-conceptual" data-testid="lesson-conceptual-badge">
+        <div className="lesson-conceptual" data-testid="lesson-conceptual-badge" data-grounding="conceptual">
           <b>CONCEPTUAL.</b> {lesson.conceptualReason}{' '}
           <span className="muted">
             Nothing in this module may be read as &ldquo;this is how Sesame actually works&rdquo;.
@@ -557,37 +564,53 @@ function StepBody(props: {
         </div>
       </div>
 
-      {/* Exactly one. The switch replaces; it never stacks. */}
-      <p className="lesson-explanation" data-testid="lesson-explanation" data-shown-level={level}>
-        {text ?? `This step has no ${level} copy yet — the module is an outline.`}
-      </p>
+      {/*
+        Two wrappers, one purpose — Phase 4 W2.
 
-      {step.goDeeper !== null && (
-        <details className="lesson-godeeper" data-testid="lesson-godeeper">
-          <summary>{step.goDeeper.title}</summary>
-          <p>{step.goDeeper.body}</p>
-          <Citations citations={step.goDeeper.citations} onSelectSymbol={wiring.selectSymbol} />
-        </details>
-      )}
+        The brief's container question for this pane is *"should Learn put the
+        explanation beside the control?"*, and the answer is yes once the pane
+        reaches 720 px, because a reader who has to scroll away from the
+        sentence to act on it has lost the sentence. These two divs are what a
+        `@container pane (width >= 45rem)` grid places; below that band they are
+        ordinary blocks and the DOM order — read, then act, then see whether it
+        worked — is unchanged, which is the point of doing it with a wrapper
+        rather than with `order`.
+      */}
+      <div className="lesson-step-read" data-pane-content-role="reading">
+        {/* Exactly one. The switch replaces; it never stacks. */}
+        <p className="lesson-explanation" data-testid="lesson-explanation" data-shown-level={level}>
+          {text ?? `This step has no ${level} copy yet — the module is an outline.`}
+        </p>
 
-      <Claim step={step} onSelectSymbol={wiring.selectSymbol} />
+        {step.goDeeper !== null && (
+          <details className="lesson-godeeper" data-testid="lesson-godeeper">
+            <summary>{step.goDeeper.title}</summary>
+            <p>{step.goDeeper.body}</p>
+            <Citations citations={step.goDeeper.citations} onSelectSymbol={wiring.selectSymbol} />
+          </details>
+        )}
 
-      <div className="lesson-control" data-testid="lesson-control" data-control={step.manipulate.control}>
-        <p className="lesson-affordance">{step.manipulate.affordance}</p>
-        <StepControl step={step} wiring={wiring} controls={controls} />
+        <Claim step={step} onSelectSymbol={wiring.selectSymbol} />
       </div>
 
-      <Expect step={step} />
+      <div className="lesson-step-act" data-pane-content-role="control">
+        <div className="lesson-control" data-testid="lesson-control" data-control={step.manipulate.control}>
+          <p className="lesson-affordance">{step.manipulate.affordance}</p>
+          <StepControl step={step} wiring={wiring} controls={controls} />
+        </div>
 
-      <CheckPanel
-        lesson={lesson}
-        success={step.success}
-        outcome={outcome}
-        record={record}
-        onSkip={onSkip}
-        onUnskip={onUnskip}
-        failureIsNormal={step.success.failureIsNormal}
-      />
+        <Expect step={step} />
+
+        <CheckPanel
+          lesson={lesson}
+          success={step.success}
+          outcome={outcome}
+          record={record}
+          onSkip={onSkip}
+          onUnskip={onUnskip}
+          failureIsNormal={step.success.failureIsNormal}
+        />
+      </div>
     </div>
   );
 }
@@ -605,7 +628,7 @@ function Claim(props: {
       <p className="lesson-claim-text">{claim.text}</p>
 
       {claim.conceptualReason !== null && (
-        <p className="lesson-claim-conceptual" data-testid="claim-conceptual-reason">
+        <p className="lesson-claim-conceptual" data-testid="claim-conceptual-reason" data-grounding="conceptual">
           <b>Conceptual:</b> {claim.conceptualReason}
         </p>
       )}
@@ -863,7 +886,10 @@ function OutlineBody(props: { readonly lesson: Lesson; readonly locked: boolean 
             <p className="note muted small">
               control <code>{step.manipulate.control}</code>
               {!isControlImplemented(step.manipulate.control) && (
-                <span className="badge is-notbuilt"> not built</span>
+                <span className="badge is-notbuilt" data-build-status="not-built">
+                  {' '}
+                  not built
+                </span>
               )}{' '}
               &middot; check <code>{String(step.success.check.type)}</code>
             </p>
@@ -888,7 +914,15 @@ function OutlineBody(props: { readonly lesson: Lesson; readonly locked: boolean 
 /** The refusal. Loud, named, and impossible to mistake for a rendered control. */
 function NotBuilt(props: { readonly kind: string }): ReactElement {
   return (
-    <div className="lesson-notbuilt" data-testid="lesson-control-notbuilt" data-control-kind={props.kind}>
+    <div
+      className="lesson-notbuilt"
+      data-testid="lesson-control-notbuilt"
+      data-control-kind={props.kind}
+      /* W2: "for unbuilt functionality, likewise make the state explicit" —
+         the brief. The visible NOT BUILT copy stays; this is what a test
+         asserts against so the copy can be improved without breaking it. */
+      data-build-status="not-built"
+    >
       <b>This control is not built yet: {props.kind}.</b>
       <p>{CONTROL_NOT_BUILT_REASON[props.kind] ?? 'Not implemented by the lesson runner.'}</p>
     </div>

@@ -138,6 +138,14 @@ export function OledPanel(props: OledPanelProps): ReactElement {
         height={OLED_HEIGHT * OLED_SCALE}
         className="oled-canvas"
         id="oled-canvas"
+        /*
+          The third declared two-dimensional surface — Phase 4 W2. It never
+          scrolls; it is marked because 128x64 logical pixels are a spatial
+          artifact whose zoom is a policy rather than a layout accident, and
+          W5 owns that policy. Marking it now means the scroll-ownership
+          invariant does not have to be taught about it later.
+        */
+        data-2d-surface="pixels"
         onMouseMove={onMove}
         onMouseLeave={() => setHover(null)}
       />

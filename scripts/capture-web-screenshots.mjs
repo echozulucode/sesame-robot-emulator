@@ -489,6 +489,124 @@ const CASCADE_LAYERS = 'reset, tokens, base, shell, components, panes, utilities
   );
 }
 
+// ===========================================================================
+// THE CONTAINER/VIEWPORT SPLIT, CHECKED IN THE STYLESHEET — Phase 4 W2
+// ===========================================================================
+//
+// Static, and beside the type scale, for the same reason: a browser run can
+// only prove things about the panes it happened to open at the widths it
+// happened to visit. What this block proves is about the FILE.
+//
+// The brief's split is a table of questions, and the failure mode it guards
+// against is a pane rule drifting back into a viewport query — where it cannot
+// be right, because the same 1440 px window holds a 399 px pane in a docked
+// column, a 649 px pane in an overlay, and (from W3) a 494 px pane in a
+// workbench. Three widths, one media query, at most one of them correct.
+const PANE_CONTAINER_THRESHOLDS_REM = [32.5, 45];
+
+{
+  const cssPath = path.join(REPO, 'apps/web/src/styles.css');
+  const css = fs.readFileSync(cssPath, 'utf8');
+
+  check(
+    /\.pane\s*\{[^}]*container:\s*pane\s*\/\s*inline-size/.test(css),
+    'apps/web/src/styles.css does not give `.pane` `container: pane / inline-size`. Without the ' +
+      'containment context every `@container pane` rule in the file is inert, and inert CSS fails ' +
+      'silently — which is exactly how a responsive rule stops being applied without anyone noticing.',
+  );
+
+  // Every container query in the file, with the line it is on.
+  const containerQueries = [];
+  css.split(/\r?\n/).forEach((line, i) => {
+    const m = /@container\s+([^{]+)\{/.exec(line);
+    if (m !== null) containerQueries.push({ line: i + 1, condition: m[1].trim() });
+  });
+  check(
+    containerQueries.length > 0,
+    'apps/web/src/styles.css has no `@container` rules at all. W2 exists to put pane internals on ' +
+      'container queries; a file with none has not done it.',
+  );
+
+  // Every one of them queries the NAMED pane container. An unnamed
+  // `@container (width < …)` resolves against the nearest ancestor container of
+  // any kind, which today is the pane and tomorrow is whatever W3 or W4 adds.
+  const unnamed = containerQueries.filter((q) => !q.condition.startsWith('pane '));
+  check(
+    unnamed.length === 0,
+    `apps/web/src/styles.css has ${unnamed.length} container query that does not name the \`pane\` ` +
+      `container: ${unnamed.map((q) => `line ${q.line}: @container ${q.condition}`).join(', ')}. ` +
+      `An unnamed query binds to the nearest containment context of any kind, which is a different ` +
+      `rule the moment somebody adds a second container.`,
+  );
+
+  // The thresholds are the brief's, and there are only two of them. A third
+  // number appearing here is a per-pane breakpoint, which is how a "responsive
+  // system" becomes forty unrelated numbers.
+  const thresholds = [
+    ...new Set(
+      containerQueries.flatMap((q) => [...q.condition.matchAll(/([0-9.]+)rem/g)].map((m) => Number(m[1]))),
+    ),
+  ].sort((a, b) => a - b);
+  check(
+    JSON.stringify(thresholds) === JSON.stringify(PANE_CONTAINER_THRESHOLDS_REM),
+    `the container queries use thresholds ${JSON.stringify(thresholds)}rem; the brief's pane bands ` +
+      `are ${JSON.stringify(PANE_CONTAINER_THRESHOLDS_REM)}rem (520 px and 720 px). Every extra ` +
+      `number is a breakpoint somebody chose for one pane and nobody can check.`,
+  );
+
+  // The same rule the type scale enforces for `@media`, for the mechanism that
+  // replaced it. W1 removed every font-size from every media query on the
+  // grounds that "no compact mode as a default" is a product rule rather than a
+  // preference; a container query that shrinks type is the same mistake with a
+  // better excuse, because it would be genuinely responsive and still wrong.
+  const containerFontSizes = [];
+  {
+    let depth = 0;
+    let inContainer = -1;
+    css.split(/\r?\n/).forEach((line, i) => {
+      if (/^\s*@container/.test(line) && inContainer < 0) inContainer = depth;
+      for (const ch of line) {
+        if (ch === '{') depth += 1;
+        if (ch === '}') {
+          depth -= 1;
+          if (inContainer >= 0 && depth <= inContainer) inContainer = -1;
+        }
+      }
+      if (inContainer >= 0 && /font-size:/.test(line)) containerFontSizes.push(i + 1);
+    });
+  }
+  check(
+    containerFontSizes.length === 0,
+    `apps/web/src/styles.css sets a font-size inside an @container block at line(s) ` +
+      `${containerFontSizes.join(', ')}. Responsive behaviour changes arrangement, column count, ` +
+      `representation and disclosure — not how big the text is, and that holds for the pane's own ` +
+      `width exactly as it holds for the window's.`,
+  );
+
+  phases.containerQueries = {
+    ok: problems.length === 0,
+    source:
+      'docs/research/Sesame Lab_ responsive UI_UX research brief.md, ' +
+      '"Container queries should become the pane-level responsive mechanism"',
+    contract: '<section class="pane" data-pane> · .pane__header h2 · .pane__content{min-inline-size:0}',
+    container: 'container: pane / inline-size',
+    thresholdsRem: PANE_CONTAINER_THRESHOLDS_REM,
+    queries: containerQueries.length,
+    unnamedQueries: unnamed.length,
+    fontSizesInsideContainerQueries: containerFontSizes.length,
+    split: {
+      viewport: 'rail vs bottom nav, docks overlay vs in flow, dock widths, the stage margin',
+      shellState: "data-sections — whether one pane owns the dock's height or several share it",
+      container: "Signal's row, Inspector's table vs records, Learn's measure and its control column",
+      react: "the artifact itself — useContainerWidth() + paneWidthBand(), W4's three graphs",
+    },
+  };
+  console.log(
+    `[web] container queries: ${containerQueries.length} rules, all naming \`pane\`, thresholds ` +
+      `${PANE_CONTAINER_THRESHOLDS_REM.join('/')}rem, ${containerFontSizes.length} font-sizes inside them`,
+  );
+}
+
 async function launchBrowser(url, window = DEFAULT_WINDOW) {
   const cdpPort = await freePort();
   const profile = fs.mkdtempSync(path.join(os.tmpdir(), 'sesame-web-'));
@@ -2126,11 +2244,12 @@ await waitFor(
 
   // The three registers live below the fold in a 380 px strip; scroll the
   // context column so the screenshot shows what the assertions just checked.
+  // W2: `.source-context` no longer owns a scroller of its own — the pane does —
+  // so this frames the shot by scrolling whichever box actually scrolls.
   await page.evaluate(`(() => {
-    const context = document.querySelector('.source-context');
     const note = document.querySelector('[data-teaching-note="TN-007"]');
-    if (!context || !note) return false;
-    context.scrollTop += note.getBoundingClientRect().top - context.getBoundingClientRect().top - 8;
+    if (!note) return false;
+    note.scrollIntoView({ block: 'center' });
     return true;
   })()`);
   await sleep(350);
@@ -5926,6 +6045,338 @@ if (SKIP_QEMU) {
         `${worst.authoredPx}px and the reader can zoom; the map not fitting the pane is W4's ` +
         `three-representation split, not a type-size problem, and W1 deliberately did not disguise ` +
         `it by shrinking anything else.`,
+    );
+  }
+
+  // ======================================================================
+  // CONTAINER, NOT VIEWPORT — Phase 4 W2
+  // ======================================================================
+  //
+  // The brief asks for the two axes to be tested INDEPENDENTLY, and that is not
+  // a stylistic preference — it is the only way to catch the failure this
+  // workstream exists to remove. A pane whose internals are decided by
+  // `@media (max-width: 1440px)` renders one way in a 1440 px window and
+  // another in a 1441 px window **at the same pane width**, which is the
+  // definition of viewport logic leaking into a pane.
+  //
+  // So each pane is driven to explicit container widths — the brief's own list,
+  // with the values immediately either side of both boundaries, because
+  // "519/520 matters more than 480/768" — and the same sweep is run in a 1280 px
+  // window and a 2560 px one. Two claims come out of it:
+  //
+  //   1. the representation changes AT the documented thresholds, measured
+  //      against the container's own content box, which is what `@container`
+  //      evaluates;
+  //   2. the two windows produce IDENTICAL readings at every width. If they did
+  //      not, something in a pane would still be asking the wrong question.
+  //
+  // The width is set on the pane element directly rather than by resizing a
+  // dock, because a dock cannot reach 960 px and the point is to test the
+  // mechanism rather than today's geometry. The widths a reader can actually
+  // produce are covered by the dock-resize sweep earlier in this phase, which
+  // drives `setDockWidth` to 320 and 560 and re-checks ISSUE-20260823-023's
+  // world frame across each one.
+  {
+    // The brief's component-harness widths. 519/522 and 719/722 straddle the
+    // two thresholds: the pane carries a 1 px border on each side, so a 522 px
+    // box is a 520 px container.
+    const CONTAINER_WIDTHS = [320, 360, 480, 519, 522, 719, 722, 960, 1200];
+    const NARROW_PX = 520;
+    const WIDE_PX = 720;
+    const MEASURE_MIN_CH = 45;
+    const MEASURE_MAX_CH = 75;
+
+    /**
+     * Drive one pane through every width and read what changed.
+     *
+     * Everything measured here is a COMPUTED style or a rendered box. Nothing
+     * is read out of the stylesheet, and nothing is inferred from the window,
+     * which is the whole point: the two runs must be able to disagree.
+     */
+    const sweepPane = (evaluate, paneId) =>
+      evaluate(`(async () => {
+        const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+        const id = ${JSON.stringify(paneId)};
+        window.__sesame.setSection(id, true);
+        await sleep(500);
+        if (id === 'learn') {
+          document.querySelector('[data-testid="lesson-card-meet-sesame"]')?.click();
+          await sleep(600);
+        }
+        const pane = document.querySelector('[data-pane="' + id + '"]');
+        if (pane === null) return null;
+
+        // One character of THIS element's font, measured rather than assumed:
+        // \`ch\` is the advance of "0" and depends on the family the reader's
+        // system resolved, not on the px size alone.
+        const chOf = (el) => {
+          const cs = getComputedStyle(el);
+          const probe = document.createElement('span');
+          probe.style.cssText = 'position:absolute;visibility:hidden;white-space:pre;left:-9999px';
+          probe.style.fontFamily = cs.fontFamily;
+          probe.style.fontSize = cs.fontSize;
+          probe.style.fontWeight = cs.fontWeight;
+          probe.textContent = '0'.repeat(100);
+          document.body.appendChild(probe);
+          const w = probe.getBoundingClientRect().width / 100;
+          probe.remove();
+          return w;
+        };
+        const FORM = new Set(['TEXTAREA', 'INPUT', 'SELECT']);
+        const describe = (el) => {
+          const testid = el.getAttribute('data-testid');
+          const name = testid !== null ? '[' + testid + ']'
+            : '.' + ((el.getAttribute('class') || '').split(/\\s+/)[0] || el.tagName.toLowerCase());
+          return name + (el.hasAttribute('data-2d-surface') ? '(2d)' : '');
+        };
+        const isScroller = (el) => {
+          if (FORM.has(el.tagName)) return false;
+          if (el.scrollHeight <= el.clientHeight + 1) return false;
+          const o = getComputedStyle(el).overflowY;
+          return o === 'auto' || o === 'scroll';
+        };
+
+        const readings = {};
+        for (const w of ${JSON.stringify(CONTAINER_WIDTHS)}) {
+          pane.style.width = w + 'px';
+          await sleep(180);
+          // The container's own content box. \`clientWidth\` excludes the border,
+          // which is exactly what a container query measures.
+          const containerPx = pane.clientWidth;
+          // Two buckets on purpose. \`representation\` is what the pane DECIDED -
+          // discrete, and required to be identical at a given container width in
+          // every window. \`measured\` is what came out of it in pixels and
+          // characters, which may legitimately differ between windows because the
+          // type scale is fluid ABOVE 1440 (W1: floored downward, fluid upward),
+          // so one character of 17px prose at 1280 is 9.16px and one character of
+          // 18px prose at 2560 is 9.69. The measure in \`ch\` therefore differs
+          // while the box does not, and asserting otherwise would assert that a
+          // bigger screen may not use its width.
+          const signature = {};
+          const measured = {};
+
+          const kv = pane.querySelector('dl.kv');
+          if (kv !== null) {
+            signature.kvTracks = getComputedStyle(kv).gridTemplateColumns.split(/\\s+/).length;
+          }
+          const table = pane.querySelector('table.joints');
+          if (table !== null) {
+            signature.jointsDisplay = getComputedStyle(table).display;
+            const label = table.querySelector('tbody td .cell-label');
+            signature.jointLabelDisplay = label === null ? null : getComputedStyle(label).display;
+            const head = table.querySelector('thead');
+            signature.jointHeadDisplay = head === null ? null : getComputedStyle(head).display;
+          }
+          const row = pane.querySelector('.trace-row');
+          if (row !== null) {
+            signature.traceRowDisplay = getComputedStyle(row).display;
+            const head = row.querySelector('.trace-row-head');
+            signature.traceHeadWrap = head === null ? null : getComputedStyle(head).flexWrap;
+          }
+          const step = pane.querySelector('.lesson-step');
+          if (step !== null) signature.lessonStepDisplay = getComputedStyle(step).display;
+          const prose = pane.querySelector('.lesson-explanation');
+          if (prose !== null) {
+            const ch = chOf(prose);
+            measured.proseCh = Math.round((prose.getBoundingClientRect().width / ch) * 10) / 10;
+            measured.proseChPx = Math.round(ch * 100) / 100;
+          }
+          const canvas = pane.querySelector('.arch-canvas');
+          if (canvas !== null) {
+            signature.archBand = canvas.getAttribute('data-pane-band');
+            signature.archCanvasPx = canvas.clientWidth;
+            signature.archBackgroundMounted = pane.querySelectorAll('.react-flow__background').length;
+          }
+
+          readings[w] = {
+            containerPx,
+            signature,
+            measured,
+            scrollers: [pane, ...pane.querySelectorAll('*')].filter(isScroller).map(describe),
+          };
+        }
+        pane.style.width = '';
+        await sleep(200);
+        return readings;
+      })()`);
+
+    const PANES = ['inspector', 'signal', 'learn', 'modules'];
+    const sweeps = {};
+    for (const window12 of [
+      { label: '1280x800', width: 1280, height: 800 },
+      { label: '2560x1440', width: 2560, height: 1440 },
+    ]) {
+      const cqPage = await bootPage({ width: window12.width, height: window12.height });
+      try {
+        // A trace has to exist before Signal has rows to lay out.
+        await cqPage.evaluate('window.__sesame.run("wave")');
+        await sleep(2600);
+        sweeps[window12.label] = {};
+        for (const paneId of PANES) {
+          sweeps[window12.label][paneId] = await sweepPane(cqPage.evaluate, paneId);
+        }
+      } finally {
+        cqPage.close();
+        await sleep(400);
+      }
+    }
+
+    // ------------------------------------------------ 1. the thresholds hold
+    const proseNotes = [];
+    for (const [label, byPane] of Object.entries(sweeps)) {
+      for (const [paneId, readings] of Object.entries(byPane)) {
+        if (readings === null) {
+          problems.push(`the ${paneId} pane was not on the page at ${label}`);
+          continue;
+        }
+        for (const [asked, reading] of Object.entries(readings)) {
+          const px = reading.containerPx;
+          const where = `${paneId} at a ${px} px container (asked for ${asked}) in a ${label} window`;
+          const narrow = px < NARROW_PX;
+          const wide = px >= WIDE_PX;
+          const s = reading.signature;
+
+          if (s.jointsDisplay !== undefined) {
+            check(
+              s.jointsDisplay === (narrow ? 'block' : 'table'),
+              `${where}: the joint inspector renders as "${s.jointsDisplay}". Below ${NARROW_PX} px ` +
+                `of pane it is stacked records and above it is a table — seven columns, two of them ` +
+                `correctness surfaces, do not fit in 35 px each.`,
+            );
+            check(
+              s.jointLabelDisplay === (narrow ? 'block' : 'none') &&
+                s.jointHeadDisplay === (narrow ? 'none' : 'table-header-group'),
+              `${where}: the joint cells' labels and the table head are ` +
+                `${JSON.stringify([s.jointLabelDisplay, s.jointHeadDisplay])}. Exactly one of the two ` +
+                `carries the column names in each band; both or neither is an accessibility defect.`,
+            );
+          }
+          if (s.traceRowDisplay !== undefined) {
+            check(
+              s.traceRowDisplay === (wide ? 'grid' : 'list-item'),
+              `${where}: a Signal row renders as "${s.traceRowDisplay}"; at ${WIDE_PX} px and above ` +
+                `it is the two-column row (what happened | who says so)`,
+            );
+            check(
+              s.traceHeadWrap === (narrow ? 'wrap' : 'nowrap'),
+              `${where}: the trace row head wraps "${s.traceHeadWrap}". The column alignment W1 had ` +
+                `to give up at 14/16/14 px comes back when the pane can pay for it, and not before.`,
+            );
+          }
+          if (s.lessonStepDisplay !== undefined) {
+            check(
+              s.lessonStepDisplay === (wide ? 'grid' : 'block'),
+              `${where}: the lesson step renders as "${s.lessonStepDisplay}"; at ${WIDE_PX} px and ` +
+                `above the control sits beside the prose it acts on`,
+            );
+          }
+          if (s.archBand !== undefined) {
+            // The React band is measured on the CANVAS, which is the artifact's
+            // own box and therefore narrower than the pane by the pane's
+            // padding. That is deliberate and conservative in the safe
+            // direction — a scoped representation in a box 40 px too small is a
+            // better failure than the full map in one.
+            const expected = s.archCanvasPx < NARROW_PX ? 'narrow' : s.archCanvasPx < WIDE_PX ? 'medium' : 'wide';
+            check(
+              s.archBand === expected,
+              `${where}: the architecture pane publishes band "${s.archBand}" for a ` +
+                `${s.archCanvasPx} px canvas; paneWidthBand() says "${expected}". W4 branches on this.`,
+            );
+            check(
+              s.archBackgroundMounted === (s.archBand === 'narrow' ? 0 : 1),
+              `${where}: React Flow's dot grid is mounted ${s.archBackgroundMounted} time(s) in the ` +
+                `"${s.archBand}" band. It is left OUT of the tree at narrow widths rather than hidden ` +
+                `with CSS — mounting work you intend not to show is what the brief says not to do.`,
+            );
+          }
+          const m = reading.measured;
+          if (m.proseCh !== undefined) {
+            // 45ch is a geometric claim about the box, so it is checked as one.
+            // Where the pane cannot hold it, that is recorded with the number
+            // rather than passed over: W1 measured 25ch and handed it here.
+            const canHold = px >= MEASURE_MIN_CH * m.proseChPx;
+            if (canHold) {
+              check(
+                m.proseCh >= MEASURE_MIN_CH && m.proseCh <= MEASURE_MAX_CH,
+                `${where}: lesson prose measures ${m.proseCh}ch. The brief's band is ` +
+                  `${MEASURE_MIN_CH}-${MEASURE_MAX_CH}ch, target ~64, and this container is wide ` +
+                  `enough to hold it (${MEASURE_MIN_CH}ch needs ${Math.ceil(MEASURE_MIN_CH * m.proseChPx)} px).`,
+              );
+            } else if (label === '2560x1440') {
+              proseNotes.push(
+                `${px} px of pane holds ${m.proseCh}ch; ${MEASURE_MIN_CH}ch needs ` +
+                  `${Math.ceil(MEASURE_MIN_CH * m.proseChPx)} px`,
+              );
+            }
+          }
+
+          const ordinary = reading.scrollers.filter((name) => !name.endsWith('(2d)'));
+          check(
+            ordinary.length <= 1,
+            `${where}: ${ordinary.length} ordinary vertical scrollers — ${JSON.stringify(ordinary)}. ` +
+              `A pane owns at most one, and anything else that scrolls has to declare itself with ` +
+              `data-2d-surface.`,
+          );
+        }
+      }
+    }
+    if (proseNotes.length > 0) {
+      notes.push(
+        `lesson prose cannot reach ${MEASURE_MIN_CH}ch at every container width the shell can ` +
+          `produce: ${proseNotes.join('; ')}. The two in-flow docks at Wide are the regime this ` +
+          `happens in, and §3 of the plan retires it — W3's 540 px workbench gives the pane ~494 px, ` +
+          `which is about 53ch.`,
+      );
+    }
+
+    // -------------------------------------- 2. the same container, two windows
+    //
+    // The claim the whole workstream rests on, stated as a diff: at the same
+    // container width, a pane's container-driven internals are byte-identical
+    // in a 1280 px window and a 2560 px one.
+    let divergences = 0;
+    for (const paneId of PANES) {
+      const small = sweeps['1280x800'][paneId];
+      const large = sweeps['2560x1440'][paneId];
+      if (small === null || large === null) continue;
+      for (const asked of Object.keys(small)) {
+        const a = small[asked];
+        const b = large[asked];
+        if (b === undefined) continue;
+        if (a.containerPx !== b.containerPx) {
+          divergences += 1;
+          problems.push(
+            `the ${paneId} pane asked for ${asked} px is ${a.containerPx} px in a 1280 window and ` +
+              `${b.containerPx} px in a 2560 one`,
+          );
+          continue;
+        }
+        if (JSON.stringify(a.signature) !== JSON.stringify(b.signature)) {
+          divergences += 1;
+          problems.push(
+            `the ${paneId} pane renders DIFFERENTLY at the same ${a.containerPx} px container width ` +
+              `in a 1280 window and a 2560 one:\n  1280: ${JSON.stringify(a.signature)}\n  2560: ` +
+              `${JSON.stringify(b.signature)}\nViewport logic is still leaking into this pane's ` +
+              `internals; that is the defect W2 exists to remove.`,
+          );
+        }
+      }
+    }
+
+    phases.paneContainers = {
+      ok: divergences === 0,
+      containerWidthsPx: CONTAINER_WIDTHS,
+      thresholdsPx: { narrow: NARROW_PX, wide: WIDE_PX },
+      panes: PANES,
+      windows: Object.keys(sweeps),
+      divergences,
+      measureBandCh: [MEASURE_MIN_CH, MEASURE_MAX_CH],
+      measureShortfalls: proseNotes,
+      readings: sweeps['2560x1440'],
+    };
+    console.log(
+      `[web] container sweep: ${PANES.length} panes x ${CONTAINER_WIDTHS.length} widths x 2 windows, ` +
+        `${divergences} viewport-dependent difference(s)`,
     );
   }
 

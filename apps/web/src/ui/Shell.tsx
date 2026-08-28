@@ -46,18 +46,30 @@
  * still belongs to `LabMode` and is unchanged by whether its dock section is
  * expanded — or by which dock now draws it.
  *
- * ## One scroller between the dock frame and the content
+ * ## The pane contract, and one scroller — Phase 4 W2
  *
  * A reader on a laptop reported "everything is too small and too many
  * scrollbars", and the dock nested three deep: `.dock-body`, then
- * `.dock-section-body`, then a pane's own `overflow-y: auto`. The rule now is
- * that the OPEN section's body is the single scroller; `.dock-body` does not
- * scroll while a section is open, and the panes size to content. `.source-code`
- * is the one honest exception — 429 lines of C++ genuinely needs its own
- * viewport, and L4's "selecting a joint scrolled the code to its first line"
- * assertion is measured against exactly that viewport. `capture-web-
- * screenshots.mjs` counts the nested scrollable ancestors at Medium and
- * requires no more than two.
+ * `.dock-section-body`, then a pane's own `overflow-y: auto`. U6 fixed that
+ * below Wide by hand, inside a media query, and W2 makes it structural:
+ *
+ *  - every section is a PANE — `<section class="pane" data-pane=ID
+ *    aria-labelledby>` with `.pane__header` and `.pane__content` — and the pane
+ *    carries `container: pane / inline-size`, so everything inside it responds
+ *    to ITS width rather than the window's;
+ *  - a pane owns at most ONE ordinary vertical scroller. Anything else that
+ *    scrolls has to declare itself with `data-2d-surface`, and there are three:
+ *    `code` (429 lines of C++, and the box L4's "selecting a joint scrolled the
+ *    code to its first line" assertion is measured against), `graph` (React
+ *    Flow's pan surface) and `pixels` (the 128x64 OLED);
+ *  - `data-sections` on `.docks` says which of the two height regimes is in
+ *    force — `one` pane owning the dock, or `many` sharing it. That is the same
+ *    `isSingleOpen()` the accordion obeys, published to CSS so a pane rule can
+ *    respond to the regime instead of to `@media (max-width: 1440px)`. W3
+ *    changes what sets it; nothing that reads it has to change.
+ *
+ * `capture-web-screenshots.mjs` drives each pane to nine explicit container
+ * widths in two different windows and requires the readings to be identical.
  */
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactElement, type ReactNode } from 'react';
 
@@ -364,7 +376,28 @@ export function Docks(props: DocksProps): ReactElement {
         />
       )}
 
-      <div className="docks" data-testid="docks" data-overlay={String(shell.dockOverlays)}>
+      {/*
+        `data-sections` is the STRUCTURAL form of what used to be a viewport
+        media query — Phase 4 W2.
+
+        `one` means one pane owns the dock's height: it renders at its natural
+        height, the dock body is the single scroller, and the panes inside it do
+        not bound themselves. `many` means several open sections share the dock
+        column, each bounded, which is what keeps the architecture graph and the
+        Signal trace on screen together at Wide.
+
+        It is the same condition `isSingleOpen()` already governs the accordion
+        with, published to CSS so that PANE rules can respond to the regime they
+        are actually in rather than to `@media (max-width: 1440px)`, which is a
+        statement about the window and not about this pane. W3 changes what sets
+        it; nothing downstream of it has to change with it.
+      */}
+      <div
+        className="docks"
+        data-testid="docks"
+        data-overlay={String(shell.dockOverlays)}
+        data-sections={isSingleOpen(shell.breakpoint) ? 'one' : 'many'}
+      >
         {DOCK_IDS.map((dock) => (
           <Dock
             key={dock}
@@ -461,18 +494,42 @@ export function Dock(props: DockProps): ReactElement {
         ))}
       </div>
 
-      <div className="dock-body" data-testid={`dock-body-${dock}`} data-any-open={String(anyOpen)}>
+      {/*
+        The workbench scroller. `data-scroll-owner` is a contract, not a hint:
+        the harness asserts that every OTHER vertical scroller inside a pane
+        either carries `data-2d-surface` or does not exist.
+      */}
+      <div
+        className="dock-body"
+        data-testid={`dock-body-${dock}`}
+        data-any-open={String(anyOpen)}
+        data-scroll-owner="workbench"
+      >
         {sections.map((section) => {
           const sectionOpen = shell.isOpen(section.id);
           return (
+            /*
+              THE PANE STRUCTURAL CONTRACT — Phase 4 W2.
+
+              `section.pane[data-pane]` > `.pane__header h2` > `.pane__content`,
+              labelled by its own title, and `container: pane / inline-size` so
+              everything inside it can ask how wide IT is rather than how wide
+              the window is. The dock-era class names are kept alongside the
+              contract ones on purpose: renaming 3,000 lines of selectors in the
+              same change that introduces container queries is exactly the
+              "visual regressions become unattributable" failure the brief warns
+              about.
+            */
             <section
               key={section.id}
-              className={`dock-section${sectionOpen ? ' is-open' : ''}`}
+              className={`pane dock-section${sectionOpen ? ' is-open' : ''}`}
+              data-pane={section.id}
               data-dock-section={section.id}
               data-dock={dock}
               data-open={String(sectionOpen)}
+              aria-labelledby={`pane-${section.id}-title`}
             >
-              <h2 className="dock-section-header">
+              <h2 className="pane__header dock-section-header" data-pane-chrome="header">
                 <button
                   type="button"
                   className="dock-section-toggle"
@@ -483,7 +540,9 @@ export function Dock(props: DockProps): ReactElement {
                   <span className="dock-caret" aria-hidden="true">
                     {sectionOpen ? '▾' : '▸'}
                   </span>
-                  <span className="dock-section-label">{section.label}</span>
+                  <span className="dock-section-label" id={`pane-${section.id}-title`}>
+                    {section.label}
+                  </span>
                   {/*
                     §5.1. Shown only while the section is collapsed: an open
                     section shows the real thing, and a badge beside it would
@@ -506,7 +565,12 @@ export function Dock(props: DockProps): ReactElement {
                 separate harness invariants depend on these panes staying
                 mounted and live while they are shut.
               */}
-              <div className="dock-section-body" hidden={!sectionOpen}>
+              <div
+                className="pane__content dock-section-body"
+                data-pane-content={section.id}
+                data-scroll-owner="pane"
+                hidden={!sectionOpen}
+              >
                 {section.body}
               </div>
             </section>

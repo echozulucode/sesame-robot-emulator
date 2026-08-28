@@ -48,7 +48,23 @@ export const PROVENANCE_MEANING: Readonly<Record<Provenance, string>> = {
 
 export function ProvenanceTag({ value, size }: { readonly value: Provenance; readonly size?: 'lg' }): ReactElement {
   return (
-    <span className={`prov prov-${value}${size === 'lg' ? ' prov-lg' : ''}`} title={PROVENANCE_MEANING[value]}>
+    <span
+      className={`prov prov-${value}${size === 'lg' ? ' prov-lg' : ''}`}
+      /*
+        `data-provenance` on the MARK itself - Phase 4 W2.
+
+        It was already on three wrappers (the rail chip, the status line, a
+        trace row) and on none of the badges those wrappers contain, so a test
+        that wanted to know what a particular badge claims had to read its text.
+        Scraping rendered text is how a correctness assertion quietly becomes a
+        typography assertion; the brief's rule is that correctness surfaces
+        carry their semantics as data. The class name is not that: it is a
+        styling hook that a refactor may rename, and W6's invariants must not
+        be the thing that breaks when it does.
+      */
+      data-provenance={value}
+      title={PROVENANCE_MEANING[value]}
+    >
       {value}
     </span>
   );
@@ -105,6 +121,19 @@ export function OriginTag({
       className={`prov origin origin-${kind}${size === 'lg' ? ' prov-lg' : ''}`}
       title={compact === true ? `${describeOrigin(origin ?? undefined)} — ${ORIGIN_MEANING[kind]}` : ORIGIN_MEANING[kind]}
       data-origin-kind={kind}
+      /*
+        The second axis, as data - Phase 4 W2.
+
+        The brief's sharpest correctness point is that `observed` alone is
+        insufficient because a novice reads it as observed ON HARDWARE, and the
+        predicate that settles it is `isPhysicallyObserved()`, not a string
+        comparison. `data-origin-physical` is that predicate's answer for this
+        badge, published so an invariant can assert "no rendered origin is ever
+        physical" against the model rather than against the words. It is `false`
+        on every origin this project can produce, permanently, and that is a
+        property rather than a gap.
+      */
+      data-origin-physical={String(kind === 'physical-robot')}
     >
       {compact === true ? describeOriginKind(kind) : describeOrigin(origin ?? undefined)}
     </span>
