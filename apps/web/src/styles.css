@@ -1273,6 +1273,139 @@
       display: none;
     }
   }
+
+  /* ================================================ THE FOCUS WORKSPACE
+   *
+   * Phase 4 W4, and the brief's own qualification of "the robot must dominate":
+   *
+   * > *"This is the one place where I would interpret 'robot must remain
+   * > dominant' as product identity and persistent causal feedback, not
+   * > literally 'the robot must own more pixels than every task surface at
+   * > every instant.' Enforcing literal pixel dominance while reading 429 lines
+   * > of C++ or navigating 63 nodes would make those tools unusable."*
+   *
+   * An EXPLICIT ACTION, never a width: `data-focus-pane` is set by a button in
+   * the pane it is for, `data-stage-rule` next to it says which of the two
+   * stage rules is in force, and the arrangement ends when that pane leaves the
+   * screen. Three properties make it the narrow exception it is meant to be:
+   *
+   *  1. **The stage is still there and still live.** It keeps a floor of its
+   *     own - `--focus-stage-w` - and the WebGL canvas is never unmounted, so
+   *     the causal feedback the brief is protecting keeps arriving. What it
+   *     stops being is the majority of the pixels.
+   *  2. **Nothing is hidden, only narrowed.** The control dock keeps its 44 px
+   *     strip at Wide, so U6's promise that every pane is one click away holds
+   *     inside the workspace too.
+   *  3. **The graph does NOT get a fourth mode.** The workspace changes the
+   *     pane's WIDTH; `archModeForWidth()` then chooses `full` because 960 px
+   *     is really there. A workspace on a 1280 px window gives the subsystem
+   *     graph, and says so, rather than claiming a map that would not fit.
+   */
+  .shell[data-focus-pane='modules'] {
+    /* 240 px is a live reference, not a thumbnail: the GLB still reads as a
+       robot at that width, and it is what leaves ~1,000 px of pane at 1440. */
+    --focus-stage-w: clamp(240px, 18vw, 340px);
+  }
+
+  .shell[data-focus-pane='modules'] .stage {
+    flex: 0 0 var(--focus-stage-w);
+    min-width: var(--focus-stage-w);
+  }
+
+  /* The 480 px canvas floor is W3's ORDINARY-layout floor and this is the one
+     arrangement it does not describe. The focus floor replaces it rather than
+     removing it, and the harness asserts the replacement by name. */
+  .shell[data-focus-pane='modules'] .viewport {
+    min-width: 0;
+  }
+
+  .shell[data-focus-pane='modules'] .docks {
+    flex: 1 1 auto;
+    min-width: 0;
+  }
+
+  .shell[data-focus-pane='modules'] .workbench[data-open='true'] {
+    flex: 1 1 auto;
+    width: auto;
+  }
+
+  /* At Wide the two docks stay, and the one holding the focused pane takes the
+     width the stage gave up. The other keeps its strip - see (2) above. */
+  .shell[data-focus-pane='modules'] .dock[data-dock='analysis'] {
+    flex: 1 1 auto;
+    width: auto;
+  }
+
+  .shell[data-focus-pane='modules'] .dock[data-dock='control'] {
+    flex: 0 0 44px;
+    width: 44px;
+  }
+
+  .shell[data-focus-pane='modules'] .dock[data-dock='control'] .dock-body,
+  .shell[data-focus-pane='modules'] .dock-resizer {
+    display: none;
+  }
+
+  /*
+   * Height, not only width — and this is the half that decides whether the
+   * workspace is worth opening.
+   *
+   * At Wide the analysis dock holds three open sections at `flex: 1 1 0`, so
+   * the graph gets a third of the column and `fitView` fits the SHORT side:
+   * measured at 1760x1000, the collapsed map landed at zoom 0.40 and its 14 px
+   * edge labels at 5.7 px on screen. Widening the pane to 1,201 px without
+   * giving it height would have moved that number barely at all, which would
+   * have made the whole workspace a decoration.
+   *
+   * The focused section takes four shares instead of one, the graph's canvas
+   * takes 62vh instead of 52, and the other sections keep their `min-height` -
+   * so the Signal trace is still on screen beside the graph at Wide, which is
+   * V8's requirement and the thing this workspace exists to make usable rather
+   * than to replace.
+   */
+  .shell[data-focus-pane='modules'] .dock-section[data-dock-section='modules'].is-open {
+    flex: 4 1 0;
+    /*
+     * `flex` alone was not enough and the screenshot said so.
+     *
+     * At Wide the analysis dock holds three open sections whose combined
+     * `min-height: 220px` already exceeds the column, so there is no free space
+     * for a flex ratio to divide: four shares of nothing is nothing, and the
+     * graph stayed 180 px tall inside a workspace that had just given it 1,200
+     * px of width. The floor is what actually reserves the height; the ratio is
+     * what spends any surplus. The other sections keep theirs, so the Signal
+     * trace is still there under the graph rather than hidden.
+     */
+    min-height: 74vh;
+  }
+
+
+  /* At Compact the workbench is a sheet over the stage, so there is no width to
+     take from anything; the sheet widens to what the viewport allows and the
+     representation is chosen from the result like everywhere else. */
+  @media (max-width: 1199px) {
+    /* `92vw`, not `min(92vw, 100%)`: at Compact `.docks` is absolutely
+       positioned and shrink-to-fit, so a percentage here resolves against a
+       box whose width depends on this one and the sheet collapsed to 307 px -
+       narrower than it is with the workspace SHUT, which is the opposite of
+       what the action claims to do. Measured, not reasoned about. */
+    .shell[data-focus-pane='modules'] .workbench[data-open='true'] {
+      flex: 0 1 auto;
+      width: 92vw;
+    }
+
+    /* The stage gives up nothing here, because the sheet takes nothing: it is
+       out of flow. §7's area rule does not apply at Compact either, so the
+       focus exemption has nothing to exempt. */
+    .shell[data-focus-pane='modules'] .stage {
+      flex: 1 1 0;
+      min-width: min(480px, 100%);
+    }
+
+    .shell[data-focus-pane='modules'] .viewport {
+      min-width: min(480px, 100%);
+    }
+  }
 }
 
 @layer components {
@@ -1982,6 +2115,381 @@
 
   .arch-detail-list li {
     margin-bottom: 3px;
+  }
+
+  /* ==================================== W4: THE THREE REPRESENTATIONS
+   *
+   * `.arch-surface` is the measured box. React reads its inline size with a
+   * `ResizeObserver` and mounts one of three artifacts inside it; nothing in
+   * this stylesheet chooses between them, and that is the point — CSS cannot
+   * decline to mount something, so a rule that merely hid the 63-node graph
+   * would leave the layout work done and two DOMs claiming to be one diagram.
+   */
+  .arch-surface {
+    display: flex;
+    flex-direction: column;
+    flex: 1 1 auto;
+    min-height: 0;
+    min-width: 0;
+  }
+
+  /* The path is ordinary flow text in the pane's own scroller, so it grows
+     rather than fitting: the whole reason it exists is that fitting is what
+     made the labels 3.8 px. */
+  [data-arch-mode='path'] .arch-surface {
+    flex: 0 0 auto;
+  }
+
+  /* ---------------------------------------------- the representation bar
+   *
+   * A product that silently swapped its own central diagram would be lying by
+   * omission, so the pane names the artifact it is showing, the width that
+   * chose it, and the one action that gets the whole map back.
+   */
+  .arch-modebar {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--space-2);
+    margin-bottom: var(--space-2);
+  }
+
+  .arch-mode-chip {
+    flex: 0 0 auto;
+    padding: 2px var(--space-2);
+    border: 1px solid var(--line);
+    border-radius: 4px;
+    background: var(--panel-2);
+    color: var(--text);
+    font-size: var(--font-badge);
+    line-height: var(--leading-tight);
+    letter-spacing: 0.06em;
+  }
+
+  .arch-mode-chip[data-arch-mode-chip='full'] {
+    border-color: var(--accent);
+    color: #cfe0fb;
+  }
+
+  .arch-mode-why {
+    flex: 1 1 12rem;
+    min-inline-size: 0;
+    color: var(--muted);
+    font-size: var(--font-badge);
+    line-height: var(--leading-tight);
+  }
+
+  .arch-workspace-btn {
+    flex: 0 0 auto;
+    min-block-size: 36px;
+    padding: var(--space-1) var(--space-3);
+    background: var(--panel-2);
+    color: var(--text);
+    border: 1px solid var(--line);
+    border-radius: 6px;
+    font: inherit;
+    font-size: var(--font-badge);
+    cursor: pointer;
+  }
+
+  .arch-workspace-btn:hover {
+    border-color: var(--accent);
+    color: #cfe0fb;
+  }
+
+  .arch-workspace-btn.is-open {
+    border-color: var(--accent);
+    background: #1d2938;
+  }
+
+  /* ------------------------------------------------- the subsystem picker */
+
+  .arch-subsystems {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--space-1);
+    margin-bottom: var(--space-2);
+  }
+
+  .arch-subsystem {
+    min-block-size: 36px;
+    padding: var(--space-1) var(--space-3);
+    background: transparent;
+    color: var(--dim);
+    border: 1px solid var(--line);
+    border-radius: 6px;
+    font: inherit;
+    font-size: var(--font-badge);
+    cursor: pointer;
+  }
+
+  .arch-subsystem.active {
+    background: var(--panel-2);
+    border-color: var(--accent);
+    color: var(--text);
+  }
+
+  .arch-subsystem-omitted {
+    flex: 1 1 100%;
+    color: var(--muted);
+    font-size: var(--font-badge);
+    line-height: var(--leading-tight);
+  }
+
+  /* -------------------------------------------- the subsystem's node box
+   *
+   * Every token size is unchanged. What is spent is the summary's second and
+   * third lines, which are a repeat of the detail panel below, so a nine-rung
+   * chain is 880 px tall instead of 1,224 and a zoom floor of 1 is affordable.
+   */
+  .arch-node.is-compact {
+    padding: var(--space-1) var(--space-2);
+  }
+
+  .arch-node.is-compact .arch-node-summary {
+    -webkit-line-clamp: 1;
+  }
+
+  /* ============================================== the causal path artifact
+   *
+   * Ordinary flow text at the W1 tokens, with no transform anywhere in the
+   * subtree: the authored size IS the on-screen size, which is the entire
+   * difference between this and the same information in React Flow.
+   */
+  .arch-path {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-2);
+  }
+
+  .arch-path-lede {
+    margin: 0;
+    color: var(--dim);
+    font-size: var(--font-badge);
+    line-height: var(--leading-body);
+  }
+
+  .arch-steps {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+  }
+
+  .arch-step-row {
+    display: flex;
+    flex-direction: column;
+  }
+
+  .arch-step-edge {
+    display: flex;
+    align-items: baseline;
+    gap: var(--space-2);
+    padding: var(--space-1) 0 var(--space-1) var(--space-3);
+    color: var(--muted);
+    font-size: var(--font-badge);
+    line-height: var(--leading-tight);
+  }
+
+  .arch-step-arrow {
+    color: var(--dim);
+  }
+
+  /* The dashed marker, in the artifact that has no edges to dash. One of the
+     five hand-authored claims is `servo.mg90s -> joint.*`, which is the edge
+     this view walks every time a path ends on a joint, so it says so in words
+     as well as in the border. */
+  .arch-step-edge.is-hand-authored {
+    border-left: 2px dashed var(--warn);
+    margin-left: var(--space-3);
+    padding-left: var(--space-3);
+    color: var(--warn);
+  }
+
+  .arch-step-hand {
+    color: var(--warn);
+  }
+
+  .arch-step {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    width: 100%;
+    min-block-size: 36px;
+    padding: var(--space-2);
+    text-align: left;
+    background: var(--panel-2);
+    border: 1px solid var(--line);
+    border-radius: 7px;
+    color: var(--text);
+    font: inherit;
+    cursor: pointer;
+  }
+
+  .arch-step:hover {
+    border-color: var(--accent);
+  }
+
+  .arch-step.is-related {
+    border-color: var(--simulated);
+  }
+
+  .arch-step.is-active {
+    box-shadow: inset 0 0 0 1px rgba(110, 158, 230, 0.35);
+  }
+
+  .arch-step.is-selected {
+    border-color: var(--accent);
+    background: #1d2938;
+    box-shadow: 0 0 0 2px rgba(110, 158, 230, 0.35);
+  }
+
+  .arch-step.is-hand-authored {
+    border-style: dashed;
+  }
+
+  .arch-step.is-unresolved .arch-step-label {
+    color: var(--warn);
+  }
+
+  .arch-step-label {
+    font-size: var(--font-code);
+    font-weight: 600;
+    line-height: var(--leading-tight);
+  }
+
+  /* Never clamped and never ellipsised. The summary is the node's own derived
+     one-liner, which is the difference between a diagram and a diagram that
+     teaches, and W1's rule is that a pane gets narrower by rearranging rather
+     than by cutting words out. */
+  .arch-step-summary {
+    color: var(--muted);
+    font-size: var(--font-badge);
+    line-height: var(--leading-body);
+  }
+
+  .arch-step-meta {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--space-1) var(--space-2);
+    color: var(--dim);
+    font-size: var(--font-badge);
+    line-height: var(--leading-tight);
+  }
+
+  .arch-step-source {
+    font-family: var(--font-mono);
+  }
+
+  .arch-branches {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--space-1);
+    padding: var(--space-1) 0 var(--space-1) var(--space-3);
+  }
+
+  .arch-branch-key {
+    color: var(--dim);
+    font-size: var(--font-badge);
+    line-height: var(--leading-tight);
+  }
+
+  .arch-branch {
+    min-block-size: 36px;
+    padding: var(--space-1) var(--space-2);
+    background: transparent;
+    color: var(--muted);
+    border: 1px dashed var(--line);
+    border-radius: 5px;
+    font: inherit;
+    font-size: var(--font-badge);
+    cursor: pointer;
+  }
+
+  .arch-branch:hover {
+    color: var(--text);
+    border-color: var(--accent);
+  }
+
+  .arch-branch.is-active {
+    border-style: solid;
+    border-color: var(--accent);
+    color: #cfe0fb;
+  }
+
+  .arch-branch-more {
+    min-block-size: 36px;
+    padding: var(--space-1) var(--space-2);
+    background: transparent;
+    color: var(--dim);
+    border: 1px solid transparent;
+    border-radius: 5px;
+    font: inherit;
+    font-size: var(--font-badge);
+    text-decoration: underline dotted;
+    cursor: pointer;
+  }
+
+  .arch-branch-more:hover {
+    color: var(--text);
+    border-color: var(--line);
+  }
+
+  /* -------------------------------- the events this chain produced */
+
+  .arch-path-events {
+    border-top: 1px solid var(--line);
+    padding-top: var(--space-2);
+  }
+
+  .arch-path-events-title {
+    margin: 0 0 var(--space-2);
+    font-size: var(--font-heading);
+    color: var(--dim);
+  }
+
+  .arch-event-list {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-1);
+  }
+
+  .arch-event-btn {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--space-1) var(--space-2);
+    width: 100%;
+    min-block-size: 36px;
+    padding: var(--space-1) var(--space-2);
+    text-align: left;
+    background: transparent;
+    border: 1px solid transparent;
+    border-radius: 5px;
+    color: var(--text);
+    font: inherit;
+    font-size: var(--font-badge);
+    cursor: pointer;
+  }
+
+  .arch-event-btn:hover {
+    border-color: var(--line);
+    background: var(--panel-2);
+  }
+
+  .arch-event-layer {
+    font-family: var(--font-mono);
+    color: var(--dim);
+  }
+
+  .arch-event-label {
+    color: var(--muted);
   }
 
   /* ========================================================= see the signal */
@@ -3645,7 +4153,14 @@
   .pane__content .trace-rows,
   .pane__content .trace-panel,
   .pane__content .lesson-panel,
-  .pane__content .lab-panel {
+  .pane__content .lab-panel,
+  /*
+     W4. The causal path is text, not a pan surface: it belongs to the pane's
+     one scroller like every other pane's content, and `overflow: hidden` on the
+     panel - which is right when the thing inside it is a fixed-box React Flow -
+     would cut a nine-step chain off at whatever height the dock had left.
+  */
+  .pane__content [data-arch-mode='path'].arch-panel {
     overflow: visible;
     max-height: none;
     min-height: 0;
@@ -3788,6 +4303,36 @@
     flex: 0 0 auto;
     height: 52vh;
     min-height: 340px;
+  }
+
+  /*
+   * The focus workspace's height — Phase 4 W4, and it lives HERE rather than
+   * beside the rest of the workspace geometry in `shell` for a reason worth
+   * recording: `@layer shell` loses to `@layer components` and `@layer panes`,
+   * so the first version of this rule was written next to the others, looked
+   * right, and did nothing at all. `.arch-canvas`'s `flex: 1 1 auto` in
+   * `components` and the 52vh above both outrank it there.
+   *
+   * The number matters because width alone does not fix a fitted graph:
+   * measured at 1760x1000, widening the pane from 351 px to 1,201 px while the
+   * canvas kept a third of the dock's height left the labels at 5.7 px, because
+   * `fitView` fits the short side.
+   */
+  .shell[data-focus-pane='modules'] .pane__content .arch-canvas {
+    flex: 0 0 auto;
+    height: 62vh;
+    min-height: 340px;
+  }
+
+  /* And the panel around it grows rather than clipping. `.arch-panel` is
+     `overflow: hidden`, which is right when it wraps a fixed-box React Flow and
+     wrong the moment the box is taller than the share the panel was given: the
+     first screenshot of the workspace had the hint paragraph half-drawn under
+     the canvas. The pane's own scroller takes the difference. */
+  .shell[data-focus-pane='modules'] .pane__content .arch-panel {
+    overflow: visible;
+    flex: 0 0 auto;
+    min-height: 0;
   }
 
   /* The export is a `<textarea>`; a text control's own scrollbar is not a

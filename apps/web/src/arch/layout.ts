@@ -35,17 +35,50 @@ import {
 export const NODE_W = 192;
 export const NODE_H = 112;
 const GAP_X = 14;
-const ROW_H = 136;
 const GAP_GROUP = 56;
-/**
- * Wrap wider rows rather than run off.
- *
- * Four, not eight. The eight joints on one row make the servo chain 1300 px
- * wide, and fitting that into the pane zooms every label down to noise. Two
- * rows of four is the shape that stays readable when a learner expands it.
- */
-const MAX_PER_ROW = 4;
 
+/**
+ * The box the FULL graph draws — Phase 4 W1's numbers, unchanged.
+ *
+ * A second set exists because W4's subsystem representation locks the zoom at
+ * 1 (a 14 px edge label at zoom 1 is a 14 px edge label on screen), and a
+ * 112 px box with three lines of summary makes a nine-row chain 1,224 px tall
+ * before anything is drawn. The subsystem box keeps every token size and
+ * spends the SUMMARY's third and second lines instead, which is the one thing
+ * in it that is a repeat of the detail panel below.
+ */
+export interface LayoutMetrics {
+  readonly nodeW: number;
+  readonly nodeH: number;
+  readonly rowH: number;
+  readonly maxPerRow: number;
+}
+
+export const FULL_METRICS: LayoutMetrics = Object.freeze({
+  nodeW: 192,
+  nodeH: 112,
+  rowH: 136,
+  maxPerRow: 4,
+});
+
+export const SUBSYSTEM_METRICS: LayoutMetrics = Object.freeze({
+  nodeW: 192,
+  nodeH: 74,
+  rowH: 98,
+  maxPerRow: 4,
+});
+
+export interface LayoutOptions {
+  /**
+   * Draw exactly these node ids, ignoring the expand/collapse state.
+   *
+   * W4's subsystem representation. Expansion is the FULL graph's affordance:
+   * a subsystem view whose subsystem happened to be collapsed would draw two
+   * boxes and call itself a neighbourhood.
+   */
+  readonly scope?: ReadonlySet<string>;
+  readonly metrics?: LayoutMetrics;
+}
 export interface PlacedNode {
   readonly node: ArchNode;
   readonly x: number;
@@ -126,8 +159,18 @@ function liftToVisible(id: string, visible: ReadonlySet<string>): string | null 
  * rather than assumed, so expanding the 21 movement functions pushes `Face`,
  * `Network` and `Serial` right instead of drawing on top of them.
  */
-export function layoutArchitecture(expanded: ReadonlySet<string>): ArchLayout {
-  const visibleNodes = ARCH_NODES.filter((n) => isVisible(n, expanded));
+export function layoutArchitecture(
+  expanded: ReadonlySet<string>,
+  options: LayoutOptions = {},
+): ArchLayout {
+  const scope = options.scope;
+  const nodeW = options.metrics?.nodeW ?? FULL_METRICS.nodeW;
+  const rowH = options.metrics?.rowH ?? FULL_METRICS.rowH;
+  const maxPerRow = options.metrics?.maxPerRow ?? FULL_METRICS.maxPerRow;
+  const visibleNodes =
+    scope === undefined
+      ? ARCH_NODES.filter((n) => isVisible(n, expanded))
+      : ARCH_NODES.filter((n) => scope.has(n.id));
   const visibleIds = new Set(visibleNodes.map((n) => n.id));
 
   // ---- group -> ordered rows (chunked by MAX_PER_ROW), and each group's width
@@ -143,14 +186,14 @@ export function layoutArchitecture(expanded: ReadonlySet<string>): ArchLayout {
     const rows: ArchNode[][] = [];
     for (const depth of [...byDepth.keys()].sort((a, b) => a - b)) {
       const row = byDepth.get(depth) as ArchNode[];
-      for (let i = 0; i < row.length; i += MAX_PER_ROW) rows.push(row.slice(i, i + MAX_PER_ROW));
+      for (let i = 0; i < row.length; i += maxPerRow) rows.push(row.slice(i, i + maxPerRow));
     }
     rowsByGroup.set(group, rows);
   }
 
-  const rowWidth = (n: number): number => n * NODE_W + (n - 1) * GAP_X;
+  const rowWidth = (n: number): number => n * nodeW + (n - 1) * GAP_X;
   const groupWidth = (group: string): number =>
-    Math.max(NODE_W, ...(rowsByGroup.get(group) ?? [[]]).map((r) => rowWidth(r.length)));
+    Math.max(nodeW, ...(rowsByGroup.get(group) ?? [[]]).map((r) => rowWidth(r.length)));
 
   const placed: PlacedNode[] = [];
   const place = (node: ArchNode, x: number, y: number): void => {
@@ -174,7 +217,7 @@ export function layoutArchitecture(expanded: ReadonlySet<string>): ArchLayout {
     const rows = rowsByGroup.get(group) ?? [];
     rows.forEach((row, rowIndex) => {
       const left = centre - rowWidth(row.length) / 2;
-      row.forEach((node, i) => place(node, left + i * (NODE_W + GAP_X), (rowIndex + 1) * ROW_H));
+      row.forEach((node, i) => place(node, left + i * (nodeW + GAP_X), (rowIndex + 1) * rowH));
     });
     cursor += width + GAP_GROUP;
   }
@@ -183,7 +226,7 @@ export function layoutArchitecture(expanded: ReadonlySet<string>): ArchLayout {
   const root = visibleNodes.find((n) => n.group === 'root');
   if (root !== undefined) {
     const mid = centres.length === 0 ? 0 : (Math.min(...centres) + Math.max(...centres)) / 2;
-    place(root, mid - NODE_W / 2, 0);
+    place(root, mid - nodeW / 2, 0);
   }
 
   // ---- lift edges to the visible frontier, dedupe, drop self-loops

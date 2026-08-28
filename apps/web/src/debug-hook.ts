@@ -148,6 +148,30 @@ export interface ArchGraphReading {
   readonly handAuthored: readonly string[];
   /** Nodes whose value is recorded as unresolved in hardware-map.json. */
   readonly unresolvedNodeIds: readonly string[];
+  /**
+   * Which of the three representations is MOUNTED — Phase 4 W4.
+   *
+   * Read off the DOM rather than recomputed, because the claim under test is
+   * "the 63-node graph is not in this pane", and a `mode` derived a second time
+   * from a width the harness also measured could only ever agree with itself.
+   */
+  readonly mode: string | null;
+  /** The surface's own inline size, the number `archModeForWidth()` branched on. */
+  readonly surfaceWidthPx: number | null;
+  /**
+   * Node ids with a laid-out box on screen, in DOM order.
+   *
+   * `visibleNodeIds` is what the FULL graph's layout function would draw;
+   * this is what a reader can actually click, in whatever representation is
+   * mounted. In `path` mode the two are deliberately different, and an
+   * assertion that cannot tell them apart is an assertion this change would
+   * have made hollow.
+   */
+  readonly renderedNodeIds: readonly string[];
+  /** The subsystem the intermediate representation is scoped to, if any. */
+  readonly subsystem: string | null;
+  /** True while the focus workspace is giving this pane the content area. */
+  readonly workspaceOpen: boolean;
 }
 
 /**
@@ -455,6 +479,22 @@ export interface ShellReading {
    * measurement §7 says stopped meaning anything.
    */
   readonly stageAreaSharePct: number;
+  /**
+   * The focus workspace, and WHICH RULE the shell says applies to the stage.
+   *
+   * Phase 4 W4. Both are read off `.shell`'s own attributes rather than
+   * recomputed here, and that is the whole point: the app declares the rule, so
+   * a harness can assert the declaration against the measured layout. A check
+   * that branched on the same condition the layout branches on could never
+   * disagree with it, which is how the three hollow assertions this project has
+   * already hit came about.
+   *
+   *   `area-50`      W3 / plan section 7 - the stage keeps >= 50% of the area.
+   *   `focus-exempt` the brief's sanctioned exception, claimable only while the
+   *                  pane named by `focusPane` is on screen.
+   */
+  readonly focusPane: string | null;
+  readonly stageRule: string | null;
   readonly openSections: readonly SectionId[];
   /**
    * One entry per section, in draw order: which dock draws it, what its header
@@ -856,6 +896,12 @@ export function installDebugHook(wiring: DebugHookWiring): () => void {
     archGraph(): ArchGraphReading {
       const expandedIds = wiring.expanded();
       const layout = layoutArchitecture(new Set(expandedIds));
+      const surface = document.querySelector('[data-testid="arch-surface"]');
+      const widthAttr = surface?.getAttribute('data-pane-width-px') ?? '';
+      const rendered = [...document.querySelectorAll('[data-arch-node]')]
+        .map((n) => n.getAttribute('data-arch-node'))
+        .filter((id): id is string => id !== null);
+      const picked = document.querySelector('[data-arch-subsystem][aria-selected="true"]');
       return {
         upstreamCommit: UPSTREAM_COMMIT,
         totalNodes: ARCH_NODES.length,
@@ -865,6 +911,14 @@ export function installDebugHook(wiring: DebugHookWiring): () => void {
         selectedNodeId: wiring.selection().nodeId,
         handAuthored: [...HAND_AUTHORED],
         unresolvedNodeIds: ARCH_NODES.filter((n) => n.unresolved !== null).map((n) => n.id),
+        mode: surface?.getAttribute('data-arch-mode') ?? null,
+        surfaceWidthPx: widthAttr === '' ? null : Number(widthAttr),
+        renderedNodeIds: rendered,
+        subsystem: picked?.getAttribute('data-arch-subsystem') ?? null,
+        workspaceOpen:
+          document
+            .querySelector('[data-testid="arch-workspace-toggle"]')
+            ?.getAttribute('aria-pressed') === 'true',
       };
     },
 
@@ -1246,6 +1300,7 @@ export function installDebugHook(wiring: DebugHookWiring): () => void {
         }),
       ) as Record<DockId, DockReading>;
 
+      const shellRoot = document.querySelector('[data-testid="shell"]');
       const workbenchRoot = document.querySelector('[data-testid="workbench"]');
       const workbench: WorkbenchReading | null =
         workbenchRoot === null
@@ -1314,6 +1369,8 @@ export function installDebugHook(wiring: DebugHookWiring): () => void {
         viewportHeightSharePct: h === 0 ? 0 : (canvasHeightPx / h) * 100,
         viewportWidthSharePct: w === 0 ? 0 : (canvasWidthPx / w) * 100,
         stageAreaSharePct: w === 0 || h === 0 ? 0 : ((canvasWidthPx * canvasHeightPx) / (w * h)) * 100,
+        focusPane: shellRoot?.getAttribute('data-focus-pane') || null,
+        stageRule: shellRoot?.getAttribute('data-stage-rule') ?? null,
         openSections: wiring.shellOpenSections(),
         sections,
       };

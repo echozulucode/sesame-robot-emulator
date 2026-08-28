@@ -99,7 +99,7 @@ import { JointInspector } from './ui/JointInspector.js';
 import { OledPanel } from './ui/OledPanel.js';
 import { SignalTrace } from './ui/SignalTrace.js';
 import { SourceExplorer } from './ui/SourceExplorer.js';
-import { Docks, Rail, useShell, type DockSectionSpec } from './ui/Shell.js';
+import { Docks, Rail, useShell, type DockSectionSpec, type SectionId } from './ui/Shell.js';
 import { StatusBar } from './ui/StatusBar.js';
 import { sectionForSelection } from './ui/shell-state.js';
 import { lessonProgress, loadProgress } from './lessons/progress.js';
@@ -178,6 +178,23 @@ export function App(): ReactElement {
   const [showTopCover, setShowTopCover] = useState(true);
   const [driveFromSimulated, setDriveFromSimulated] = useState(false);
   const [busy, setBusy] = useState<string | null>(null);
+  /**
+   * The FOCUS WORKSPACE — Phase 4 W4.
+   *
+   * > *"The focus workspace should be an explicit action such as 'Open
+   * > architecture workspace'. It can temporarily give the graph most of the
+   * > content area while retaining Sesame as a live, smaller stage. This is the
+   * > one place where I would interpret 'robot must remain dominant' as product
+   * > identity and persistent causal feedback, not literally 'the robot must
+   * > own more pixels than every task surface at every instant'."*
+   *
+   * It is a section id rather than a boolean because it is the sanctioned
+   * exception to W3's stage-area rule, and an exception that names WHICH pane
+   * it is for can be asserted; a bare `focus: true` cannot. `.shell` publishes
+   * it as `data-focus-pane`, and `data-stage-rule` alongside it says which of
+   * the two rules is in force — see the shell element below.
+   */
+  const [focusPane, setFocusPane] = useState<SectionId | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   const handles = useRef<SceneHandles | null>(null);
@@ -887,6 +904,22 @@ export function App(): ReactElement {
     [activeKey],
   );
 
+  /*
+   * The focus workspace closes itself when its pane leaves the screen.
+   *
+   * It is a temporary arrangement, not a stored preference: a reader who
+   * switches to Signal, or shuts the workbench, has ended the task the
+   * workspace existed for, and leaving the stage at a fifth of the screen
+   * because of a mode nothing on screen still mentions would be exactly the
+   * "robot must dominate" failure the exemption is narrow to avoid. It is also
+   * what keeps `data-stage-rule` honest: the exemption is claimed only while
+   * the pane that justifies it is visible.
+   */
+  const focusPaneVisible = focusPane === null ? false : shell.isVisible(focusPane);
+  useEffect(() => {
+    if (focusPane !== null && !focusPaneVisible) setFocusPane(null);
+  }, [focusPane, focusPaneVisible]);
+
   // ------------------------------------------------- collapsed-section state
   //
   // Section 5.1, and the other half of section 4's "collapsing costs no
@@ -1037,6 +1070,10 @@ export function App(): ReactElement {
           selection={selection}
           onSelect={(nodeId) => applySelection(selectNode(nodeId, 'graph'))}
           activeNodeIds={activeNodeIds}
+          trace={shownTrace}
+          onSelectRow={selectTraceRow}
+          workspaceOpen={focusPane === 'modules'}
+          onWorkspaceChange={(open) => setFocusPane(open ? 'modules' : null)}
         />
       ),
     },
@@ -1115,6 +1152,8 @@ export function App(): ReactElement {
       data-dock-overlay={String(shell.dockOverlays)}
       data-shell-regime={shell.usesWorkbench ? 'workbench' : 'docks'}
       data-workbench-mode={shell.mode}
+      data-focus-pane={focusPane ?? ''}
+      data-stage-rule={focusPane === null ? 'area-50' : 'focus-exempt'}
     >
       {/*
         The rail/stage/workbench row. The status line is a sibling BELOW it

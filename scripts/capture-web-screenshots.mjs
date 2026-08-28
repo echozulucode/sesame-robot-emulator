@@ -1587,63 +1587,168 @@ await waitFor(
     'the MG90S node is not marked unresolved — hardware-map.json records no torque, slew or travel',
   );
 
-  // `.workbench` was the middle column that held the graph above the trace.
-  // Both are dock sections now and the dock's own scroller is what moves.
-  await scrollDockTop(page.evaluate, 'signal');
-  await sleep(700);
-  await focusSection(page.evaluate, 'modules');
-  const graphCollapsedShot = await page.shoot(
-    'v8-architecture-collapsed.png',
-    'the architecture graph at the report’s collapsed top level: ESP32 and its four setup() branches, every node projected from hardware-map.json',
+  // ---------------------------------------------------------------- W4 setup
+  //
+  // The three floors this phase measures the focus workspace against. They are
+  // named here rather than inlined because two of them REPLACE a rule rather
+  // than relaxing it, and a replacement that has no name cannot be looked up.
+  const W4_STAGE_AREA_FLOOR_PCT = 50;
+  /** What the stage keeps INSTEAD of the area rule, per side, in CSS pixels. */
+  const W4_FOCUS_STAGE_FLOOR_PX = 220;
+  /** Non-background share of the middle of the drawing buffer. Phase 12's floor. */
+  const W4_ROBOT_PIXEL_FLOOR_PCT = 2;
+  /** Filled in below; reported with the phase. */
+  let archPathTypeReading = null;
+  let w4Workspace = null;
+
+  /**
+   * How much of the MIDDLE of the drawing buffer is not the clear colour.
+   *
+   * The same read phase 12 does, inlined here because the focus workspace's
+   * exemption is granted on the condition that Sesame stays LIVE, and a layout
+   * box can be exactly the right size and completely empty.
+   */
+  const w4RobotPixels = (evaluate) =>
+    evaluate(`(() => {
+      let canvas = null;
+      let gl = null;
+      for (const candidate of document.querySelectorAll('canvas')) {
+        const context = candidate.getContext('webgl2') ?? candidate.getContext('webgl');
+        if (context !== null) { canvas = candidate; gl = context; break; }
+      }
+      if (gl === null) return null;
+      const w = Math.min(canvas.width, 400);
+      const h = Math.min(canvas.height, 400);
+      const x = Math.max(0, Math.floor((canvas.width - w) / 2));
+      const y = Math.max(0, Math.floor((canvas.height - h) / 2));
+      const pixels = new Uint8Array(w * h * 4);
+      gl.readPixels(x, y, w, h, gl.RGBA, gl.UNSIGNED_BYTE, pixels);
+      let n = 0;
+      for (let i = 0; i < pixels.length; i += 4) {
+        if (Math.abs(pixels[i] - 0x0d) > 6 || Math.abs(pixels[i + 1] - 0x10) > 6 || Math.abs(pixels[i + 2] - 0x15) > 6) n += 1;
+      }
+      return { lit: n, sampled: w * h, sharePct: (n / (w * h)) * 100 };
+    })()`);
+
+  // ================================================================
+  // W4: WHAT A LAPTOP ACTUALLY GETS
+  // ================================================================
+  //
+  // This is the assertion the user's complaint has been waiting three
+  // workstreams for. The analysis dock at Wide gives the architecture pane
+  // about 400 px, and 400 px of a 63-node spatial diagram is what W1 measured
+  // at 8.0 px of node label and 3.8 px at 880. So the ORDINARY layout must
+  // mount the causal path here, at every window this harness visits, and its
+  // text must clear the 14 px floor with no zoom-surface exemption.
+  const archOrdinary = await page.evaluate('window.__sesame.archGraph()');
+  check(
+    archOrdinary.mode === 'path',
+    `at ${DEFAULT_WINDOW.width}x${DEFAULT_WINDOW.height} the architecture pane mounted the ` +
+      `"${archOrdinary.mode}" representation in a ${archOrdinary.surfaceWidthPx} px surface. The ` +
+      `brief's rule is a causal path below 720 px, and no dock or workbench in this shell reaches ` +
+      `720 px - which is the point: the 63-node map does not live in the ordinary layout any more.`,
+  );
+  check(
+    archOrdinary.surfaceWidthPx !== null && archOrdinary.surfaceWidthPx < 720,
+    `the architecture surface is ${archOrdinary.surfaceWidthPx} px wide in the ordinary layout; ` +
+      `the representation above is only correct if that is under 720`,
   );
 
-  // ----------------------------------------------- expand a node, by clicking
-  //
-  // The DOM button, not the debug hook: the claim is "a learner can expand it".
-  const expandClick = await page.evaluate(`(() => {
-    const button = document.querySelector('[data-expand="servos"]');
-    if (button === null) return { ok: false, why: 'no [data-expand="servos"] control in the DOM' };
-    button.click();
-    return { ok: true, why: button.textContent };
-  })()`);
-  check(expandClick.ok, `could not expand the Servos node: ${expandClick.why}`);
-  // The viewport animates to the newly revealed chain; screenshot after it lands.
-  await sleep(900);
+  // React chose it. The proof is a DOM that has no React Flow in it at all.
+  const archMounted = await page.evaluate(`(() => ({
+    canvases: document.querySelectorAll('[data-pane="modules"] .arch-canvas').length,
+    flowNodes: document.querySelectorAll('[data-pane="modules"] .react-flow__node').length,
+    zoomSurfaces: document.querySelectorAll('[data-pane="modules"] [data-zoom-surface]').length,
+    steps: [...document.querySelectorAll('[data-arch-path-step]')].map((n) => n.getAttribute('data-arch-path-step')),
+  }))()`);
+  check(
+    archMounted.canvases === 0 && archMounted.flowNodes === 0,
+    `the causal-path representation still has ${archMounted.canvases} React Flow canvas(es) and ` +
+      `${archMounted.flowNodes} flow node(s) in the DOM. CSS must not be what hides the graph: ` +
+      `mounting it and hiding it wastes the layout work and leaves two DOMs claiming to be the ` +
+      `same diagram, which is what the brief says not to do.`,
+  );
+  check(
+    archMounted.zoomSurfaces === 0,
+    `the causal-path representation declares ${archMounted.zoomSurfaces} [data-zoom-surface]. ` +
+      `That marker is W1's exemption for the one surface a reader zooms, and it now belongs to ` +
+      `the full graph alone - claiming it here would let this workstream's own debt back in.`,
+  );
 
-  const expanded = await page.evaluate('window.__sesame.archGraph()');
-  const CHAIN = [
+  // The chain, not a subset of the map: the brief's worked example is
+  // ESP32 -> Movement -> 8 Servos -> setServoAngle -> ESP32Servo -> LEDC ->
+  // GPIO -> MG90S, and every one of those is a real edge in the generated data.
+  for (const id of [
+    'esp32',
+    'movement',
+    'servos',
     'servo.setServoAngle',
     'servo.esp32servo',
     'servo.ledc',
     'servo.gpio',
     'servo.mg90s',
-  ];
-  for (const id of [...CHAIN, 'joint.R1', 'joint.R4', 'joint.L3', 'joint.L4']) {
+  ]) {
     check(
-      expanded.visibleNodeIds.includes(id),
-      `expanding Servos did not reveal ${id} — the chain the firmware actually walks`,
+      archMounted.steps.includes(id),
+      `the causal path does not walk ${id}; it drew ${JSON.stringify(archMounted.steps)}`,
     );
   }
-  const expandedPairs = expanded.edges.map((e) => `${e.source}->${e.target}`);
-  for (let i = 0; i + 1 < CHAIN.length; i++) {
-    const pair = `${CHAIN[i]}->${CHAIN[i + 1]}`;
-    check(expandedPairs.includes(pair), `the expanded chain is missing the edge ${pair}`);
-  }
+
+  // THE MEASUREMENT. Every run of text inside the architecture panel, times
+  // the transform actually in force, against the 14 px floor.
+  const archPathType = await page.evaluate(`(() => {
+    const root = document.querySelector('[data-testid="architecture-graph"]');
+    if (root === null) return null;
+    const scaleOf = (el) => {
+      let scale = 1, node = el, guard = 0;
+      while (node !== null && node !== document.documentElement && guard < 60) {
+        const t = getComputedStyle(node).transform;
+        if (t !== 'none' && t !== '') {
+          const nums = t.slice(t.indexOf('(') + 1, -1).split(',').map(Number);
+          if (t.startsWith('matrix3d') && nums.length >= 6) scale *= Math.abs(nums[5]);
+          else if (nums.length >= 4) scale *= Math.abs(nums[3]);
+        }
+        node = node.parentElement; guard += 1;
+      }
+      return scale;
+    };
+    let worst = null, runs = 0;
+    for (const el of root.querySelectorAll('*')) {
+      const cs = getComputedStyle(el);
+      if (cs.display === 'none' || cs.visibility === 'hidden') continue;
+      let own = '';
+      for (const n of el.childNodes) if (n.nodeType === 3) own += n.nodeValue;
+      if (own.trim().length === 0) continue;
+      const box = el.getBoundingClientRect();
+      if (box.width < 1 || box.height < 1) continue;
+      runs += 1;
+      const px = Math.round(parseFloat(cs.fontSize) * scaleOf(el) * 100) / 100;
+      if (worst === null || px < worst.px) worst = { px, text: own.trim().slice(0, 40) };
+    }
+    return { worst, runs };
+  })()`);
   check(
-    expandedPairs.includes('servo.mg90s->joint.L3'),
-    'the expanded chain does not reach a joint node',
+    archPathType !== null && archPathType.runs > 12,
+    `the causal path drew ${archPathType?.runs} runs of text; a nine-step chain with its ` +
+      `relations and summaries is more than that, so this measurement would have been vacuous`,
   );
-  // The DOM really drew them, not just the layout function.
-  const domNodes = await page.evaluate(
-    `Array.from(document.querySelectorAll('[data-arch-node]')).map((n) => n.getAttribute('data-arch-node'))`,
+  check(
+    archPathType !== null &&
+      archPathType.worst !== null &&
+      archPathType.worst.px >= TEXT_FLOOR_PX - 0.01,
+    `the smallest text ON SCREEN in the causal path is ${archPathType?.worst?.px}px ` +
+      `(${JSON.stringify(archPathType?.worst?.text)}), below the ${TEXT_FLOOR_PX}px floor. W1 ` +
+      `measured 8.0px here for the same pane and handed it to W4; this is the number that says ` +
+      `whether three representations actually fixed it.`,
   );
-  for (const id of CHAIN) {
-    check(domNodes.includes(id), `${id} is in the layout but not in the DOM — React Flow did not draw it`);
-  }
+  archPathTypeReading = archPathType;
+
+  await scrollDockTop(page.evaluate, 'signal');
+  await sleep(500);
   await focusSection(page.evaluate, 'modules');
-  const graphExpandedShot = await page.shoot(
-    'v8-architecture-servos-expanded.png',
-    'Servos expanded: movement → setServoAngle → ESP32Servo → LEDC → GPIO → MG90S → eight joints, every node backed by a hardware-map.json path and a firmware file:line',
+  const graphPathShot = await page.shoot(
+    'w4-architecture-causal-path.png',
+    'the causal-path representation at a 397px pane: ESP32 to MG90S as an indented chain with the derived edge labels between the steps, every run of text at or above the 14px floor - the same information React Flow drew at 8.0px',
   );
 
   // -------------------------------------------------- fire a command, by click
@@ -1843,6 +1948,173 @@ await waitFor(
     'the pwm.output row: the real ESP32Servo-quantised pulse, marked INFERRED FOR EXPLANATION, with the witness naming Q3’s finding that QEMU’s LEDC produces no waveform and that no physical pin has ever emitted it',
   );
 
+  // ================================================================
+  // W4: THE FOCUS WORKSPACE
+  // ================================================================
+  //
+  // The brief's fourth row, and the one place it qualifies "the robot must
+  // dominate":
+  //
+  //   "It can temporarily give the graph most of the content area while
+  //    retaining Sesame as a live, smaller stage. This is the one place where I
+  //    would interpret 'robot must remain dominant' as product identity and
+  //    persistent causal feedback, not literally 'the robot must own more
+  //    pixels than every task surface at every instant'."
+  //
+  // Everything V8 asserted about the 63-node graph lives here now, because this
+  // is where the 63-node graph lives: no dock and no workbench in this shell
+  // reaches 960 px, so the full map is reached by an explicit action rather
+  // than by being crushed into a column. The DOM BUTTON is clicked and
+  // hit-tested rather than a debug hook being called - the claim is "a learner
+  // can open this".
+  await openSection(page.evaluate, 'modules');
+  await openSection(page.evaluate, 'signal');
+  const shellBeforeWorkspace = await page.evaluate('window.__sesame.shell()');
+  const workspaceOpen = await page.evaluate(`(() => {
+    const button = document.querySelector('[data-testid="arch-workspace-toggle"]');
+    if (button === null) return { ok: false, why: 'no [data-testid="arch-workspace-toggle"] in the DOM' };
+    const rect = button.getBoundingClientRect();
+    if (rect.width === 0 || rect.height === 0) return { ok: false, why: 'the workspace button has no laid-out box' };
+    const hit = document.elementFromPoint(rect.left + rect.width / 2, rect.top + rect.height / 2);
+    if (hit === null || !(hit === button || button.contains(hit)))
+      return { ok: false, why: 'something is covering the workspace button: ' + (hit?.className ?? 'nothing') };
+    button.click();
+    return { ok: true, why: button.textContent, targetPx: Math.round(Math.min(rect.width, rect.height)) };
+  })()`);
+  check(workspaceOpen.ok, `could not open the architecture workspace: ${workspaceOpen.why}`);
+  check(
+    (workspaceOpen.targetPx ?? 0) >= 36,
+    `the workspace button is ${workspaceOpen.targetPx}px on its short side; the policy floor is ` +
+      `36px for a fine pointer`,
+  );
+  await sleep(1600);
+
+  const archWorkspace = await page.evaluate('window.__sesame.archGraph()');
+  const shellWorkspace = await page.evaluate('window.__sesame.shell()');
+  check(
+    archWorkspace.workspaceOpen === true && shellWorkspace.focusPane === 'modules',
+    `the workspace did not open: ${JSON.stringify({
+      pressed: archWorkspace.workspaceOpen,
+      focusPane: shellWorkspace.focusPane,
+    })}`,
+  );
+  check(
+    archWorkspace.surfaceWidthPx !== null && archWorkspace.surfaceWidthPx >= 960,
+    `the workspace gave the architecture surface ${archWorkspace.surfaceWidthPx} px; the full ` +
+      `63-node map needs 960 and the workspace exists to provide it`,
+  );
+  check(
+    archWorkspace.mode === 'full',
+    `the workspace is open and the pane is still showing "${archWorkspace.mode}". The workspace ` +
+      `is NOT a fourth mode: it changes the pane's width and archModeForWidth() then chooses, ` +
+      `which is why a workspace on a 1280px window honestly gives the subsystem graph instead.`,
+  );
+
+  // THE EXEMPTION, ASSERTED RATHER THAN SKIPPED.
+  //
+  // W3's rule is that the stage keeps >= 50% of the window's area, and phase 12
+  // asserts it at every breakpoint. This is the one arrangement the brief
+  // exempts, and the exemption is only honest if three things are true at once:
+  // the app SAYS it is claiming the exemption, the layout really is outside the
+  // ordinary rule, and the robot is still there and still live.
+  check(
+    shellWorkspace.stageRule === 'focus-exempt',
+    `the shell says the stage rule is "${shellWorkspace.stageRule}" while the focus workspace is ` +
+      `open. The app has to declare which rule applies, because a harness that decided for itself ` +
+      `would branch on the same condition the layout branches on and could never disagree with it.`,
+  );
+  check(
+    shellWorkspace.stageAreaSharePct < W4_STAGE_AREA_FLOOR_PCT,
+    `the focus workspace claims the exemption and the stage still holds ` +
+      `${shellWorkspace.stageAreaSharePct.toFixed(1)}% of the window's area, at or above the ` +
+      `${W4_STAGE_AREA_FLOOR_PCT}% floor it is exempt from. An exemption nothing needs is an ` +
+      `exemption that is not being tested, and this project has shipped three of those.`,
+  );
+  check(
+    shellWorkspace.canvasWidthPx >= W4_FOCUS_STAGE_FLOOR_PX &&
+      shellWorkspace.canvasHeightPx >= W4_FOCUS_STAGE_FLOOR_PX,
+    `inside the focus workspace the 3D canvas is ` +
+      `${shellWorkspace.canvasWidthPx.toFixed(0)}x${shellWorkspace.canvasHeightPx.toFixed(0)}; the ` +
+      `floor that REPLACES the area rule is ${W4_FOCUS_STAGE_FLOOR_PX}px on each side. "Product ` +
+      `identity and persistent causal feedback" is a claim about a robot that is still on screen, ` +
+      `not about one that has been reduced to a sliver.`,
+  );
+  const workspacePixels = await w4RobotPixels(page.evaluate);
+  check(
+    workspacePixels !== null && workspacePixels.sharePct >= W4_ROBOT_PIXEL_FLOOR_PCT,
+    `inside the focus workspace only ${workspacePixels?.sharePct?.toFixed(1)}% of the middle of ` +
+      `the WebGL drawing buffer is non-background. The exemption is granted on the condition that ` +
+      `Sesame stays a LIVE reference, so this is read out of the drawing buffer rather than out ` +
+      `of a layout box that could be the right size and empty.`,
+  );
+  w4Workspace = {
+    surfaceWidthPx: archWorkspace.surfaceWidthPx,
+    mode: archWorkspace.mode,
+    stageRule: shellWorkspace.stageRule,
+    stageAreaSharePct: shellWorkspace.stageAreaSharePct,
+    canvasPx: [shellWorkspace.canvasWidthPx, shellWorkspace.canvasHeightPx],
+    robotPixelSharePct: workspacePixels?.sharePct ?? null,
+  };
+
+  // `.workbench` was the middle column that held the graph above the trace.
+  // Both are dock sections now and the dock's own scroller is what moves.
+  await scrollDockTop(page.evaluate, 'signal');
+  await sleep(700);
+  await focusSection(page.evaluate, 'modules');
+  const graphCollapsedShot = await page.shoot(
+    'v8-architecture-collapsed.png',
+    'the FULL 63-node graph, in the focus workspace — the architecture pane holds 1,200px, Sesame stays live as a smaller reference on the left, and the collapsed top level is the report’s nine nodes with every label above the 14px floor',
+  );
+
+  // ----------------------------------------------- expand a node, by clicking
+  //
+  // The DOM button, not the debug hook: the claim is "a learner can expand it".
+  const expandClick = await page.evaluate(`(() => {
+    const button = document.querySelector('[data-expand="servos"]');
+    if (button === null) return { ok: false, why: 'no [data-expand="servos"] control in the DOM' };
+    button.click();
+    return { ok: true, why: button.textContent };
+  })()`);
+  check(expandClick.ok, `could not expand the Servos node: ${expandClick.why}`);
+  // The viewport animates to the newly revealed chain; screenshot after it lands.
+  await sleep(900);
+
+  const expanded = await page.evaluate('window.__sesame.archGraph()');
+  const CHAIN = [
+    'servo.setServoAngle',
+    'servo.esp32servo',
+    'servo.ledc',
+    'servo.gpio',
+    'servo.mg90s',
+  ];
+  for (const id of [...CHAIN, 'joint.R1', 'joint.R4', 'joint.L3', 'joint.L4']) {
+    check(
+      expanded.visibleNodeIds.includes(id),
+      `expanding Servos did not reveal ${id} — the chain the firmware actually walks`,
+    );
+  }
+  const expandedPairs = expanded.edges.map((e) => `${e.source}->${e.target}`);
+  for (let i = 0; i + 1 < CHAIN.length; i++) {
+    const pair = `${CHAIN[i]}->${CHAIN[i + 1]}`;
+    check(expandedPairs.includes(pair), `the expanded chain is missing the edge ${pair}`);
+  }
+  check(
+    expandedPairs.includes('servo.mg90s->joint.L3'),
+    'the expanded chain does not reach a joint node',
+  );
+  // The DOM really drew them, not just the layout function.
+  const domNodes = await page.evaluate(
+    `Array.from(document.querySelectorAll('[data-arch-node]')).map((n) => n.getAttribute('data-arch-node'))`,
+  );
+  for (const id of CHAIN) {
+    check(domNodes.includes(id), `${id} is in the layout but not in the DOM — React Flow did not draw it`);
+  }
+  await focusSection(page.evaluate, 'modules');
+  const graphExpandedShot = await page.shoot(
+    'v8-architecture-servos-expanded.png',
+    'Servos expanded inside the focus workspace: movement → setServoAngle → ESP32Servo → LEDC → GPIO → MG90S → eight joints, every node backed by a hardware-map.json path and a firmware file:line',
+  );
+
   // ------------------------------------------------------------ cross-linking
   //
   // Graph -> 3D. Click the R4 node in the architecture pane and read the
@@ -1915,6 +2187,226 @@ await waitFor(
     afterReselect.visibleNodeIds.includes('joint.L3'),
     'selecting L3 from the 3D scene did not auto-expand the graph to reveal joint.L3',
   );
+
+  // ------------------------------------- W4: and the exemption ENDS
+  //
+  // The other half of the exemption. It is temporary by construction - the
+  // workspace closes itself when its pane leaves the screen - and the check
+  // that matters is that the ordinary rule comes back rather than staying
+  // relaxed, because "exempt while a mode is on" and "exempt" are the same
+  // assertion if nothing ever turns the mode off.
+  await page.evaluate(`document.querySelector('[data-testid="arch-workspace-toggle"]').click()`);
+  await sleep(1400);
+  const shellAfterWorkspace = await page.evaluate('window.__sesame.shell()');
+  const archAfterWorkspace = await page.evaluate('window.__sesame.archGraph()');
+  check(
+    shellAfterWorkspace.stageRule === 'area-50' && shellAfterWorkspace.focusPane === null,
+    `closing the workspace left the shell at stageRule=${JSON.stringify(shellAfterWorkspace.stageRule)}, ` +
+      `focusPane=${JSON.stringify(shellAfterWorkspace.focusPane)}`,
+  );
+  // The exemption is GIVEN BACK, measured as "the layout is the one it was
+  // before", not as "the layout satisfies the floor". Those are different
+  // claims and only the first is W4's: this phase runs at 1760x1000, where the
+  // two-dock Wide regime holds 45% of the area with its DEFAULT dock widths and
+  // has done since W3 - see the note below and the W4 findings. Asserting the
+  // 50% floor here would be asserting somebody else's arithmetic in the middle
+  // of a check about whether a button undoes itself.
+  const areaGivenBack =
+    Math.abs(shellAfterWorkspace.stageAreaSharePct - shellBeforeWorkspace.stageAreaSharePct) < 0.5;
+  check(
+    areaGivenBack,
+    `closing the workspace left the stage at ${shellAfterWorkspace.stageAreaSharePct.toFixed(1)}% ` +
+      `of the window's area; before it opened the same layout held ` +
+      `${shellBeforeWorkspace.stageAreaSharePct.toFixed(1)}%. The exemption is temporary or it is ` +
+      `not an exemption.`,
+  );
+  if (shellAfterWorkspace.stageAreaSharePct < W4_STAGE_AREA_FLOOR_PCT) {
+    notes.push(
+      `at ${DEFAULT_WINDOW.width}x${DEFAULT_WINDOW.height} - the harness's own default window, and ` +
+        `the bottom of the two-dock Wide regime - the stage holds ` +
+        `${shellAfterWorkspace.stageAreaSharePct.toFixed(1)}% of the window's AREA with both docks ` +
+        `open at their DEFAULT widths, below W3's ${W4_STAGE_AREA_FLOOR_PCT}% floor. This is not a ` +
+        `W4 regression and the focus workspace is not involved: W3 set the Wide boundary at 1700 px ` +
+        `from 360+360 px of dock, and the shipped defaults are 400+460. Phase 12 does not catch it ` +
+        `because the only Wide window it measures is 2560x1440, where the same layout holds 75.7%. ` +
+        `The fix is W3's arithmetic - a higher Wide boundary or narrower defaults - not a change to ` +
+        `the architecture pane.`,
+    );
+  }
+  check(
+    archAfterWorkspace.mode === 'path',
+    `after the workspace closed the pane is showing "${archAfterWorkspace.mode}"; the ordinary ` +
+      `layout is under 720 px and must be back on the causal path`,
+  );
+
+  // ------------------------------ W4: the SUBSYSTEM representation, on screen
+  //
+  // The intermediate artifact needs a container between 720 and 960 px, and no
+  // dock or workbench in this shell produces one - so the pane is DRIVEN to it,
+  // exactly as the container sweep drives every pane in phase 12. That is the
+  // whole reason W2 built container queries: the pane's width is a thing that
+  // can be set, and a representation that can only be reached by owning a
+  // different laptop cannot be looked at.
+  await page.evaluate(`(() => {
+    const pane = document.querySelector('[data-pane="modules"]');
+    if (pane !== null) pane.style.width = '900px';
+  })()`);
+  await sleep(1200);
+  const subsystemReading = await page.evaluate('window.__sesame.archGraph()');
+  check(
+    subsystemReading.mode === 'subsystem',
+    `a 900 px modules pane mounted "${subsystemReading.mode}"; between 720 and 960 px of surface ` +
+      `the brief's artifact is one subsystem`,
+  );
+  check(
+    subsystemReading.subsystem !== null,
+    `the subsystem representation named no subsystem: ${JSON.stringify(subsystemReading.subsystem)}`,
+  );
+  check(
+    subsystemReading.renderedNodeIds.length >= 3 &&
+      subsystemReading.renderedNodeIds.length <= 19,
+    `the subsystem representation drew ${subsystemReading.renderedNodeIds.length} nodes; the ` +
+      `product rule is 18 plus the root anchor`,
+  );
+  const subsystemZoom = await page.evaluate(`(() => {
+    const v = document.querySelector('.react-flow__viewport');
+    if (v === null) return null;
+    const t = getComputedStyle(v).transform;
+    const n = t.slice(t.indexOf('(') + 1, -1).split(',').map(Number);
+    return n.length >= 4 ? Math.round(n[3] * 1000) / 1000 : null;
+  })()`);
+  check(
+    subsystemZoom !== null && subsystemZoom >= 1,
+    `the subsystem graph is drawn at zoom ${subsystemZoom}. Its zoom FLOOR is 1 and that is the ` +
+      `whole design: a 15px label at zoom 1 is a 15px label, and the brief's principle is to stop ` +
+      `"Fit View" shrinking labels until everything technically fits and nothing is usable. What ` +
+      `moves instead is the viewport, which is why the surface is a declared [data-2d-surface].`,
+  );
+  // No screenshot here on purpose: a pane driven 440 px wider than the dock
+  // that holds it spills off the right of the window, which is fine for a
+  // measurement and misleading as a picture. Phase 12 photographs the same
+  // representation in a layout a reader can actually reach - 1280x800 with the
+  // focus workspace open, where 859 px of surface is the honest answer.
+  await page.evaluate(`(() => {
+    const pane = document.querySelector('[data-pane="modules"]');
+    if (pane !== null) pane.style.width = '';
+  })()`);
+  await sleep(900);
+
+  // ------------------------------- W4: the cross-highlight, in the PATH view
+  //
+  // The requirement V8 spent the most effort on, restated for a representation
+  // that has no React Flow in it: clicking `R4` anywhere must still light it
+  // here, and clicking it here must still light the mesh. Same `SelectionState`,
+  // same `selectNode`, different artifact.
+  await page.evaluate('window.__sesame.selectJoint("L3")');
+  await sleep(500);
+  const pathAfterSelect = await page.evaluate(`(() => {
+    const steps = [...document.querySelectorAll('[data-arch-path-step]')];
+    return {
+      mode: document.querySelector('[data-testid="arch-surface"]').getAttribute('data-arch-mode'),
+      steps: steps.map((n) => n.getAttribute('data-arch-path-step')),
+      selected: [...document.querySelectorAll('[data-arch-node][data-selected="true"]')].map((n) => n.getAttribute('data-arch-node')),
+    };
+  })()`);
+  check(
+    pathAfterSelect.mode === 'path' && pathAfterSelect.steps.includes('joint.L3'),
+    `selecting L3 in the 3D scene did not put it on the causal path; the chain drawn was ` +
+      `${JSON.stringify(pathAfterSelect.steps)}`,
+  );
+  check(
+    pathAfterSelect.selected.includes('joint.L3'),
+    `the causal path drew joint.L3 without marking it selected: ` +
+      `${JSON.stringify(pathAfterSelect.selected)}`,
+  );
+  // And the chain a reader is looking at really is the chain: L3's path has to
+  // arrive through the servo chain, including the hand-authored last edge.
+  for (const id of ['servo.ledc', 'servo.gpio', 'servo.mg90s']) {
+    check(
+      pathAfterSelect.steps.includes(id),
+      `L3's causal path skipped ${id}: ${JSON.stringify(pathAfterSelect.steps)}`,
+    );
+  }
+  const handEdges = await page.evaluate(
+    `document.querySelectorAll('[data-arch-edge-derivation="hand-authored"]').length`,
+  );
+  check(
+    handEdges >= 1,
+    `the causal path ends on a joint through servo.mg90s -> joint.L3, which is one of the five ` +
+      `hand-authored claims, and marked ${handEdges} relation(s) as hand-authored. Dashing an ` +
+      `edge is not available in a representation that has no edges to dash, so it has to say so.`,
+  );
+
+  // Path -> 3D. Click the step in the DOM and read THREE.js back.
+  await page.evaluate('window.__sesame.selectJoint(null)');
+  await sleep(300);
+  const pathClick = await page.evaluate(`(() => {
+    const node = document.querySelector('[data-arch-node="servo.ledc"]');
+    if (node === null) return { ok: false, why: 'servo.ledc is not on the causal path' };
+    node.click();
+    return { ok: true };
+  })()`);
+  check(pathClick.ok, `could not click a step in the causal path: ${pathClick.why}`);
+  await sleep(400);
+  const afterPathClick = await page.evaluate('window.__sesame.archGraph()');
+  check(
+    afterPathClick.selectedNodeId === 'servo.ledc',
+    `clicking a causal-path step left the selection at ` +
+      `${JSON.stringify(afterPathClick.selectedNodeId)}; every representation writes the same ` +
+      `SelectionState through the same selectNode()`,
+  );
+  // A node about all eight joints selects no ONE joint - V8's rule, unchanged
+  // by the representation. What it does light is `litJointsFor()`'s second arm:
+  // the joints the SYMBOL this node cites commands, which for LEDC is all
+  // eight. Measured rather than assumed, because the first version of this
+  // check asserted an empty set and the app was right.
+  const afterPathScene = await page.evaluate('window.__sesame.sceneSelection()');
+  check(
+    afterPathScene.joint === null,
+    `selecting LEDC from the causal path set the joint to ${JSON.stringify(afterPathScene.joint)}; ` +
+      `a node about all eight joints is about the stage, not about a limb, and collapsing that to ` +
+      `"pick the first joint" would be a lie the 3D scene would then render`,
+  );
+  check(
+    afterPathScene.litJoints.length === 8,
+    `selecting LEDC from the causal path lit ${JSON.stringify(afterPathScene.litJoints)}; the ` +
+      `node cites a span of code that commands all eight, which is litJointsFor()'s symbol arm ` +
+      `and is the same answer the full graph gives for the same click`,
+  );
+  // And one that IS about a limb - reached through the branch row, which is
+  // the representation's answer to "the chain shows one joint and there are
+  // eight". `+N more` opens the rest in place, so nothing in the graph is
+  // unreachable from the narrow view; that is the promise all three share.
+  await page.evaluate('window.__sesame.selectJoint(null)');
+  await sleep(400);
+  const branchOpen = await page.evaluate(`(() => {
+    const more = document.querySelector('[data-arch-branches-more="servo.mg90s"]');
+    if (more === null) return { ok: false, why: 'no branch-expander beside servo.mg90s' };
+    more.click();
+    return { ok: true, label: more.textContent };
+  })()`);
+  check(branchOpen.ok, `could not open the causal path's branch row: ${branchOpen.why}`);
+  await sleep(400);
+  const branchClick = await page.evaluate(`(() => {
+    const node = document.querySelector('[data-arch-branch="joint.L4"]');
+    if (node === null) return { ok: false, why: 'joint.L4 is not reachable from the causal path' };
+    node.click();
+    return { ok: true };
+  })()`);
+  check(
+    branchClick.ok,
+    `${branchClick.why}. Every node has to be reachable from every representation, or the narrow ` +
+      `view is a subset of the product rather than a view of it.`,
+  );
+  await sleep(500);
+  const branchScene = await page.evaluate('window.__sesame.sceneSelection()');
+  check(
+    branchScene.joint === 'L4' && JSON.stringify(branchScene.litJoints) === JSON.stringify(['L4']),
+    `clicking L4 in the causal path lit ${JSON.stringify(branchScene.litJoints)} in the scene ` +
+      `graph - read off MeshStandardMaterial.emissiveIntensity, so this is what the renderer has`,
+  );
+  await page.evaluate('window.__sesame.selectJoint(null)');
+  await sleep(300);
 
   // ------------------------------------- ISSUE-20260823-023, re-asserted here
   //
@@ -2011,6 +2503,42 @@ await waitFor(
       sceneSelectToGraph: 'joint.L3',
       sceneSelectToTrace: hitRows,
       autoExpanded: true,
+      // W4: the same object, the same entry point, in the artifact a laptop
+      // actually gets. `SelectionState` is written by `selectNode()` from all
+      // three representations, so there is one code path rather than three.
+      pathSelectToScene: { clicked: 'joint.L4', litJoints: branchScene.litJoints },
+      pathSelectIsStageNotLimb: { clicked: 'servo.ledc', litJoints: afterPathScene.litJoints },
+    },
+    /**
+     * W4 — the three representations, as measured in this phase.
+     *
+     * `ordinary` is what a reader gets without doing anything, at the widest
+     * window this harness runs the rest of its phases in. `workspace` is the
+     * explicit action, and it carries the numbers the stage-area exemption is
+     * granted against rather than merely a flag saying it was granted.
+     */
+    representations: {
+      thresholdsPx: { subsystem: 720, full: 960 },
+      ordinary: {
+        mode: archOrdinary.mode,
+        surfaceWidthPx: archOrdinary.surfaceWidthPx,
+        reactFlowMounted: archMounted.canvases,
+        zoomSurfaces: archMounted.zoomSurfaces,
+        steps: archMounted.steps,
+        worstOnScreenPx: archPathTypeReading?.worst?.px ?? null,
+        textRuns: archPathTypeReading?.runs ?? null,
+      },
+      subsystem: {
+        drivenContainerPx: 900,
+        mode: subsystemReading.mode,
+        surfaceWidthPx: subsystemReading.surfaceWidthPx,
+        subsystem: subsystemReading.subsystem,
+        nodes: subsystemReading.renderedNodeIds.length,
+        zoom: subsystemZoom,
+      },
+      workspace: w4Workspace,
+      stageRuleAfterClose: shellAfterWorkspace.stageRule,
+      stageAreaAfterClosePct: shellAfterWorkspace.stageAreaSharePct,
     },
     worldFrame: {
       toleranceMm: FRAME_EPS_MM,
@@ -2018,7 +2546,13 @@ await waitFor(
       footContactSpreadMm: spreadHere,
       samples: framesHere.length,
     },
-    shots: [graphCollapsedShot.name, graphExpandedShot.name, traceShot.name, pwmShot.name],
+    shots: [
+      graphPathShot.name,
+      graphCollapsedShot.name,
+      graphExpandedShot.name,
+      traceShot.name,
+      pwmShot.name,
+    ],
   };
 
   await page.evaluate('window.__sesame.stop()');
@@ -5654,6 +6188,18 @@ if (SKIP_QEMU) {
         ['workbench in Analyze', open],
       ]) {
         if (window.breakpoint === 'compact') continue;
+        // W4. The ordinary layout may never CLAIM the exemption. Phase 7
+        // asserts the exemption is real when the focus workspace is open; this
+        // is its other half, and without it "focus-exempt" could quietly become
+        // the shell's permanent answer and the area rule would stop being
+        // asserted anywhere while still appearing to pass.
+        check(
+          reading.stageRule === 'area-50' && reading.focusPane === null,
+          `at ${where} with the ${state} the shell says its stage rule is ` +
+            `${JSON.stringify(reading.stageRule)} (focusPane ${JSON.stringify(reading.focusPane)}). ` +
+            `The brief's exemption belongs to the focus workspace and to nothing else; the ` +
+            `ordinary layout answers to the 50%-area rule at every width.`,
+        );
         check(
           reading.stageAreaSharePct >= STAGE_AREA_FLOOR_PCT,
           `at ${where} with the ${state} the 3D canvas is ` +
@@ -6383,11 +6929,26 @@ if (SKIP_QEMU) {
     // The brief's component-harness widths. 519/522 and 719/722 straddle the
     // two thresholds: the pane carries a 1 px border on each side, so a 522 px
     // box is a 520 px container.
-    const CONTAINER_WIDTHS = [320, 360, 480, 519, 522, 719, 722, 960, 1200];
+    const CONTAINER_WIDTHS = [320, 360, 480, 519, 522, 719, 722, 776, 960, 1016, 1200];
     const NARROW_PX = 520;
     const WIDE_PX = 720;
     const MEASURE_MIN_CH = 45;
     const MEASURE_MAX_CH = 75;
+    /*
+     * W4's thresholds, on the ARCHITECTURE SURFACE rather than on the pane.
+     *
+     * The two extra container widths above (776 and 1016) exist because the
+     * surface is about 56 px narrower than the pane it sits in, so a pane
+     * driven to 720 or 960 lands the artifact on the wrong side of its own
+     * boundary. 776 and 1016 are the pane widths that put the SURFACE at
+     * exactly 720 and 960 in this layout, and asserting the boundary means
+     * standing on it rather than near it.
+     */
+    const ARCH_SUBSYSTEM_PX = 720;
+    const ARCH_FULL_PX = 960;
+    const ARCH_SUBSYSTEM_MAX_NODES = 18;
+    /** Recorded, never asserted away: the one representation still below 14px. */
+    const archFullZoomDebt = [];
 
     /**
      * Drive one pane through every width and read what changed.
@@ -6442,7 +7003,10 @@ if (SKIP_QEMU) {
         const readings = {};
         for (const w of ${JSON.stringify(CONTAINER_WIDTHS)}) {
           pane.style.width = w + 'px';
-          await sleep(180);
+          // Modules gets longer: a width change here can MOUNT or UNMOUNT React
+          // Flow, which is a ResizeObserver callback, a React commit and the
+          // library's own measuring pass rather than a repaint.
+          await sleep(id === 'modules' ? 520 : 180);
           // The container's own content box. \`clientWidth\` excludes the border,
           // which is exactly what a container query measures.
           const containerPx = pane.clientWidth;
@@ -6484,11 +7048,63 @@ if (SKIP_QEMU) {
             measured.proseCh = Math.round((prose.getBoundingClientRect().width / ch) * 10) / 10;
             measured.proseChPx = Math.round(ch * 100) / 100;
           }
-          const canvas = pane.querySelector('.arch-canvas');
-          if (canvas !== null) {
-            signature.archBand = canvas.getAttribute('data-pane-band');
-            signature.archCanvasPx = canvas.clientWidth;
+          /*
+            W4 moved these from ".arch-canvas" to ".arch-surface", and the move
+            is the finding rather than a refactor: below 720 px there IS no
+            canvas, because the artifact is ordinary flow text. Reading the band
+            off a box that only exists in two of the three representations would
+            have made every assertion below skip silently in the third — which
+            is precisely the hollow-assertion failure this project has hit.
+          */
+          const surface = pane.querySelector('.arch-surface');
+          if (surface !== null) {
+            signature.archBand = surface.getAttribute('data-pane-band');
+            signature.archMode = surface.getAttribute('data-arch-mode');
+            signature.archSurfacePx = surface.clientWidth;
+            signature.archCanvasMounted = pane.querySelectorAll('.arch-canvas').length;
             signature.archBackgroundMounted = pane.querySelectorAll('.react-flow__background').length;
+            signature.archFlowNodes = pane.querySelectorAll('[data-arch-node]').length;
+            /*
+              The point of the whole workstream, measured where it is claimed.
+
+              Every run of text inside the architecture panel, multiplied by the
+              transform actually in force. In "path" there is no transform at
+              all and in "subsystem" the zoom floor is 1, so in both of those
+              this number must clear the 14 px floor with no exemption. "full"
+              is the one that still cannot, and it is the only one still
+              carrying "data-zoom-surface".
+            */
+            const scaleOf = (el) => {
+              let scale = 1;
+              let node = el;
+              let guard = 0;
+              while (node !== null && node !== document.documentElement && guard < 60) {
+                const t = getComputedStyle(node).transform;
+                if (t !== 'none' && t !== '') {
+                  const nums = t.slice(t.indexOf('(') + 1, -1).split(',').map(Number);
+                  if (t.startsWith('matrix3d') && nums.length >= 6) scale *= Math.abs(nums[5]);
+                  else if (nums.length >= 4) scale *= Math.abs(nums[3]);
+                }
+                node = node.parentElement;
+                guard += 1;
+              }
+              return scale;
+            };
+            let worst = null;
+            for (const el of pane.querySelectorAll('[data-testid="architecture-graph"] *')) {
+              const cs = getComputedStyle(el);
+              if (cs.display === 'none' || cs.visibility === 'hidden') continue;
+              let own = '';
+              for (const n of el.childNodes) if (n.nodeType === 3) own += n.nodeValue;
+              if (own.trim().length === 0) continue;
+              const box = el.getBoundingClientRect();
+              if (box.width < 1 || box.height < 1) continue;
+              const px = Math.round(parseFloat(cs.fontSize) * scaleOf(el) * 100) / 100;
+              if (worst === null || px < worst.px) worst = { px, text: own.trim().slice(0, 30) };
+            }
+            signature.archZoomSurfaces = pane.querySelectorAll('[data-zoom-surface]').length;
+            measured.archWorstOnScreenPx = worst === null ? null : worst.px;
+            measured.archWorstText = worst === null ? null : worst.text;
           }
 
           readings[w] = {
@@ -6574,23 +7190,95 @@ if (SKIP_QEMU) {
             );
           }
           if (s.archBand !== undefined) {
-            // The React band is measured on the CANVAS, which is the artifact's
+            // The React band is measured on the SURFACE, which is the artifact's
             // own box and therefore narrower than the pane by the pane's
             // padding. That is deliberate and conservative in the safe
             // direction — a scoped representation in a box 40 px too small is a
             // better failure than the full map in one.
-            const expected = s.archCanvasPx < NARROW_PX ? 'narrow' : s.archCanvasPx < WIDE_PX ? 'medium' : 'wide';
+            const expected =
+              s.archSurfacePx < NARROW_PX ? 'narrow' : s.archSurfacePx < WIDE_PX ? 'medium' : 'wide';
             check(
               s.archBand === expected,
               `${where}: the architecture pane publishes band "${s.archBand}" for a ` +
-                `${s.archCanvasPx} px canvas; paneWidthBand() says "${expected}". W4 branches on this.`,
+                `${s.archSurfacePx} px surface; paneWidthBand() says "${expected}".`,
+            );
+
+            // ============================ W4: WHICH ARTIFACT IS MOUNTED
+            //
+            // The user's complaint, closed or not closed, is decided here. The
+            // thresholds are the brief's — 720 and 960 — and they are a SECOND
+            // table from W2's 520/720 on purpose: one is about column count and
+            // is read by CSS, the other is about a 63-node diagram and is read
+            // by React. See `apps/web/src/arch/representation.ts`.
+            const expectedMode =
+              s.archSurfacePx < ARCH_SUBSYSTEM_PX
+                ? 'path'
+                : s.archSurfacePx < ARCH_FULL_PX
+                  ? 'subsystem'
+                  : 'full';
+            check(
+              s.archMode === expectedMode,
+              `${where}: the architecture pane mounted the "${s.archMode}" representation in a ` +
+                `${s.archSurfacePx} px surface; archModeForWidth() says "${expectedMode}". The ` +
+                `brief's rule is causal path below ${ARCH_SUBSYSTEM_PX}, one subsystem below ` +
+                `${ARCH_FULL_PX}, the whole 63-node map at or above it.`,
+            );
+
+            // REACT chose, and CSS did not merely hide. The proof is that the
+            // React Flow surface is not in the DOM at all below 720 px — a
+            // stylesheet cannot decline to mount something, so a canvas found
+            // here would mean the switch had been faked with `display: none`.
+            check(
+              s.archCanvasMounted === (expectedMode === 'path' ? 0 : 1),
+              `${where}: React Flow's canvas is in the DOM ${s.archCanvasMounted} time(s) in the ` +
+                `"${s.archMode}" representation. Below ${ARCH_SUBSYSTEM_PX} px it must not be ` +
+                `MOUNTED, not merely hidden: mounting the 63-node graph and hiding it wastes the ` +
+                `layout work and leaves two DOMs claiming to be the same diagram.`,
             );
             check(
-              s.archBackgroundMounted === (s.archBand === 'narrow' ? 0 : 1),
+              s.archBackgroundMounted === (expectedMode === 'path' ? 0 : 1),
               `${where}: React Flow's dot grid is mounted ${s.archBackgroundMounted} time(s) in the ` +
-                `"${s.archBand}" band. It is left OUT of the tree at narrow widths rather than hidden ` +
-                `with CSS — mounting work you intend not to show is what the brief says not to do.`,
+                `"${s.archMode}" representation.`,
             );
+
+            // The number of nodes a reader can actually click. `path` shows one
+            // chain plus its branch chips; `subsystem` is capped at the product
+            // rule; `full` is the whole visible layout.
+            if (expectedMode === 'subsystem') {
+              check(
+                s.archFlowNodes >= 3 && s.archFlowNodes <= ARCH_SUBSYSTEM_MAX_NODES + 1,
+                `${where}: the subsystem representation drew ${s.archFlowNodes} nodes; the product ` +
+                  `rule is ${ARCH_SUBSYSTEM_MAX_NODES} plus the root anchor. The brief's principle ` +
+                  `is to stop "Fit View" shrinking labels until everything technically fits and ` +
+                  `nothing is usable.`,
+              );
+            }
+
+            // ===================== W4: THE FLOOR, WHERE IT IS CLAIMED
+            //
+            // `data-zoom-surface` was W1's marker for the one surface whose
+            // on-screen size is not its authored size. W4 scopes it to the
+            // artifact that owes the debt: `path` has no transform and
+            // `subsystem` has a zoom floor of 1, so in both the ordinary 14 px
+            // floor applies to what is DRAWN, with no exemption at all.
+            check(
+              s.archZoomSurfaces === (expectedMode === 'full' ? 1 : 0),
+              `${where}: the "${s.archMode}" representation declares ${s.archZoomSurfaces} ` +
+                `[data-zoom-surface]. Only the full 63-node graph may: it is the only one whose ` +
+                `on-screen size is not its authored size, and an exemption that covered the other ` +
+                `two would let this workstream's own debt back in silently.`,
+            );
+            const archText = reading.measured;
+            if (expectedMode !== 'full' && archText.archWorstOnScreenPx !== null) {
+              check(
+                archText.archWorstOnScreenPx >= TEXT_FLOOR_PX - 0.01,
+                `${where}: the smallest text ON SCREEN in the "${s.archMode}" representation is ` +
+                  `${archText.archWorstOnScreenPx}px (${JSON.stringify(archText.archWorstText)}), below the ` +
+                  `${TEXT_FLOOR_PX}px floor. W1 measured 3.8-8.0px here and handed it to W4 as the ` +
+                  `thing three representations exist to fix; this is where it is proved fixed.`,
+              );
+            }
+            if (expectedMode === 'full') archFullZoomDebt.push({ where, ...archText });
           }
           const m = reading.measured;
           if (m.proseCh !== undefined) {
@@ -6622,6 +7310,21 @@ if (SKIP_QEMU) {
           );
         }
       }
+    }
+    if (archFullZoomDebt.length > 0) {
+      const worst = archFullZoomDebt.reduce((a, b) =>
+        (a.archWorstOnScreenPx ?? 99) <= (b.archWorstOnScreenPx ?? 99) ? a : b,
+      );
+      notes.push(
+        `the FULL 63-node graph still draws text below the ${TEXT_FLOOR_PX}px floor when it is ` +
+          `fitted: ${worst.archWorstOnScreenPx}px at its worst (${JSON.stringify(worst.archWorstText)}), ` +
+          `${worst.where}. That is the debt W1 measured at 3.8-8.0px and it is NOT fixed - it is ` +
+          `SCOPED. The full graph is now the only representation that renders at all below 960px ` +
+          `of surface, it is the only one still carrying [data-zoom-surface], and the two ` +
+          `representations a laptop actually gets are asserted against the floor above with no ` +
+          `exemption. Fixing it inside React Flow would mean refusing to fit, which is panning a ` +
+          `63-node map in a pane - the thing the three representations exist to avoid.`,
+      );
     }
     if (proseNotes.length > 0) {
       notes.push(
@@ -6675,12 +7378,114 @@ if (SKIP_QEMU) {
       divergences,
       measureBandCh: [MEASURE_MIN_CH, MEASURE_MAX_CH],
       measureShortfalls: proseNotes,
+      architecture: {
+        thresholdsPx: { subsystem: ARCH_SUBSYSTEM_PX, full: ARCH_FULL_PX },
+        subsystemMaxNodes: ARCH_SUBSYSTEM_MAX_NODES,
+        modesByContainerWidth: Object.fromEntries(
+          Object.entries(sweeps['2560x1440'].modules ?? {}).map(([asked, r]) => [
+            asked,
+            {
+              surfacePx: r.signature.archSurfacePx,
+              mode: r.signature.archMode,
+              nodes: r.signature.archFlowNodes,
+              worstOnScreenPx: r.measured.archWorstOnScreenPx,
+              zoomSurfaces: r.signature.archZoomSurfaces,
+            },
+          ]),
+        ),
+        fullGraphZoomDebt: archFullZoomDebt,
+      },
       readings: sweeps['2560x1440'],
     };
     console.log(
       `[web] container sweep: ${PANES.length} panes x ${CONTAINER_WIDTHS.length} widths x 2 windows, ` +
         `${divergences} viewport-dependent difference(s)`,
     );
+  }
+
+  // ======================================================================
+  // W4: THE SUBSYSTEM REPRESENTATION, IN A LAYOUT A READER CAN REACH
+  // ======================================================================
+  //
+  // The intermediate artifact is the hardest of the three to photograph
+  // honestly, because no dock or workbench in the ordinary shell produces a
+  // 720-959 px surface. Phase 7 proves the switch by DRIVING a pane to it, the
+  // way the container sweep drives every pane; this proves that the width is
+  // also reachable by a real action on a real laptop - a 1280x800 window with
+  // the focus workspace open gives the pane 859 px, and 859 px is the
+  // subsystem graph rather than the full map. That is the honest answer at that
+  // window and the pane says so out loud rather than claiming a map that would
+  // not fit.
+  {
+    const subPage = await bootPage({ width: 1280, height: 800 });
+    try {
+      await subPage.evaluate('window.__sesame.setSection("modules", true)');
+      await sleep(700);
+      await subPage.evaluate('window.__sesame.run("wave")');
+      await sleep(2600);
+      await subPage.evaluate(
+        `document.querySelector('[data-testid="arch-workspace-toggle"]').click()`,
+      );
+      await sleep(1600);
+      const reading = await subPage.evaluate('window.__sesame.archGraph()');
+      const shell12 = await subPage.evaluate('window.__sesame.shell()');
+      check(
+        reading.mode === 'subsystem',
+        `at 1280x800 with the focus workspace open the pane holds ` +
+          `${reading.surfaceWidthPx} px and mounted "${reading.mode}". The workspace is not a ` +
+          `fourth mode: it widens the pane and archModeForWidth() chooses, so a smaller laptop ` +
+          `gets the subsystem graph and is told so.`,
+      );
+      check(
+        shell12.stageRule === 'focus-exempt' &&
+          shell12.stageAreaSharePct < STAGE_AREA_FLOOR_PCT,
+        `the workspace at 1280x800 reports stageRule=${JSON.stringify(shell12.stageRule)} with the ` +
+          `stage at ${shell12.stageAreaSharePct.toFixed(1)}% of the area. The exemption is only ` +
+          `honest if it is actually needed.`,
+      );
+      // The floor that REPLACES the area rule, at the smallest window the
+      // workspace is offered on. This is the number that decides whether
+      // "Sesame stays a live reference" is true or a slogan.
+      check(
+        shell12.canvasWidthPx >= 220 && shell12.canvasHeightPx >= 220,
+        `inside the workspace at 1280x800 the 3D canvas is ` +
+          `${shell12.canvasWidthPx.toFixed(0)}x${shell12.canvasHeightPx.toFixed(0)}; the focus ` +
+          `floor is 220 px on each side`,
+      );
+      const subZoom = await subPage.evaluate(`(() => {
+        const v = document.querySelector('.react-flow__viewport');
+        if (v === null) return null;
+        const t = getComputedStyle(v).transform;
+        const n = t.slice(t.indexOf('(') + 1, -1).split(',').map(Number);
+        return n.length >= 4 ? Math.round(n[3] * 1000) / 1000 : null;
+      })()`);
+      check(
+        subZoom !== null && subZoom >= 1,
+        `the subsystem graph at 1280x800 is drawn at zoom ${subZoom}; its floor is 1, which is what ` +
+          `makes a 15px node label a 15px node label`,
+      );
+      const shot = await subPage.shoot(
+        'w4-architecture-subsystem.png',
+        'the subsystem representation, reached on a 1280x800 laptop by opening the architecture workspace: 859 px of pane is one Movement neighbourhood of 16 nodes drawn at zoom 1 - every label its authored 15px on screen - with the other three subsystems one click away, the 21 nodes the 18-node budget could not take counted rather than dropped, and Sesame still live beside it',
+      );
+      phases.architectureSubsystem = {
+        ok: true,
+        window: '1280x800',
+        via: 'focus workspace',
+        surfaceWidthPx: reading.surfaceWidthPx,
+        mode: reading.mode,
+        subsystem: reading.subsystem,
+        nodes: reading.renderedNodeIds.length,
+        zoom: subZoom,
+        stageRule: shell12.stageRule,
+        stageAreaSharePct: shell12.stageAreaSharePct,
+        canvasPx: [shell12.canvasWidthPx, shell12.canvasHeightPx],
+        shots: [shot.name],
+      };
+    } finally {
+      subPage.close();
+      await sleep(400);
+    }
   }
 
   // ======================================================================
