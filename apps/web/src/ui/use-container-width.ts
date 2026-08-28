@@ -116,6 +116,19 @@ export function useContainerWidth(): ContainerWidth {
       // for the one engine generation that shipped the observer without it.
       const measured = entry.borderBoxSize?.[0]?.inlineSize ?? entry.contentRect.width;
       const rounded = Math.round(measured);
+      /*
+       * A ZERO measurement is "not laid out", never "narrow" — Phase 4 W7.
+       *
+       * `display: none` on an ancestor makes `ResizeObserver` report 0x0, and
+       * treating that as a width made the pane swap its representation every
+       * time it went off screen: React Flow unmounted and remounted on every
+       * module switch, and the remount is where W7 caught the subsystem graph
+       * drawn at 0.93 instead of its floor of 1. It is also exactly the wasted
+       * mount/unmount work W4 chose React-side representation switching to
+       * avoid. Keeping the last real width means a pane that comes back comes
+       * back as the artifact it was.
+       */
+      if (rounded === 0) return;
       if (last.current === rounded) return;
       last.current = rounded;
       setWidthPx(rounded);

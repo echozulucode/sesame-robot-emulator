@@ -47,6 +47,7 @@ import type { ReactElement } from 'react';
 
 import type { BackendId, BackendStatus, TelemetryBackend } from '../backends/types.js';
 import {
+  measurementHeadline,
   measurementVerdict,
   OriginTag,
   PROVENANCE_MEANING,
@@ -77,6 +78,17 @@ export interface CommandBarProps {
   readonly onCommand: (name: string) => void;
   readonly onFace: (name: string) => void;
   readonly onStop: () => void;
+  /**
+   * `panel` is the side-panel card: a shortlist, and no scroller anywhere.
+   *
+   * §11.4 asks for Commands to be *minimal* and to never need a scrollbar of
+   * its own, so the panel shows five commands and four faces and the rest is
+   * one click away in the "All commands" screen. What it does NOT drop is the
+   * correctness content: the receive-only warning, the not-connected note and
+   * the two ⚠ faces that draw nothing are on the panel, because a popover may
+   * expand a correctness surface and may not be where it first appears.
+   */
+  readonly variant?: 'panel' | 'full';
 }
 
 /**
@@ -93,6 +105,38 @@ const BACKEND_CHOICES: readonly { id: BackendId; label: string; sub: string }[] 
 
 /** Faces worth one click. The full 38 are in the model; these are the ones with pixels. */
 const FACE_SHORTLIST = ['happy', 'sad', 'angry', 'surprised', 'love', 'sleepy', 'confused', 'idle'];
+
+/**
+ * The five commands the side panel shows — Phase 4 W7.
+ *
+ * `wave` is first and is not negotiable: it is the button four harness phases
+ * click, and it is the one movement every lesson and every capture reaches for.
+ * The other four are the poses a reader tries next. The remaining fifteen are
+ * in the "All commands" screen, which is a click and not a scroll.
+ */
+const PANEL_COMMANDS: readonly string[] = ['wave', 'stand', 'rest', 'dance'];
+
+/** Two that work, and the two that draw nothing — see {@link FaceBar}. */
+const PANEL_FACES: readonly string[] = ['happy', 'sad'];
+
+/**
+ * `setFace("stand")` and `setFace("default")` draw NOTHING.
+ *
+ * The bitmap is weak-undefined in the firmware — ISSUE-20260823-004 — and that
+ * is a correctness surface rather than a curiosity, so both buttons and the
+ * count beside them are on the side panel at every width, not only in the "All
+ * commands" screen.
+ */
+const BROKEN_FACES: readonly string[] = ['stand', 'default'];
+
+/**
+ * The panel's own note, in ONE line.
+ *
+ * The full sentence — *"38 faces are registered in the firmware; the two marked
+ * ⚠ have zero frames and draw nothing at all"* — is in the "All commands"
+ * screen. What may not move there is the FACT, so the ⚠ buttons and this count
+ * are both on the panel.
+ */
 
 export function BackendPanel(props: ControlsProps): ReactElement {
   const {
@@ -186,27 +230,23 @@ export function BackendPanel(props: ControlsProps): ReactElement {
       </p>
 
       {/*
-        Two badges, never one. `provenance` says how much epistemic weight an
-        event carries; `origin` says which boundary it crossed. Only the second
-        distinguishes an emulated servo write from a measurement, which is why
-        the verdict line below is computed with `isPhysicallyObserved()` and
-        never by comparing `provenance === 'observed'`.
+        The BANNER moved to the side panel — Phase 4 W7.
+
+        `#prov-banner`, `#origin-banner` and `#measurement-verdict` are the
+        product's central claim, and §11.4 forbids a correctness surface from
+        first appearing inside a "more info" screen. This panel is now that
+        screen, so what stayed here is what a popover is FOR: the meaning of the
+        badge in full prose, and the counts behind it. See {@link TrustCard}.
       */}
-      <div className={`prov-banner prov-${drivingProvenance ?? 'none'}`} id="prov-banner">
-        <div className="prov-banner-head">
-          <span>this scene is being driven by</span>
-          {drivingProvenance === null ? (
-            <span className="prov prov-none prov-lg">nothing yet</span>
-          ) : (
-            <ProvenanceTag value={drivingProvenance} size="lg" />
-          )}
-        </div>
-        <p>{drivingProvenance === null ? 'No event has moved a joint yet.' : PROVENANCE_MEANING[drivingProvenance]}</p>
-        <div className="prov-banner-head" id="origin-banner">
-          <span>which crossed</span>
-          <OriginTag origin={drivingOrigin} />
-        </div>
-        <p id="measurement-verdict">{measurementVerdict(drivingProvenance, drivingOrigin)}</p>
+      <div className="prov-detail" data-testid="prov-detail">
+        <p className="note" data-testid="measurement-verdict-full">
+          {measurementVerdict(drivingProvenance, drivingOrigin)}
+        </p>
+        <p className="note" data-testid="provenance-meaning">
+          {drivingProvenance === null
+            ? 'No event has moved a joint yet.'
+            : PROVENANCE_MEANING[drivingProvenance]}
+        </p>
         <div className="prov-counts" id="prov-counts">
           {(['observed', 'simulated', 'inferred'] as const).map((p) => (
             <span key={p} className={`prov prov-${p}${provenanceCounts[p] === 0 ? ' prov-zero' : ''}`}>
@@ -231,6 +271,105 @@ export function BackendPanel(props: ControlsProps): ReactElement {
   );
 }
 
+export interface TrustCardProps {
+  readonly drivingProvenance: Provenance | null;
+  readonly drivingOrigin: TelemetryOrigin | null;
+  /** `store.physicallyObservedEvents` — a counter, never a constant. */
+  readonly physicallyObservedEvents: number;
+  readonly onMore: () => void;
+}
+
+/**
+ * The side panel's first card, and the one §11.4 is written about.
+ *
+ * > *"Correctness surfaces may not be demoted into a popover. Provenance,
+ * > origin, `PHYSICAL HARDWARE: NONE`, `NOT BUILT` and `CONCEPTUAL` badges stay
+ * > visible on the panel itself. A popover may EXPAND them; it may not be where
+ * > they first appear."*
+ *
+ * So four things are on the panel, permanently, above every disclosure:
+ *
+ *  1. the driving **provenance** badge, at `lg`;
+ *  2. the driving **origin**, in full — `describeOrigin()` including the board,
+ *     not the rail's compact kind — carrying `data-origin-physical`;
+ *  3. `measurementVerdict()`, which is the sentence that settles *"is this a
+ *     measurement?"* and is computed from `isPhysicallyObserved()` rather than
+ *     from `provenance === 'observed'`;
+ *  4. **PHYSICAL HARDWARE: NONE**, read off the counter. If it were ever
+ *     non-zero this would say `n OBSERVED EVENTS` instead of keeping the
+ *     reassuring word, exactly as the status strip's environment line does —
+ *     both read the same field, so they cannot disagree.
+ *
+ * `display: inline` with real spaces on the physical-hardware line, and that is
+ * a lesson rather than a style: W3 shipped the environment line as
+ * `inline-flex` with a `gap`, which looked right and serialised as
+ * `PHYSICAL HARDWARE:NONE` to `textContent` and to a screen reader, because a
+ * flex item is blockified and a block box drops its trailing whitespace.
+ */
+export function TrustCard(props: TrustCardProps): ReactElement {
+  const { drivingProvenance, drivingOrigin, physicallyObservedEvents, onMore } = props;
+  return (
+    <section
+      className={`pane panel-card panel-trust prov-banner prov-${drivingProvenance ?? 'none'}`}
+      id="prov-banner"
+      data-pane="trust"
+      data-panel-card="trust"
+      data-testid="panel-trust"
+      aria-labelledby="panel-trust-title"
+    >
+      <h2 className="pane__header panel-card-title" data-pane-chrome="header">
+        <span className="dock-section-label" id="panel-trust-title">
+          Driving
+        </span>
+        <button
+          type="button"
+          className="panel-more"
+          data-panel-more="trust"
+          onClick={onMore}
+          title="the backend switch, what this provenance means, and the counts behind it"
+        >
+          More
+        </button>
+      </h2>
+      <div className="pane__content panel-card-body" data-pane-content="trust" data-scroll-owner="pane">
+        {/*
+          Both badges on ONE row. Two badges, never one: `provenance` says how
+          much epistemic weight an event carries, `origin` says which boundary
+          it crossed, and only the second distinguishes an emulated servo write
+          from a measurement. The words that used to introduce them
+          ("this scene is being driven by", "which crossed") are in the "More"
+          screen: they are prose about the badges, and the badges are the claim.
+        */}
+        <div className="prov-banner-head" data-testid="panel-provenance">
+          {drivingProvenance === null ? (
+            <span className="prov prov-none">nothing yet</span>
+          ) : (
+            <ProvenanceTag value={drivingProvenance} />
+          )}
+          <span id="origin-banner">
+            <OriginTag origin={drivingOrigin} />
+          </span>
+        </div>
+        {/*
+          The CLAIM, on the panel, at every width. The paragraph that explains
+          it is in the "More" screen — an expansion of a correctness surface,
+          which §11.4 allows, rather than the place it first appears, which it
+          does not. Both come from the same `isPhysicallyObserved()` call.
+        */}
+        <p id="measurement-verdict">{measurementHeadline(drivingProvenance, drivingOrigin)}</p>
+        <span className="panel-hardware" data-testid="panel-physical-hardware" data-physically-observed={physicallyObservedEvents}>
+          <span className="panel-hardware-label">PHYSICAL HARDWARE: </span>
+          <span className={physicallyObservedEvents === 0 ? 'panel-hardware-none' : 'panel-hardware-some'}>
+            {physicallyObservedEvents === 0
+              ? 'NONE'
+              : `${String(physicallyObservedEvents)} OBSERVED EVENTS`}
+          </span>
+        </span>
+      </div>
+    </section>
+  );
+}
+
 /**
  * The command vocabulary, on the stage.
  *
@@ -240,9 +379,19 @@ export function BackendPanel(props: ControlsProps): ReactElement {
  * ⚠ faces have zero frames and draw nothing at all.
  */
 export function CommandBar(props: CommandBarProps): ReactElement {
-  const { backend, status, busy, error, onCommand, onFace, onStop } = props;
+  const { backend, status, busy, error, onCommand, onFace, onStop, variant = 'full' } = props;
+  const panel = variant === 'panel';
 
-  const commands = COMMAND_VOCABULARY.filter((c) => c.command !== '' && c.command !== 'stop');
+  const all = COMMAND_VOCABULARY.filter((c) => c.command !== '' && c.command !== 'stop');
+  const commands = panel ? all.filter((c) => PANEL_COMMANDS.includes(c.command)) : all;
+  /*
+    The two ⚠ faces are in BOTH lists on purpose. `setFace("stand")` and
+    `setFace("default")` draw nothing at all — the bitmap is weak-undefined,
+    ISSUE-20260823-004 — and that is a correctness surface rather than a
+    curiosity. A "minimal" panel that showed the eight faces that work and hid
+    the two that do not would be the exact tidying-away §11.4 forbids.
+  */
+  const faces = panel ? [] : FACE_SHORTLIST;
 
   // A backend that has not finished connecting cannot run anything, and on the
   // QEMU path saying so matters: the lab host answers a command posted mid-boot
@@ -252,11 +401,17 @@ export function CommandBar(props: CommandBarProps): ReactElement {
   const commandsDisabled = !backend.canCommand || !ready || busy !== null;
 
   return (
-    <section className="panel command-bar" data-testid="command-bar">
-      <header className="panel-header">
-        <h2>Commands</h2>
-        <span className="panel-sub">from hardware-map.json, not hardcoded</span>
-      </header>
+    <section
+      className={`panel command-bar${panel ? ' command-bar-panel' : ''}`}
+      data-testid={panel ? 'command-bar' : 'command-bar-full'}
+      data-variant={variant}
+    >
+      {!panel && (
+        <header className="panel-header">
+          <h2>Commands</h2>
+          <span className="panel-sub">from hardware-map.json, not hardcoded</span>
+        </header>
+      )}
 
       {!backend.canCommand && (
         <div className="warn" data-testid="read-only-warning">
@@ -304,8 +459,9 @@ export function CommandBar(props: CommandBarProps): ReactElement {
         </button>
       </div>
 
+      {!panel && (
       <div className="cmd-grid faces">
-        {FACE_SHORTLIST.map((name) => (
+        {faces.map((name) => (
           <button
             key={name}
             type="button"
@@ -317,7 +473,7 @@ export function CommandBar(props: CommandBarProps): ReactElement {
             {name}
           </button>
         ))}
-        {['stand', 'default'].map((name) => (
+        {BROKEN_FACES.map((name) => (
           <button
             key={name}
             type="button"
@@ -331,11 +487,18 @@ export function CommandBar(props: CommandBarProps): ReactElement {
           </button>
         ))}
       </div>
+      )}
 
-      <p className="note muted">
-        {FACE_CATALOG.length} faces are registered in the firmware; the two marked ⚠ have zero frames and
-        draw nothing at all.
-      </p>
+      {panel ? (
+        <p className="note muted">
+          {commands.length} of {all.length} commands
+        </p>
+      ) : (
+        <p className="note muted">
+          {FACE_CATALOG.length} faces are registered in the firmware; the two marked ⚠ have zero
+          frames and draw nothing at all.
+        </p>
+      )}
 
       {busy !== null && (
         <p className="note" id="busy">
@@ -348,5 +511,66 @@ export function CommandBar(props: CommandBarProps): ReactElement {
         </p>
       )}
     </section>
+  );
+}
+
+export interface FaceBarProps {
+  readonly backend: TelemetryBackend;
+  readonly status: BackendStatus;
+  readonly busy: string | null;
+  readonly onFace: (name: string) => void;
+}
+
+/**
+ * The face vocabulary, on the side panel's FACE card — Phase 4 W7.
+ *
+ * It used to be the second grid inside `CommandBar`, which put the buttons that
+ * change the face three cards away from the glass they change. Moving them here
+ * costs nothing and buys the Commands card back about 100 px of the panel's
+ * height, which is the currency §11.4 will not let the panel spend on a
+ * scroller.
+ *
+ * The two ⚠ faces come with them. A "minimal" panel that showed the two that
+ * work and hid the two that draw nothing would be exactly the tidying-away the
+ * plan forbids.
+ */
+export function FaceBar(props: FaceBarProps): ReactElement {
+  const { backend, status, busy, onFace } = props;
+  const disabled = !backend.canCommand || status.connection !== 'connected' || busy !== null;
+  return (
+    <div className="face-bar" data-testid="face-bar">
+      <div className="cmd-grid faces">
+        {PANEL_FACES.map((name) => (
+          <button
+            key={name}
+            type="button"
+            className="cmd cmd-face"
+            data-face={name}
+            disabled={disabled}
+            onClick={() => onFace(name)}
+          >
+            {name}
+          </button>
+        ))}
+        {BROKEN_FACES.map((name) => (
+          <button
+            key={name}
+            type="button"
+            className="cmd cmd-face cmd-broken"
+            data-face={name}
+            disabled={disabled}
+            onClick={() => onFace(name)}
+            title={`setFace("${name}") draws nothing — the bitmap is weak-undefined. ISSUE-20260823-004`}
+          >
+            {name} ⚠
+          </button>
+        ))}
+      </div>
+      <p className="note muted">
+        <span data-zero-frame-faces={String(BROKEN_FACES.length)}>
+          ⚠ {BROKEN_FACES.length} of {FACE_CATALOG.length} faces draw nothing
+        </span>
+      </p>
+    </div>
   );
 }

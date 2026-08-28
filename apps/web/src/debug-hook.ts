@@ -26,7 +26,7 @@ import { LESSONS, POLISHED_LESSON_IDS } from './generated/lessons.js';
 import { IMPLEMENTED_CHECKS, IMPLEMENTED_CONTROLS, UNIMPLEMENTED_CONTROLS } from './lessons/registry.js';
 import type { LessonRuntime } from './lessons/runtime.js';
 import type { SelectionState } from './state/selection.js';
-import type { Breakpoint, DockId, SectionId } from './ui/shell-state.js';
+import type { Breakpoint, DockId, ModuleId, SectionId, StageRule } from './ui/shell-state.js';
 import type { TelemetryStore } from './state/telemetry-store.js';
 import { traceBadge, type TraceStore } from './state/trace-store.js';
 import type { WorldFrameReading } from './three/RobotScene.js';
@@ -170,6 +170,8 @@ export interface ArchGraphReading {
   readonly renderedNodeIds: readonly string[];
   /** The subsystem the intermediate representation is scoped to, if any. */
   readonly subsystem: string | null;
+  /** React Flow's applied zoom, or `null` when no canvas is mounted. */
+  readonly viewportZoom: number | null;
   /** True while the focus workspace is giving this pane the content area. */
   readonly workspaceOpen: boolean;
 }
@@ -355,67 +357,81 @@ export interface LabReading {
  * a container can be tall while the drawing buffer is not, and that would be
  * exactly the sort of green-but-wrong the old harness produced.
  *
- * `stageWidthPx` is the one the overlay rule is asserted against: measure it
- * with the dock shut, open the dock, measure it again, and below Wide the two
- * must be identical.
+ * `DockReading` is GONE — Phase 4 W7. It described two resizable docks with
+ * stored widths and a nested-scroller depth; there are no docks, no stored
+ * widths and one scroller. A reading whose subject has been deleted is the same
+ * hazard as an assertion whose subject has been deleted: it keeps producing
+ * numbers nobody can act on. What replaced it is {@link ModuleColumnReading}
+ * and {@link PanelReading}.
  */
-export interface DockReading {
-  readonly id: DockId;
-  readonly open: boolean;
-  /** The dock's stored width preference. Only in force at Wide. */
-  readonly widthPx: number;
-  /** The dock's measured width on screen, 0 when it is not laid out. */
+
+/**
+ * The module column — Phase 4 W7.
+ *
+ * One module at a time, or none. `active` is `null` when the robot has the
+ * whole content area, and the column then has no laid-out box at all; the
+ * panes inside it stay MOUNTED (see `ui/Shell.tsx` for the four invariants
+ * that depend on that) and simply have no boxes.
+ */
+export interface ModuleColumnReading {
+  readonly active: ModuleId | null;
+  /** The column's measured footprint. 0 with no module active. */
   readonly rectWidthPx: number;
-  /**
-   * The deepest chain of NESTED SCROLLABLE ancestors inside this dock.
-   *
-   * A reader on a laptop reported "everything is too small and too many
-   * scrollbars": `.dock-body`, then `.dock-section-body`, then a pane's own
-   * `overflow-y: auto` made three, and a reader dragging a scrollbar could not
-   * tell which of the three would move. Counted here rather than argued about,
-   * and the harness requires no more than 2 at Medium.
-   *
-   * An element counts only when it is actually scrollable RIGHT NOW —
-   * `scrollHeight > clientHeight` and a computed `overflow-y` of `auto` or
-   * `scroll` — because an `auto` box whose content fits has no scrollbar and
-   * costs a reader nothing.
-   */
-  readonly maxScrollerDepth: number;
-  /** The chain that produced {@link maxScrollerDepth}, outermost first. */
-  readonly scrollerChain: readonly string[];
-  /**
-   * Every scrollable box in this dock, outermost first.
-   *
-   * Below Wide there must be exactly one — `.dock-body` — because one section
-   * is open, it renders at its natural height, and the reader scrolls the dock.
-   * Form controls are excluded: a `<textarea>` of exported C++ has its own
-   * scrollbar by being a text control, which is not the nested-layout-scroller
-   * problem a reader complained about.
-   */
+  /** The architecture artifact's own box, when the architecture module is up. */
+  readonly surfaceWidthPx: number | null;
+  /** Every scrollable box in the column, outermost first. Must be <= 1. */
   readonly scrollers: readonly string[];
+  /** Which panes inside the column have a laid-out box. Must be 0 or 1. */
+  readonly laidOutPanes: readonly SectionId[];
 }
 
 /**
- * The one workbench, below Wide — Phase 4 W3.
+ * The side panel — Phase 4 W7, and the reading §11.4's hardest rule is made of.
  *
- * `docks` still reports both, because the SECTIONS are still split along the
- * two domains and the mode switch is that split; what changes below Wide is
- * that there is one column on screen rather than two, so the scroller
- * inventory, the measured width and the navigator all belong to this object
- * instead. At Wide `workbench` is `null` and `docks` is the whole story, which
- * is U6's shell unchanged.
+ * > *"Never its own scrollbar — neither Commands nor Face. If content does not
+ * > fit, that is a content problem to solve by disclosure, not by adding a
+ * > scroller."*
+ *
+ * {@link scrollers} is the direct form of that. {@link overflowPx} is the other
+ * half and it is the half that makes the assertion honest: the panel is
+ * `overflow: hidden`, so a card that did not fit would be CUT rather than
+ * scrolled, and a scroller count alone would go on reading zero while a
+ * provenance badge sat below the fold. Both are asserted at every width.
  */
-export interface WorkbenchReading {
-  readonly open: boolean;
-  /** `control` or `analysis` — the mode the switch is on. Derived, never stored. */
-  readonly mode: DockId;
+export interface PanelReading {
+  readonly visible: boolean;
   readonly rectWidthPx: number;
-  /** Every scrollable box inside the workbench, outermost first. Must be <= 1. */
+  readonly rectHeightPx: number;
+  /** Every scrollable box inside the panel, outermost first. Must be EMPTY. */
   readonly scrollers: readonly string[];
-  /** The section navigator's tabs, in order, and which one is selected. */
-  readonly nav: readonly { readonly id: SectionId; readonly selected: boolean; readonly label: string }[];
-  /** The mode switch's two segments, and which is checked. */
-  readonly modes: readonly { readonly id: DockId; readonly checked: boolean; readonly label: string }[];
+  /** `scrollHeight - clientHeight` on the panel. Must be <= 1. */
+  readonly overflowPx: number;
+  /** The cards on it, and whether each has a box a reader can see. */
+  readonly cards: readonly { readonly id: string; readonly visible: boolean; readonly heightPx: number }[];
+  /**
+   * The correctness surfaces that must be ON the panel rather than only behind
+   * a "more info" screen — §11.4.
+   *
+   * Read by selector, with the popovers closed, so the assertion is about what
+   * a reader sees without opening anything. `insidePopover` is `true` when the
+   * element found was inside a `<dialog>`, which is the failure this exists to
+   * catch: a correctness surface that moved into the screen that was only ever
+   * meant to expand it.
+   */
+  readonly correctness: readonly {
+    readonly what: string;
+    readonly present: boolean;
+    readonly visible: boolean;
+    readonly insidePopover: boolean;
+    readonly text: string;
+  }[];
+}
+
+/** One "more info" screen. A closed `<dialog>` has no boxes at all. */
+export interface PopoverReading {
+  readonly id: string;
+  readonly open: boolean;
+  readonly scrollers: readonly string[];
 }
 
 export interface ShellReading {
@@ -432,10 +448,13 @@ export interface ShellReading {
    * what replaced the `overlay-not-push` assertion.
    */
   readonly dockOverlays: boolean;
-  /** True where the shell draws ONE workbench instead of two docks. */
-  readonly usesWorkbench: boolean;
-  readonly workbench: WorkbenchReading | null;
-  readonly docks: Readonly<Record<DockId, DockReading>>;
+  /** The one active module, or `null` — the robot has the whole content area. */
+  readonly activeModule: ModuleId | null;
+  /** `Control | Analyze`, DERIVED from {@link activeModule}. Never stored. */
+  readonly mode: DockId;
+  readonly moduleColumn: ModuleColumnReading;
+  readonly panel: PanelReading;
+  readonly popovers: readonly PopoverReading[];
   readonly stageWidthPx: number;
   readonly stageHeightPx: number;
   /** The status line under the robot. The strip it replaced was 120-176 px. */
@@ -480,6 +499,21 @@ export interface ShellReading {
    */
   readonly stageAreaSharePct: number;
   /**
+   * The CONTENT box — the viewport minus the rail, the status strip and the
+   * side panel — and the stage's share of it.
+   *
+   * §11.2 resolved the rule conflict into two regimes rather than one loose
+   * threshold, and this is the second one's measurement: with a module active
+   * the stage keeps >= 50% of THIS box, which is the plain reading of *"with
+   * the robot in the other half"*. Measured off the `.content` element's own
+   * rect rather than recomputed from `innerWidth`, so a rail or a panel that
+   * quietly changed width would move the number rather than being averaged out
+   * of it.
+   */
+  readonly contentWidthPx: number;
+  readonly contentHeightPx: number;
+  readonly stageContentSharePct: number;
+  /**
    * The focus workspace, and WHICH RULE the shell says applies to the stage.
    *
    * Phase 4 W4. Both are read off `.shell`'s own attributes rather than
@@ -494,7 +528,7 @@ export interface ShellReading {
    *                  pane named by `focusPane` is on screen.
    */
   readonly focusPane: string | null;
-  readonly stageRule: string | null;
+  readonly stageRule: StageRule | null;
   readonly openSections: readonly SectionId[];
   /**
    * One entry per section, in draw order: which dock draws it, what its header
@@ -590,12 +624,18 @@ export interface SesameDebugApi {
   renderStats(): { frames: number; appliedPoseVersion: number; storePoseVersion: number } | null;
   /** The responsive shell, measured off the DOM. */
   shell(): ShellReading;
-  /** Open or close one dock section, as clicking its header would. */
+  /**
+   * Make one module active, or none — as clicking the rail would.
+   *
+   * The one verb the module-first shell has. {@link setSection} and
+   * {@link setDockOpen} are kept as shims over it because eight harness phases
+   * are written against the accordion's verbs; they reduce to this call.
+   */
+  setModule(id: ModuleId | null): void;
+  /** Open or close one pane. A module activates; a panel card is always on. */
   setSection(id: SectionId, open: boolean): void;
-  /** Show or hide one dock, as clicking that strip's chevron would. */
+  /** `analysis` shows the architecture module; `control` clears it. */
   setDockOpen(dock: DockId, open: boolean): void;
-  /** Wide only. Clamped to [320, 560], exactly as the drag handle is. */
-  setDockWidth(dock: DockId, px: number): void;
   /** Everything at once, for a single CDP round trip. */
   snapshot(): Record<string, unknown>;
 }
@@ -627,13 +667,13 @@ export interface DebugHookWiring {
   reset(): void;
   /** The shell controller, for the layout accessors above. */
   shellBreakpoint(): Breakpoint;
-  shellDockOpen(dock: DockId): boolean;
-  shellDockOverlays(): boolean;
-  shellDockWidthPx(dock: DockId): number;
-  shellOpenSections(): readonly SectionId[];
+  shellActiveModule(): ModuleId | null;
+  shellPanelVisible(): boolean;
+  shellSheets(): boolean;
+  shellMode(): DockId;
+  setModule(id: ModuleId | null): void;
   setSection(id: SectionId, open: boolean): void;
   setDockOpen(dock: DockId, open: boolean): void;
-  setDockWidth(dock: DockId, px: number): void;
 }
 
 declare global {
@@ -915,6 +955,25 @@ export function installDebugHook(wiring: DebugHookWiring): () => void {
         surfaceWidthPx: widthAttr === '' ? null : Number(widthAttr),
         renderedNodeIds: rendered,
         subsystem: picked?.getAttribute('data-arch-subsystem') ?? null,
+        /*
+          The viewport's zoom, read off the transform React Flow actually
+          applied — Phase 4 W7.
+         
+          The subsystem view's whole claim is that at zoom 1 the AUTHORED size
+          is the size on screen, so the 14 px floor holds with no exemption. W7
+          caught it drawn at 0.929 after a remount, which is a claim quietly
+          traded away, so the number is published and asserted rather than
+          inferred from how big some text happened to measure.
+        */
+        viewportZoom: (() => {
+          const viewport = document.querySelector('.react-flow__viewport');
+          if (viewport === null) return null;
+          const transform = getComputedStyle(viewport).transform;
+          if (transform === 'none') return 1;
+          const values = transform.slice(transform.indexOf('(') + 1, -1).split(',').map(Number);
+          const scale = transform.startsWith('matrix3d') ? values[0] : values[0];
+          return typeof scale === 'number' && Number.isFinite(scale) ? scale : null;
+        })(),
         workspaceOpen:
           document
             .querySelector('[data-testid="arch-workspace-toggle"]')
@@ -1185,6 +1244,7 @@ export function installDebugHook(wiring: DebugHookWiring): () => void {
       };
       const stage = rectOf('[data-testid="stage"]');
       const statusBar = rectOf('[data-testid="stage-status"]');
+      const content = rectOf('[data-testid="content"]');
       // The renderer's canvas is found by asking each `<canvas>` for a WebGL
       // context, exactly as `canvasPixelCount()` does: the OLED panel's canvas
       // is a 2D one and answers `null`, so there is no dependence on a class
@@ -1201,32 +1261,36 @@ export function installDebugHook(wiring: DebugHookWiring): () => void {
       const canvasHeightPx = canvasRect?.height ?? 0;
       const w = globalThis.innerWidth;
       const h = globalThis.innerHeight;
+      const activeModule = wiring.shellActiveModule();
+      const panelVisible = wiring.shellPanelVisible();
+
+      const laidOut = (el: Element | null): boolean => {
+        if (el === null) return false;
+        const rect = el.getBoundingClientRect();
+        return rect.width > 1 && rect.height > 1;
+      };
 
       /*
        * §5.1, read from wherever it is actually rendered.
        *
-       * In the two-dock regime a collapsed section announces its selection on
-       * its own accordion header. In the workbench regime that header is not on
-       * screen at all — the pane is `display: none` and the navigator is what a
-       * reader is looking at — so the badge is rendered on the navigator tab
-       * instead. Both carry `data-dock-badge="<id>"`, so this is one
-       * document-wide lookup rather than two code paths, and the CLAIM the
-       * harness asserts ("a selection that lands where the reader is not
-       * looking is still announced where they are") is measured against the
-       * thing that is on screen in either regime.
+       * A selection that lands in a module the reader is not looking at is
+       * announced on that module's RAIL button — the one zone that is always on
+       * screen. The badge still carries `data-dock-badge="<id>"`, so this stays
+       * one document-wide lookup rather than a second code path, and the claim
+       * the harness asserts is measured against the thing on screen.
        */
       const sections = [...document.querySelectorAll('[data-dock-section]')].map((el) => {
         const id = (el.getAttribute('data-dock-section') ?? '') as SectionId;
         const dock = (el.getAttribute('data-dock') ?? 'analysis') as DockId;
         const badge = document.querySelector(`[data-dock-badge="${id}"]`);
-        const nav = document.querySelector(`[data-section-nav="${id}"]`);
-        const header = nav ?? el.querySelector('.dock-section-toggle');
+        const rail = document.querySelector(`[data-module-nav="${id}"]`);
+        const header = rail ?? el.querySelector('.pane__header');
         const open = el.getAttribute('data-open') === 'true';
         return {
           id,
           dock,
           open,
-          visible: open && wiring.shellDockOpen(dock),
+          visible: laidOut(el.querySelector(`[data-pane-content="${id}"]`)),
           badge: badge === null ? null : (badge.textContent ?? '').trim(),
           badgeIsSelection: badge?.getAttribute('data-selection') === 'true',
           headerText: (header?.textContent ?? '').trim(),
@@ -1234,8 +1298,8 @@ export function installDebugHook(wiring: DebugHookWiring): () => void {
       });
 
       /**
-       * How many NESTED scrollable boxes stand between a dock's root and its
-       * deepest laid-out content.
+       * How many NESTED scrollable boxes stand between a root and its deepest
+       * laid-out content.
        *
        * `overflow-y: auto` on a box whose content fits produces no scrollbar
        * and costs a reader nothing, so an element counts only when it is
@@ -1256,9 +1320,6 @@ export function installDebugHook(wiring: DebugHookWiring): () => void {
         const FORM = new Set(['TEXTAREA', 'INPUT', 'SELECT']);
         const isScroller = (el: Element): boolean => {
           if (FORM.has(el.tagName)) return false;
-          // Cheap first: an `auto` box whose content fits shows no scrollbar and
-          // costs a reader nothing, and this avoids a `getComputedStyle` call
-          // for almost every element in the dock.
           if (el.scrollHeight <= el.clientHeight + 1) return false;
           const overflow = getComputedStyle(el).overflowY;
           return overflow === 'auto' || overflow === 'scroll';
@@ -1266,8 +1327,6 @@ export function installDebugHook(wiring: DebugHookWiring): () => void {
         const found: Element[] = [];
         if (isScroller(root)) found.push(root);
         for (const el of root.querySelectorAll('*')) if (isScroller(el)) found.push(el);
-        // Depth is the longest ancestor chain WITHIN that set — how many
-        // scrollbars a reader is looking through to see the deepest content.
         let depth = 0;
         let chain: readonly string[] = [];
         for (const el of found) {
@@ -1280,47 +1339,80 @@ export function installDebugHook(wiring: DebugHookWiring): () => void {
         return { depth, chain, scrollers: found.map(describe) };
       };
 
-      const docks = Object.fromEntries(
-        (['control', 'analysis'] as const).map((dock) => {
-          const root = document.querySelector(`[data-testid="dock-${dock}"]`);
-          const scrollers =
-            root === null ? { depth: 0, chain: [], scrollers: [] } : scrollersIn(root);
-          return [
-            dock,
-            {
-              id: dock,
-              open: wiring.shellDockOpen(dock),
-              widthPx: wiring.shellDockWidthPx(dock),
-              rectWidthPx: rectOf(`[data-testid="dock-${dock}"]`).width,
-              maxScrollerDepth: scrollers.depth,
-              scrollerChain: scrollers.chain,
-              scrollers: scrollers.scrollers,
-            },
-          ];
+      const columnRoot = document.querySelector('[data-testid="module-column"]');
+      const surface = document.querySelector('[data-testid="arch-surface"]');
+      const moduleColumn: ModuleColumnReading = {
+        active: activeModule,
+        rectWidthPx: columnRoot?.getBoundingClientRect().width ?? 0,
+        surfaceWidthPx: laidOut(surface) ? (surface?.getBoundingClientRect().width ?? null) : null,
+        scrollers: columnRoot === null ? [] : scrollersIn(columnRoot).scrollers,
+        laidOutPanes: [...document.querySelectorAll('.module-pane [data-pane-content]')]
+          .filter((el) => laidOut(el))
+          .map((el) => (el.getAttribute('data-pane-content') ?? '') as SectionId),
+      };
+
+      /*
+       * The side panel's correctness inventory — §11.4.
+       *
+       * A named list, read with every popover closed, because the rule is about
+       * what a reader sees WITHOUT opening anything: *"a popover may expand
+       * them; it may not be where they first appear."* `insidePopover` is what
+       * catches the failure this list exists for — the element still exists, it
+       * is just no longer somewhere anybody will meet it.
+       */
+      const PANEL_CORRECTNESS: readonly { what: string; selector: string }[] = [
+        { what: 'the driving provenance badge', selector: '[data-testid="panel-provenance"] .prov' },
+        { what: 'the driving origin, in full', selector: '#origin-banner [data-origin-kind]' },
+        { what: 'the measurement verdict', selector: '#measurement-verdict' },
+        { what: 'PHYSICAL HARDWARE', selector: '[data-testid="panel-physical-hardware"]' },
+        { what: 'the OLED pixel provenance', selector: '[data-panel-card="face"] [data-provenance]' },
+        /*
+          Read off the card's SUMMARY, which rides on the header whether the
+          card is folded or not — so this stays true at a window short enough
+          for the panel to fold Commands away, which is exactly the case the
+          rule exists for.
+        */
+        { what: 'the zero-frame faces, marked', selector: '[data-panel-card="face"] [data-zero-frame-faces]' },
+        { what: 'the selected joint, summarised', selector: '[data-panel-summary="inspector"]' },
+      ];
+      const panelRoot = document.querySelector('[data-testid="side-panel"]');
+      const panelInner = document.querySelector('[data-testid="side-panel-inner"]');
+      const panel: PanelReading = {
+        visible: panelVisible && laidOut(panelRoot),
+        rectWidthPx: panelRoot?.getBoundingClientRect().width ?? 0,
+        rectHeightPx: panelRoot?.getBoundingClientRect().height ?? 0,
+        scrollers: panelRoot === null ? [] : scrollersIn(panelRoot).scrollers,
+        overflowPx:
+          panelInner === null
+            ? 0
+            : Math.max(
+                panelInner.scrollHeight - panelInner.clientHeight,
+                panelRoot === null ? 0 : panelRoot.scrollHeight - panelRoot.clientHeight,
+              ),
+        cards: [...document.querySelectorAll('[data-panel-card]')].map((el) => ({
+          id: el.getAttribute('data-panel-card') ?? '',
+          visible: laidOut(el),
+          heightPx: el.getBoundingClientRect().height,
+        })),
+        correctness: PANEL_CORRECTNESS.map(({ what, selector }) => {
+          const el = document.querySelector(selector);
+          return {
+            what,
+            present: el !== null,
+            visible: laidOut(el),
+            insidePopover: el !== null && el.closest('dialog') !== null,
+            text: el === null ? '' : (el.textContent ?? '').replace(/\s+/g, ' ').trim().slice(0, 80),
+          };
         }),
-      ) as Record<DockId, DockReading>;
+      };
+
+      const popovers: PopoverReading[] = [...document.querySelectorAll('[data-popover]')].map((el) => ({
+        id: el.getAttribute('data-popover') ?? '',
+        open: (el as HTMLDialogElement).open,
+        scrollers: scrollersIn(el).scrollers,
+      }));
 
       const shellRoot = document.querySelector('[data-testid="shell"]');
-      const workbenchRoot = document.querySelector('[data-testid="workbench"]');
-      const workbench: WorkbenchReading | null =
-        workbenchRoot === null
-          ? null
-          : {
-              open: workbenchRoot.getAttribute('data-open') === 'true',
-              mode: (workbenchRoot.getAttribute('data-mode') ?? 'control') as DockId,
-              rectWidthPx: workbenchRoot.getBoundingClientRect().width,
-              scrollers: scrollersIn(workbenchRoot).scrollers,
-              nav: [...workbenchRoot.querySelectorAll('[data-section-nav]')].map((el) => ({
-                id: (el.getAttribute('data-section-nav') ?? '') as SectionId,
-                selected: el.getAttribute('aria-selected') === 'true',
-                label: (el.textContent ?? '').trim(),
-              })),
-              modes: [...workbenchRoot.querySelectorAll('[data-workbench-mode]')].map((el) => ({
-                id: (el.getAttribute('data-workbench-mode') ?? 'control') as DockId,
-                checked: el.getAttribute('aria-checked') === 'true',
-                label: (el.textContent ?? '').trim(),
-              })),
-            };
 
       const statusSegments = [
         ...document.querySelectorAll('[data-testid="stage-status"] [data-testid]'),
@@ -1331,11 +1423,9 @@ export function installDebugHook(wiring: DebugHookWiring): () => void {
       /*
        * Reachability, hit-tested rather than merely present.
        *
-       * The assertion this replaces was `querySelector !== null && !disabled`,
-       * which a `hidden` element inside a collapsed dock section passes. What
-       * matters is whether a reader can press the thing, so the button must
-       * have a box AND be the topmost element at the centre of that box — an
-       * open dock overlay or a scrim covering it counts as not reachable.
+       * What matters is whether a reader can press the thing, so the button
+       * must have a box AND be the topmost element at the centre of that box —
+       * an open sheet or a scrim covering it counts as not reachable.
        */
       const quickCommands = [...document.querySelectorAll('[data-quick-command]')].map((el) => {
         const rect = el.getBoundingClientRect();
@@ -1351,14 +1441,19 @@ export function installDebugHook(wiring: DebugHookWiring): () => void {
         };
       });
 
+      const contentWidthPx = content.width;
+      const contentHeightPx = content.height;
+
       return {
         breakpoint: wiring.shellBreakpoint(),
         windowWidthPx: w,
         windowHeightPx: h,
-        dockOverlays: wiring.shellDockOverlays(),
-        usesWorkbench: workbenchRoot !== null,
-        workbench,
-        docks,
+        dockOverlays: wiring.shellSheets(),
+        activeModule,
+        mode: wiring.shellMode(),
+        moduleColumn,
+        panel,
+        popovers,
         stageWidthPx: stage.width,
         stageHeightPx: stage.height,
         statusBarHeightPx: statusBar.height,
@@ -1369,16 +1464,22 @@ export function installDebugHook(wiring: DebugHookWiring): () => void {
         viewportHeightSharePct: h === 0 ? 0 : (canvasHeightPx / h) * 100,
         viewportWidthSharePct: w === 0 ? 0 : (canvasWidthPx / w) * 100,
         stageAreaSharePct: w === 0 || h === 0 ? 0 : ((canvasWidthPx * canvasHeightPx) / (w * h)) * 100,
+        contentWidthPx,
+        contentHeightPx,
+        stageContentSharePct:
+          contentWidthPx === 0 || contentHeightPx === 0
+            ? 0
+            : ((canvasWidthPx * canvasHeightPx) / (contentWidthPx * contentHeightPx)) * 100,
         focusPane: shellRoot?.getAttribute('data-focus-pane') || null,
-        stageRule: shellRoot?.getAttribute('data-stage-rule') ?? null,
-        openSections: wiring.shellOpenSections(),
+        stageRule: (shellRoot?.getAttribute('data-stage-rule') as StageRule | null) ?? null,
+        openSections: sections.filter((s) => s.visible).map((s) => s.id),
         sections,
       };
     },
 
+    setModule: (id) => wiring.setModule(id),
     setSection: (id, open) => wiring.setSection(id, open),
     setDockOpen: (dock, open) => wiring.setDockOpen(dock, open),
-    setDockWidth: (dock, px) => wiring.setDockWidth(dock, px),
 
     renderStats() {
       const stats = wiring.renderStats();

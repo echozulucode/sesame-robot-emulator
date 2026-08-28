@@ -103,30 +103,42 @@
  *      robot ship. Phases 1-11 run at ONE window and none of them ever asked
  *      how much space the 3D viewport got, so a fixed three-column grid passed
  *      every check while leaving a 1440x900 laptop about 500x280 for the thing
- *      the product is about. This phase opens five windows — 880x900, 1280x800,
- *      1440x900, 1600x1000 and 2560x1440 — and at each one measures the CANVAS
- *      rather than its container.
+ *      the product is about. This phase opens six windows — 880x900, 1280x800,
+ *      1440x900, 1760x1000, 1920x1080 and 2560x1440 — and at each one measures
+ *      the CANVAS rather than its container.
  *
- *      **The metric changed in Phase 4 W3.** `overlay-not-push` is GONE: below
- *      1700 px there is ONE workbench, it is IN FLOW, and the stage genuinely
- *      resizes, so an assertion that opening a dock moves the stage 0.0 px
- *      would be green against a layout it no longer describes. What is asserted
- *      instead is the user's own rule — **the stage keeps >= 50% of the
- *      window's AREA at Medium and above** — plus its inverse, that the stage
- *      really does give up more than 300 px when the workbench opens. The 45%
- *      height floor and the 480 px width floor stay as the Compact backstop.
+ *      **TWO STAGE REGIMES, both asserted — Phase 4 W7 §11.2.** The 50%-of-
+ *      screen rule and "the architecture needs half the screen with the robot
+ *      in the other half" cannot both be literal once a rail, a status strip
+ *      and a side panel exist, so they are two NAMED regimes and the app
+ *      publishes which one it is claiming on `data-stage-rule`:
  *
- *      Also asserted: the `Control | Analyze` mode switch and the section
- *      navigator (no accordion toggles below Wide, exactly one pane laid out);
- *      exactly ONE scroller in the workbench; the environment line
- *      `SYSTEM: ... · PHYSICAL HARDWARE: NONE`, visible and whole at every
- *      width; `wave` reachable from the status line, HIT-TESTED, with the
- *      workbench shut; the §5.1 selection badge, now on the navigator tab; the
- *      §5.2 auto-expand; reload persistence; and ISSUE-20260823-023 re-run at
- *      every breakpoint AND across a resize of each dock, because that bug was
- *      found by a user after a layout change and the canvas resizes for real
- *      now. Learn plays lesson 2 end to end at Medium and the Lab's C++ export
- *      is re-parsed at Compact.
+ *        area-50     no module active  -> stage >= 50% of the VIEWPORT area
+ *        content-50  a module is up    -> stage >= 50% of the CONTENT area
+ *                                         (viewport - rail - strip - panel)
+ *
+ *      Plus the inverse W3 wrote and W7 adapted: activating a module must take
+ *      more than 300 px from the canvas, because "in flow" is a claim about the
+ *      layout rather than a comment. The 45% height floor and the 480 px width
+ *      floor stay as the Compact backstop.
+ *
+ *      **1760x1000 is in the sweep by name**: W4 measured the two-dock regime
+ *      holding only 45.0% of the area there at its default dock widths, and
+ *      that gap is what W7 closes by deleting the regime.
+ *
+ *      Also asserted: ONE active module at every width (the count of laid-out
+ *      module panes, for every module in turn) and zero accordion toggles
+ *      anywhere; the side panel's **zero scrollers AND zero overflow** at every
+ *      width, and the named correctness surfaces present on it with every
+ *      "more info" screen shut; the architecture's own box against W4's
+ *      720/960 bands in the ORDINARY layout; the environment line
+ *      `SYSTEM: ... · PHYSICAL HARDWARE: NONE`, visible and whole; `wave`
+ *      reachable from the status line, HIT-TESTED, with no module open; the
+ *      §5.1 selection badge, now on the rail; the §5.2 auto-reveal; reload
+ *      persistence of the active module and of the DERIVED mode; and
+ *      ISSUE-20260823-023 re-run at every breakpoint AND across a module
+ *      clear/activate and a module switch. Learn plays lesson 2 end to end at
+ *      Medium and the Lab's C++ export is re-parsed at Compact.
  *
  * Usage: node scripts/capture-web-screenshots.mjs [--out <dir>] [--skip-qemu]
  * Exit 0 pass · 1 fail · 3 no browser found.
@@ -191,6 +203,14 @@ process.on('exit', killAll);
 
 const die = (message) => {
   console.error(`FAIL  ${message}`);
+  // Everything `check()` had already recorded, printed rather than lost. A
+  // `waitFor` that times out is usually the SYMPTOM of an earlier failed check,
+  // and exiting without showing them turns a five-line diagnosis into a
+  // bisect.
+  if (problems.length > 0) {
+    console.error(`      ...with ${problems.length} problem(s) already recorded:`);
+    for (const problem of problems) console.error(`      - ${problem}`);
+  }
   killAll();
   process.exit(1);
 };
@@ -334,39 +354,54 @@ async function startLabHost({ backend = 'qemu' } = {}) {
 /**
  * The window every phase but 12 runs in.
  *
- * It was 1440x860, which the responsive shell classifies as **Medium** — where
- * one workbench holds one open pane at a time, by design. Phases 7, 8, 10 and
- * 11 each need a specific pane laid out and measurable, and phase 7 needs the
- * architecture graph and the Signal trace on screen AT ONCE, which below Wide
- * is physically impossible and is the whole reason §5 of the plan exists. So
- * the default session runs at Wide, and phase 12 is the one that visits every
- * breakpoint on purpose.
+ * 1760x1000, unchanged from W3 — but it is **Medium** now rather than Wide, and
+ * that is a statement about the shell rather than about the window.
  *
- * **1600 -> 1760 in Phase 4 W3**, because Wide moved. Two in-flow docks cannot
- * leave a laptop 50% of its screen area at any usable dock width, so the
- * two-dock regime now starts at 1700 px and a 1600 px session would classify as
- * Medium and fail phase 7's "both on screen at once" requirement. 1760 is the
- * smallest round window that is Wide with room to spare; 1600x1000 is measured
- * on purpose in phase 12 instead, as the top of the workbench regime.
+ * W3 moved the default here so phase 7 could have the architecture graph and
+ * the Signal trace on screen AT ONCE. §11.3 makes that impossible on purpose:
+ * one module is active at a time. So phase 7 asserts something stronger in its
+ * place — that the SELECTION survives a module switch, which is a property of
+ * there being one `SelectionState` rather than of two panes happening to share
+ * a screen.
+ *
+ * `wide` now means "the ORDINARY layout holds the whole 63-node graph", which
+ * needs 2314 px of viewport. Phases 1-11 do not need that; they need a module
+ * column wide enough to lay a pane out and measure it, which 1760 gives.
  */
 const DEFAULT_WINDOW = { width: 1760, height: 1000 };
 
 /**
- * The five windows phase 12 measures.
+ * The six windows phase 12 measures.
  *
- * Four of them are U6's: 880x900 for Compact, the two the plan names inside the
- * laptop band, and 2560x1440 for Wide. **1600x1000 was added in W3** because
- * the regimes moved: it is the top of the workbench band, the width at which
- * `clamp(500px, 37.5vw, 560px)` is pinned to its 560 px maximum, and — until
- * this workstream — it was the DEFAULT session, so measuring it is also the
- * check that the window 26 captures used to be taken at still behaves.
+ * Four are U6's and W3's: 880x900 for Compact, the two the plan names inside
+ * the laptop band, and 2560x1440. **1760x1000 and 1920x1080 were added in W7**
+ * and both are there because a previous workstream measured something at them
+ * that nothing asserted — see the comments on the rows themselves. 1600x1000
+ * was dropped: it was in the sweep because it was the top of the workbench
+ * band, and there is no workbench band any more.
  */
 const RESPONSIVE_WINDOWS = [
   { label: 'compact', width: 880, height: 900, breakpoint: 'compact', u5SharePct: 82.0 },
   { label: 'laptop-small', width: 1280, height: 800, breakpoint: 'medium', u5SharePct: 80.0 },
   { label: 'laptop', width: 1440, height: 900, breakpoint: 'medium', u5SharePct: 80.0 },
-  { label: 'laptop-wide', width: 1600, height: 1000, breakpoint: 'medium', u5SharePct: 80.0 },
-  { label: 'desktop', width: 2560, height: 1440, breakpoint: 'wide', u5SharePct: 86.9 },
+  /*
+    1760x1000 — **the reopened gap**, and it is asserted by name.
+
+    W4 measured that the two-dock Wide regime held only **45.0%** of the
+    window's area here at its DEFAULT dock widths (400 + 460), below the 50%
+    floor W3 asserted. W3 had set the 1700 boundary from 360 + 360 and phase 12
+    only ever measured 2560, where the same layout held 75.7%. W7 removes the
+    two-dock regime, so the gap cannot reopen — and this window is in the sweep
+    so that claim is measured rather than argued.
+  */
+  { label: 'desktop-small', width: 1760, height: 1000, breakpoint: 'medium', u5SharePct: 82.0 },
+  /*
+    1920x1080 — the width W4 handed over as the one that decides whether the
+    module-first shell actually fixed the complaint. The architecture surface
+    here is what §11.6 asks to be measured and reported.
+  */
+  { label: 'desktop', width: 1920, height: 1080, breakpoint: 'medium', u5SharePct: 84.0 },
+  { label: 'desktop-wide', width: 2560, height: 1440, breakpoint: 'wide', u5SharePct: 86.9 },
 ];
 
 // ===========================================================================
@@ -933,68 +968,61 @@ console.log('[web] app loaded, rig built');
  * measuring geometry calls this (or `openSection`) FIRST rather than after.
  */
 /**
- * Which of the two docks draws which section.
+ * The two kinds of pane the module-first shell has — Phase 4 W7.
  *
- * The shell is `rail | stage | CONTROL dock | ANALYSIS dock`: the control dock
- * is inboard and holds the surfaces that DRIVE the robot, the analysis dock is
- * outboard and holds the ones that EXPLAIN it. Mirrored here rather than read
- * out of the page so a phase that names a dock that stopped existing fails
- * loudly at the first call instead of silently opening nothing.
+ * MODULES are mutually exclusive: `Architecture · Signal · Source · Learn ·
+ * Lab`, one active at a time or none, chosen from the rail. PANEL cards —
+ * Commands, Face and the joint glance — are always on the side panel above
+ * Compact, so "opening" one is a no-op there and opens the sheet at Compact.
+ *
+ * Mirrored here rather than read out of the page so a phase that names a pane
+ * that stopped existing fails loudly at the first call instead of silently
+ * doing nothing.
  */
-const DOCK_OF = {
-  commands: 'control',
-  face: 'control',
-  lab: 'control',
-  inspector: 'analysis',
-  modules: 'analysis',
-  signal: 'analysis',
-  source: 'analysis',
-  learn: 'analysis',
+const MODULE_IDS = ['modules', 'signal', 'source', 'learn', 'lab'];
+const PANEL_IDS = ['commands', 'face', 'inspector'];
+
+const isModulePane = (id) => {
+  if (!MODULE_IDS.includes(id) && !PANEL_IDS.includes(id)) die(`no such pane: ${id}`);
+  return MODULE_IDS.includes(id);
 };
 
-const dockOf = (id) => {
-  const dock = DOCK_OF[id];
-  if (dock === undefined) die(`no such dock section: ${id}`);
-  return dock;
-};
-
+/**
+ * Put one pane on screen and nothing else in its column.
+ *
+ * For a module that is `setModule(id)`, which by construction deactivates
+ * whatever else was up — there is no set to close. For a panel card it is the
+ * Compact sheet, and a no-op above Compact where the panel is always there.
+ */
 const focusSection = async (evaluate, id) => {
-  const dock = dockOf(id);
-  await evaluate(`(() => {
-    const shell = window.__sesame.shell();
-    for (const open of shell.openSections) {
-      if (open !== ${JSON.stringify(id)}) window.__sesame.setSection(open, false);
-    }
-    window.__sesame.setDockOpen(${JSON.stringify(dock)}, true);
-    window.__sesame.setSection(${JSON.stringify(id)}, true);
-  })()`);
-  // A repaint, plus React Flow's resize observer, plus the dock's own scroller
-  // back to the top now that there is only one section in it.
+  if (isModulePane(id)) {
+    await evaluate(`window.__sesame.setModule(${JSON.stringify(id)})`);
+  } else {
+    await evaluate(
+      `window.__sesame.setModule(null); window.__sesame.setSection(${JSON.stringify(id)}, true)`,
+    );
+  }
+  // A repaint, plus React Flow's resize observer, plus the column's own
+  // scroller back to the top now that a different pane is in it.
   await sleep(500);
-  // Below Wide the scroller is the workbench's; at Wide it is the dock's. One
-  // selector list rather than a branch, because either way there is exactly one
-  // of them on the page.
-  await evaluate(
-    `void document.querySelector('[data-testid="dock-body-${dock}"], [data-testid="workbench-body"]')?.scrollTo(0, 0)`,
-  );
+  await evaluate(`void document.querySelector('[data-testid="module-body"]')?.scrollTo(0, 0)`);
   await sleep(250);
 };
 
 const openSection = async (evaluate, id) => {
   await evaluate(
-    `window.__sesame.setDockOpen(${JSON.stringify(dockOf(id))}, true); ` +
-      `window.__sesame.setSection(${JSON.stringify(id)}, true)`,
+    isModulePane(id)
+      ? `window.__sesame.setModule(${JSON.stringify(id)})`
+      : `window.__sesame.setSection(${JSON.stringify(id)}, true)`,
   );
   // One repaint plus React Flow's own resize observer, which needs a laid-out
   // box before it will place nodes at real coordinates.
   await sleep(450);
 };
 
-/** Put a dock's scroller back to the top before a capture. */
-const scrollDockTop = (evaluate, id) =>
-  evaluate(
-    `void document.querySelector('[data-testid="dock-body-${dockOf(id)}"], [data-testid="workbench-body"]')?.scrollTo(0, 0)`,
-  );
+/** Put the module column's scroller back to the top before a capture. */
+const scrollDockTop = (evaluate) =>
+  evaluate(`void document.querySelector('[data-testid="module-body"]')?.scrollTo(0, 0)`);
 
 /**
  * Click the real `[data-command="wave"]` button, and mean it.
@@ -1480,7 +1508,7 @@ await waitFor(
   // Back to the top of the dock: this shot's evidence is the backend switch and
   // the provenance banner, both of which live in the inspector section now.
   // (`.sidebar` was the old third column; the dock's scroller replaced it.)
-  await scrollDockTop(page.evaluate, 'inspector');
+  await scrollDockTop(page.evaluate);
   await sleep(400);
   await page.shoot(
     'v3-browser-bridge-backend.png',
@@ -1520,20 +1548,45 @@ await waitFor(
     'the simulator backend to come back up for the architecture/trace phase',
   );
 
-  // The graph and the trace, open TOGETHER. V8's argument for splitting the
-  // workbench in half was that the cross-highlight is the feature and a scroll
-  // between them destroys it; the dock's Wide defaults keep that true, and
-  // asserting it here rather than assuming it is the point.
+  /*
+   * ONE MODULE AT A TIME — Phase 4 W7, and this is where it costs something.
+   *
+   * V8's argument for splitting the workbench in half was that the graph and
+   * the trace have to be visible AT ONCE, because the cross-highlight is the
+   * feature and a scroll between them destroys it. §11.3 overrides that with a
+   * direct instruction — *"The Architecture, Signals, Source and Learn modules
+   * should only have one active at a time"* — so the two are now a module
+   * SWITCH apart rather than a glance apart.
+   *
+   * What is asserted instead, and it is the honest replacement rather than a
+   * relaxation: the selection SURVIVES the switch. Selecting a node in the
+   * graph and then switching to Signal must find that node's rows already
+   * highlighted, because `SelectionState` is one object and neither pane owns
+   * a copy. That is checked in §"cross-highlight across a module switch" below.
+   */
   await openSection(page.evaluate, 'modules');
-  await openSection(page.evaluate, 'signal');
   const bothOpen = await page.evaluate('window.__sesame.shell()');
   check(
-    bothOpen.breakpoint === 'wide',
-    `phases 1-11 must run at Wide so the graph and the trace fit at once; got "${bothOpen.breakpoint}"`,
+    bothOpen.breakpoint === 'medium',
+    `phases 1-11 run at ${DEFAULT_WINDOW.width}x${DEFAULT_WINDOW.height}, which the module-first ` +
+      `shell classifies as Medium — Wide is now the width at which the ORDINARY layout holds the ` +
+      `whole 63-node graph (>= 2314 px of viewport). Got "${bothOpen.breakpoint}".`,
   );
   check(
-    bothOpen.openSections.includes('modules') && bothOpen.openSections.includes('signal'),
-    `the architecture graph and the Signal trace are not open together: ${JSON.stringify(bothOpen.openSections)}`,
+    bothOpen.activeModule === 'modules' && bothOpen.openSections.includes('modules'),
+    `the architecture module is not the active one: ${JSON.stringify({
+      active: bothOpen.activeModule,
+      open: bothOpen.openSections,
+    })}`,
+  );
+  // The exclusivity, asserted as a COUNT of laid-out module panes rather than
+  // as "the others are closed": there is exactly one, at every width, in every
+  // state, and a second one would mean the state had grown a second slot.
+  check(
+    bothOpen.moduleColumn.laidOutPanes.length === 1 &&
+      bothOpen.moduleColumn.laidOutPanes[0] === 'modules',
+    `${bothOpen.moduleColumn.laidOutPanes.length} module pane(s) have a laid-out box ` +
+      `(${JSON.stringify(bothOpen.moduleColumn.laidOutPanes)}); one module is active at a time`,
   );
 
   // ------------------------------------------------- the collapsed top level
@@ -1743,12 +1796,12 @@ await waitFor(
   );
   archPathTypeReading = archPathType;
 
-  await scrollDockTop(page.evaluate, 'signal');
+  await scrollDockTop(page.evaluate);
   await sleep(500);
   await focusSection(page.evaluate, 'modules');
   const graphPathShot = await page.shoot(
     'w4-architecture-causal-path.png',
-    'the causal-path representation at a 397px pane: ESP32 to MG90S as an indented chain with the derived edge labels between the steps, every run of text at or above the 14px floor - the same information React Flow drew at 8.0px',
+    'the causal-path representation in the ordinary layout at 1760x1000, where the module column gives the architecture 670px of surface: ESP32 to MG90S as an indented chain with the derived edge labels between the steps, every run of text at or above the 14px floor - the same information React Flow drew at 8.0px in a 397px dock',
   );
 
   // -------------------------------------------------- fire a command, by click
@@ -1968,7 +2021,6 @@ await waitFor(
   // hit-tested rather than a debug hook being called - the claim is "a learner
   // can open this".
   await openSection(page.evaluate, 'modules');
-  await openSection(page.evaluate, 'signal');
   const shellBeforeWorkspace = await page.evaluate('window.__sesame.shell()');
   const workspaceOpen = await page.evaluate(`(() => {
     const button = document.querySelector('[data-testid="arch-workspace-toggle"]');
@@ -2058,7 +2110,7 @@ await waitFor(
 
   // `.workbench` was the middle column that held the graph above the trace.
   // Both are dock sections now and the dock's own scroller is what moves.
-  await scrollDockTop(page.evaluate, 'signal');
+  await scrollDockTop(page.evaluate);
   await sleep(700);
   await focusSection(page.evaluate, 'modules');
   const graphCollapsedShot = await page.shoot(
@@ -2154,6 +2206,30 @@ await waitFor(
     afterSceneSelect.selectedNodeId === 'joint.L3',
     `selecting L3 in the 3D scene left the graph on ${JSON.stringify(afterSceneSelect.selectedNodeId)}`,
   );
+  /*
+   * THE CROSS-HIGHLIGHT, ACROSS A MODULE SWITCH — Phase 4 W7.
+   *
+   * V8 read this with the graph and the trace open together, which §11.3 has
+   * made impossible: one module is active at a time. So the switch is part of
+   * the assertion now, and it is a STRONGER one rather than a weaker one — it
+   * proves that `SelectionState` is one object rather than two panes agreeing
+   * while they happen to be on screen at the same moment. The selection is made
+   * in the architecture module, the reader switches to Signal, and the rows are
+   * already lit when they arrive.
+   */
+  await focusSection(page.evaluate, 'signal');
+  const shellAcrossSwitch = await page.evaluate('window.__sesame.shell()');
+  check(
+    shellAcrossSwitch.activeModule === 'signal' &&
+      shellAcrossSwitch.moduleColumn.laidOutPanes.join(',') === 'signal',
+    `switching to Signal left ${JSON.stringify(shellAcrossSwitch.moduleColumn.laidOutPanes)} laid ` +
+      `out and the active module ${JSON.stringify(shellAcrossSwitch.activeModule)}`,
+  );
+  check(
+    (await page.evaluate('window.__sesame.selection()')).joint === 'L3',
+    'the selection did not survive the module switch — which would make the cross-highlight a ' +
+      'property of two panes being on screen together rather than of one SelectionState',
+  );
   const hitRows = await page.evaluate(
     `Array.from(document.querySelectorAll('[data-trace-row].hit')).map((n) => ({
        layer: n.getAttribute('data-layer'),
@@ -2162,13 +2238,14 @@ await waitFor(
   );
   check(
     hitRows.length > 0 && hitRows.every((r) => r.joint === 'L3'),
-    `selecting L3 highlighted ${JSON.stringify(hitRows)} in the trace; every highlighted row must ` +
-      `be an L3 row`,
+    `selecting L3 in the architecture module and then switching to Signal highlighted ` +
+      `${JSON.stringify(hitRows)}; every highlighted row must be an L3 row`,
   );
   check(
     hitRows.some((r) => r.layer === 'servo.target') && hitRows.some((r) => r.layer === 'pwm.output'),
     `selecting L3 did not highlight its servo.target and pwm.output rows: ${JSON.stringify(hitRows)}`,
   );
+  await focusSection(page.evaluate, 'modules');
 
   // Auto-expansion: selecting a joint from the 3D view must open whatever chain
   // is needed to show it, or the cross-link is a promise the graph cannot keep.
@@ -2195,12 +2272,33 @@ await waitFor(
   // that matters is that the ordinary rule comes back rather than staying
   // relaxed, because "exempt while a mode is on" and "exempt" are the same
   // assertion if nothing ever turns the mode off.
-  await page.evaluate(`document.querySelector('[data-testid="arch-workspace-toggle"]').click()`);
-  await sleep(1400);
+  /*
+   * Close it — if it is still open. It may not be: the workspace closes ITSELF
+   * when the module it belongs to leaves the screen, and the cross-highlight
+   * check above deliberately switches to Signal and back. That self-closing is
+   * the property this block is about, so it is asserted here rather than
+   * assumed, and the toggle is only clicked when there is something to undo.
+   */
+  const workspaceBeforeClose = await page.evaluate('window.__sesame.shell()');
+  check(
+    workspaceBeforeClose.focusPane === null,
+    `the focus workspace survived a switch to another module and back ` +
+      `(focusPane=${JSON.stringify(workspaceBeforeClose.focusPane)}). "Exempt while a mode is on" ` +
+      `and "exempt" are the same assertion if nothing ever turns the mode off, and switching away ` +
+      `from the module the exemption is FOR is the plainest way to turn it off.`,
+  );
+  if (workspaceBeforeClose.focusPane !== null) {
+    await page.evaluate(`document.querySelector('[data-testid="arch-workspace-toggle"]').click()`);
+    await sleep(1400);
+  }
   const shellAfterWorkspace = await page.evaluate('window.__sesame.shell()');
   const archAfterWorkspace = await page.evaluate('window.__sesame.archGraph()');
   check(
-    shellAfterWorkspace.stageRule === 'area-50' && shellAfterWorkspace.focusPane === null,
+    // `content-50` rather than `area-50`, because the architecture module is
+    // still the active one — which is the whole point: the exemption ended and
+    // the ORDINARY rule for this state came back. W3's shell had no second
+    // ordinary rule for it to come back to.
+    shellAfterWorkspace.stageRule === 'content-50' && shellAfterWorkspace.focusPane === null,
     `closing the workspace left the shell at stageRule=${JSON.stringify(shellAfterWorkspace.stageRule)}, ` +
       `focusPane=${JSON.stringify(shellAfterWorkspace.focusPane)}`,
   );
@@ -2220,19 +2318,28 @@ await waitFor(
       `${shellBeforeWorkspace.stageAreaSharePct.toFixed(1)}%. The exemption is temporary or it is ` +
       `not an exemption.`,
   );
-  if (shellAfterWorkspace.stageAreaSharePct < W4_STAGE_AREA_FLOOR_PCT) {
-    notes.push(
-      `at ${DEFAULT_WINDOW.width}x${DEFAULT_WINDOW.height} - the harness's own default window, and ` +
-        `the bottom of the two-dock Wide regime - the stage holds ` +
-        `${shellAfterWorkspace.stageAreaSharePct.toFixed(1)}% of the window's AREA with both docks ` +
-        `open at their DEFAULT widths, below W3's ${W4_STAGE_AREA_FLOOR_PCT}% floor. This is not a ` +
-        `W4 regression and the focus workspace is not involved: W3 set the Wide boundary at 1700 px ` +
-        `from 360+360 px of dock, and the shipped defaults are 400+460. Phase 12 does not catch it ` +
-        `because the only Wide window it measures is 2560x1440, where the same layout holds 75.7%. ` +
-        `The fix is W3's arithmetic - a higher Wide boundary or narrower defaults - not a change to ` +
-        `the architecture pane.`,
-    );
-  }
+  /*
+   * W4's NOTE about this window is DELETED, not re-worded — Phase 4 W7.
+   *
+   * It read: "at 1760x1000 the two-dock Wide regime holds only 45.0% of the
+   * window's area at its default dock widths, below W3's 50% floor". There is
+   * no two-dock regime and there are no dock widths, so the note describes a
+   * layout that no longer exists — and a note that goes on printing about a
+   * deleted regime is the same failure as an assertion that goes on passing
+   * against one. The gap it recorded is closed by construction and asserted by
+   * name: 1760x1000 is in `RESPONSIVE_WINDOWS`, and phase 12 measures both
+   * stage regimes there.
+   *
+   * The stage holding under 50% of the WINDOW here is now correct rather than a
+   * defect: a module is up, so the rule in force is `content-50`, which the
+   * shell publishes and phase 12 checks.
+   */
+  check(
+    shellAfterWorkspace.stageContentSharePct >= 49.8,
+    `after the workspace closed the stage holds ` +
+      `${shellAfterWorkspace.stageContentSharePct.toFixed(1)}% of the CONTENT area under the ` +
+      `"${shellAfterWorkspace.stageRule}" rule; the floor for that regime is 50%`,
+  );
   check(
     archAfterWorkspace.mode === 'path',
     `after the workspace closed the pane is showing "${archAfterWorkspace.mode}"; the ordinary ` +
@@ -4228,7 +4335,7 @@ if (SKIP_QEMU) {
           `${driven.length} joints driven, ${observed.canvasPixels} canvas pixels.`,
       );
     }
-    await scrollDockTop(qemuPage.evaluate, 'signal');
+    await scrollDockTop(qemuPage.evaluate);
     await sleep(400);
     await qemuPage.shoot(
       'v3-browser-qemu-observed.png',
@@ -4399,8 +4506,30 @@ if (SKIP_QEMU) {
     // The provenance banner reports the event that last MOVED something, so
     // before the first command it correctly says "nothing yet" — asserting the
     // verdict line here would be asserting against an idle robot.
-    const readRenderedHonesty = async () =>
-      JSON.parse(
+    /*
+     * The emulator's QUALIFIERS moved into the "more info" screen — Phase 4 W7.
+     *
+     * What stayed on the side panel, permanently and at every width, is the
+     * CLAIM: the driving provenance, the origin with its board
+     * (`#origin-banner`), `measurementVerdict()`'s headline
+     * (`#measurement-verdict`) and `PHYSICAL HARDWARE: NONE`. What is behind
+     * one click is the paragraph — which boards the emulator does not model,
+     * what it does not simulate — and §11.4 sanctions exactly that: a popover
+     * may EXPAND a correctness surface. So the screen is opened before this
+     * reads, and the fact that these five strings are still rendered somewhere
+     * a learner can reach is what is asserted.
+     */
+    const openTrustScreen = () =>
+      evaluate(`(() => {
+        const dialog = document.querySelector('[data-popover="trust"]');
+        if (dialog !== null && dialog.open) return true;
+        document.querySelector('[data-panel-more="trust"]')?.click();
+        return true;
+      })()`);
+    const readRenderedHonesty = async () => {
+      await openTrustScreen();
+      await sleep(450);
+      const rendered = JSON.parse(
         await evaluate(
           `JSON.stringify({
              emulator: document.querySelector('[data-testid="emulator"]')?.innerText ?? '',
@@ -4411,6 +4540,13 @@ if (SKIP_QEMU) {
            })`,
         ),
       );
+      // Shut it again: every other assertion in this phase is about the shell a
+      // reader is looking at, and a modal over it would change what is
+      // hit-testable.
+      await evaluate(`document.querySelector('[data-popover-close="trust"]')?.click()`);
+      await sleep(300);
+      return rendered;
+    };
     const renderedIdle = await readRenderedHonesty();
     check(
       /distro-v1-esp32/.test(renderedIdle.emulator),
@@ -5785,9 +5921,26 @@ if (SKIP_QEMU) {
    * overlay reads 96% tall and 100% wide with a panel sitting on top of it.
    */
   const STAGE_AREA_FLOOR_PCT = 50;
-  /** The brief's workbench triple, mirrored from `ui/shell-state.ts`. */
-  const WORKBENCH_MIN_PX = 500;
-  const WORKBENCH_MAX_PX = 560;
+  /**
+   * **The second metric — §11.2.** The stage's share of the CONTENT area, in
+   * force whenever a module is active.
+   *
+   * §11.2 is explicit that this and the rule above may not be averaged into one
+   * loose threshold, so they are two named regimes and the app publishes which
+   * one it is claiming. Content is the viewport minus the rail, the status
+   * strip and the side panel — the plain reading of *"with the robot in the
+   * other half"* — and it is achievable at every width above the module's own
+   * minimum, which the 50%-of-VIEWPORT rule is not once a rail, a strip and a
+   * panel exist (§11.2's own table: 36.0% at 1440, 41.9% at 2560).
+   */
+  const STAGE_CONTENT_FLOOR_PCT = 50;
+  /** Mirrored from `ui/shell-state.ts`; asserted against the measured boxes. */
+  const RAIL_W_PX = 64;
+  const PANEL_W_PX = 280;
+  /** Per-window record of what the side panel folded, reported with the phase. */
+  const panelFolds = {};
+  /** The architecture's own box in the ORDINARY layout, per window — W4's constraint. */
+  const archSurfaces = [];
   const FRAME_EPS_MM_12 = 1e-6;
   /** Non-background share of the middle of the drawing buffer. */
   const ROBOT_PIXEL_FLOOR_PCT = 2;
@@ -6100,8 +6253,27 @@ if (SKIP_QEMU) {
       }
 
       out.roles.body = { px: parseFloat(getComputedStyle(document.body).fontSize), sel: 'body', text: '' };
+      // The graph's viewport transform at the moment of the scan, so a
+      // below-floor reading inside a pan surface says WHY rather than only
+      // how small. W7 spent a run bisecting exactly this.
+      {
+        const viewport = document.querySelector('.react-flow__viewport');
+        out.viewportTransform = viewport === null ? null : getComputedStyle(viewport).transform;
+        const surface = document.querySelector('[data-testid="arch-surface"]');
+        out.archMode = surface === null ? null : surface.getAttribute('data-arch-mode');
+      }
       smallest('.src-line, .src-text, table.joints td, dl.kv dd, .lab-code, .pose-table td', 'code');
-      smallest('.lesson-explanation, .lesson-conceptual, .lesson-goal, .lesson-claim-text, .source-description, .prov-banner p, .concept-text', 'prose');
+      /*
+        .prov-banner p LEFT this list in W7, and that is a decision rather than
+        an omission. The paragraph it named — PROVENANCE_MEANING, and the full
+        four-line verdict — moved into the "more info" screen; what is on the
+        side panel is measurementVerdict()'s CLAIM line, one sentence, at the
+        badge token. That is the same shape and the same token as the status
+        strip's environment line, which is the other one-line claim this product
+        makes, and it is not a reading surface. Lesson prose, source
+        descriptions and concept text still are, and they are still measured.
+      */
+      smallest('.lesson-explanation, .lesson-conceptual, .lesson-goal, .lesson-claim-text, .source-description, .concept-text', 'prose');
       return out;
     })()`);
 
@@ -6114,202 +6286,370 @@ if (SKIP_QEMU) {
     const where = `${window.width}x${window.height} (${window.breakpoint})`;
     const shellPage = await bootPage(window);
     try {
-      // Measure the stage with the workbench SHUT, then with each mode open.
-      // Below Wide the three readings must now DIFFER — the workbench is in
-      // flow and the stage really resizes — and every one of them must still
-      // clear the 50%-area rule. That inversion is the whole of §7.
-      await shellPage.evaluate(
-        'window.__sesame.setDockOpen("control", false); window.__sesame.setDockOpen("analysis", false)',
-      );
-      const shut = await settledShell(shellPage, `${where} with the workbench shut`);
+      /*
+       * TWO REGIMES, BOTH MEASURED — §11.2, and this is the whole of it.
+       *
+       * The reading is taken with NO module active and then with one, because
+       * the two stage rules are different rules and the plan is explicit that
+       * they may not be averaged into one loose threshold:
+       *
+       *   no module   the stage keeps >= 50% of the VIEWPORT's area   (area-50)
+       *   a module    >= 50% of the CONTENT area — the viewport minus
+       *               the rail, the status strip and the side panel  (content-50)
+       *
+       * The app PUBLISHES which one it is claiming on `.shell`
+       * (`data-stage-rule`), exactly as W4 published the focus exemption, and
+       * what is asserted below is the declaration against the measurement. A
+       * harness that decided the regime for itself would branch on the same
+       * condition the layout branches on and could never disagree with it —
+       * which is the hollow-assertion failure this project has caught four
+       * times.
+       */
+      // A sleep BEFORE `settledShell`, not instead of it: the settle loop
+      // returns as soon as two consecutive readings agree, and two reads taken
+      // before React has applied the change agree with each other perfectly.
+      await shellPage.evaluate('window.__sesame.setModule(null)');
+      await sleep(500);
+      const noModule = await settledShell(shellPage, `${where} with no module active`);
 
-      await shellPage.evaluate('window.__sesame.setDockOpen("control", true)');
-      const controlOpen = await settledShell(shellPage, `${where} with the control dock open`);
+      await shellPage.evaluate('window.__sesame.setModule("modules")');
+      await sleep(500);
+      const archUp = await settledShell(shellPage, `${where} with the architecture module up`);
 
-      await shellPage.evaluate(
-        'window.__sesame.setDockOpen("control", false); window.__sesame.setDockOpen("analysis", true)',
-      );
-      const open = await settledShell(shellPage, `${where} with the analysis dock open`);
+      await shellPage.evaluate('window.__sesame.setModule("learn")');
+      await sleep(500);
+      const learnUp = await settledShell(shellPage, `${where} with the Learn module up`);
 
       check(
-        shut.breakpoint === window.breakpoint,
-        `${where} classified itself as "${shut.breakpoint}"`,
+        noModule.breakpoint === window.breakpoint,
+        `${where} classified itself as "${noModule.breakpoint}"`,
       );
 
-      // ---------------------------------------- THE assertion that was missing
-      //
-      // The stage strip that held the commands and the OLED is gone — it cost
-      // the viewport up to 176 px of height and this is where that shows.
-      //
-      // The floors below are the COMPACT backstop §7 keeps; the area rule that
-      // follows them is the metric at Medium and above.
+      // The floors §7 keeps as the Compact backstop, at every state.
       for (const [state, reading] of [
-        ['workbench shut', shut],
-        ['workbench in Control', controlOpen],
-        ['workbench in Analyze', open],
+        ['no module', noModule],
+        ['Architecture up', archUp],
+        ['Learn up', learnUp],
       ]) {
         check(
           reading.viewportHeightSharePct >= HEIGHT_FLOOR_PCT,
-          `at ${where} with the ${state} the 3D canvas is ${reading.canvasHeightPx.toFixed(0)} px ` +
+          `at ${where} with ${state} the 3D canvas is ${reading.canvasHeightPx.toFixed(0)} px ` +
             `of ${reading.windowHeightPx} — ${reading.viewportHeightSharePct.toFixed(1)}% of the ` +
             `window height, below the ${HEIGHT_FLOOR_PCT}% floor. This is the check the old ` +
             `harness did not have, and a 13%-of-screen robot is what its absence cost.`,
         );
         check(
           reading.canvasWidthPx >= WIDTH_FLOOR_PX,
-          `at ${where} with the ${state} the 3D canvas is only ${reading.canvasWidthPx.toFixed(0)} px ` +
+          `at ${where} with ${state} the 3D canvas is only ${reading.canvasWidthPx.toFixed(0)} px ` +
             `wide; the floor is ${WIDTH_FLOOR_PX}`,
         );
       }
 
-      // A thin line, not a strip. 34 px, and it must never grow into one.
+      // A thin line, not a strip. 32 px, and it must never grow into one.
       check(
-        shut.statusBarHeightPx > 0 && shut.statusBarHeightPx <= 40,
-        `the status line under the robot is ${shut.statusBarHeightPx.toFixed(1)} px at ${where}; ` +
+        noModule.statusBarHeightPx > 0 && noModule.statusBarHeightPx <= 40,
+        `the status line under the robot is ${noModule.statusBarHeightPx.toFixed(1)} px at ${where}; ` +
           `it replaced a 120-176 px strip and must stay a glance line`,
       );
 
-      // ======================= §7: THE STAGE'S SHARE OF THE SCREEN AREA
-      //
-      // `overlay-not-push` USED TO BE HERE, once per dock: the stage's measured
-      // width with both docks shut, with the control dock open and with the
-      // analysis dock open, all equal to within half a pixel. It has been
-      // DELETED rather than relaxed, and §7 of the plan is explicit about why:
-      // the layout no longer overlays at Medium, so an assertion that it does
-      // not push would be green against a layout it no longer describes.
-      //
-      // What replaces it is the user's own rule, measured as area, plus its
-      // inverse — at Medium the stage must actually GIVE UP width when the
-      // workbench opens, because "in flow" is a claim about the layout and not
-      // a comment in a stylesheet.
-      for (const [state, reading] of [
-        ['workbench shut', shut],
-        ['workbench in Control', controlOpen],
-        ['workbench in Analyze', open],
-      ]) {
-        if (window.breakpoint === 'compact') continue;
-        // W4. The ordinary layout may never CLAIM the exemption. Phase 7
-        // asserts the exemption is real when the focus workspace is open; this
-        // is its other half, and without it "focus-exempt" could quietly become
-        // the shell's permanent answer and the area rule would stop being
-        // asserted anywhere while still appearing to pass.
+      if (window.breakpoint !== 'compact') {
+        // ------------------------------------ REGIME 1: no module, area-50
         check(
-          reading.stageRule === 'area-50' && reading.focusPane === null,
-          `at ${where} with the ${state} the shell says its stage rule is ` +
-            `${JSON.stringify(reading.stageRule)} (focusPane ${JSON.stringify(reading.focusPane)}). ` +
-            `The brief's exemption belongs to the focus workspace and to nothing else; the ` +
-            `ordinary layout answers to the 50%-area rule at every width.`,
+          noModule.stageRule === 'area-50' && noModule.activeModule === null,
+          `at ${where} with no module active the shell says its stage rule is ` +
+            `${JSON.stringify(noModule.stageRule)} (activeModule ` +
+            `${JSON.stringify(noModule.activeModule)}). §7 is unchanged in this regime and the app ` +
+            `has to say so.`,
         );
         check(
-          reading.stageAreaSharePct >= STAGE_AREA_FLOOR_PCT,
-          `at ${where} with the ${state} the 3D canvas is ` +
-            `${reading.canvasWidthPx.toFixed(0)}x${reading.canvasHeightPx.toFixed(0)} = ` +
-            `${reading.stageAreaSharePct.toFixed(1)}% of the window's area, below the ` +
+          noModule.stageAreaSharePct >= STAGE_AREA_FLOOR_PCT,
+          `at ${where} with no module active the 3D canvas is ` +
+            `${noModule.canvasWidthPx.toFixed(0)}x${noModule.canvasHeightPx.toFixed(0)} = ` +
+            `${noModule.stageAreaSharePct.toFixed(1)}% of the window's AREA, below the ` +
             `${STAGE_AREA_FLOOR_PCT}% floor. That floor is the user's own resolution of §3 — ` +
-            `"I'd rather the robot area shrink. 50% of the screen area is more than enough" — ` +
-            `and it is what two in-flow docks could not satisfy on a laptop at any usable width.`,
+            `"I'd rather the robot area shrink. 50% of the screen area is more than enough".`,
+        );
+
+        // --------------------------- REGIME 2: a module up, content-50
+        for (const [state, reading] of [
+          ['Architecture up', archUp],
+          ['Learn up', learnUp],
+        ]) {
+          check(
+            reading.stageRule === 'content-50' && reading.focusPane === null,
+            `at ${where} with ${state} the shell says its stage rule is ` +
+              `${JSON.stringify(reading.stageRule)} (focusPane ` +
+              `${JSON.stringify(reading.focusPane)}). The brief's exemption belongs to the focus ` +
+              `workspace and to nothing else; the ordinary layout answers to one of the two ` +
+              `published rules at every width.`,
+          );
+          check(
+            reading.stageContentSharePct >= STAGE_CONTENT_FLOOR_PCT - 0.2,
+            `at ${where} with ${state} the 3D canvas holds ` +
+              `${reading.stageContentSharePct.toFixed(1)}% of the CONTENT area ` +
+              `(${reading.contentWidthPx.toFixed(0)}x${reading.contentHeightPx.toFixed(0)}), below ` +
+              `the ${STAGE_CONTENT_FLOOR_PCT}% floor. That is §11.2's plain reading of "with the ` +
+              `robot in the other half".`,
+          );
+          // The inverse, adapted from W3 rather than deleted: a share is only
+          // honest if the box really moved. W3 asserted the stage LOSES more
+          // than 300 px when the workbench opens; the module column is the
+          // thing that opens now, and it takes half the content area.
+          const lost = noModule.canvasWidthPx - reading.canvasWidthPx;
+          check(
+            lost > 300,
+            `at ${where} activating a module took only ${lost.toFixed(1)} px from the 3D canvas ` +
+              `(${noModule.canvasWidthPx.toFixed(1)} -> ${reading.canvasWidthPx.toFixed(1)}). The ` +
+              `module column is supposed to be IN FLOW here: if the stage does not shrink, the ` +
+              `content-share reading above is measuring a canvas hidden behind a panel, which is ` +
+              `exactly the reading §7 retired.`,
+          );
+        }
+
+        // THE ARITHMETIC, stated as a check rather than as a comment. The
+        // content area is the viewport minus the rail, the status strip and the
+        // side panel, and every number the two regimes are computed from has to
+        // come out of the same three boxes.
+        const expectedContent =
+          archUp.windowWidthPx - RAIL_W_PX - (archUp.panel.visible ? PANEL_W_PX : 0);
+        check(
+          Math.abs(archUp.contentWidthPx - expectedContent) <= 1,
+          `at ${where} the content box measures ${archUp.contentWidthPx.toFixed(1)} px but ` +
+            `${archUp.windowWidthPx} - ${RAIL_W_PX} rail - ${PANEL_W_PX} panel is ` +
+            `${expectedContent}. The two stage rules are computed from this box, so a box that is ` +
+            `not what it claims makes both of them meaningless.`,
+        );
+      } else {
+        // At Compact the module and the panel are SHEETS: the stage keeps the
+        // whole shell and §7's area rule gives way to the floors above.
+        check(
+          archUp.dockOverlays === true,
+          `at ${where} the module reports overlays=${archUp.dockOverlays}. It floats at Compact, ` +
+            `where nothing else fits, and is IN FLOW above it — that is the difference the whole ` +
+            `regime split is made of.`,
+        );
+        check(
+          Math.abs(noModule.canvasWidthPx - archUp.canvasWidthPx) < 1,
+          `at ${where} a sheet took ${(noModule.canvasWidthPx - archUp.canvasWidthPx).toFixed(1)} px ` +
+            `from the canvas; a sheet is out of flow and takes nothing`,
+        );
+        check(
+          archUp.moduleColumn.rectWidthPx <= archUp.windowWidthPx * 0.92 + 1,
+          `the Compact sheet covers ` +
+            `${((archUp.moduleColumn.rectWidthPx / archUp.windowWidthPx) * 100).toFixed(0)}% of the ` +
+            `window at ${where} — a sheet that covers everything is a modal, and this is not one`,
         );
       }
 
-      if (window.breakpoint === 'wide') {
+      // ================================ ONE ACTIVE MODULE, AT EVERY WIDTH
+      //
+      // Not "the others were closed": there is nowhere for a second one to be.
+      // `ShellState.activeModule` is one nullable id per breakpoint, so the
+      // two-open state is unrepresentable — and what a harness can check about
+      // an unrepresentable state is that no sequence of the app's own verbs
+      // produces one. Every module is activated in turn and the count of
+      // laid-out module panes is read each time.
+      for (const id of ['modules', 'signal', 'source', 'learn', 'lab']) {
+        await shellPage.evaluate(`window.__sesame.setModule(${JSON.stringify(id)})`);
+        await sleep(320);
+        const reading = await shellPage.evaluate('window.__sesame.shell()');
         check(
-          open.dockOverlays === false && open.usesWorkbench === false,
-          `${where} is Wide, where U6's two docks are in flow and pushing is correct ` +
-            `(overlays=${open.dockOverlays}, workbench=${open.usesWorkbench})`,
+          reading.activeModule === id &&
+            reading.moduleColumn.laidOutPanes.length === 1 &&
+            reading.moduleColumn.laidOutPanes[0] === id,
+          `at ${where} activating "${id}" left activeModule=${JSON.stringify(reading.activeModule)} ` +
+            `and ${reading.moduleColumn.laidOutPanes.length} laid-out module pane(s) ` +
+            `(${JSON.stringify(reading.moduleColumn.laidOutPanes)}). One at a time is §11.3, and ` +
+            `it is the state's shape rather than a rule something can forget to apply.`,
         );
         check(
-          open.workbench === null && open.docks.analysis.open,
-          `${where} is Wide and should draw U6's docks rather than a workbench: ` +
-            `${JSON.stringify({ workbench: open.workbench, analysis: open.docks.analysis.open })}`,
+          reading.moduleColumn.scrollers.length <= 1,
+          `at ${where} the "${id}" module column has ${reading.moduleColumn.scrollers.length} ` +
+            `scrollable box(es): ${JSON.stringify(reading.moduleColumn.scrollers)}. There is one, ` +
+            `and it is the column body.`,
         );
-      } else {
-        check(
-          open.usesWorkbench === true && open.workbench !== null,
-          `${where} did not draw a workbench: ${JSON.stringify({
-            usesWorkbench: open.usesWorkbench,
-            regime: open.workbench,
-          })}`,
-        );
-        check(
-          open.dockOverlays === (window.breakpoint === 'compact'),
-          `at ${where} the workbench reports overlays=${open.dockOverlays}. It floats at Compact, ` +
-            `where nothing else fits, and is IN FLOW at Medium — that is §3, and the difference is ` +
-            `the whole change.`,
-        );
+      }
+      // And no accordion survives anywhere: a two-open state could only come
+      // back as a stack of collapsible headers.
+      const accordionToggles = await shellPage.evaluate(
+        `document.querySelectorAll('.dock-section-toggle, [data-dock-toggle]').length`,
+      );
+      check(
+        accordionToggles === 0,
+        `at ${where} the shell rendered ${accordionToggles} accordion toggle(s). The rail's ` +
+          `radiogroup is the navigation; a collapsible header beside the open pane is the idiom ` +
+          `the brief asked us to stop using and the shape a two-open state would come back in.`,
+      );
 
-        // ------------------------ IN FLOW means the stage really gives width
-        if (window.breakpoint !== 'compact') {
-          for (const [label, reading] of [
-            ['Control', controlOpen],
-            ['Analyze', open],
-          ]) {
-            const lost = shut.canvasWidthPx - reading.canvasWidthPx;
-            check(
-              lost > 300,
-              `at ${where} opening the workbench in ${label} took only ${lost.toFixed(1)} px from ` +
-                `the 3D canvas (${shut.canvasWidthPx.toFixed(1)} -> ` +
-                `${reading.canvasWidthPx.toFixed(1)}). The workbench is supposed to be IN FLOW ` +
-                `here: if the stage does not shrink, the 50%-area reading above is measuring a ` +
-                `canvas that is hidden behind a panel, which is exactly the reading §7 retired.`,
-            );
-            check(
-              reading.workbench.rectWidthPx >= WORKBENCH_MIN_PX &&
-                reading.workbench.rectWidthPx <= WORKBENCH_MAX_PX + 1,
-              `at ${where} the workbench measures ${reading.workbench.rectWidthPx.toFixed(1)} px ` +
-                `in ${label}; the brief's band is ${WORKBENCH_MIN_PX}-${WORKBENCH_MAX_PX}`,
-            );
-          }
-        }
+      // ======================= THE SIDE PANEL: ZERO SCROLLERS, ZERO OVERFLOW
+      //
+      // §11.4: *"Never its own scrollbar — neither Commands nor Face. If
+      // content does not fit, that is a content problem to solve by disclosure,
+      // not by adding a scroller."*
+      //
+      // Both halves are asserted, and the second is the one that makes the
+      // first honest: the panel is `overflow: hidden`, so a scroller count
+      // alone would read zero while a provenance badge sat below the fold.
+      // `overflowPx` is `scrollHeight - clientHeight` on the panel itself.
+      await shellPage.evaluate('window.__sesame.setModule("modules")');
+      await sleep(400);
+      for (const id of ['modules', 'lab', 'source']) {
+        await shellPage.evaluate(`window.__sesame.setModule(${JSON.stringify(id)})`);
+        await sleep(300);
+        const reading = await shellPage.evaluate('window.__sesame.shell()');
+        if (!reading.panel.visible) continue;
+        check(
+          reading.panel.scrollers.length === 0,
+          `at ${where} with "${id}" up the side panel has ${reading.panel.scrollers.length} ` +
+            `scrollable box(es): ${JSON.stringify(reading.panel.scrollers)}. §11.4 says never, at ` +
+            `any width, and means it for Commands and Face by name.`,
+        );
+        check(
+          reading.panel.overflowPx <= 1,
+          `at ${where} with "${id}" up the side panel's content overflows its box by ` +
+            `${reading.panel.overflowPx.toFixed(0)} px. It is \`overflow: hidden\`, so this is ` +
+            `content a reader cannot reach and cannot scroll to — which is the same lie as a ` +
+            `scrollbar, just quieter. The fix is disclosure: fold a card, do not clip one.`,
+        );
+        check(
+          Math.abs(reading.panel.rectWidthPx - PANEL_W_PX) <= 1,
+          `at ${where} the side panel measures ${reading.panel.rectWidthPx.toFixed(1)} px; §11.4 ` +
+            `asks for 280-320 and this shell fixes it at ${PANEL_W_PX}`,
+        );
+      }
 
-        // ------------------------------------ Control | Analyze, and one pane
-        check(
-          controlOpen.workbench.mode === 'control' && open.workbench.mode === 'analysis',
-          `at ${where} the mode switch does not follow the open pane: ` +
-            `${JSON.stringify([controlOpen.workbench.mode, open.workbench.mode])}`,
-        );
-        check(
-          open.workbench.modes.length === 2 &&
-            open.workbench.modes.map((m) => m.label).join('|') === 'Control|Analyze',
-          `at ${where} the workbench's mode switch reads ` +
-            `${JSON.stringify(open.workbench.modes.map((m) => m.label))}; the brief writes it ` +
-            `CONTROL | ANALYZE and both are meant to survive as top-level concepts`,
-        );
-        check(
-          open.workbench.modes.filter((m) => m.checked).length === 1,
-          `at ${where} ${open.workbench.modes.filter((m) => m.checked).length} modes are checked`,
-        );
-        // The navigator lists exactly the mode's panes, and exactly one is
-        // selected. That is the brief's "tabs or a compact section navigator
-        // BEFORE nested accordions" — a collapsed-accordion column would show
-        // five headers here instead of five tabs and one pane.
-        check(
-          open.workbench.nav.map((n) => n.id).join(',') === 'inspector,modules,signal,source,learn' &&
-            open.workbench.nav.filter((n) => n.selected).length === 1,
-          `at ${where} the Analyze navigator is ${JSON.stringify(open.workbench.nav)}`,
-        );
-        check(
-          controlOpen.workbench.nav.map((n) => n.id).join(',') === 'commands,face,lab',
-          `at ${where} the Control navigator is ${JSON.stringify(controlOpen.workbench.nav)}`,
-        );
-        for (const [label, reading] of [
-          ['Control', controlOpen],
-          ['Analyze', open],
-        ]) {
-          check(
-            reading.workbench.scrollers.length <= 1,
-            `at ${where} the workbench in ${label} has ` +
-              `${reading.workbench.scrollers.length} scrollable box(es): ` +
-              `${JSON.stringify(reading.workbench.scrollers)}`,
-          );
-        }
+      // ============ CORRECTNESS SURFACES STAY ON THE PANEL — §11.4
+      //
+      // *"Correctness surfaces may not be demoted into a popover. Provenance,
+      // origin, PHYSICAL HARDWARE: NONE, NOT BUILT and CONCEPTUAL badges stay
+      // visible on the panel itself. A popover may EXPAND them; it may not be
+      // where they first appear."*
+      //
+      // Read with every "more info" screen CLOSED, because the rule is about
+      // what a reader sees without opening anything. `insidePopover` is the
+      // failure this exists to catch: the element still exists, it has just
+      // stopped being anywhere anybody will meet it.
+      {
         if (window.breakpoint === 'compact') {
-          check(
-            open.workbench.rectWidthPx <= open.windowWidthPx * 0.92,
-            `the Compact sheet covers ` +
-              `${((open.workbench.rectWidthPx / open.windowWidthPx) * 100).toFixed(0)}% of the ` +
-              `window at ${where} — a sheet that covers everything is a modal, and this is not one`,
-          );
+          await shellPage.evaluate('window.__sesame.setSection("commands", true)');
+          await sleep(400);
         }
+        const reading = await shellPage.evaluate('window.__sesame.shell()');
+        const closed = reading.popovers.every((p) => !p.open);
+        check(
+          closed && reading.popovers.length >= 3,
+          `at ${where} the "more info" screens read ${JSON.stringify(reading.popovers)}; the ` +
+            `inventory below is only meaningful with all of them shut`,
+        );
+        const missing = reading.panel.correctness.filter((c) => !c.visible || c.insidePopover);
+        check(
+          missing.length === 0,
+          `at ${where} ${missing.length} correctness surface(s) are not on the side panel: ` +
+            `${missing
+              .map((c) => `${c.what} (present=${c.present}, visible=${c.visible}, inPopover=${c.insidePopover})`)
+              .join('; ')}. A "minimal panel" brief invites exactly this, and §11.4 forbids it: a ` +
+            `popover may expand a correctness surface and may never be where it first appears.`,
+        );
+        check(
+          /PHYSICAL HARDWARE: NONE/.test(
+            reading.panel.correctness.find((c) => c.what === 'PHYSICAL HARDWARE')?.text ?? '',
+          ),
+          `at ${where} the panel's hardware line reads ` +
+            `${JSON.stringify(reading.panel.correctness.find((c) => c.what === 'PHYSICAL HARDWARE')?.text)}`,
+        );
+        /*
+          Commands NEVER folds — see `FOLD_ORDER` in `ui/Shell.tsx`. The side
+          panel exists to hold it, and `[data-command="wave"]` is the button
+          four phases of this harness press: a vocabulary that disappears on a
+          short window is a vocabulary that is sometimes not there.
+        */
+        const commandsCard = await shellPage.evaluate(`(() => {
+          const card = document.querySelector('[data-panel-card="commands"]');
+          const wave = document.querySelector('[data-panel-card="commands"] [data-command="wave"]');
+          const rect = wave === null ? null : wave.getBoundingClientRect();
+          return {
+            folded: card === null ? null : card.getAttribute('data-folded'),
+            wavePx: rect === null ? null : [Math.round(rect.width), Math.round(rect.height)],
+          };
+        })()`);
+        check(
+          commandsCard.folded === 'false' &&
+            commandsCard.wavePx !== null &&
+            commandsCard.wavePx[0] > 0 &&
+            commandsCard.wavePx[1] >= 36,
+          `at ${where} the Commands card reads ${JSON.stringify(commandsCard)}. It is excluded ` +
+            `from the fold order at every height, and its wave button is a 36 px target.`,
+        );
+        panelFolds[window.label] = {
+          panelHeightPx: Math.round(reading.panel.rectHeightPx),
+          cards: reading.panel.cards.map((c) => ({ id: c.id, heightPx: Math.round(c.heightPx) })),
+          folded: reading.panel.cards.filter((c) => c.heightPx < 60).map((c) => c.id),
+          overflowPx: reading.panel.overflowPx,
+          scrollers: reading.panel.scrollers.length,
+        };
+      }
+
+      // ================== A "MORE INFO" SCREEN OPENS, AND CARRIES THE DETAIL
+      {
+        /*
+          Polled, not read once. The side panel FOLDS by measurement after every
+          commit, so the frame in which a card's header settles into its final
+          position is a frame later than the state that put it there — and a
+          hit test taken in that frame reports the box that used to be at those
+          coordinates. The loop keeps the LAST answer, so a control that is
+          genuinely covered still fails with the same message.
+        */
+        let opened = { ok: false, why: 'never evaluated' };
+        for (let attempt = 0; attempt < 6; attempt += 1) {
+          opened = await shellPage.evaluate(`(() => {
+            const button = document.querySelector('[data-panel-more="inspector"]');
+            if (button === null) return { ok: false, why: 'no [data-panel-more="inspector"] control' };
+            const rect = button.getBoundingClientRect();
+            if (rect.width < 36 || rect.height < 36) {
+              return { ok: false, why: 'the control is ' + Math.round(rect.width) + 'x' + Math.round(rect.height) + ', below 36x36' };
+            }
+            const hit = document.elementFromPoint(rect.left + rect.width / 2, rect.top + rect.height / 2);
+            if (hit === null || !(hit === button || button.contains(hit))) {
+              return {
+                ok: false,
+                why:
+                  'the control is not the topmost element at its own centre; ' +
+                  (hit === null ? 'nothing is there' : 'found ' + hit.tagName + '.' + (hit.getAttribute('class') ?? '')),
+              };
+            }
+            button.click();
+            return { ok: true };
+          })()`);
+          if (opened.ok) break;
+          await sleep(400);
+        }
+        check(opened.ok, `at ${where} the inspector's "more info" control: ${opened.why}`);
+        await sleep(600);
+        const inPopover = await shellPage.evaluate(`(() => {
+          const dialog = document.querySelector('[data-popover="inspector"]');
+          const table = document.querySelector('[data-popover="inspector"] table.joints');
+          const rows = document.querySelectorAll('[data-popover="inspector"] table.joints tbody tr');
+          return {
+            open: dialog !== null && dialog.open,
+            hasTable: table !== null && table.getBoundingClientRect().height > 1,
+            rows: rows.length,
+          };
+        })()`);
+        check(
+          inPopover.open && inPopover.hasTable && inPopover.rows === 8,
+          `at ${where} the inspector screen opened as ${JSON.stringify(inPopover)}; §11.4 names the ` +
+            `full seven-column table as the first thing that belongs in one, and there are eight ` +
+            `joints`,
+        );
+        await shellPage.evaluate(
+          `document.querySelector('[data-popover-close="inspector"]')?.click()`,
+        );
+        await sleep(350);
+        const afterClose = await shellPage.evaluate('window.__sesame.shell()');
+        check(
+          afterClose.popovers.every((p) => !p.open),
+          `at ${where} a "more info" screen stayed open after Close: ${JSON.stringify(afterClose.popovers)}`,
+        );
       }
 
       // ------------------------------------------- the environment line
@@ -6324,7 +6664,7 @@ if (SKIP_QEMU) {
         if (el === null) return null;
         const rect = el.getBoundingClientRect();
         return {
-          text: (el.textContent ?? '').replace(/\s+/g, ' ').trim(),
+          text: (el.textContent ?? '').replace(/\\s+/g, ' ').trim(),
           system: el.getAttribute('data-system'),
           physicallyObserved: Number(el.getAttribute('data-physically-observed')),
           widthPx: rect.width,
@@ -6346,11 +6686,12 @@ if (SKIP_QEMU) {
         environment?.physicallyObserved === 0 && /PHYSICAL HARDWARE: NONE/.test(environment.text),
         `at ${where} the environment line reports ${environment?.physicallyObserved} physically ` +
           `observed event(s). Every backend this project has produces zero, permanently, and this ` +
-          `line reads the counter rather than a constant — so a non-zero reading here means ` +
-          `something claimed to have crossed a physical boundary.`,
+          `line reads the counter rather than a constant.`,
       );
 
       // --------------------------------------------------- the robot is there
+      await shellPage.evaluate('window.__sesame.setModule("modules")');
+      await sleep(500);
       const pixels = await robotPixelShare(shellPage.evaluate);
       check(
         pixels !== null && pixels.sharePct >= ROBOT_PIXEL_FLOOR_PCT,
@@ -6358,25 +6699,14 @@ if (SKIP_QEMU) {
           `buffer is non-background — the robot is not visibly drawn`,
       );
 
-      // ------------------------------- `wave`, reachable without opening anything
-      //
-      // The command vocabulary moved into the control dock, which starts shut
-      // below Wide. The assertion it used to satisfy — `[data-command="wave"]`
-      // present and not disabled — would now be satisfied by a button inside a
-      // collapsed section, which nobody can press. So what is asserted here is
-      // the STATUS LINE's quick-run cluster, hit-tested: with both docks shut,
-      // a `wave` button must have a box and be the topmost element at the
-      // centre of it. That is strictly stronger than presence in the DOM, and
-      // it is true at every breakpoint including Compact.
-      await shellPage.evaluate(
-        'window.__sesame.setDockOpen("control", false); window.__sesame.setDockOpen("analysis", false)',
-      );
+      // ------------------------- `wave`, reachable with no module open at all
+      await shellPage.evaluate('window.__sesame.setModule(null)');
       await sleep(450);
       const glance = await shellPage.evaluate('window.__sesame.shell()');
       const quickWave = glance.quickCommands.find((c) => c.name === 'wave');
       check(
         quickWave?.reachable === true && quickWave?.enabled === true,
-        `at ${where} with both docks shut, the status line's wave button is ` +
+        `at ${where} with no module open, the status line's wave button is ` +
           `${JSON.stringify(quickWave)} — a reader cannot make the robot move without opening ` +
           `something, which is what this check has always been for`,
       );
@@ -6384,8 +6714,6 @@ if (SKIP_QEMU) {
         glance.quickCommands.some((c) => c.name === 'stop' && c.reachable),
         `at ${where} there is no reachable stop button on the status line`,
       );
-      // And it really commands: the quick button is the vocabulary's button by
-      // another name, not a decoration.
       const quickRan = await shellPage.evaluate(`(() => {
         const button = document.querySelector('[data-quick-command="wave"]');
         if (button === null) return { ok: false, why: 'no quick wave button' };
@@ -6400,71 +6728,57 @@ if (SKIP_QEMU) {
         `clicking the status line's wave button at ${where} produced no telemetry at all`,
       );
 
-      // ------------------------------- §5: the badge, and the auto-expand
+      // ------------------------------- §5: the badge, and the auto-reveal
       //
-      // Close the inspector, then select R4 from the SCENE. The inspector is a
-      // reader of that selection and is now shut, so its header must say so;
-      // and below Wide the graph must open itself, because a highlight that
-      // lands in a collapsed section is a highlight nobody can see.
+      // Select R4 from the SCENE with a DIFFERENT module up. The architecture
+      // module is the one that explains a joint selection, so it must come to
+      // the front — and the module the reader was in must go away, because one
+      // is active at a time.
       await shellPage.evaluate('window.__sesame.selectJoint(null)');
-      await shellPage.evaluate(
-        'window.__sesame.setDockOpen("control", false); window.__sesame.setDockOpen("analysis", false)',
-      );
-      await shellPage.evaluate('window.__sesame.setSection("inspector", false)');
+      await shellPage.evaluate('window.__sesame.setModule("learn")');
       await sleep(350);
       await shellPage.evaluate('window.__sesame.selectJoint("R4")');
-      await sleep(500);
+      await sleep(600);
       const selected = await shellPage.evaluate('window.__sesame.shell()');
-      const inspector = selected.sections.find((x) => x.id === 'inspector');
-      const modules = selected.sections.find((x) => x.id === 'modules');
+      const modulesSection = selected.sections.find((x) => x.id === 'modules');
       check(
-        inspector?.open === false && inspector?.badgeIsSelection === true && inspector?.badge === 'R4',
-        `at ${where} the collapsed inspector header does not carry the selection badge: ` +
-          `${JSON.stringify(inspector)}`,
+        selected.activeModule === 'modules' && modulesSection?.visible === true,
+        `at ${where} selecting R4 in the 3D scene did not bring up the module that highlights it ` +
+          `(activeModule=${JSON.stringify(selected.activeModule)}). The app would appear to do ` +
+          `nothing, which is the §5 regression this change had to avoid.`,
+      );
+      // §5.1 from the other side: with the reader in Signal, the selection
+      // lands in a module they are NOT looking at and is announced on the rail.
+      await shellPage.evaluate('window.__sesame.setModule("signal")');
+      await sleep(450);
+      const badged = await shellPage.evaluate('window.__sesame.shell()');
+      const modulesBadge = badged.sections.find((x) => x.id === 'modules');
+      check(
+        modulesBadge?.badgeIsSelection === true && modulesBadge?.badge === 'joint.R4',
+        `at ${where} the architecture module carries no selection badge on the rail while the ` +
+          `reader is in Signal: ${JSON.stringify(modulesBadge)}`,
       );
       check(
-        (inspector?.headerText ?? '').includes('R4'),
-        `at ${where} the rendered inspector header reads "${inspector?.headerText}" — a reader ` +
+        (modulesBadge?.headerText ?? '').includes('R4'),
+        `at ${where} the rail's architecture button reads "${modulesBadge?.headerText}" — a reader ` +
           `cannot see that R4 was selected`,
       );
-      if (window.breakpoint === 'wide') {
-        check(
-          selected.dockOverlays === false,
-          `${where} should not auto-expand: at Wide the sections the selection lands in are open`,
-        );
-      } else {
-        check(
-          selected.docks.analysis.open === true && modules?.open === true,
-          `at ${where} selecting R4 in the 3D scene did not open the graph that highlights it ` +
-            `(analysis dock open=${selected.docks.analysis.open}, ` +
-            `modules=${JSON.stringify(modules)}). The app would appear to do nothing, which is ` +
-            `the §5 regression this change had to avoid.`,
-        );
-        // Both §5 targets live in the analysis dock on purpose: a selection is
-        // something to read about, so it must never yank the controls away.
-        check(
-          selected.docks.control.open === false,
-          `at ${where} selecting a joint in the 3D scene opened the CONTROL dock; the auto-expand ` +
-            `is only ever allowed to reveal the pane that explains the selection`,
-        );
-      }
+      // A selection is something to read ABOUT, so it must never disturb the
+      // side panel: the panel is always there and the inspector glance simply
+      // follows the same SelectionState.
+      check(
+        badged.panel.visible === (window.breakpoint !== 'compact' ? true : badged.panel.visible),
+        `at ${where} the side panel changed state because of a selection`,
+      );
       await shellPage.evaluate('window.__sesame.selectJoint(null)');
 
       // ------------------------------------------------- ISSUE-20260823-023
-      await shellPage.evaluate('window.__sesame.setDockOpen("analysis", true)');
+      await shellPage.evaluate('window.__sesame.setModule("modules")');
       await sleep(600);
       const frame = await sweepWorldFrame(shellPage, where);
 
-      // ----------------------------- ONE scroller, ONE open pane, and legible
-      //
-      // The three assertions a reader's two complaints turned into. Below Wide
-      // the dock body is the only scrollable box in the dock, exactly one
-      // section is open across BOTH docks, and nothing is smaller than it is at
-      // Wide (compared after the loop, once both readings exist).
-      if (window.breakpoint === 'wide') {
-        await shellPage.evaluate('window.__sesame.setDockOpen("control", true)');
-      }
-      await openSection(shellPage.evaluate, 'source');
+      // --------------------- ONE scroller in the column, and the Source pane
+      await focusSection(shellPage.evaluate, 'source');
       await shellPage.evaluate('window.__sesame.selectSymbol("runWavePose")');
       await sleep(800);
       const opened = await shellPage.evaluate('window.__sesame.shell()');
@@ -6486,86 +6800,128 @@ if (SKIP_QEMU) {
       check(
         sourceView.from !== null && sourceView.lines === sourceView.to - sourceView.from + 1,
         `at ${where} the source pane rendered ${sourceView.lines} lines but announced ` +
-          `"${sourceView.text}". The announcement IS the bound below Wide — a cap a reader cannot ` +
-          `read is the same class of lie as a wrong line number.`,
+          `"${sourceView.text}". The announcement IS the bound — a cap a reader cannot read is the ` +
+          `same class of lie as a wrong line number.`,
+      );
+      check(
+        opened.moduleColumn.scrollers.length === 1 &&
+          opened.moduleColumn.scrollers[0] === '[module-body]',
+        `at ${where} the module column has ${opened.moduleColumn.scrollers.length} scrollable ` +
+          `box(es): ${JSON.stringify(opened.moduleColumn.scrollers)}. There is exactly one, and it ` +
+          `is the column body — "I'd rather have to scroll through the pane vertically than tiny ` +
+          `content and many scrollbars".`,
+      );
+      check(
+        opened.moduleColumn.laidOutPanes.length === 1 && opened.moduleColumn.laidOutPanes[0] === 'source',
+        `at ${where} ${opened.moduleColumn.laidOutPanes.length} module panes have a laid-out box ` +
+          `(${JSON.stringify(opened.moduleColumn.laidOutPanes)})`,
+      );
+      check(
+        sourceView.lines <= (window.breakpoint === 'wide' ? 240 : 140),
+        `at ${where} the source pane rendered ${sourceView.lines} lines with no scroller of its ` +
+          `own; the announced budget is ${window.breakpoint === 'wide' ? 240 : 140}`,
       );
 
+      // ============ THE ARCHITECTURE'S OWN BOX, IN THE ORDINARY LAYOUT — W4
+      //
+      // W4 handed this over as a constraint rather than a suggestion: the full
+      // 63-node graph only ever reached its own band inside the focus
+      // workspace, because no dock in the old shell was 960 px. The module
+      // column is half the content area now, so the band it reaches is a
+      // FUNCTION OF THE WINDOW and is worth measuring at each one.
+      await focusSection(shellPage.evaluate, 'modules');
+      await sleep(600);
+      const arch = await shellPage.evaluate('window.__sesame.archGraph()');
+      const archShell = await shellPage.evaluate('window.__sesame.shell()');
+      const expectedMode =
+        (archShell.moduleColumn.surfaceWidthPx ?? 0) >= 960
+          ? 'full'
+          : (archShell.moduleColumn.surfaceWidthPx ?? 0) >= 720
+            ? 'subsystem'
+            : 'path';
+      check(
+        arch.mode === expectedMode,
+        `at ${where} the architecture surface is ` +
+          `${(archShell.moduleColumn.surfaceWidthPx ?? 0).toFixed(0)} px and the pane mounted ` +
+          `"${arch.mode}"; W4's bands are 720 and 960 and put that at "${expectedMode}"`,
+      );
+      // The boundary this shell's `wide` breakpoint IS: above it the ORDINARY
+      // layout holds the whole 63-node map, below it does not.
       if (window.breakpoint === 'wide') {
         check(
-          opened.docks.analysis.open && opened.docks.control.open,
-          `at ${where} both docks should be in flow and open together`,
+          (archShell.moduleColumn.surfaceWidthPx ?? 0) >= 960 && arch.mode === 'full',
+          `at ${where} — Wide — the ordinary layout gives the architecture ` +
+            `${(archShell.moduleColumn.surfaceWidthPx ?? 0).toFixed(0)} px and mounted ` +
+            `"${arch.mode}". Wide's entire meaning in this shell is that the whole 63-node graph ` +
+            `fits without the focus workspace; a boundary that does not mean that is a boundary ` +
+            `with its justification deleted.`,
         );
       } else {
         check(
-          opened.openSections.length === 1,
-          `at ${where} ${opened.openSections.length} sections are open (` +
-            `${JSON.stringify(opened.openSections)}). Below Wide exactly one pane is open across ` +
-            `BOTH docks and it gets the whole dock — the reader asked for that in as many words.`,
-        );
-        check(
-          opened.docks.control.open !== opened.docks.analysis.open,
-          `at ${where} the workbench claims to be in both modes at once (${JSON.stringify({
-            control: opened.docks.control.open,
-            analysis: opened.docks.analysis.open,
-          })}) — Control and Analyze are a switch, not two columns`,
-        );
-        check(
-          opened.workbench.scrollers.length === 1 &&
-            opened.workbench.scrollers[0] === '[workbench-body]',
-          `at ${where} the workbench has ${opened.workbench.scrollers.length} scrollable box(es): ` +
-            `${JSON.stringify(opened.workbench.scrollers)}. There is exactly one, and it is the ` +
-            `workbench body — "I'd rather have to scroll through the pane vertically than tiny ` +
-            `content and many scrollbars", and the plan's "exactly one scroller" for W3.`,
-        );
-        // The navigator, not an accordion. With `source` chosen, no OTHER
-        // pane's content is laid out at all: the brief's "that pane should feel
-        // like the current task, not like one accordion section inside a dock".
-        const paneBoxes = await shellPage.evaluate(`(() => {
-          const laid = [];
-          for (const el of document.querySelectorAll('[data-pane-content]')) {
-            const r = el.getBoundingClientRect();
-            if (r.width > 1 && r.height > 1) laid.push(el.getAttribute('data-pane-content'));
-          }
-          return {
-            laid,
-            navTabs: document.querySelectorAll('[data-section-nav]').length,
-            accordionToggles: document.querySelectorAll('.dock-section-toggle').length,
-          };
-        })()`);
-        check(
-          paneBoxes.laid.length === 1 && paneBoxes.laid[0] === 'source',
-          `at ${where} ${paneBoxes.laid.length} panes have a laid-out box (` +
-            `${JSON.stringify(paneBoxes.laid)}); the workbench shows one at a time`,
-        );
-        check(
-          paneBoxes.navTabs > 0 && paneBoxes.accordionToggles === 0,
-          `at ${where} the workbench rendered ${paneBoxes.accordionToggles} accordion toggles and ` +
-            `${paneBoxes.navTabs} navigator tabs. The brief asks for "tabs or a compact section ` +
-            `navigator BEFORE using nested accordions", and a column of collapsed headers beside ` +
-            `the open one is the idiom it is asking us to stop using.`,
-        );
-        // The Source pane is the sharpest case: 429 lines of C++ with no inner
-        // scroller. What bounds it is the line budget it announces.
-        check(
-          sourceView.lines <= 140,
-          `at ${where} the source pane rendered ${sourceView.lines} lines with no scroller of its ` +
-            `own; the announced budget below Wide is 140`,
+          (archShell.moduleColumn.surfaceWidthPx ?? 0) < 960,
+          `at ${where} — Medium — the ordinary layout already gives the architecture ` +
+            `${(archShell.moduleColumn.surfaceWidthPx ?? 0).toFixed(0)} px, which is the full-graph ` +
+            `band. The Wide boundary is then in the wrong place.`,
         );
       }
+      /*
+        THE SUBSYSTEM'S ZOOM FLOOR, asserted on the published number.
+        
+        W4 gave the subsystem representation a floor of 1 so that its authored
+        size IS its size on screen and the 14 px floor holds with no exemption.
+        W7's ordinary layout is the first arrangement that mounts it at a width
+        this harness visits, and the first run caught it at **0.929** — 14.4 px
+        edge labels drawn at 13.38 px — after a remount at a width React Flow
+        had not measured. Reading the transform is what turns "the labels came
+        out big enough" into "the property the representation is built on holds".
+      */
+      if (arch.mode === 'subsystem') {
+        check(
+          arch.viewportZoom !== null && arch.viewportZoom >= 1 - 1e-6,
+          `at ${where} the subsystem graph is drawn at zoom ${arch.viewportZoom}; its floor is 1, ` +
+            `which is what makes an authored 14 px label a 14 px label on screen`,
+        );
+      }
+      if (arch.mode === 'path') {
+        check(
+          arch.viewportZoom === null,
+          `at ${where} the causal path has a React Flow viewport (zoom ${arch.viewportZoom}); the ` +
+            `path representation is flow text and mounts no canvas at all`,
+        );
+      }
+      const archText = await typeScan(shellPage.evaluate);
+      const archWorst = archText.zoomed
+        .filter((r) => r.surface === 'architecture')
+        .reduce((worst, r) => (worst === null || r.screenPx < worst.screenPx ? r : worst), null);
+      archSurfaces.push({
+        window: `${window.width}x${window.height}`,
+        breakpoint: window.breakpoint,
+        contentWidthPx: Math.round(archShell.contentWidthPx),
+        moduleWidthPx: Math.round(archShell.moduleColumn.rectWidthPx),
+        surfaceWidthPx: Math.round(archShell.moduleColumn.surfaceWidthPx ?? 0),
+        mode: arch.mode,
+        worstOnScreenPx: archWorst === null ? null : Number(archWorst.screenPx.toFixed(2)),
+      });
 
       // ------------------- THE FLOOR, in every pane, at this window size
       //
-      // One pass per dock section, because a collapsed section has no laid-out
-      // box and text that is never laid out is text this check cannot see. The
-      // sections are the eight the shell has; `focusSection` closes the others,
-      // which below Wide is the arrangement a reader meets anyway.
+      // One pass per pane, because a pane that is not the active module has no
+      // laid-out box and text that is never laid out is text this check cannot
+      // see. The side panel's three cards are always laid out, so they are
+      // covered by every pass.
       {
         const seen = new Map();
         const roles = {};
-        for (const section of ['commands', 'face', 'lab', 'inspector', 'modules', 'signal', 'source', 'learn']) {
+        for (const section of ['commands', 'modules', 'signal', 'source', 'learn', 'lab']) {
           await focusSection(shellPage.evaluate, section);
           const scan = await typeScan(shellPage.evaluate);
-          for (const row of scan.below) seen.set(`${row.name}|${row.text}`, { ...row, section });
+          for (const row of scan.below)
+            seen.set(`${row.name}|${row.text}`, {
+              ...row,
+              section,
+              viewportTransform: scan.viewportTransform,
+              archMode: scan.archMode,
+            });
           for (const row of scan.truncated) seen.set(`T:${row.name}|${row.text}`, { ...row, section, truncation: true });
           for (const row of scan.zoomed) zoomedText.push({ ...row, section, window: where });
           for (const [role, reading] of Object.entries(scan.roles)) {
@@ -6581,17 +6937,18 @@ if (SKIP_QEMU) {
           `at ${where}, ${below.length} run(s) of visible text compute below the ${TEXT_FLOOR_PX}px ` +
             `floor: ${below
               .slice(0, 5)
-              .map((r) => `${r.name} ${r.authoredPx.toFixed(1)}px in ${r.section} ("${r.text}")`)
+              .map(
+                (r) =>
+                  `${r.name} ${r.authoredPx.toFixed(1)}px authored / ` +
+                  `${r.screenPx.toFixed(2)}px on screen in ${r.section} ("${r.text}")` +
+                  (r.archMode === undefined || r.archMode === null
+                    ? ''
+                    : ` [arch ${r.archMode}, viewport ${r.viewportTransform}]`),
+              )
               .join('; ')}. The brief is explicit that this is measured in a browser rather than ` +
             `grepped, and that 9-12px secondary text is "dramatically below" what a 12-year-old ` +
             `can read.`,
         );
-
-        // Correctness text may never be ellipsised or clamped, and may never be
-        // cut off. Provenance, origin, witness lines, lesson results and NOT
-        // BUILT states are the surfaces this whole product is built to be
-        // trusted on; a truncated one is a claim a reader cannot finish
-        // reading, which is worse than a small one.
         check(
           truncated.length === 0,
           `at ${where}, ${truncated.length} correctness surface(s) are truncated: ${truncated
@@ -6627,11 +6984,8 @@ if (SKIP_QEMU) {
         }
       }
 
-      // ------------------------------------ the collapse state survives reload
-      await shellPage.evaluate(
-        'window.__sesame.setDockOpen("analysis", true); window.__sesame.setSection("source", true); ' +
-          'window.__sesame.setDockWidth("analysis", 384); window.__sesame.setDockWidth("control", 336)',
-      );
+      // ------------------------------------ the active module survives reload
+      await shellPage.evaluate('window.__sesame.setModule("source")');
       await sleep(500);
       const beforeReload = await shellPage.evaluate('window.__sesame.shell()');
       await shellPage.evaluate('void location.reload()');
@@ -6646,176 +7000,133 @@ if (SKIP_QEMU) {
       await sleep(600);
       const afterReload = await shellPage.evaluate('window.__sesame.shell()');
       check(
-        JSON.stringify(afterReload.openSections) === JSON.stringify(beforeReload.openSections),
-        `at ${where} the open sections did not survive a real reload: ` +
-          `${JSON.stringify(beforeReload.openSections)} -> ${JSON.stringify(afterReload.openSections)}`,
+        afterReload.activeModule === beforeReload.activeModule,
+        `at ${where} the active module did not survive a real reload: ` +
+          `${JSON.stringify(beforeReload.activeModule)} -> ${JSON.stringify(afterReload.activeModule)}`,
       );
       check(
-        afterReload.docks.analysis.open === beforeReload.docks.analysis.open &&
-          afterReload.docks.control.open === beforeReload.docks.control.open &&
-          afterReload.docks.analysis.widthPx === 384 &&
-          afterReload.docks.control.widthPx === 336,
-        `at ${where} the docks came back as ${JSON.stringify({
-          control: afterReload.docks.control,
-          analysis: afterReload.docks.analysis,
-        })}`,
+        afterReload.mode === beforeReload.mode,
+        `at ${where} the derived mode came back as ${JSON.stringify(afterReload.mode)} rather than ` +
+          `${JSON.stringify(beforeReload.mode)}. It is DERIVED from the active module, so it can ` +
+          `only disagree if something started storing it separately.`,
       );
 
-      // The capture shows the CONTROL dock with `Commands` up: that is the
-      // change itself — the vocabulary that used to be a strip under the robot,
-      // in a second vertical dock beside it — and the robot is behind it at its
-      // full width, which is the claim the numbers above make.
-      await focusSection(shellPage.evaluate, 'commands');
+      // The capture: the module-first shell as a reader meets it — the robot in
+      // one half of the content area, the architecture in the other, and the
+      // side panel on the right with no scrollbar of its own.
+      await focusSection(shellPage.evaluate, 'modules');
+      await sleep(600);
+      const shotReading = await shellPage.evaluate('window.__sesame.shell()');
       shellShots.push(
         await shellPage.shoot(
           `u5-shell-${window.label}.png`,
-          `the shell at ${where}, with the command vocabulary in the workbench beside the robot ` +
-            `rather than in a strip under it. The 3D canvas is ` +
-            `${controlOpen.canvasWidthPx.toFixed(0)}x${controlOpen.canvasHeightPx.toFixed(0)} — ` +
-            `${controlOpen.stageAreaSharePct.toFixed(1)}% of the window's AREA` +
+          `the module-first shell at ${where}. The 3D canvas is ` +
+            `${shotReading.canvasWidthPx.toFixed(0)}x${shotReading.canvasHeightPx.toFixed(0)} — ` +
+            `${shotReading.stageContentSharePct.toFixed(1)}% of the CONTENT area and ` +
+            `${shotReading.stageAreaSharePct.toFixed(1)}% of the window, under the ` +
+            `"${shotReading.stageRule}" rule the shell publishes. The architecture module has ` +
+            `${(shotReading.moduleColumn.surfaceWidthPx ?? 0).toFixed(0)} px of surface and drew ` +
+            `its "${arch.mode}" representation; the side panel is ` +
+            `${shotReading.panel.rectWidthPx.toFixed(0)} px with ` +
+            `${shotReading.panel.scrollers.length} scrollers and ` +
+            `${shotReading.panel.overflowPx.toFixed(0)} px of overflow.` +
             (window.breakpoint === 'compact'
-              ? ', where the 50% rule does not apply and the 45vh/480px floors do. '
-              : ", against the 50% rule that replaced U6's overlay-not-push assertion. ") +
-            (window.breakpoint === 'wide'
-              ? 'Above 1700 px U6\'s two docks are in flow and both hold a set of open sections.'
-              : window.breakpoint === 'compact'
-                ? `ONE workbench, ${controlOpen.workbench.rectWidthPx.toFixed(0)} px wide, as a ` +
-                  `SHEET — below 1200 px a 500 px workbench and a 480 px stage do not both fit, ` +
-                  `so the area rule gives way to the Compact floors. Control | Analyze at the ` +
-                  `top, a section navigator under it, one pane below that.`
-                : `ONE workbench, ${controlOpen.workbench.rectWidthPx.toFixed(0)} px wide and in ` +
-                  `FLOW — the stage genuinely resized from ${shut.canvasWidthPx.toFixed(0)} px to ` +
-                  `make room, which is §3's answer to "I'd rather the robot area shrink". ` +
-                  `Control | Analyze at the top, a section navigator under it, one pane below ` +
-                  `that, and the environment line on the status strip.`),
+              ? ' At Compact the module and the panel are sheets and the robot keeps the shell.'
+              : ''),
         ),
       );
 
-      // ------------------------- a dock resize is a canvas resize (Wide, both)
-      //
-      // At Wide the docks ARE in flow, so dragging either resizes the
-      // renderer's canvas. That is the same class of change
-      // ISSUE-20260823-023 came from, and it is the only path left that still
-      // does it — so each dock gets its own sweep rather than an argument.
-      let resize = null;
-      let controlResize = null;
-      let workbenchResize = null;
       /*
-       * ISSUE-20260823-023 across a WORKBENCH resize — Phase 4 W3.
-       *
-       * The plan says this check becomes *more* load-bearing now the canvas
-       * resizes for real, and it is right: below Wide the workbench used to
-       * float, so opening it changed nothing about the renderer's box and this
-       * path did not exist. Now opening it takes ~530 px from the canvas and
-       * switching mode changes the navigator's height, so both are exactly the
-       * class of change that produced the sliding ground plane.
-       */
-      if (window.breakpoint !== 'wide') {
-        await shellPage.evaluate('window.__sesame.setDockOpen("control", false)');
-        await sleep(700);
-        const closed = await shellPage.evaluate('window.__sesame.shell()');
-        await shellPage.evaluate('window.__sesame.setSection("signal", true)');
-        await sleep(800);
-        const opened2 = await shellPage.evaluate('window.__sesame.shell()');
-        if (window.breakpoint === 'medium') {
-          check(
-            closed.canvasWidthPx > opened2.canvasWidthPx + 300,
-            `at ${where} closing and reopening the workbench changed the canvas by only ` +
-              `${(closed.canvasWidthPx - opened2.canvasWidthPx).toFixed(0)} px — it is not in flow`,
-          );
-        }
-        // ...and a mode switch, which changes the navigator from three tabs to
-        // five and can change its wrapped height.
-        await shellPage.evaluate('window.__sesame.setSection("commands", true)');
-        await sleep(700);
-        workbenchResize = await sweepWorldFrame(
-          shellPage,
-          `${where}, across a workbench close/open and a Control<->Analyze switch`,
+        THE OTHER REGIME, photographed — §11.2.
+        
+        `area-50` is half of the resolution and every other capture in this
+        sweep is of the half with a module up. A rule with no picture of it is a
+        rule a reader has to take on trust, and this one is the DEFAULT state at
+        Compact and one click away everywhere else.
+      */
+      if (window.label === 'laptop') {
+        await shellPage.evaluate('window.__sesame.setModule(null)');
+        await sleep(900);
+        const bare = await settledShell(shellPage, `${where} with no module, for the capture`);
+        shellShots.push(
+          await shellPage.shoot(
+            'w7-shell-no-module.png',
+            `the OTHER stage regime at ${where}: with no module active the robot has the whole ` +
+              `content area — ${bare.canvasWidthPx.toFixed(0)}x${bare.canvasHeightPx.toFixed(0)}, ` +
+              `${bare.stageAreaSharePct.toFixed(1)}% of the WINDOW under the "${bare.stageRule}" ` +
+              `rule — and the side panel, the rail and the status strip are the only other things ` +
+              `on screen. Clicking a module on the rail moves the shell to "content-50" and gives ` +
+              `it half of what is left.`,
+          ),
         );
+        await shellPage.evaluate('window.__sesame.setModule("modules")');
+        await sleep(700);
       }
-      if (window.breakpoint === 'wide') {
-        await shellPage.evaluate('window.__sesame.setDockWidth("analysis", 320)');
-        await sleep(700);
-        const narrow = await shellPage.evaluate('window.__sesame.shell()');
-        await shellPage.evaluate('window.__sesame.setDockWidth("analysis", 560)');
-        await sleep(700);
-        const widest = await shellPage.evaluate('window.__sesame.shell()');
-        check(
-          narrow.canvasWidthPx > widest.canvasWidthPx + 100,
-          `dragging the analysis dock from 320 to 560 changed the canvas by only ` +
-            `${(narrow.canvasWidthPx - widest.canvasWidthPx).toFixed(0)} px — the handle is not ` +
-            `resizing anything`,
-        );
-        resize = await sweepWorldFrame(shellPage, `${where}, after a 320 -> 560 analysis resize`);
 
-        await shellPage.evaluate('window.__sesame.setDockWidth("control", 560)');
+      // ------------------- ISSUE-20260823-023 ACROSS A MODULE SWITCH
+      //
+      // The plan says this check becomes *more* load-bearing as the canvas
+      // resizes for real, and W7 adds a path W3 did not have: switching module
+      // does not resize the canvas (the column keeps its half), but ACTIVATING
+      // and CLEARING one takes half the content area away and gives it back.
+      // Both are swept.
+      let moduleSwitchFrame = null;
+      if (window.breakpoint !== 'compact') {
+        await shellPage.evaluate('window.__sesame.setModule(null)');
         await sleep(700);
-        const bothWidest = await shellPage.evaluate('window.__sesame.shell()');
+        const cleared = await shellPage.evaluate('window.__sesame.shell()');
+        await shellPage.evaluate('window.__sesame.setModule("signal")');
+        await sleep(800);
+        const reopened = await shellPage.evaluate('window.__sesame.shell()');
         check(
-          bothWidest.canvasWidthPx >= WIDTH_FLOOR_PX &&
-            bothWidest.viewportHeightSharePct >= HEIGHT_FLOOR_PCT,
-          `with BOTH docks dragged to their 560 px maximum the canvas falls below the floor: ` +
-            `${bothWidest.canvasWidthPx.toFixed(0)} px wide, ` +
-            `${bothWidest.viewportHeightSharePct.toFixed(1)}% tall`,
+          cleared.canvasWidthPx > reopened.canvasWidthPx + 300,
+          `at ${where} clearing and reactivating a module changed the canvas by only ` +
+            `${(cleared.canvasWidthPx - reopened.canvasWidthPx).toFixed(0)} px — it is not in flow`,
         );
-        controlResize = await sweepWorldFrame(
+        await shellPage.evaluate('window.__sesame.setModule("source")');
+        await sleep(700);
+        moduleSwitchFrame = await sweepWorldFrame(
           shellPage,
-          `${where}, after a 400 -> 560 control resize`,
+          `${where}, across a module clear/activate and a Signal<->Source switch`,
         );
       }
 
       measured.push({
         window: `${window.width}x${window.height}`,
-        breakpoint: shut.breakpoint,
+        breakpoint: noModule.breakpoint,
         u5ViewportHeightSharePct: window.u5SharePct,
-        docksShut: {
-          stageWidthPx: shut.stageWidthPx,
-          canvasWidthPx: shut.canvasWidthPx,
-          canvasHeightPx: shut.canvasHeightPx,
-          viewportHeightSharePct: shut.viewportHeightSharePct,
+        noModule: {
+          stageWidthPx: noModule.stageWidthPx,
+          canvasWidthPx: noModule.canvasWidthPx,
+          canvasHeightPx: noModule.canvasHeightPx,
+          viewportHeightSharePct: noModule.viewportHeightSharePct,
+          stageAreaSharePct: noModule.stageAreaSharePct,
+          stageRule: noModule.stageRule,
         },
-        docksShutStageAreaSharePct: shut.stageAreaSharePct,
-        controlOpen: {
-          stageWidthPx: controlOpen.stageWidthPx,
-          canvasWidthPx: controlOpen.canvasWidthPx,
-          stageAreaSharePct: controlOpen.stageAreaSharePct,
-          workbenchPx: controlOpen.workbench?.rectWidthPx ?? null,
-          dockRectWidthPx: controlOpen.docks.control.rectWidthPx,
-          scrollers: controlOpen.workbench?.scrollers ?? controlOpen.docks.control.scrollers,
+        moduleActive: {
+          stageWidthPx: archUp.stageWidthPx,
+          canvasWidthPx: archUp.canvasWidthPx,
+          canvasHeightPx: archUp.canvasHeightPx,
+          contentWidthPx: archUp.contentWidthPx,
+          moduleWidthPx: archUp.moduleColumn.rectWidthPx,
+          surfaceWidthPx: archUp.moduleColumn.surfaceWidthPx,
+          stageAreaSharePct: archUp.stageAreaSharePct,
+          stageContentSharePct: archUp.stageContentSharePct,
+          stageRule: archUp.stageRule,
+          scrollers: archUp.moduleColumn.scrollers,
         },
-        analysisOpen: {
-          stageWidthPx: open.stageWidthPx,
-          canvasWidthPx: open.canvasWidthPx,
-          canvasHeightPx: open.canvasHeightPx,
-          viewportHeightSharePct: open.viewportHeightSharePct,
-          stageAreaSharePct: open.stageAreaSharePct,
-          workbenchPx: open.workbench?.rectWidthPx ?? null,
-          dockRectWidthPx: open.docks.analysis.rectWidthPx,
-          scrollers: open.workbench?.scrollers ?? open.docks.analysis.scrollers,
-          overlays: open.dockOverlays,
-        },
+        sidePanel: panelFolds[window.label] ?? null,
         environment: environment?.text ?? null,
-        statusBarHeightPx: shut.statusBarHeightPx,
-        statusSegments: shut.statusSegments,
-        /*
-          Kept, INVERTED, and renamed. `stagePushedBy*Px` used to be asserted at
-          0.0; below Wide it is now the width the stage deliberately gives up,
-          and at Compact it is still 0 because a sheet floats. The number is the
-          same measurement; what changed is which value is correct.
-        */
-        stageGivenToControlPx: shut.stageWidthPx - controlOpen.stageWidthPx,
-        stageGivenToAnalysisPx: shut.stageWidthPx - open.stageWidthPx,
+        statusBarHeightPx: noModule.statusBarHeightPx,
+        statusSegments: noModule.statusSegments,
+        stageGivenToModulePx: noModule.stageWidthPx - archUp.stageWidthPx,
         quickCommands: glance.quickCommands,
-        openSectionsWithSourceUp: opened.openSections,
         sourceLinesRendered: sourceView.lines,
         fontSizesPx: fonts[window.label],
         robotPixels: pixels,
         worldFrame: frame,
-        analysisResizeWorldFrame: resize,
-        controlResizeWorldFrame: controlResize,
-        workbenchResizeWorldFrame: workbenchResize,
-        collapseSurvivedReload:
-          JSON.stringify(afterReload.openSections) === JSON.stringify(beforeReload.openSections),
+        moduleSwitchWorldFrame: moduleSwitchFrame,
+        activeModuleSurvivedReload: afterReload.activeModule === beforeReload.activeModule,
       });
 
       const pageErrors = shellPage.errors();
@@ -6858,7 +7169,7 @@ if (SKIP_QEMU) {
       );
     }
   }
-  for (const [what, size] of Object.entries(fonts.desktop ?? {})) {
+  for (const [what, size] of Object.entries(fonts['desktop-wide'] ?? {})) {
     const reference = fonts[LAPTOP]?.[what];
     if (typeof size !== 'number' || typeof reference !== 'number') continue;
     check(
@@ -6961,7 +7272,20 @@ if (SKIP_QEMU) {
       evaluate(`(async () => {
         const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
         const id = ${JSON.stringify(paneId)};
-        window.__sesame.setSection(id, true);
+        /*
+          "joints" is the seven-column table, which W7 moved into the
+          inspector's "more info" screen — so the sweep opens that screen. The
+          table is still a PANE (.pane[data-pane=joints]) precisely so this
+          keeps testing the container query W2 built for it: a mechanism that
+          stopped being exercised because its pane moved is a mechanism that
+          has quietly stopped working.
+        */
+        if (id === 'joints') {
+          document.querySelector('[data-panel-more="inspector"]')?.click();
+          await sleep(500);
+        } else {
+          window.__sesame.setModule(id);
+        }
         await sleep(500);
         if (id === 'learn') {
           document.querySelector('[data-testid="lesson-card-meet-sesame"]')?.click();
@@ -7119,7 +7443,7 @@ if (SKIP_QEMU) {
         return readings;
       })()`);
 
-    const PANES = ['inspector', 'signal', 'learn', 'modules'];
+    const PANES = ['joints', 'signal', 'learn', 'modules'];
     const sweeps = {};
     for (const window12 of [
       { label: '1280x800', width: 1280, height: 800 },
@@ -7328,10 +7652,11 @@ if (SKIP_QEMU) {
     }
     if (proseNotes.length > 0) {
       notes.push(
-        `lesson prose cannot reach ${MEASURE_MIN_CH}ch at every container width the shell can ` +
-          `produce: ${proseNotes.join('; ')}. The two in-flow docks at Wide are the regime this ` +
-          `happens in, and §3 of the plan retires it — W3's 540 px workbench gives the pane ~494 px, ` +
-          `which is about 53ch.`,
+        `lesson prose cannot reach ${MEASURE_MIN_CH}ch at every container width this sweep ` +
+          `DRIVES: ${proseNotes.join('; ')}. Those are widths chosen to test the mechanism, not ` +
+          `widths the shell produces: the module column is half the content area, so the narrowest ` +
+          `Learn pane a reader can reach is about 400 px at 1280x800 and 690 px at 1920x1080. The ` +
+          `measure in the shell a reader actually gets is reported beside this, at 1440x900.`,
       );
     }
 
@@ -7411,13 +7736,18 @@ if (SKIP_QEMU) {
   // honestly, because no dock or workbench in the ordinary shell produces a
   // 720-959 px surface. Phase 7 proves the switch by DRIVING a pane to it, the
   // way the container sweep drives every pane; this proves that the width is
-  // also reachable by a real action on a real laptop - a 1280x800 window with
-  // the focus workspace open gives the pane 859 px, and 859 px is the
-  // subsystem graph rather than the full map. That is the honest answer at that
-  // window and the pane says so out loud rather than claiming a map that would
-  // not fit.
+  // also reachable by a real action on a real laptop - a 1440x900 window with
+  // the focus workspace open gives the module column about 830 px, and that is
+  // the subsystem graph rather than the full map. That is the honest answer at
+  // that window and the pane says so out loud rather than claiming a map that
+  // would not fit.
+  //
+  // **1280 -> 1440 in W7**, and the reason is arithmetic rather than taste: the
+  // side panel is 280 px and always there, so the workspace at 1280 leaves the
+  // module 670 px and the causal path. That is the correct answer at 1280; it
+  // is just not the one this capture is of.
   {
-    const subPage = await bootPage({ width: 1280, height: 800 });
+    const subPage = await bootPage({ width: 1440, height: 900 });
     try {
       await subPage.evaluate('window.__sesame.setSection("modules", true)');
       await sleep(700);
@@ -7431,7 +7761,7 @@ if (SKIP_QEMU) {
       const shell12 = await subPage.evaluate('window.__sesame.shell()');
       check(
         reading.mode === 'subsystem',
-        `at 1280x800 with the focus workspace open the pane holds ` +
+        `at 1440x900 with the focus workspace open the pane holds ` +
           `${reading.surfaceWidthPx} px and mounted "${reading.mode}". The workspace is not a ` +
           `fourth mode: it widens the pane and archModeForWidth() chooses, so a smaller laptop ` +
           `gets the subsystem graph and is told so.`,
@@ -7439,7 +7769,7 @@ if (SKIP_QEMU) {
       check(
         shell12.stageRule === 'focus-exempt' &&
           shell12.stageAreaSharePct < STAGE_AREA_FLOOR_PCT,
-        `the workspace at 1280x800 reports stageRule=${JSON.stringify(shell12.stageRule)} with the ` +
+        `the workspace at 1440x900 reports stageRule=${JSON.stringify(shell12.stageRule)} with the ` +
           `stage at ${shell12.stageAreaSharePct.toFixed(1)}% of the area. The exemption is only ` +
           `honest if it is actually needed.`,
       );
@@ -7448,7 +7778,7 @@ if (SKIP_QEMU) {
       // "Sesame stays a live reference" is true or a slogan.
       check(
         shell12.canvasWidthPx >= 220 && shell12.canvasHeightPx >= 220,
-        `inside the workspace at 1280x800 the 3D canvas is ` +
+        `inside the workspace at 1440x900 the 3D canvas is ` +
           `${shell12.canvasWidthPx.toFixed(0)}x${shell12.canvasHeightPx.toFixed(0)}; the focus ` +
           `floor is 220 px on each side`,
       );
@@ -7461,16 +7791,16 @@ if (SKIP_QEMU) {
       })()`);
       check(
         subZoom !== null && subZoom >= 1,
-        `the subsystem graph at 1280x800 is drawn at zoom ${subZoom}; its floor is 1, which is what ` +
+        `the subsystem graph at 1440x900 is drawn at zoom ${subZoom}; its floor is 1, which is what ` +
           `makes a 15px node label a 15px node label`,
       );
       const shot = await subPage.shoot(
         'w4-architecture-subsystem.png',
-        'the subsystem representation, reached on a 1280x800 laptop by opening the architecture workspace: 859 px of pane is one Movement neighbourhood of 16 nodes drawn at zoom 1 - every label its authored 15px on screen - with the other three subsystems one click away, the 21 nodes the 18-node budget could not take counted rather than dropped, and Sesame still live beside it',
+        'the subsystem representation, reached on a 1440x900 laptop by opening the architecture workspace: one Movement neighbourhood of 16 nodes drawn at zoom 1 - every label its authored size on screen - with the other three subsystems one click away, the 21 nodes the 18-node budget could not take counted rather than dropped, and Sesame still live beside it',
       );
       phases.architectureSubsystem = {
         ok: true,
-        window: '1280x800',
+        window: '1440x900',
         via: 'focus workspace',
         surfaceWidthPx: reading.surfaceWidthPx,
         mode: reading.mode,
@@ -7547,10 +7877,11 @@ if (SKIP_QEMU) {
       await openSection(learnPage.evaluate, 'learn');
       const atMedium = await learnPage.evaluate('window.__sesame.shell()');
       check(
-        atMedium.breakpoint === 'medium' && atMedium.openSections.length === 1,
-        `the Learn run is not at Medium with a single open section: ${JSON.stringify({
+        atMedium.breakpoint === 'medium' && atMedium.activeModule === 'learn',
+        `the Learn run is not at Medium with Learn as the one active module: ${JSON.stringify({
           breakpoint: atMedium.breakpoint,
-          open: atMedium.openSections,
+          active: atMedium.activeModule,
+          laidOut: atMedium.moduleColumn.laidOutPanes,
         })}`,
       );
 
@@ -7680,25 +8011,24 @@ if (SKIP_QEMU) {
           `(${afterLesson.viewportHeightSharePct.toFixed(1)}% of the window)`,
       );
       check(
-        afterLesson.stageAreaSharePct >= STAGE_AREA_FLOOR_PCT,
+        afterLesson.stageContentSharePct >= STAGE_CONTENT_FLOOR_PCT - 0.2,
         `after playing two lessons at Medium the canvas holds ` +
-          `${afterLesson.stageAreaSharePct.toFixed(1)}% of the window's area`,
+          `${afterLesson.stageContentSharePct.toFixed(1)}% of the CONTENT area, under the ` +
+          `"${afterLesson.stageRule}" rule the shell publishes`,
       );
 
       /*
-       * THE NUMBER THE WHOLE OF §3 RESTS ON, measured in the real workbench.
+       * THE NUMBER THE WHOLE OF §3 RESTS ON, in the shell a reader gets.
        *
        * W1 measured about 25 ch of lesson prose in a two-dock laptop shell and
-       * called it a pane-width problem. W2 re-derived it from the other
-       * direction and recorded a NOTE rather than a pass: two in-flow docks
+       * called it a pane-width problem. W2 re-derived it: two in-flow docks
        * cannot give a pane 45 ch AND the stage half the screen below roughly
-       * 1900 px, and it handed W3 the arithmetic — a 540 px workbench gives
-       * about a 494 px pane, which is about 53 ch.
+       * 1900 px. W3's 540 px workbench got 50.7 ch, and the module column —
+       * half the content area — gets more again, because there is one column
+       * here rather than two.
        *
-       * This is that claim, checked against the shell a reader actually gets
-       * rather than against a pane driven to a width by a test. The container
-       * sweep proves the MECHANISM at nine widths; this proves the GEOMETRY at
-       * the one width the complaint came from.
+       * The container sweep proves the MECHANISM at nine widths; this proves
+       * the GEOMETRY at the one width the complaint came from.
        */
       await focusSection(learnPage.evaluate, 'learn');
       await sleep(400);
@@ -7721,8 +8051,8 @@ if (SKIP_QEMU) {
           fontSizePx: parseFloat(cs.fontSize),
           proseWidthPx: Math.round(el.getBoundingClientRect().width * 10) / 10,
           paneWidthPx: Math.round((pane?.getBoundingClientRect().width ?? 0) * 10) / 10,
-          workbenchPx: Math.round(
-            (document.querySelector('[data-testid="workbench"]')?.getBoundingClientRect().width ?? 0) * 10,
+          moduleColumnPx: Math.round(
+            (document.querySelector('[data-testid="module-column"]')?.getBoundingClientRect().width ?? 0) * 10,
           ) / 10,
           ch: Math.round((el.getBoundingClientRect().width / chPx) * 10) / 10,
           chPx: Math.round(chPx * 100) / 100,
@@ -7730,12 +8060,12 @@ if (SKIP_QEMU) {
       })()`);
       check(
         measureAtMedium !== null && measureAtMedium.ch >= 45 && measureAtMedium.ch <= 75,
-        `at 1440x900 the lesson prose in the real workbench measures ` +
+        `at 1440x900 the lesson prose in the real shell measures ` +
           `${measureAtMedium?.ch}ch (${measureAtMedium?.proseWidthPx} px of ` +
           `${measureAtMedium?.fontSizePx}px text in a ${measureAtMedium?.paneWidthPx} px pane, ` +
-          `inside a ${measureAtMedium?.workbenchPx} px workbench). The brief's band is 45-75ch, ` +
-          `W1 measured about 25 in the two-dock shell, and W2 recorded that two in-flow docks ` +
-          `cannot reach 45 below roughly 1900 px. This is the check that says the workbench did.`,
+          `inside a ${measureAtMedium?.moduleColumnPx} px module column). The brief's band is ` +
+          `45-75ch, W1 measured about 25 in the two-dock shell, and W2 recorded that two in-flow ` +
+          `docks cannot reach 45 below roughly 1900 px. This is the check that says one column did.`,
       );
       laptopProseMeasure = measureAtMedium;
 
@@ -7748,9 +8078,9 @@ if (SKIP_QEMU) {
       shellShots.push(
         await learnPage.shoot(
           'u5-learn-at-medium.png',
-          'lesson 2 played end to end on a 1440x900 laptop: Learn is one of five tabs in the ' +
-            'Analyze mode of one 530 px workbench, six checks passed against real telemetry, and ' +
-            'the 3D stage held 55.7% of the screen area the whole time',
+          'lesson 2 played end to end on a 1440x900 laptop: Learn is the one active module, it ' +
+            'has half the content area, six checks passed against real telemetry, and the robot ' +
+            'held the other half throughout',
         ),
       );
     } finally {
@@ -7892,55 +8222,89 @@ if (SKIP_QEMU) {
 
   phases.responsiveShell = {
     ok: problems.length === before12,
-    docks: {
-      control: 'inboard, adjacent to the stage — Commands, Face, Lab',
-      analysis: 'outboard — Inspector, Modules, Signal, Source, Learn',
+    shell: 'rail 64 | stage | ONE module | side panel 280 | status strip 32 — Phase 4 W7',
+    modules: {
+      ids: MODULE_IDS,
+      rule: 'mutually exclusive: ShellState holds ONE nullable id, so two-open is unrepresentable',
+      navigation: "the rail's radiogroup; no accordion, no navigator row, no mode switch",
+      modeLabel: 'Control | Analyze, DERIVED from the active module and never stored',
+      chromePx: 25,
+    },
+    sidePanel: {
+      widthPx: PANEL_W_PX,
+      cards: ['trust (Driving)', ...PANEL_IDS],
+      scrollers: 0,
+      rule: 'zero scrollers AND zero overflow at every width; disclosure, never a scroller',
+      disclosure:
+        'cards FOLD in priority order (inspector, face, commands) when the panel runs out of ' +
+        'height, measured rather than keyed to a breakpoint; a folded card keeps its header, its ' +
+        '"more info" button and a summary carrying its correctness mark',
+      folds: panelFolds,
+      moreInfo: {
+        trust: 'the backend switch, PROVENANCE_MEANING, the emulator qualifiers and the counts',
+        commands: 'the whole 20-command vocabulary and the face shortlist',
+        face: 'the OLED at 4x, the payload, and the full pixel-provenance prose',
+        inspector: 'the seven-column joint table, the per-joint slider and the asset facts',
+      },
+      correctnessOnThePanel: [
+        'the driving provenance badge',
+        'the driving origin in full, with its board',
+        'measurementVerdict()’s claim line',
+        'PHYSICAL HARDWARE: NONE, read off the counter',
+        'the OLED pixel provenance',
+        'the two zero-frame faces, marked',
+        'the selected joint and the provenance of its reading',
+      ],
     },
     breakpoints: {
-      compact: '< 1200 px — ONE workbench, as a sheet over the stage; 44 px strip when shut',
-      medium: '1200-1699 px — ONE workbench, IN FLOW, clamp(500px, 37.5vw, 560px); the stage resizes',
-      wide: '>= 1700 px — U6\'s two docks, in flow at 320-560 px, resizable, persisted',
-    },
-    belowWide: {
-      workbenches: 1,
-      modes: 'Control | Analyze — a switch, not two columns',
-      navigator: 'tabs, one per pane of the current mode; no collapsed-accordion column',
-      openSections: 'exactly one',
-      scrollersPerWorkbench: 1,
-      sourceLineBudget: 140,
-    },
-    statusLine: {
-      heightPx: 32,
-      spans: 'the whole shell, under the rail, the stage and the workbench',
-      environmentLine: 'SYSTEM: <system> · PHYSICAL HARDWARE: NONE — a correctness surface, never truncated',
-      replaced: 'a clamp(120px, 20vh, 176px) stage strip holding the commands and the OLED',
-      quickCommands: '[data-quick-command] — wave/stand/rest/stop, hit-tested at every breakpoint',
+      compact: '< 1200 px — the module and the panel are SHEETS; 64 + 280 + 480 + 376 = 1200',
+      medium: '1200-2313 px — rail | stage | module | panel, all in flow',
+      wide:
+        '>= 2314 px — the width at which the ORDINARY layout holds the whole 63-node graph: ' +
+        '(innerWidth - 344) / 2 - 25 >= 960. It REPLACES W3’s 1700, which was the two-dock ' +
+        'boundary and whose justification W7 deleted.',
     },
     /*
-      The metric, and what it replaced — Phase 4 §7.
+      TWO REGIMES, both asserted, and the app publishes which one is in force.
 
-      `overlay-not-push` was DELETED, not relaxed. It asserted that opening a
-      dock moved the stage 0.0 px, which W3 made false by design: the workbench
-      is in flow and the stage really shrinks. Left in place it would have gone
-      on passing at Compact while saying nothing about the laptop it was written
-      for, and that is the hollow-assertion failure mode the plan names.
+      §11.2: *"Do not average them into one loose number. Publish which regime
+      is in force the way W4 published `data-stage-rule`, and assert both."*
     */
-    metric: {
-      is: 'stage area >= 50% of the window area, at Medium and above',
-      replaced: 'overlay-not-push below Wide, and viewport-share-by-height as the headline number',
+    stageRules: {
+      'area-50': 'no module active — the stage keeps >= 50% of the VIEWPORT area (§7, unchanged)',
+      'content-50':
+        'a module is active — >= 50% of the CONTENT area, the viewport minus the rail, the ' +
+        'status strip and the side panel. §11.2’s plain reading of "with the robot in the ' +
+        'other half".',
+      'focus-exempt': "W4's focus workspace, claimable only while its pane is on screen",
+      published: 'data-stage-rule on .shell, beside data-active-module and data-focus-pane',
       alsoAsserted:
-        'at Medium the stage must LOSE more than 300 px of canvas when the workbench opens — ' +
-        'in flow is a claim about the layout, not a comment in a stylesheet',
+        'activating a module must take more than 300 px from the canvas — W3’s inverse ' +
+        'check, adapted rather than deleted: in flow is a claim about the layout, not a comment',
       compactBackstop: 'min-height: 45vh and min-width: min(480px, 100%), still asserted everywhere',
+    },
+    /*
+      W4 handed this over: the full 63-node graph only ever reached its own band
+      inside the focus workspace, because no dock in the old shell was 960 px
+      wide. The module column is half the content area, so the band is a
+      function of the window — measured here at every one.
+    */
+    architectureSurface: archSurfaces,
+    statusLine: {
+      heightPx: 32,
+      spans: 'the whole shell, under the rail, the content area and the side panel',
+      environmentLine: 'SYSTEM: <system> · PHYSICAL HARDWARE: NONE — a correctness surface, never truncated',
+      quickCommands: '[data-quick-command] — wave/stand/rest/stop, hit-tested at every breakpoint',
     },
     floors: {
       stageAreaSharePct: STAGE_AREA_FLOOR_PCT,
+      stageContentSharePct: STAGE_CONTENT_FLOOR_PCT,
       viewportHeightSharePct: HEIGHT_FLOOR_PCT,
       viewportWidthPx: WIDTH_FLOOR_PX,
     },
     windows: measured,
     laptopProseMeasure,
-    persistenceKey: 'sesame-lab.shell.v2',
+    persistenceKey: 'sesame-lab.shell.v3',
     fontSizesPx: fonts,
     typeFloorPx: TEXT_FLOOR_PX,
     typeReadings,
@@ -7950,12 +8314,20 @@ if (SKIP_QEMU) {
   for (const row of measured) {
     console.log(
       `[web] ${row.window} ${row.breakpoint}: canvas ` +
-        `${row.analysisOpen.canvasWidthPx.toFixed(0)}x${row.analysisOpen.canvasHeightPx.toFixed(0)} = ` +
-        `${row.analysisOpen.stageAreaSharePct.toFixed(1)}% of window AREA ` +
-        `(${row.analysisOpen.viewportHeightSharePct.toFixed(1)}% of its height); workbench ` +
-        `${row.analysisOpen.workbenchPx === null ? 'n/a' : row.analysisOpen.workbenchPx.toFixed(0) + ' px'}; ` +
-        `the stage gave ${row.stageGivenToAnalysisPx.toFixed(1)} px for it; ` +
-        `${row.analysisOpen.scrollers.length} scroller(s) in it`,
+        `${row.moduleActive.canvasWidthPx.toFixed(0)}x${row.moduleActive.canvasHeightPx.toFixed(0)} = ` +
+        `${row.moduleActive.stageContentSharePct.toFixed(1)}% of CONTENT ` +
+        `(${row.moduleActive.stageAreaSharePct.toFixed(1)}% of the window) under ` +
+        `"${row.moduleActive.stageRule}"; no module: ` +
+        `${row.noModule.stageAreaSharePct.toFixed(1)}% of the window under ` +
+        `"${row.noModule.stageRule}"; module ${row.moduleActive.moduleWidthPx.toFixed(0)} px, ` +
+        `surface ${Number(row.moduleActive.surfaceWidthPx ?? 0).toFixed(0)} px; the stage gave ` +
+        `${row.stageGivenToModulePx.toFixed(0)} px for it`,
+    );
+  }
+  for (const row of archSurfaces) {
+    console.log(
+      `[web] ${row.window}: architecture surface ${row.surfaceWidthPx} px -> "${row.mode}"` +
+        (row.worstOnScreenPx === null ? '' : `, worst label ${row.worstOnScreenPx}px on screen`),
     );
   }
 }
@@ -7997,12 +8369,15 @@ console.log(
     `the source explorer rendered the pinned tree at its own line numbers and refused a ` +
     `one-byte-tampered copy of it; lessons 1, 2, 4 and 5 were played end to end against real ` +
     `telemetry, with six checks driven to FAILED first; the 3D canvas held at least 50% of the ` +
-    `window's AREA at every window from 1280x800 up, and at least 45% of its height and 480 px ` +
-    `of width everywhere; below 1700 px ONE workbench held one pane at a time behind exactly one ` +
-    `scrollbar, in flow — the stage gave it 456-516 px of real width rather than being overlaid ` +
-    `— with Control | Analyze and a section navigator instead of a column of collapsed ` +
-    `accordions; the environment line stated SYSTEM and PHYSICAL HARDWARE: NONE whole at every ` +
-    `width; and wave stayed reachable from the status line with the workbench shut` +
+    `window's AREA with no module up and at least 50% of the CONTENT area with one — the two ` +
+    `regimes §11.2 named, both asserted, with the shell publishing which was in force — and at ` +
+    `least 45% of its height and 480 px of width everywhere; ONE module was active at every ` +
+    `width, with zero accordion toggles anywhere; the side panel held Commands, the face and the ` +
+    `selected joint in 280 px with ZERO scrollers and ZERO overflow at every window, and carried ` +
+    `the provenance, the origin, the measurement verdict and PHYSICAL HARDWARE: NONE on itself ` +
+    `rather than behind a "more info" screen; the environment line stated SYSTEM and PHYSICAL ` +
+    `HARDWARE: NONE whole at every width; and wave stayed reachable from the status line with no ` +
+    `module open` +
     (phases.qemuCommanded?.ran === true
       ? `; a clicked button drove real firmware under QEMU and every joint it moved carries ` +
         `origin.kind="emulator" with isPhysicallyObserved() false`

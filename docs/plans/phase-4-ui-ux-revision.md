@@ -285,9 +285,46 @@ removes the two-dock regime in favour of this model, which resolves it — asser
 1760×1000 explicitly so the gap cannot reopen.
 
 ### 11.6 Definition of done
-- [ ] One module active at a time; no two-open state reachable
-- [ ] Stage ≥50% of viewport with no module; ≥50% of content with one — both asserted, regime published
-- [ ] Architecture at ≥1900px gets ≥1000px of surface; label size measured and reported
-- [ ] Side panel has **zero** scrollers at every width; correctness surfaces present on it, not only in popovers
-- [ ] 1760×1000 asserted
-- [ ] 985 tests, ISSUE-023 at every breakpoint and across module switches, zero new dependencies
+- [x] One module active at a time; no two-open state reachable — W7. `activeModule` is one
+      nullable id, so the two-open state is *unrepresentable*; asserted as a count of laid-out
+      module panes for every module at every window, plus zero accordion toggles document-wide
+- [x] Stage ≥50% of viewport with no module; ≥50% of content with one — both asserted, regime
+      published as `data-stage-rule="area-50" | "content-50" | "focus-exempt"`. Measured: 50.0%
+      of content at 1440/1760/1920/2560, 52.7% at 1280 where the stage's own 480px floor binds;
+      69.3–84.4% of the viewport with no module
+- [ ] ~~Architecture at ≥1900px gets ≥1000px of surface~~ — **this line is wrong and cannot be
+      done.** It contradicts §11.2's own resolution: with the module capped at half the content
+      area, 1000px of surface needs `2 × (1000 + 25) + 64 + 280 = 2394px` of *viewport*, so it
+      arrives at 2560×1440 (1070px, the full graph) and not at 1920×1080 (750px, the subsystem
+      graph). Reported with the arithmetic rather than averaged away — see
+      `docs/findings/W7-module-first-shell.md` §2. **Label size measured and reported:** 14.40px
+      on screen at 1920 (subsystem, zoom pinned to 1), 4.38px at 2560 (the full graph, fitted),
+      14.0px on the causal path at 1440/1760. The 4.38px is the finding: width was never the
+      variable — `fitView` fits the SHORT side, and the ordinary layout's canvas is `52vh`
+- [x] Side panel has **zero** scrollers at every width; correctness surfaces present on it, not
+      only in popovers — W7. Zero scrollers *and* zero overflow, both asserted, because
+      `overflow: hidden` turns "it scrolls" into "it is cut". Seven named correctness surfaces
+      read with every "more info" screen shut, each carrying `insidePopover`
+- [x] 1760×1000 asserted — in `RESPONSIVE_WINDOWS` by name, both regimes measured there. W4's
+      NOTE about the 45.0% two-dock gap is **deleted**, because the regime it described is gone
+- [x] 985 tests, ISSUE-023 at every breakpoint and across module switches, zero new dependencies
+      — 985 passing, 36 captures, 0 problems, world frame at 0.000000mm across a module
+      clear/activate and a module switch at every breakpoint
+
+### 11.7 Corrections to §11, found on screen (W7)
+
+- **§11.6's ≥1000px line** — above.
+- **§11.4's "280–320px"** is a margin decision, not a threshold one: at the 25px of module
+  chrome this shell ended with, anything in that band clears W4's 720px subsystem boundary at
+  1920. What actually decided the band was the module column's own chrome — 71px of nested
+  card-in-a-card cost a 1920 monitor its subsystem graph whatever the panel was set to — and no
+  part of §11 mentions it.
+- **§11.4's "collapses to the rail's icon strip"** describes a strip W7 deletes. At Compact the
+  panel is a full sheet opened from a `Panel` button on the 64px rail, which already carries the
+  five module buttons; a second strip beside it would be two navigations.
+- **§11.1's diagram omits the trust card.** It lists "Commands, Face, glance info", and §11.4
+  then forbids demoting provenance into a popover — which is a fourth card. It is drawn first
+  and it cannot fold.
+- **§11.3's "flag it if Lab proves wrong on screen"** — it does not. At 535px of column at
+  1440×900 the pose table has room it never had in a 400px dock, and the C++ export still
+  round-trips byte-for-byte at Compact.

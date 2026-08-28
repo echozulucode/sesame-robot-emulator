@@ -49,10 +49,35 @@ export interface OledPanelProps {
    * crossed any boundary, because there is no panel on the far side.
    */
   readonly panelElided: boolean;
+  /**
+   * `panel` is the side-panel card - Phase 4 W7.
+   *
+   * The 128x64 glass at an INTEGER 2x (256 px, which is what a 280 px panel
+   * holds), the face and pixel provenance, and the two warnings in short form.
+   * The full prose, the payload and the 4x view are the "more info" screen.
+   *
+   * W2 handed the integer-zoom policy on as open: `width: 100%` at a 377 px
+   * pane made one logical pixel 2.94 device pixels and put the SSD1306's
+   * page-grid lines between them. A fixed side panel is the first arrangement
+   * where an integer zoom is simply available, so this takes it - for the panel
+   * only, which is the part W7 owns.
+   */
+  readonly variant?: 'panel' | 'full';
 }
 
 export function OledPanel(props: OledPanelProps): ReactElement {
-  const { panel, textureCanvas, face, source, emptyFace, version, onRedraw, panelElided } = props;
+  const {
+    panel,
+    textureCanvas,
+    face,
+    source,
+    emptyFace,
+    version,
+    onRedraw,
+    panelElided,
+    variant = 'full',
+  } = props;
+  const compact = variant === 'panel';
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [hover, setHover] = useState<{ x: number; y: number; on: boolean } | null>(null);
 
@@ -126,18 +151,25 @@ export function OledPanel(props: OledPanelProps): ReactElement {
   const litPixels = panel.litPixels;
 
   return (
-    <section className="panel" data-testid="oled">
-      <header className="panel-header">
-        <h2>Virtual OLED</h2>
-        <span className="panel-sub">SSD1306 128×64 @ I²C 0x3C</span>
-      </header>
+    <section
+      className={`panel oled-panel${compact ? ' oled-panel-compact' : ''}`}
+      data-testid={compact ? 'oled' : 'oled-full'}
+      data-variant={variant}
+    >
+      {!compact && (
+        <header className="panel-header">
+          <h2>Virtual OLED</h2>
+          <span className="panel-sub">SSD1306 128×64 @ I²C 0x3C</span>
+        </header>
+      )}
 
       <canvas
         ref={canvasRef}
         width={OLED_WIDTH * OLED_SCALE}
         height={OLED_HEIGHT * OLED_SCALE}
         className="oled-canvas"
-        id="oled-canvas"
+        id={compact ? 'oled-canvas' : 'oled-canvas-large'}
+        data-oled-zoom={compact ? '2' : '4'}
         /*
           The third declared two-dimensional surface — Phase 4 W2. It never
           scrolls; it is marked because 128x64 logical pixels are a spatial
@@ -150,6 +182,12 @@ export function OledPanel(props: OledPanelProps): ReactElement {
         onMouseLeave={() => setHover(null)}
       />
 
+      {/*
+        The GDDRAM read-out is a teaching affordance rather than a glance value:
+        it says nothing at all until a reader hovers a pixel. It is in the 4x
+        screen, where there are pixels big enough to hover.
+      */}
+      {!compact && (
       <div className="oled-readout">
         {hover === null ? (
           <span className="muted">hover a pixel to see where it lives in GDDRAM</span>
@@ -160,41 +198,80 @@ export function OledPanel(props: OledPanelProps): ReactElement {
           </span>
         )}
       </div>
+      )}
 
-      <dl className="kv">
-        <dt>face</dt>
-        <dd>
-          {face === null ? (
-            <span className="muted">none yet</span>
-          ) : (
-            <>
-              <code>{face.name}</code> frame {face.frame} <ProvenanceTag value={face.provenance} />{' '}
-              <OriginTag origin={face.origin} />
-            </>
-          )}
-        </dd>
+      {/*
+        The panel card is the GLASS and nothing else — Phase 4 W7. Which face
+        is up, and the provenance of its pixels, ride on the card's own header
+        summary, where they are visible whether the card is folded or not; the
+        frame number, the origin, the payload and the vocabulary are in the 4x
+        screen. A 280 px panel that may never grow a scrollbar cannot hold a
+        stacked key/value list AND a 256 px panel.
+      */}
+      {!compact && (
+        <dl className="kv">
+          <dt>face</dt>
+          <dd>
+            {face === null ? (
+              <span className="muted">none yet</span>
+            ) : (
+              <>
+                <code>{face.name}</code> frame {face.frame}{' '}
+                <ProvenanceTag value={face.provenance} /> <OriginTag origin={face.origin} />
+              </>
+            )}
+          </dd>
 
-        <dt>pixels</dt>
-        <dd>
-          {source.pixelProvenance === null ? (
-            <span className="muted">none drawn</span>
-          ) : (
-            <ProvenanceTag value={source.pixelProvenance} />
-          )}{' '}
-          {litPixels} lit · {panel.writes} display() writes
-        </dd>
+          <dt>pixels</dt>
+          <dd>
+            {source.pixelProvenance === null ? (
+              <span className="muted">none drawn</span>
+            ) : (
+              <ProvenanceTag value={source.pixelProvenance} />
+            )}{' '}
+            {litPixels} lit · {panel.writes} display() writes
+          </dd>
 
-        <dt>payload</dt>
-        <dd>
-          <code className="wrap">{panel.base64.slice(0, 44)}…</code>
-          <span className="muted"> 1368 chars, 1024 bytes, page-ordered</span>
-        </dd>
-      </dl>
+          <dt>payload</dt>
+          <dd>
+            <code className="wrap">{panel.base64.slice(0, 44)}…</code>
+            <span className="muted"> 1368 chars, 1024 bytes, page-ordered</span>
+          </dd>
+        </dl>
+      )}
 
-      <p className="note">{source.detail}</p>
+      {!compact && <p className="note">{source.detail}</p>}
 
-      {panelElided && (
-        <div className="warn" data-testid="oled-elided">
+      {/*
+        The ⚠ count is on the card's HEADER SUMMARY rather than in its body —
+        see `PanelCardSpec.summary`. Two of the firmware's faces have zero
+        frames and draw nothing at all (ISSUE-20260823-004); putting the fact on
+        the header is what keeps it visible when the panel folds the card away,
+        and it is 26 px of the panel's height back, which is what lets the glass
+        stay open at 1440x900 at all.
+      */}
+
+      {panelElided && compact && (
+        /*
+          The SHORT form, on the panel - Phase 4 W7.
+
+          The claim itself ("these pixels did not come from the emulator") and
+          the `inferred` badge beside it are on the panel; the two paragraphs
+          that explain why QEMU attaches no SSD1306 are in the "more info"
+          screen. That is a popover EXPANDING a correctness surface, which
+          §11.4 allows, rather than being where it first appears, which it does
+          not.
+        */
+        <div className="warn warn-short" data-testid="oled-elided">
+          <strong>These pixels did not come from the emulator.</strong>
+          <p className="muted">
+            Drawn here from <code>firmware/face-bitmaps.h</code> and labelled <code>inferred</code>.
+          </p>
+        </div>
+      )}
+
+      {panelElided && !compact && (
+        <div className="warn" data-testid="oled-elided-detail">
           <strong>These pixels did not come from the emulator.</strong>
           <p>
             The backend’s origin lists <code>ssd1306-panel</code> among the subsystems it does not
@@ -213,8 +290,15 @@ export function OledPanel(props: OledPanelProps): ReactElement {
         </div>
       )}
 
-      {emptyFace !== null && (
-        <div className="warn" data-testid="empty-face-warning">
+      {emptyFace !== null && compact && (
+        <div className="warn warn-short" data-testid="empty-face-warning">
+          <strong>Nothing was drawn — this is the upstream bug, not a rendering failure.</strong>
+          <p>{emptyFace.reason}</p>
+        </div>
+      )}
+
+      {emptyFace !== null && !compact && (
+        <div className="warn" data-testid="empty-face-warning-detail">
           <strong>Nothing was drawn — this is the upstream bug, not a rendering failure.</strong>
           <p>{emptyFace.reason}</p>
           <p className="muted">
@@ -236,11 +320,13 @@ export function OledPanel(props: OledPanelProps): ReactElement {
         </div>
       )}
 
+      {!compact && (
       <p className="note muted">
         Pixels come from <code>{FACE_PIXEL_SOURCE.file}</code> (sha256 {FACE_PIXEL_SOURCE.sha256.slice(0, 12)}…),
         stored in the firmware's authored row-major layout and converted here by emulating{' '}
         <code>Adafruit_GFX::drawBitmap</code> into the page-ordered buffer the protocol carries.
       </p>
+      )}
     </section>
   );
 }

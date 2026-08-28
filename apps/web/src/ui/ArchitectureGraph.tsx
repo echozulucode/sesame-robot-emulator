@@ -259,20 +259,84 @@ function Reframe({
           // for `R1` it brings `MG90S` into view, which is "which servo drives
           // this joint" - and it is the hand-authored edge, so the frame that
           // teaches is also the frame that shows where the evidence stops.
-          const previous = pathIds[pathIds.indexOf(focusId) - 1];
+          /*
+           * The CHAIN, not just the predecessor — Phase 4 W7 widens W4's frame.
+           *
+           * W4 framed the focus and the one node before it, because a 351 px
+           * pane could hold about that much. The module column is half the
+           * content area now, and framing three boxes in a 750 x 490 canvas
+           * left most of it empty — a bigger box showing the same small
+           * picture, which is the failure W4 itself named when it added
+           * `widthKey`. The causal path is what the extra room is for: it is
+           * the same question ("what led to this") answered further back.
+           */
           const around = [
-            ...(previous === undefined ? [] : [previous]),
+            ...pathIds,
             focusId,
             ...childrenOf(focusId).map((c) => c.id),
           ].filter((n) => visibleIds.includes(n));
-          const nodes = around.length > 0 ? around : visibleIds.slice(0, 4);
-          void flow.fitView({
-            nodes: nodes.map((n) => ({ id: n })),
-            padding: 0.12,
-            minZoom: 1,
-            maxZoom: 1,
-            duration: 200,
-          });
+          /*
+           * If the whole neighbourhood FITS at zoom 1, frame the whole
+           * neighbourhood — Phase 4 W7.
+           *
+           * W4 framed on the focus and its predecessor because the pane was
+           * 351 px wide and a handful of boxes was all that could be on screen.
+           * The module column gives the architecture half the content area now,
+           * and at 1920x1080 that frame centred four boxes in a 750 px canvas
+           * and left half of it empty. So the frame is chosen by measurement
+           * rather than by rule: the scoped subsystem's own bounding box
+           * against the canvas, both in model pixels because the zoom is
+           * pinned to 1. When it does not fit, W4's frame is still the right
+           * one and is still what is used — the focus and what led to it,
+           * which is the frame that teaches.
+           */
+          const canvasBox = document
+            .querySelector('[data-testid="arch-canvas"]')
+            ?.getBoundingClientRect();
+          const placed = flow.getNodes().filter((n) => visibleIds.includes(n.id));
+          const spans = (get: (n: (typeof placed)[number]) => readonly [number, number]): number => {
+            const lows = placed.map((n) => get(n)[0]);
+            const highs = placed.map((n) => get(n)[1]);
+            return Math.max(...highs) - Math.min(...lows);
+          };
+          const fitsWhole =
+            canvasBox !== undefined &&
+            placed.length > 0 &&
+            spans((n) => [n.position.x, n.position.x + (n.measured?.width ?? 220)]) <=
+              canvasBox.width * 0.88 &&
+            spans((n) => [n.position.y, n.position.y + (n.measured?.height ?? 72)]) <=
+              canvasBox.height * 0.88;
+          const nodes = fitsWhole ? visibleIds : around.length > 0 ? around : visibleIds.slice(0, 4);
+          void flow
+            .fitView({
+              nodes: nodes.map((n) => ({ id: n })),
+              padding: 0.12,
+              minZoom: 1,
+              maxZoom: 1,
+              duration: 200,
+            })
+            /*
+             * THE ZOOM FLOOR, enforced rather than requested — Phase 4 W7.
+             *
+             * `minZoom: 1` in `fitViewOptions` and `minZoom={1}` on the
+             * component are both true and neither is sufficient: W7's ordinary
+             * layout is the first arrangement that mounts the subsystem view at
+             * a width the harness visits, and it caught the graph drawn at
+             * **0.929** — 14.4 px edge labels at 13.38 px on screen — after a
+             * remount at a width React Flow had not measured yet. A fit that
+             * lands below the floor is a fit that has silently traded the one
+             * property this representation exists to have: at zoom 1 the
+             * AUTHORED size is the size on screen, so the 14 px floor is
+             * asserted against what is drawn with no exemption at all.
+             *
+             * The reader can still pan — the surface is a declared
+             * `data-2d-surface` — which is the trade the subsystem view makes
+             * on purpose: scoped nodes at a legible size, panned, rather than
+             * all of them shrunk.
+             */
+            .then(() => {
+              if (flow.getZoom() < 1) void flow.zoomTo(1, { duration: 0 });
+            });
           return;
         }
         if (focus !== null) {

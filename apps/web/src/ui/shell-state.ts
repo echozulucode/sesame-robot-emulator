@@ -1,53 +1,57 @@
 /**
- * The shell's layout state: which breakpoint we are at, which sections are open
- * in which of the two docks, and how wide each dock is.
- *
- * ## Why this module exists at all
- *
- * `styles.css` had 2,407 lines and zero `@media` queries, and `.app` was a
- * `minmax(0,1fr) minmax(0,520px) 400px` grid with a fixed 380 px source row.
- * On a 1440x900 laptop that leaves the 3D viewport roughly 500x280 — about 13%
- * of the screen — and the robot is the product. That is a layout defect, and
- * the reason it survived is that all 26 harness captures ran at 1440x900 or
- * wider and **none of them asserted how much space the viewport got**.
- *
- * U1–U5 answered that with a rail, a stage and one right dock, and put the
- * command vocabulary and the OLED in a fixed strip under the robot. The strip
- * was the wrong answer: it cost `clamp(120px, 20vh, 176px)` of the one thing
- * the change existed to give back. So it is gone, and the two panes that lived
- * in it moved into a **second dock**:
+ * The shell's layout state — Phase 4 W7, the MODULE-FIRST shell.
  *
  * ```text
- *  rail |            stage            | control dock | analysis dock
- *   56  |  robot, then a status line  |  drives it   |  explains it
+ * +----+-------------------+-------------------+------------+
+ * |RAIL|                   |                   | Commands   |
+ * | 64 |      ROBOT        |  ACTIVE MODULE    | Face       |
+ * |    |                   |  (one of Arch /   | glance     |
+ * |    |                   |   Signal /Source /|            |
+ * |    |                   |   Learn / Lab)    |  280 px    |
+ * |    |                   |                   | no scroller|
+ * +----+-------------------+-------------------+------------+
+ * | SYSTEM: QEMU EMULATOR - PHYSICAL HARDWARE: NONE          |
+ * +----------------------------------------------------------+
  * ```
  *
- * The control dock is INBOARD — adjacent to the stage — so the reading order is
- * robot, then the things that drive it, then the things that explain it.
+ * ## What W7 changed, and why the previous model could not stay
  *
- * The rules that make the laptop case work are here rather than in CSS, because
- * they are decisions rather than styling:
+ * The user, after W3 and W4 were on screen:
  *
- *  1. **Below Wide there is ONE workbench, in flow, and the stage really
- *     shrinks** — Phase 4 W3. U6 floated two docks over the stage so it never
- *     lost a pixel; the user replaced that with a better rule, *"I'd rather the
- *     robot area shrink, 50% of the screen area is more than enough"*, and that
- *     rule makes two docks impossible on a laptop at any usable width and one
- *     540 px workbench comfortable. So the overlay is retired above 1100 px,
- *     the two docks become two MODES of one workbench, and what is asserted is
- *     the stage's share of the screen AREA rather than the absence of a push.
- *  2. **Below Wide exactly ONE section is open and it gets the whole
- *     workbench.** Choosing `Learn` closes `Commands`. One pane at a time, at
- *     its natural height, inside a single scroller — because the reader's words
- *     were "I'd rather have to scroll through the pane vertically on smaller
- *     screens than tiny content and many scrollbars". At Wide both docks are in
- *     flow and both hold a set, which is what keeps V8's cross-highlight
- *     requirement true.
- *  3. **The cross-highlight** — click `R4` in 3D, see it in the graph, the
- *     trace and the inspector — is the feature Phase 2 spent the most effort
- *     on, and a collapsed section is where a highlight goes to be invisible.
- *     Hence {@link sectionForSelection} and the header badges: the selection is
- *     always either on screen or summarised on a header that is.
+ * > *"On ultra large screens, the modules sections are still unusable. The
+ * > architecture diagram needs to use up at least 50% of the screen to be
+ * > useful, with the robot in the other half. I think the commands and face
+ * > tools can be made to be minimal on small screens and never need their own
+ * > individual scrollbars. […] Make that the right most side-panel while the
+ * > larger content items can be maximize. The Architecture, Signals, Source and
+ * > Learn modules should only have one active at a time."*
+ *
+ * That splits the eight panes into two kinds that were never the same kind:
+ *
+ *  - **MODULES** — {@link MODULE_IDS}. Large task surfaces. Exactly ONE is
+ *    active at a time, or none. They are the reason a big screen is big.
+ *  - **THE SIDE PANEL** — {@link PANEL_IDS}. Commands, the 128x64 face, and a
+ *    glance at the selected joint. Always visible above Compact, ~280 px, and
+ *    **never its own scrollbar at any width**: when it does not fit, the fix is
+ *    disclosure (a "more info" popover), never a scroller.
+ *
+ * The active module IS the state. There is no second flag: W3's derived
+ * `Control | Analyze` generalises rather than being replaced — the mode is
+ * {@link modeForState}, computed from the active module, so `mode: 'analyze'`
+ * with the Lab up is a state this shell cannot represent, let alone reach.
+ *
+ * ## What was deleted
+ *
+ * **The two-dock Wide regime, and the accordion with it.** W4 measured the
+ * defect that finished it: at 1760x1000 - the harness's own default window -
+ * two docks at their *default* widths (400 + 460, not the 360 + 360 W3 set the
+ * 1700 boundary from) left the stage **45.0%** of the window's area, below the
+ * 50% floor W3 asserted at 2560 and nowhere else. There is one shell now, at
+ * every width above Compact, so the gap cannot reopen; the harness asserts
+ * 1760x1000 by name.
+ *
+ * `dockWidthPx` went with it. A fixed 280 px panel and a 50/50 content split
+ * are not preferences a reader drags.
  *
  * ## Storage
  *
@@ -55,46 +59,65 @@
  * and `src/lab/lab-doc.ts` set: every read and every write is wrapped, the
  * accessor itself can throw in a private window with site data blocked, the
  * value can be absent, and it can be somebody else's JSON. All three render the
- * same way — the defaults below — and none of them is an error anybody has to
- * see. A layout preference is a convenience, never the source of truth.
+ * defaults, and none of them is an error anybody has to see. A layout
+ * preference is a convenience, never the source of truth.
  */
 
 /** Keyed to what fits, not to device names. */
 export type Breakpoint = 'compact' | 'medium' | 'wide';
 
 /**
- * Two docks.
+ * The two domains, kept from U6 and W3.
  *
- * `control` is the surface that DRIVES this robot — the command vocabulary, the
- * 128x64 face, and the Lab. `analysis` is the surface that EXPLAINS it — the
- * inspector, the architecture graph, the causal trace, the source and the
- * lessons. They are drawn in that order, left to right, so the control dock is
- * the one adjacent to the stage.
+ * They are no longer two columns and no longer two docks. What survives is the
+ * classification — `control` drives this robot, `analysis` explains it — and it
+ * is what {@link modeForState} derives the mode label from.
  */
 export const DOCK_IDS = ['control', 'analysis'] as const;
 export type DockId = (typeof DOCK_IDS)[number];
 
 /**
- * The accordion sections, in the order they are drawn.
+ * The modules. **Mutually exclusive: at most one is active.**
  *
- * `commands` and `face` used to be a fixed strip under the robot; `lab` moved
- * across from the analysis dock because it is a driving surface rather than a
- * reading one, and because the pane that authors the OLED's pixels now sits
- * next to the OLED it authors.
+ * `lab` is in the set on purpose and §11.3 says why: it is a large editing
+ * surface — a pose table, a pixel editor, a C++ export — and not a glance
+ * surface. Putting it on the side panel would mean either a scroller (forbidden)
+ * or an editor nobody can use.
+ */
+export const MODULE_IDS = ['modules', 'signal', 'source', 'learn', 'lab'] as const;
+export type ModuleId = (typeof MODULE_IDS)[number];
+
+/**
+ * The side panel's cards, top to bottom. Always visible above Compact.
+ *
+ * `inspector` is here rather than in {@link MODULE_IDS} because what a reader
+ * wants while driving the robot is *which joint is selected and what it is
+ * doing*, which is four lines. The seven-column table is the "more info"
+ * screen — §11.4 names it as the first thing that belongs in one.
+ */
+export const PANEL_IDS = ['commands', 'face', 'inspector'] as const;
+export type PanelId = (typeof PANEL_IDS)[number];
+
+/**
+ * Every pane, in draw order: the panel's three, then the five modules.
+ *
+ * The ids are U6's, unchanged, and deliberately so: `data-pane`, the debug
+ * hook, the harness's `focusSection()` and eight phases of assertions are
+ * written against them. What changed is which surface draws them.
  */
 export const SECTION_IDS = [
   'commands',
   'face',
-  'lab',
   'inspector',
   'modules',
   'signal',
   'source',
   'learn',
+  'lab',
 ] as const;
 export type SectionId = (typeof SECTION_IDS)[number];
 
-/** Which dock draws which sections. Contiguous in {@link SECTION_IDS}. */
+/** Which domain a section belongs to. The mode label is derived from this. */
 export const DOCK_SECTIONS: Readonly<Record<DockId, readonly SectionId[]>> = Object.freeze({
   control: ['commands', 'face', 'lab'],
   analysis: ['inspector', 'modules', 'signal', 'source', 'learn'],
@@ -113,68 +136,92 @@ const isSectionId = (value: string): value is SectionId =>
 
 const isDockId = (value: string): value is DockId => (DOCK_IDS as readonly string[]).includes(value);
 
-export const DOCK_MIN_PX = 320;
-export const DOCK_MAX_PX = 560;
-/** Used when a stored width is not a number at all. */
-export const DOCK_FALLBACK_PX = 420;
+export const isModuleId = (value: string): value is ModuleId =>
+  (MODULE_IDS as readonly string[]).includes(value);
+
+export const isPanelId = (value: string): value is PanelId =>
+  (PANEL_IDS as readonly string[]).includes(value);
+
+// ------------------------------------------------------------------ geometry
 
 /**
- * Per-dock defaults at Wide, where the docks are in flow.
+ * The side panel's width. Fixed, at §11.4's minimum, and here is what that buys.
  *
- * The control dock is the narrower of the two: a command grid, a 128x64 panel
- * and the Lab's editors need less room than a 429-line source pane.
+ * Every pixel of panel is half a pixel of architecture surface:
+ *
+ *   content   = innerWidth - 64 rail - PANEL_W
+ *   module    = content / 2                      (the 50%-of-content rule)
+ *   surface   = module - MODULE_CHROME_PX
+ *
+ * At 280 px a 1920x1080 window (1894 px of viewport) gives 1550 / 775 / 750 of
+ * surface, and the full-graph boundary lands at 2314 px of viewport. At §11.4's
+ * other end, 320 px, the same window gives 730 and the boundary moves to 2354.
+ * Both clear W4's 720 px subsystem band at 1920, so this is a margin decision
+ * rather than a threshold one — and the margin is worth having, because the
+ * band boundary is measured on a box whose chrome is easy to grow.
+ *
+ * **The chrome mattered far more than the width, and that is the finding.** At
+ * 71 px of nesting — a frame border, a column body's padding, the pane's
+ * padding AND a `.panel` inside all of it — a 1920 monitor got 691 px and the
+ * causal path, whatever the panel was set to. See {@link MODULE_CHROME_PX}.
+ *
+ * 280 px holds the panel's own content: 280 - 2 border - 8 padding = 270 px,
+ * and the OLED's integer 2x zoom is 256 px.
  */
-export const DOCK_DEFAULT_PX: Readonly<Record<DockId, number>> = Object.freeze({
-  control: 400,
-  analysis: 460,
-});
+export const PANEL_W_PX = 280;
 
 /**
- * The workbench's width, and the three numbers the brief gives for it.
+ * What stands between the module COLUMN's footprint and the artifact's own box.
  *
- * Mirrored in `styles.css` as `--workbench-w: clamp(500px, 37.5vw, 560px)`,
- * which is exactly this triple: 37.5vw is 540 px at 1440 - the brief's target -
- * and the clamp is what keeps a 1280 px laptop from spending more on the
- * workbench than the 50%-area rule leaves it.
+ * The module frame's left border (1) plus the pane's own padding (2 x 12). It
+ * was 71 px until the panel-inside-a-panel was flattened, and that mattered:
+ * at 71 px a 1920x1080 monitor got 691 px of surface and the causal path, and
+ * at 25 px it gets 749 px and the subsystem graph. Mirrored in `styles.css`,
+ * and the harness measures BOTH boxes and asserts the difference — a constant
+ * nobody checks is how a breakpoint derived from it goes quietly wrong.
  */
-export const WORKBENCH_MIN_PX = 500;
-export const WORKBENCH_TARGET_PX = 540;
-export const WORKBENCH_MAX_PX = 560;
+export const MODULE_CHROME_PX = 25;
 
 /**
- * Below this the workbench cannot sit beside the stage AT ALL - Phase 4 W3.
+ * The narrowest module column this shell will lay out.
  *
- * It was 899, which was the width below which a *dock* could not sit beside the
- * stage. The workbench is bigger than a dock and it is IN FLOW, so the number
- * that matters is different arithmetic and it is worth writing out:
+ * W4 measured the causal path at 351 px in the old analysis dock and recorded it
+ * as *"legible but cramped"*. 376 is the first width above that, and it is what
+ * sets {@link COMPACT_MAX_PX}.
+ */
+export const MODULE_MIN_PX = 376;
+
+/** The stage's own floor, from U5. Mirrored in `styles.css`. */
+export const STAGE_MIN_PX = 480;
+
+/**
+ * Below this, the panel and the module are SHEETS over the stage.
  *
- *   64 px rail + 500 px workbench (its minimum) + 480 px stage floor = 1044.
+ *   64 rail + 280 panel + 480 stage floor + 376 module = 1200.
  *
- * That is the floor arithmetic, but it is not the binding one. §7's rule is
- * that the stage keeps >= 50% of the screen AREA, and with a 32 px status strip
- * the stage needs about 52.5% of the WIDTH to get there. At a window of width W
- * that allows a workbench of at most 0.476W - 64 px, and 500 px - the brief's
- * minimum - stops fitting at about 1185 px.
- *
- * So 1200 is the first width at which one in-flow workbench, the brief's 500 px
- * floor for it and the user's 50%-area rule are all satisfiable at once. Below
- * it the workbench goes back to being a sheet over the stage, which is the only
- * thing a 1000 px window can hold, and §7 does not apply there - it says
- * "Medium and above" and keeps the Compact floors as the backstop instead.
+ * That is the first width at which the four boxes the module-first shell is
+ * made of all fit side by side. Below it the panel and the module take turns as
+ * a sheet, which is the only arrangement a 1000 px window can hold, and §7's
+ * area rule gives way to the Compact floors it names as the backstop.
  */
 export const COMPACT_MAX_PX = 1199;
 
 /**
- * Above this the two docks come back - Phase 4 W3, §3 of the plan.
+ * Above this the ordinary layout holds the WHOLE 63-node architecture graph.
  *
- * It was 1440. The user's rule is that the stage keeps >= 50% of the screen
- * AREA, and two in-flow docks cannot do that on a laptop at any usable dock
- * width (43.9% at 360+360, 49.3% at 320+320, both at 1440x900). At 1700 px two
- * 360 px docks plus a 64 px rail still leave >= 1276 px of stage, which clears
- * 50% comfortably - so the two-dock shell U6 built is not deleted, it is the
- * WIDE-DESKTOP regime, and this is the width at which it starts being true.
+ * This is the boundary's entire meaning, and it is checkable rather than
+ * decorative — the harness asserts the graph reaches `full` above it and does
+ * not below. W4's `ARCH_BANDS` put the full graph at >= 960 px of surface, so:
+ *
+ *   surface >= 960  <=>  (innerWidth - 344) / 2 - 25 >= 960
+ *                   <=>  innerWidth >= 2314
+ *
+ * It replaces W3's 1700, which was the width at which two 360 px docks left the
+ * stage half the screen — a fact about a regime that no longer exists. Leaving
+ * that number in place with its justification deleted is precisely the hollow
+ * boundary this project keeps catching.
  */
-export const MEDIUM_MAX_PX = 1699;
+export const MEDIUM_MAX_PX = 2313;
 
 export function breakpointForWidth(width: number): Breakpoint {
   if (width <= COMPACT_MAX_PX) return 'compact';
@@ -182,137 +229,160 @@ export function breakpointForWidth(width: number): Breakpoint {
   return 'wide';
 }
 
-/**
- * Compact and Medium hold exactly one open section, and therefore exactly one
- * open dock. Wide holds a set in each of two docks that are both in flow.
- *
- * Below Wide there is only ONE dock on screen now - the workbench - so "across
- * both docks" has become "in the workbench", which is what the rule always
- * meant. `[data-sections='one'|'many']` is published from this predicate and
- * W2's pane rules read it; nothing that reads it had to change.
- */
-export function isSingleOpen(breakpoint: Breakpoint): boolean {
-  return breakpoint !== 'wide';
+/** True where the panel and the module float over the stage rather than sitting beside it. */
+export function sheetsOverStage(breakpoint: Breakpoint): boolean {
+  return breakpoint === 'compact';
 }
 
 /**
- * True where the shell draws ONE workbench instead of two docks - Phase 4 W3.
+ * The width of the box the stage and the module share, at a given viewport.
  *
- * The same predicate as {@link isSingleOpen} today, and deliberately a separate
- * name: one is about how many panes share a column's height, the other is about
- * how many columns there are. They agree now because a workbench holds one pane
- * at a time; they are not the same statement and a future regime could split
- * them.
+ * Written down once, here, because both stage rules and the module's own band
+ * are computed from it and a second copy would be a second answer.
  */
-export function usesWorkbench(breakpoint: Breakpoint): boolean {
-  return breakpoint !== 'wide';
+export function contentWidthFor(innerWidth: number, breakpoint: Breakpoint): number {
+  if (sheetsOverStage(breakpoint)) return innerWidth - 64;
+  return innerWidth - 64 - PANEL_W_PX;
 }
 
 /**
- * The workbench's two modes, and the words on the switch.
+ * What the architecture artifact's own box measures, as a LOWER BOUND.
  *
- * The brief: *"preserve Control and Analyze as top-level concepts, but make
- * them two modes of a single laptop workbench"*. They are the same two domains
- * U6 split the docks along, so the mode IS the {@link DockId} - there is no
- * second taxonomy to keep in step with the first, and at Wide the identical
- * split draws as two columns instead of two modes.
+ * Conservative on purpose, and by up to 4 px: the pane's own padding is a
+ * container query — 10 px below 520 px of pane and 12 px above it (W2) — and
+ * {@link MODULE_CHROME_PX} takes the larger. So on a narrow window the real
+ * surface is 4 px wider than this says, and never narrower. A band chosen from
+ * a number that can only be too small can only scope the representation harder
+ * than the rule requires, which is the same direction W4 chose when it measured
+ * the artifact's box rather than the pane's.
+ */
+export function moduleSurfaceWidthFor(innerWidth: number, breakpoint: Breakpoint): number {
+  const content = contentWidthFor(innerWidth, breakpoint);
+  const stage = Math.max(STAGE_MIN_PX, content / 2);
+  return Math.max(0, content - stage - MODULE_CHROME_PX);
+}
+
+// -------------------------------------------------------------- stage rules
+
+/**
+ * Which of the stage's rules is in force. Published as `data-stage-rule`.
  *
- * "Analyze" rather than "Analysis" because the brief writes the switch as
- * `CONTROL | ANALYZE`, two verbs; the dock's own aria label keeps the noun.
+ * §11.2 is explicit that the two cannot be averaged into one loose number, so
+ * they are two named regimes and the app says which one it is claiming:
+ *
+ *  - `area-50` — **no module active.** The stage keeps >= 50% of the VIEWPORT's
+ *    area. §7, unchanged, and the rule the shell answers to by default.
+ *  - `content-50` — **a module is active.** The stage keeps >= 50% of the
+ *    CONTENT area — the viewport minus the rail, the status strip and the side
+ *    panel. That is the plain reading of *"with the robot in the other half"*,
+ *    and it is achievable at every width above the module's own minimum.
+ *  - `focus-exempt` — W4's focus workspace. The brief's sanctioned exception,
+ *    claimable only while the pane that justifies it is on screen.
+ *
+ * A harness that decided the regime for itself would branch on the same
+ * condition the layout branches on and could never disagree with it. The app
+ * declares; the harness measures the declaration.
+ */
+export type StageRule = 'area-50' | 'content-50' | 'focus-exempt';
+
+export function stageRuleFor(activeModule: ModuleId | null, focusPane: string | null): StageRule {
+  if (focusPane !== null && focusPane !== '') return 'focus-exempt';
+  return activeModule === null ? 'area-50' : 'content-50';
+}
+
+// ------------------------------------------------------------------- labels
+
+/**
+ * The mode label, and the words on it.
+ *
+ * W3 built `Control | Analyze` as a two-segment switch because the workbench
+ * had to hold both domains in one column. There is no switch any more — the
+ * rail's module group IS the navigation — but the two top-level concepts the
+ * brief asked us to preserve still describe what the reader is doing, so the
+ * label survives as a DERIVED value. See {@link modeForState}.
  */
 export const MODE_LABEL: Readonly<Record<DockId, string>> = Object.freeze({
   control: 'Control',
   analysis: 'Analyze',
 });
 
-/**
- * What is open before anybody has expressed a preference.
- *
- * Wide opens `modules` and `signal` together on purpose: V8's whole argument
- * for splitting the workbench in half was that the architecture graph and the
- * causal trace have to be visible **at the same time**, because the
- * cross-highlight is the feature and a scroll between them destroys it. The
- * inspector joins them because it is the third reader of the same selection,
- * and `commands` joins them from the other dock because a button that drives
- * the robot should not need a click to find.
- */
-export const DEFAULT_OPEN: Readonly<Record<Breakpoint, readonly SectionId[]>> = Object.freeze({
-  compact: ['commands'],
-  medium: ['commands'],
-  wide: ['commands', 'face', 'inspector', 'modules', 'signal'],
+/** What each module is called on the rail and on its own title. */
+export const MODULE_LABEL: Readonly<Record<ModuleId, string>> = Object.freeze({
+  modules: 'Architecture',
+  signal: 'Signal',
+  source: 'Source',
+  learn: 'Learn',
+  lab: 'Lab',
 });
 
 /**
- * Which docks start visible.
+ * Short enough for the 60 px of usable rail column at the 14 px floor.
  *
- * At Compact neither does: the workbench is a SHEET over the stage there, and a
- * first-time reader should meet the robot rather than a panel over it. The
- * quick-run cluster in the status bar under the stage is what keeps a command
- * one click away at that width — see `ui/StatusBar.tsx`.
- *
- * At Medium the workbench starts OPEN, and that is a Phase 4 W3 change with a
- * reason. U6 started it shut because it was an overlay: a panel floating over
- * the robot on first paint is a panel in the way. In flow it is not in the way
- * — it takes 540 px and leaves the stage 56% of the screen, which is the whole
- * point of §3 — and a reader who meets an empty rail has to guess that the
- * product has any panes at all.
+ * `Architecture` is 96 px at 14 px and would break mid-word in the one zone
+ * this product promises never to hide anything in, so the rail says `Arch` and
+ * the module's own title says `Architecture`. The `<button>` keeps the full
+ * word in its `title` and its `aria-label`.
  */
-export const DEFAULT_DOCK_OPEN: Readonly<Record<DockId, Readonly<Record<Breakpoint, boolean>>>> =
-  Object.freeze({
-    control: Object.freeze({ compact: false, medium: true, wide: true }),
-    analysis: Object.freeze({ compact: false, medium: false, wide: true }),
-  });
+export const MODULE_RAIL_LABEL: Readonly<Record<ModuleId, string>> = Object.freeze({
+  modules: 'Arch',
+  signal: 'Signal',
+  source: 'Source',
+  learn: 'Learn',
+  lab: 'Lab',
+});
+
+// -------------------------------------------------------------------- state
 
 export interface ShellState {
-  readonly version: 2;
-  /** Open sections across both docks, per breakpoint. */
-  readonly open: Readonly<Record<Breakpoint, readonly SectionId[]>>;
-  /** Whether each dock is showing, per breakpoint. */
-  readonly dockOpen: Readonly<Record<DockId, Readonly<Record<Breakpoint, boolean>>>>;
-  /** Wide only. Clamped to [320, 560] on the way in and on the way out. */
-  readonly dockWidthPx: Readonly<Record<DockId, number>>;
+  readonly version: 3;
+  /**
+   * The one active module, per breakpoint. `null` is a real state: the robot
+   * gets the whole content area and `data-stage-rule` says `area-50`.
+   */
+  readonly activeModule: Readonly<Record<Breakpoint, ModuleId | null>>;
+  /**
+   * Compact only: is the side panel showing as a sheet?
+   *
+   * Above Compact the panel is always visible and this is not read. At Compact
+   * the panel and the module are sheets over the same edge, so opening one
+   * closes the other — see {@link withPanelSheet} and {@link withModule}.
+   */
+  readonly panelSheet: Readonly<Record<Breakpoint, boolean>>;
 }
-
-export const DEFAULT_SHELL: ShellState = Object.freeze({
-  version: 2,
-  open: DEFAULT_OPEN,
-  dockOpen: DEFAULT_DOCK_OPEN,
-  dockWidthPx: DOCK_DEFAULT_PX,
-});
-
-const STORAGE_KEY = 'sesame-lab.shell.v2';
-
-export const clampDockWidth = (px: number): number =>
-  !Number.isFinite(px) ? DOCK_FALLBACK_PX : Math.max(DOCK_MIN_PX, Math.min(DOCK_MAX_PX, Math.round(px)));
 
 /**
- * Keep only real section ids, keep their canonical order, drop duplicates, and
- * below Wide keep at most one per dock.
+ * What is on screen before anybody has expressed a preference.
  *
- * A stored two-element list from a wider window must not be able to smuggle a
- * second open section into one of Medium's docks.
+ * Above Compact the architecture graph is up, which is §11.1's own diagram and
+ * the user's own sentence: *"the architecture diagram needs to use up at least
+ * 50% of the screen to be useful, with the robot in the other half."* A default
+ * that showed neither would answer the complaint only for readers who went
+ * looking.
+ *
+ * At Compact nothing is: a first-time reader on a small screen should meet the
+ * robot, not a sheet over it.
  */
-function cleanSections(value: unknown, breakpoint: Breakpoint): readonly SectionId[] {
-  if (!Array.isArray(value)) return DEFAULT_OPEN[breakpoint];
-  const kept = SECTION_IDS.filter((id) => value.includes(id));
-  return isSingleOpen(breakpoint) ? kept.slice(0, 1) : kept;
-}
+export const DEFAULT_ACTIVE_MODULE: Readonly<Record<Breakpoint, ModuleId | null>> = Object.freeze({
+  compact: null,
+  medium: 'modules',
+  wide: 'modules',
+});
 
-/** Below Wide at most one dock is open; a stored record must not say otherwise. */
-function cleanDockOpen(
-  value: unknown,
-  breakpoint: Breakpoint,
-): Record<DockId, boolean> {
-  const stored = (value ?? {}) as Record<string, unknown>;
-  const read = (dock: DockId): boolean => {
-    const perBreakpoint = (stored[dock] ?? {}) as Record<string, unknown>;
-    const flag = perBreakpoint[breakpoint];
-    return typeof flag === 'boolean' ? flag : DEFAULT_DOCK_OPEN[dock][breakpoint];
-  };
-  const control = read('control');
-  const analysis = read('analysis');
-  if (isSingleOpen(breakpoint) && control && analysis) return { control: false, analysis };
-  return { control, analysis };
+export const DEFAULT_SHELL: ShellState = Object.freeze({
+  version: 3,
+  activeModule: DEFAULT_ACTIVE_MODULE,
+  panelSheet: Object.freeze({ compact: false, medium: false, wide: false }),
+});
+
+const STORAGE_KEY = 'sesame-lab.shell.v3';
+
+/** Every key this app has ever written, so a stale record cannot linger. */
+const LEGACY_STORAGE_KEYS = ['sesame-lab.shell.v2', 'sesame-lab.shell'] as const;
+
+function cleanModule(value: unknown, breakpoint: Breakpoint): ModuleId | null {
+  if (value === null) return null;
+  if (typeof value !== 'string') return DEFAULT_ACTIVE_MODULE[breakpoint];
+  return isModuleId(value) ? value : DEFAULT_ACTIVE_MODULE[breakpoint];
 }
 
 /**
@@ -321,7 +391,8 @@ function cleanDockOpen(
  * Never throws, and never returns a partially-typed object: anything that is
  * not recognisably this schema is discarded rather than merged, because a
  * half-understood record produces a shell that is confidently wrong about what
- * the reader can see.
+ * the reader can see. A v2 record — two docks, a set of open sections and two
+ * dock widths — describes a shell that no longer exists and is discarded whole.
  */
 export function loadShell(): ShellState {
   let raw: string | null = null;
@@ -335,42 +406,24 @@ export function loadShell(): ShellState {
     const parsed: unknown = JSON.parse(raw);
     if (parsed === null || typeof parsed !== 'object') return DEFAULT_SHELL;
     const candidate = parsed as Partial<ShellState>;
-    if (candidate.version !== 2) return DEFAULT_SHELL;
-    const storedOpen = (candidate.open ?? {}) as Record<string, unknown>;
-    const open: Record<Breakpoint, readonly SectionId[]> = {
-      compact: cleanSections(storedOpen.compact, 'compact'),
-      medium: cleanSections(storedOpen.medium, 'medium'),
-      wide: cleanSections(storedOpen.wide, 'wide'),
-    };
-    const perBreakpoint = {
-      compact: cleanDockOpen(candidate.dockOpen, 'compact'),
-      medium: cleanDockOpen(candidate.dockOpen, 'medium'),
-      wide: cleanDockOpen(candidate.dockOpen, 'wide'),
-    };
-    const dockOpen: Record<DockId, Record<Breakpoint, boolean>> = {
-      control: {
-        compact: perBreakpoint.compact.control,
-        medium: perBreakpoint.medium.control,
-        wide: perBreakpoint.wide.control,
+    if (candidate.version !== 3) return DEFAULT_SHELL;
+    const stored = (candidate.activeModule ?? {}) as Record<string, unknown>;
+    const sheet = (candidate.panelSheet ?? {}) as Record<string, unknown>;
+    const readSheet = (breakpoint: Breakpoint): boolean =>
+      typeof sheet[breakpoint] === 'boolean' ? (sheet[breakpoint] as boolean) : false;
+    return {
+      version: 3,
+      activeModule: {
+        compact: cleanModule(stored.compact, 'compact'),
+        medium: cleanModule(stored.medium, 'medium'),
+        wide: cleanModule(stored.wide, 'wide'),
       },
-      analysis: {
-        compact: perBreakpoint.compact.analysis,
-        medium: perBreakpoint.medium.analysis,
-        wide: perBreakpoint.wide.analysis,
+      panelSheet: {
+        compact: readSheet('compact'),
+        medium: false,
+        wide: false,
       },
     };
-    const storedWidth = (candidate.dockWidthPx ?? {}) as Record<string, unknown>;
-    const dockWidthPx: Record<DockId, number> = {
-      control:
-        typeof storedWidth.control === 'number'
-          ? clampDockWidth(storedWidth.control)
-          : DOCK_DEFAULT_PX.control,
-      analysis:
-        typeof storedWidth.analysis === 'number'
-          ? clampDockWidth(storedWidth.analysis)
-          : DOCK_DEFAULT_PX.analysis,
-    };
-    return { version: 2, open, dockOpen, dockWidthPx };
   } catch {
     return DEFAULT_SHELL;
   }
@@ -388,6 +441,7 @@ export function saveShell(state: ShellState): void {
 export function clearShell(): void {
   try {
     globalThis.localStorage?.removeItem(STORAGE_KEY);
+    for (const key of LEGACY_STORAGE_KEYS) globalThis.localStorage?.removeItem(key);
   } catch {
     /* nothing to do and nothing worth saying */
   }
@@ -395,151 +449,136 @@ export function clearShell(): void {
 
 // ------------------------------------------------------------------ updates
 
-const sameList = (a: readonly SectionId[], b: readonly SectionId[]): boolean =>
-  a.length === b.length && a.every((s, i) => s === b[i]);
+export const activeModuleFor = (state: ShellState, breakpoint: Breakpoint): ModuleId | null =>
+  state.activeModule[breakpoint];
 
 /**
- * Open or close one section, honouring the one-at-a-time rule below Wide.
+ * Make one module active, or none.
  *
- * "One at a time" is PER DOCK. Opening `commands` in the control dock at Medium
- * does not close `learn` in the analysis dock — the two docks are independent
- * accordions, and that independence is the whole reason there are two.
+ * **This is the whole of "one at a time".** There is no set, no accordion and no
+ * second flag to keep in step: the field holds one id or `null`, so a state with
+ * two modules open is not reachable because it is not representable. That is
+ * strictly stronger than a rule that closes the others, which is a rule
+ * something can forget to apply.
+ *
+ * At Compact the module is a sheet over the same edge the panel sheet uses, so
+ * showing a module puts the panel sheet away.
  */
-export function withSection(
+export function withModule(
   state: ShellState,
   breakpoint: Breakpoint,
-  id: SectionId,
-  open: boolean,
+  id: ModuleId | null,
 ): ShellState {
-  const current = state.open[breakpoint];
-  let next: readonly SectionId[];
-  if (!open) next = current.filter((s) => s !== id);
-  else if (isSingleOpen(breakpoint)) next = [id];
-  else next = SECTION_IDS.filter((s) => s === id || current.includes(s));
-  if (sameList(next, current)) return state;
-  const withOpen = { ...state, open: { ...state.open, [breakpoint]: next } };
-  // Below Wide the one open section decides which dock is showing: opening
-  // `Commands` shuts the analysis dock, and opening `Learn` shuts the control
-  // dock. Anything else would leave a dock open with nothing expanded in it.
-  if (!open || !isSingleOpen(breakpoint)) return withOpen;
-  const dock = dockForSection(id);
-  const other: DockId = dock === 'control' ? 'analysis' : 'control';
+  if (state.activeModule[breakpoint] === id && !(id !== null && state.panelSheet[breakpoint])) {
+    return state;
+  }
   return {
-    ...withOpen,
-    dockOpen: {
-      ...withOpen.dockOpen,
-      [dock]: { ...withOpen.dockOpen[dock], [breakpoint]: true },
-      [other]: { ...withOpen.dockOpen[other], [breakpoint]: false },
+    ...state,
+    activeModule: { ...state.activeModule, [breakpoint]: id },
+    panelSheet: {
+      ...state.panelSheet,
+      [breakpoint]: id === null ? state.panelSheet[breakpoint] : false,
     },
   };
 }
 
-/**
- * Show or hide one dock.
- *
- * Below Wide, opening one dock shuts the other, and if the dock being opened
- * has nothing expanded in it, its first section is expanded — otherwise a
- * reader who clicks the chevron gets a column of collapsed headers and no
- * content. At Wide both docks are in flow and both stay open.
- */
-export function withDockOpen(
+/** Click the active module again and it goes away — the robot takes the content area. */
+export function toggleModule(
   state: ShellState,
-  dock: DockId,
+  breakpoint: Breakpoint,
+  id: ModuleId,
+): ShellState {
+  return withModule(state, breakpoint, state.activeModule[breakpoint] === id ? null : id);
+}
+
+/**
+ * Compact only: show or hide the side panel as a sheet.
+ *
+ * Above Compact the panel is always visible, so this is a no-op there rather
+ * than a state that could hide a correctness surface. The panel carries the
+ * driving provenance, the origin and `PHYSICAL HARDWARE: NONE`; a zone that can
+ * be closed is a zone that can hide them, which is the same argument that keeps
+ * the rail from ever collapsing.
+ */
+export function withPanelSheet(
+  state: ShellState,
   breakpoint: Breakpoint,
   open: boolean,
 ): ShellState {
-  const other: DockId = dock === 'control' ? 'analysis' : 'control';
-  const exclusive = open && isSingleOpen(breakpoint);
-  let next: ShellState = state;
-  if (state.dockOpen[dock][breakpoint] !== open || (exclusive && state.dockOpen[other][breakpoint])) {
-    next = {
-      ...state,
-      dockOpen: {
-        ...state.dockOpen,
-        [dock]: { ...state.dockOpen[dock], [breakpoint]: open },
-        ...(exclusive ? { [other]: { ...state.dockOpen[other], [breakpoint]: false } } : {}),
-      },
-    };
-  }
-  if (!open) return next;
-  const showsSomething = next.open[breakpoint].some((id) => dockForSection(id) === dock);
-  if (showsSomething) return next;
-  const first = DOCK_SECTIONS[dock][0];
-  return first === undefined ? next : withSection(next, breakpoint, first, true);
+  if (!sheetsOverStage(breakpoint)) return state;
+  if (state.panelSheet[breakpoint] === open) return state;
+  return {
+    ...state,
+    panelSheet: { ...state.panelSheet, [breakpoint]: open },
+    activeModule: { ...state.activeModule, [breakpoint]: open ? null : state.activeModule[breakpoint] },
+  };
 }
 
-export function withDockWidth(state: ShellState, dock: DockId, px: number): ShellState {
-  const clamped = clampDockWidth(px);
-  if (state.dockWidthPx[dock] === clamped) return state;
-  return { ...state, dockWidthPx: { ...state.dockWidthPx, [dock]: clamped } };
+/** True where the side panel has a laid-out box a reader can see. */
+export function panelIsVisible(state: ShellState, breakpoint: Breakpoint): boolean {
+  return sheetsOverStage(breakpoint) ? state.panelSheet[breakpoint] : true;
 }
 
-export const sectionIsOpen = (state: ShellState, breakpoint: Breakpoint, id: SectionId): boolean =>
-  state.open[breakpoint].includes(id);
-
-export const dockIsOpen = (state: ShellState, breakpoint: Breakpoint, dock: DockId): boolean =>
-  state.dockOpen[dock][breakpoint];
-
-/** Expanded AND its dock showing — what a reader can actually see. */
-export const sectionIsVisible = (
+/** Expanded AND on screen — what a reader can actually see, for any pane. */
+export function sectionIsVisible(
   state: ShellState,
   breakpoint: Breakpoint,
   id: SectionId,
-): boolean => sectionIsOpen(state, breakpoint, id) && dockIsOpen(state, breakpoint, dockForSection(id));
+): boolean {
+  if (isPanelId(id)) return panelIsVisible(state, breakpoint);
+  return state.activeModule[breakpoint] === id;
+}
 
 /**
- * Which mode the workbench is in — Phase 4 W3.
+ * Which mode the shell is in — W3's `Control | Analyze`, generalised.
  *
- * DERIVED, never stored. Below Wide exactly one section is open, and a section
- * belongs to exactly one dock, so the open section already says which mode is
- * showing. Storing it separately would create a second source of truth that can
- * disagree with the first — "mode: analyze, open section: commands" is a state
- * this shell simply cannot reach — and it would need its own migration, its own
- * validation and its own clean-up in {@link loadShell}.
+ * DERIVED, never stored, and now derived from ONE field instead of a list. The
+ * active module belongs to exactly one domain, so it already says which mode is
+ * showing; with no module active the reader is driving the robot from the side
+ * panel, which is `control` by the same reading order this shell has always
+ * used — the robot, then the surfaces that drive it, then the ones that explain
+ * it.
  *
  * The consequence worth stating: the mode survives a reload for free, because
- * the open section does.
- *
- * With nothing open (the reader collapsed the workbench and then closed its
- * pane) the mode falls back to whichever dock is showing, and then to
- * `control` — the reading order this shell has always used is the robot, then
- * the surfaces that drive it, then the surfaces that explain it.
+ * the active module does, and `mode: 'analyze'` with the Lab up is a state this
+ * shell cannot represent.
  */
 export function modeForState(state: ShellState, breakpoint: Breakpoint): DockId {
-  const open = state.open[breakpoint][0];
-  if (open !== undefined) return dockForSection(open);
-  return state.dockOpen.analysis[breakpoint] && !state.dockOpen.control[breakpoint]
-    ? 'analysis'
-    : 'control';
+  const active = state.activeModule[breakpoint];
+  return active === null ? 'control' : dockForSection(active);
 }
 
 // -------------------------------------------------------- the §5 mitigation
 
 /**
- * Which section a selection wants to be seen in.
+ * Which pane a selection wants to be seen in.
  *
- * §5 of the plan is the one real risk in the whole change: clicking `R4` in the
- * 3D scene highlights it in the graph, the trace and the inspector, and **if
- * those sections are collapsed the highlight happens where nobody can see it**,
- * so the app appears to do nothing. A node or joint selection is loudest in the
- * architecture graph, which is the pane that redraws around it; a bare symbol
- * selection — one with no node, which is two thirds of the outline — is only
- * visible in the source pane.
+ * §5 of the U6 plan is still the one real risk: clicking `R4` in the 3D scene
+ * highlights it in the graph, the trace and the inspector, and if the pane that
+ * shows it is not on screen the app appears to do nothing. A node or joint
+ * selection is loudest in the architecture graph; a bare symbol selection — one
+ * with no node, which is two thirds of the outline — is only visible in the
+ * source pane.
  *
- * Both live in the ANALYSIS dock, which is why the auto-expand never disturbs
- * the control dock: a selection is a thing to read about, not a thing to drive.
+ * Both are MODULES, which is what keeps the auto-reveal from ever disturbing
+ * the side panel: a selection is a thing to read about, never a reason to take
+ * the commands away. The inspector reads the same selection and is on the panel
+ * permanently, so it needs no reveal at all.
  *
  * Returns `null` for the empty selection: deselecting must not open anything.
  */
-export function sectionForSelection(selection: {
+export function moduleForSelection(selection: {
   readonly joint: string | null;
   readonly nodeId: string | null;
   readonly symbolId: string | null;
-}): SectionId | null {
+}): ModuleId | null {
   if (selection.nodeId !== null || selection.joint !== null) return 'modules';
   if (selection.symbolId !== null) return 'source';
   return null;
 }
+
+/** Kept under its U6 name for the debug hook and the harness. */
+export const sectionForSelection = moduleForSelection;
 
 /** Parse a section id that came from an attribute or a debug call. */
 export function parseSectionId(value: string): SectionId | null {
@@ -549,4 +588,23 @@ export function parseSectionId(value: string): SectionId | null {
 /** Parse a dock id that came from an attribute or a debug call. */
 export function parseDockId(value: string): DockId | null {
   return isDockId(value) ? value : null;
+}
+
+/** Parse a module id that came from an attribute or a debug call. */
+export function parseModuleId(value: string): ModuleId | null {
+  return isModuleId(value) ? value : null;
+}
+
+/**
+ * Which module a `setDockOpen(dock, true)` should show — kept for the debug
+ * hook, which eight harness phases drive the shell through.
+ *
+ * `analysis` means "show me something that explains this robot", and the first
+ * of those is the architecture graph. `control` has exactly one module (the
+ * Lab); opening it is NOT the same as wanting the Lab, so it clears the module
+ * instead and leaves the reader with the robot and the side panel — which is
+ * what the control domain now IS.
+ */
+export function moduleForDock(dock: DockId): ModuleId | null {
+  return dock === 'analysis' ? 'modules' : null;
 }

@@ -105,6 +105,20 @@ export function JointInspector(props: JointInspectorProps): ReactElement {
   const detailRig = selected === null || rig === null ? null : rig[selected];
 
   return (
+    /*
+      A PANE WRAPPER, so W2's container sweep can still drive the seven-column
+      table through its two bands — Phase 4 W7. The table moved into the "more
+      info" screen and the pane it used to live in became a 280 px glance card,
+      so without this the container query that decides table-vs-stacked-records
+      would have stopped being asserted anywhere.
+
+      A wrapper rather than the class on `.panel` itself: `.panel` carries 12 px
+      of padding, and a container query evaluates against the CONTENT box, so a
+      pane driven to 522 px would query 496 and land on the wrong side of its
+      own 520 px threshold. The sweep asserts a boundary; a box that is 24 px
+      narrower than the number it reports cannot stand on one.
+    */
+    <div className="pane" data-pane="joints">
     <section className="panel" data-testid="joint-inspector">
       <header className="panel-header">
         <h2>Joints</h2>
@@ -315,5 +329,83 @@ export function JointInspector(props: JointInspectorProps): ReactElement {
         </div>
       )}
     </section>
+    </div>
+  );
+}
+
+export interface JointGlanceProps {
+  readonly joints: Record<JointName, JointView>;
+  readonly selected: JointName | null;
+  readonly totalEvents: number;
+  readonly jointsCommanded: number;
+}
+
+/**
+ * The side panel's inspector card — Phase 4 W7.
+ *
+ * §11.4 names the seven-column table as the first thing that belongs in a "more
+ * info" screen, and it is right: what a reader wants *while executing commands*
+ * is which joint is selected and what it is doing, which is four lines. The
+ * table, the per-joint slider and the asset facts are one click away.
+ *
+ * **What did NOT move.** `measuredDeg` is here, it is `null`, and it carries
+ * `HAS_JOINT_POSITION_FEEDBACK` as the reason — that row is the load-bearing
+ * design decision of the whole pane (see this module's header), and leaving it
+ * to the popover would teach a reader that the robot has feedback it does not
+ * have. The provenance and origin of the selected reading are here for the same
+ * reason: they are correctness surfaces, and a popover may expand them rather
+ * than be where they first appear.
+ *
+ * With nothing selected it says so, and says how to select — an empty card that
+ * simply showed dashes would look like a robot with no telemetry.
+ */
+export function JointGlance(props: JointGlanceProps): ReactElement {
+  const { joints, selected, totalEvents, jointsCommanded } = props;
+  const view = selected === null ? null : joints[selected];
+  return (
+    <div className="joint-glance" data-testid="joint-glance" data-selected={selected ?? ''}>
+      {view === null || selected === null ? (
+        <p className="note muted" data-testid="joint-glance-empty">
+          No joint selected. Click a joint on the robot, or a node in the architecture graph, and
+          it lights up in every pane at once.
+        </p>
+      ) : (
+        <dl className="kv">
+          <dt>joint</dt>
+          <dd>
+            <b>{selected}</b>{' '}
+            <span className="muted">servo channel {JOINT_ORDER.indexOf(selected)}</span>
+          </dd>
+          <dt>commanded</dt>
+          <dd>
+            <code>{fmt(view.commandedDeg)}</code>°
+          </dd>
+          <dt>simulated</dt>
+          <dd>
+            <code>{fmt(view.simulatedDeg)}</code>°
+          </dd>
+          <dt>measured</dt>
+          <dd
+            data-physically-observed={String(view.physicallyObserved)}
+            title={`HAS_JOINT_POSITION_FEEDBACK = ${String(HAS_JOINT_POSITION_FEEDBACK)}`}
+          >
+            <b>null</b>{' '}
+            <span className="muted">— no position feedback exists on this robot</span>
+          </dd>
+          <dt>says</dt>
+          <dd>
+            {view.provenance === null ? (
+              <span className="muted">nothing yet</span>
+            ) : (
+              <ProvenanceTag value={view.provenance} />
+            )}{' '}
+            <OriginTag origin={view.origin} />
+          </dd>
+        </dl>
+      )}
+      <p className="note muted" data-testid="joint-glance-counts">
+        {jointsCommanded}/{JOINT_ORDER.length} joints commanded · {totalEvents} events
+      </p>
+    </div>
   );
 }

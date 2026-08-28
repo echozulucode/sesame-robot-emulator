@@ -1,120 +1,119 @@
 /**
- * The shell: a 64 px rail, a stage, ONE workbench below 1700 px or TWO docks
- * above it, and a status strip across the bottom.
- *
- * Everything here is layout. Not one pane's *content* is touched: the
- * architecture graph, the trace, the source explorer, Learn and Lab are handed
- * in as children and render exactly what they rendered when they were grid
- * rows. Provenance, `isPhysicallyObserved()`, the `conceptual` badges, the NOT
- * BUILT panels and the modifying-this-robot banner are correctness surfaces and
- * none of them is styling.
+ * The module-first shell — Phase 4 W7.
  *
  * ```text
- * 1200-1699 px — ONE workbench, IN FLOW           >= 1700 px — U6's two docks
- * +--+--------------------+---------------+       +--+--------+-------+-------+
- * |R |                    | Control|Analyze|      |R |        |CONTROL|ANALYSIS|
- * |A |    CENTER STAGE    |Inspector Signal|      |A | STAGE  |v Cmds |v Inspec|
- * |I |  3D robot, >= 50%  |----------------|      |I |        |> Face |> Module|
- * |L |  of the SCREEN AREA|                |      |L |        |> Lab  |> Signal|
- * |  |                    |   ONE PANE     |      |  |        |       |> Source|
- * +--+--------------------+---------------+       +--+--------+-------+-------+
- * | SYSTEM: ... · PHYSICAL HARDWARE: NONE |       | ... the same 32 px strip   |
- * +---------------------------------------+       +----------------------------+
+ * >= 1200 px                                        < 1200 px
+ * +--+-------------+-------------+--------+         +--+---------------------+
+ * |R |             |             |Commands|         |R |                     |
+ * |A |    ROBOT    | ONE MODULE  |Face    |         |A |   ROBOT (all of it) |
+ * |I |             | Arch|Signal |glance  |         |I |                     |
+ * |L |             | Source|Learn|        |         |L |  panel and module    |
+ * |  |             | Lab         |280 px  |         |  |  are SHEETS         |
+ * +--+-------------+-------------+--------+         +--+---------------------+
+ * | SYSTEM: ... - PHYSICAL HARDWARE: NONE  |         | the same 32 px strip   |
+ * +----------------------------------------+        +------------------------+
  * ```
  *
- * ## Why one workbench — Phase 4 W3, §3 of the plan
+ * Everything here is layout. Not one pane's *content* is invented: the
+ * architecture graph, the trace, the source explorer, Learn and Lab are handed
+ * in as children and render what they rendered when they were dock sections.
+ * Provenance, `isPhysicallyObserved()`, the `conceptual` badges, the NOT BUILT
+ * panels and the modifying-this-robot banner are correctness surfaces and none
+ * of them is styling.
  *
- * The brief recommended one workbench at 1440x900 and the user resolved it with
- * a sharper rule: *"I'd rather the robot area shrink. 50% of the screen area is
- * more than enough."* That rule makes the decision arithmetic. At 1440x900 with
- * a 64 px rail and a 32 px status strip, two 360 px docks leave the stage 43.9%
- * of the screen area and two 320 px docks leave 49.3%; one 540 px workbench
- * leaves 56.0%. Two docks are not available on a laptop at any usable width.
+ * ## The three things W7 is
  *
- * Above 1700 px they are — two 360 px docks plus the rail still leave 1276 px
- * of stage — so U6's two-dock shell is not deleted. It is the wide-desktop
- * regime, and `Docks` chooses between the two.
+ * **1. One active module.** `Architecture · Signal · Source · Learn · Lab` are
+ * mutually exclusive, and they are exclusive *structurally*: the state is one
+ * nullable id, so a two-open state is not representable. The rail's module
+ * group is the navigation — there is no accordion, no navigator row and no mode
+ * switch, because the mode is now derived from the one field (see
+ * `modeForState`).
  *
- * The rail never collapses. That is not decoration: the provenance chip lives
- * on it, and the product's central honesty claim is that a reader can always
- * tell at a glance whether what they are looking at was measured, simulated or
- * inferred. A zone that can be closed is a zone that can hide that.
+ * **2. A side panel that never scrolls.** Commands, the 128x64 face and a
+ * glance at the selected joint, ~280 px, always visible above Compact. §11.4:
+ * *"Never its own scrollbar — neither Commands nor Face. If content does not
+ * fit, that is a content problem to solve by disclosure, not by adding a
+ * scroller."* So the panel is `overflow: hidden` and the harness asserts BOTH
+ * that it has zero scrollers AND that its `scrollHeight` does not exceed its
+ * `clientHeight` — because hiding an overflow is the same lie as scrolling it,
+ * just quieter.
  *
- * ## Sections stay MOUNTED when they collapse
+ * **3. "More info" screens.** A `<dialog>` per panel card carries the detail:
+ * the full command vocabulary, the OLED at 4x with the full pixel-provenance
+ * prose, the seven-column joint table, the backend switch and the counts.
  *
- * Collapsing is `hidden` on the body, never an unmount, and that is load
- * bearing in four separate places:
+ * ### The line a popover may not cross
+ *
+ * §11.4, and it is the constraint a "minimal panel" brief invites somebody to
+ * tidy away: **correctness surfaces may not be demoted into a popover.** The
+ * driving provenance, the origin (with its board), `measurementVerdict()`,
+ * `PHYSICAL HARDWARE: NONE`, the receive-only warning, the two zero-frame faces
+ * and the "these pixels did not come from the emulator" statement are rendered
+ * on the panel itself. A popover *expands* them — the same claim with the
+ * paragraph attached — and is never where they first appear.
+ *
+ * ## Panes stay MOUNTED when they are not the active module
+ *
+ * `display: none`, never an unmount, and that is load bearing in four places:
  *
  *  - L4's refusal check asserts **zero `.src-line` nodes** when the bundled
  *    source fails its hash. An unmounted pane also has zero, so unmounting
  *    would make the sharpest assertion in the harness pass vacuously.
- *  - L6's checks re-evaluate every 250 ms against live state, and several of
- *    them (`face-mode-identified`) can only be answered from a sample taken
- *    WHILE a movement runs. An unmounted runner stops sampling and the check
- *    becomes unmeasurable rather than failing loudly.
- *  - L4 asserts exactly one `concept-text` element exists. Two responsive
- *    copies of a pane would be two.
+ *  - L6's checks re-evaluate every 250 ms against live state, and several
+ *    (`face-mode-identified`) can only be answered from a sample taken WHILE a
+ *    movement runs. An unmounted runner stops sampling.
+ *  - L4 asserts exactly one `concept-text` element exists.
  *  - V8's `visual.joint` rung is read off `Object3D.quaternion` — what was
  *    actually drawn. The stage is therefore never unmounted either.
  *
- * L7's opposite requirement is preserved by not touching it: the Lab pane's own
- * closed-strip state, where it does not subscribe to `LessonRuntime` at all,
- * still belongs to `LabMode` and is unchanged by whether its dock section is
- * expanded — or by which dock now draws it.
- *
- * ## The pane contract, and one scroller — Phase 4 W2
- *
- * A reader on a laptop reported "everything is too small and too many
- * scrollbars", and the dock nested three deep: `.dock-body`, then
- * `.dock-section-body`, then a pane's own `overflow-y: auto`. U6 fixed that
- * below Wide by hand, inside a media query, and W2 makes it structural:
- *
- *  - every section is a PANE — `<section class="pane" data-pane=ID
- *    aria-labelledby>` with `.pane__header` and `.pane__content` — and the pane
- *    carries `container: pane / inline-size`, so everything inside it responds
- *    to ITS width rather than the window's;
- *  - a pane owns at most ONE ordinary vertical scroller. Anything else that
- *    scrolls has to declare itself with `data-2d-surface`, and there are three:
- *    `code` (429 lines of C++, and the box L4's "selecting a joint scrolled the
- *    code to its first line" assertion is measured against), `graph` (React
- *    Flow's pan surface) and `pixels` (the 128x64 OLED);
- *  - `data-sections` on `.docks` says which of the two height regimes is in
- *    force — `one` pane owning the dock, or `many` sharing it. That is the same
- *    `isSingleOpen()` the accordion obeys, published to CSS so a pane rule can
- *    respond to the regime instead of to `@media (max-width: 1440px)`. W3
- *    changes what sets it; nothing that reads it has to change.
- *
- * `capture-web-screenshots.mjs` drives each pane to nine explicit container
- * widths in two different windows and requires the readings to be identical.
+ * The module COLUMN is therefore rendered at every width and in every state; it
+ * is the column that is `display: none` when no module is active, not the panes
+ * inside it.
  */
-import { useCallback, useEffect, useMemo, useRef, useState, type ReactElement, type ReactNode } from 'react';
+import {
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+  type ReactElement,
+  type ReactNode,
+} from 'react';
 
 import type { BackendId, BackendStatus } from '../backends/types.js';
 import type { Provenance, TelemetryOrigin } from '@sesame-lab/sesame-protocol';
 import { OriginTag, ProvenanceTag } from './ProvenanceTag.js';
 import {
+  activeModuleFor,
   breakpointForWidth,
-  clampDockWidth,
   DEFAULT_SHELL,
-  DOCK_DEFAULT_PX,
   DOCK_IDS,
   DOCK_SECTIONS,
   dockForSection,
-  dockIsOpen,
-  isSingleOpen,
+  isModuleId,
+  isPanelId,
   loadShell,
   MODE_LABEL,
+  MODULE_IDS,
+  MODULE_LABEL,
+  MODULE_RAIL_LABEL,
   modeForState,
+  moduleForDock,
+  panelIsVisible,
+  PANEL_IDS,
   saveShell,
   SECTION_IDS,
-  sectionIsOpen,
   sectionIsVisible,
-  withDockOpen,
-  withDockWidth,
-  withSection,
-  usesWorkbench,
+  sheetsOverStage,
+  toggleModule,
+  withModule,
+  withPanelSheet,
   type Breakpoint,
   type DockId,
+  type ModuleId,
+  type PanelId,
   type SectionId,
   type ShellState,
 } from './shell-state.js';
@@ -123,46 +122,42 @@ export interface ShellController {
   readonly breakpoint: Breakpoint;
   readonly state: ShellState;
   /**
-   * True where the workbench floats above the stage instead of taking width
-   * from it — Compact only, from Phase 4 W3.
+   * True only at Compact, where the module and the panel float over the stage
+   * instead of taking width from it.
    *
-   * It used to be `breakpoint !== 'wide'`, because U6 floated both docks at
-   * Medium so the stage never lost a pixel. §3 replaced that with the 50%-area
-   * rule and the workbench went back into flow, so at Medium the stage really
-   * does shrink and this is `false` there. Below 1100 px nothing else fits and
-   * the workbench is a sheet again.
+   * Above Compact everything is in flow and the stage genuinely resizes, which
+   * is what `data-stage-rule` and the two area assertions are measured against.
    */
-  readonly dockOverlays: boolean;
-  /** True where the shell draws ONE workbench instead of two docks. */
-  readonly usesWorkbench: boolean;
-  /** Which mode the workbench is in. Derived from the open section. */
+  readonly sheets: boolean;
+  /** The one active module, or `null` — the robot has the whole content area. */
+  readonly activeModule: ModuleId | null;
+  /** `Control | Analyze`, derived from the active module. Never stored. */
   readonly mode: DockId;
-  /** Switch mode. Shows that mode's first pane if none of its panes is open. */
-  setMode(mode: DockId): void;
-  isDockOpen(dock: DockId): boolean;
-  /** The section's accordion state, regardless of whether its dock is showing. */
-  isOpen(id: SectionId): boolean;
-  /** Expanded AND its dock showing — what a reader can actually see. */
+  /** True where the side panel has a laid-out box. Always, above Compact. */
+  readonly panelVisible: boolean;
+  setModule(id: ModuleId | null): void;
+  toggleModule(id: ModuleId): void;
+  /** Compact only: show or hide the side panel as a sheet. */
+  setPanelSheet(open: boolean): void;
+  isActive(id: ModuleId): boolean;
+  /** On screen — for a module, active; for a panel card, the panel is showing. */
   isVisible(id: SectionId): boolean;
-  setSection(id: SectionId, open: boolean): void;
-  toggleSection(id: SectionId): void;
-  setDockOpen(dock: DockId, open: boolean): void;
-  setDockWidth(dock: DockId, px: number): void;
   /**
-   * Put a section where it can be seen — §5.2.
+   * Put a pane where it can be seen — the §5 mitigation.
    *
-   * Opens the section's own dock if it is shut and expands the section, which
-   * below Wide closes whatever else was open IN THAT DOCK and shuts the other
-   * dock. Called from the selection path, and only for selections that
-   * originated in the 3D scene: a click inside a pane that is already on screen
-   * needs no help, and hijacking the dock while a learner is mid-lesson would
-   * be worse than the problem it solves.
+   * For a module this activates it, which by construction deactivates whatever
+   * else was up. For a panel card it opens the Compact sheet and is a no-op
+   * above Compact, because the panel is already on screen.
    */
   reveal(id: SectionId): void;
+  /** The debug hook's compatibility shim. See `setSectionCompat`. */
+  setSection(id: SectionId, open: boolean): void;
+  /** The debug hook's compatibility shim. See `moduleForDock`. */
+  setDockOpen(dock: DockId, open: boolean): void;
 }
 
 /**
- * Breakpoint, open sections and dock widths, restored from `localStorage`.
+ * Breakpoint and the active module, restored from `localStorage`.
  *
  * The width is read once on mount and then from `resize`. `matchMedia` would do
  * as well; `innerWidth` is used because the same number is what the harness
@@ -171,7 +166,7 @@ export interface ShellController {
  */
 export function useShell(): ShellController {
   const [state, setState] = useState<ShellState>(DEFAULT_SHELL);
-  const [breakpoint, setBreakpoint] = useState<Breakpoint>('wide');
+  const [breakpoint, setBreakpoint] = useState<Breakpoint>('medium');
 
   // Storage is read in an effect rather than in `useState`'s initialiser so a
   // blocked-storage browser renders the defaults on the first paint instead of
@@ -197,60 +192,108 @@ export function useShell(): ShellController {
     });
   }, []);
 
-  const setSection = useCallback(
-    (id: SectionId, open: boolean) => update((previous) => withSection(previous, breakpoint, id, open)),
+  const setModule = useCallback(
+    (id: ModuleId | null) => update((previous) => withModule(previous, breakpoint, id)),
     [breakpoint, update],
   );
 
-  const toggleSection = useCallback(
-    (id: SectionId) =>
-      update((previous) => withSection(previous, breakpoint, id, !sectionIsOpen(previous, breakpoint, id))),
+  const toggle = useCallback(
+    (id: ModuleId) => update((previous) => toggleModule(previous, breakpoint, id)),
     [breakpoint, update],
   );
 
-  const setDockOpen = useCallback(
-    (dock: DockId, open: boolean) => update((previous) => withDockOpen(previous, dock, breakpoint, open)),
+  const setPanelSheet = useCallback(
+    (open: boolean) => update((previous) => withPanelSheet(previous, breakpoint, open)),
     [breakpoint, update],
-  );
-
-  const setDockWidth = useCallback(
-    (dock: DockId, px: number) => update((previous) => withDockWidth(previous, dock, px)),
-    [update],
   );
 
   const reveal = useCallback(
     (id: SectionId) =>
       update((previous) =>
-        withSection(withDockOpen(previous, dockForSection(id), breakpoint, true), breakpoint, id, true),
+        isModuleId(id)
+          ? withModule(previous, breakpoint, id)
+          : withPanelSheet(previous, breakpoint, true),
       ),
     [breakpoint, update],
   );
 
-  const mode = modeForState(state, breakpoint);
-
-  const setMode = useCallback(
-    (next: DockId) => update((previous) => withDockOpen(previous, next, breakpoint, true)),
+  /*
+   * The compatibility shim, and it is a shim rather than a second model.
+   *
+   * Eight harness phases drive this shell through `setSection(id, open)` and
+   * `setDockOpen(dock, open)`, which were the accordion's verbs. Both are
+   * reduced to the one field:
+   *
+   *   a MODULE   open=true  -> make it the active module
+   *              open=false -> clear it, if it is the one that is active
+   *   a PANEL id open=true  -> show the panel (a no-op above Compact)
+   *              open=false -> hide the Compact sheet; NEVER hides it above
+   *                            Compact, because the panel carries correctness
+   *                            surfaces and a zone that can be closed is a zone
+   *                            that can hide them.
+   */
+  const setSection = useCallback(
+    (id: SectionId, open: boolean) =>
+      update((previous) => {
+        if (isModuleId(id)) {
+          if (open) return withModule(previous, breakpoint, id);
+          return activeModuleFor(previous, breakpoint) === id
+            ? withModule(previous, breakpoint, null)
+            : previous;
+        }
+        return withPanelSheet(previous, breakpoint, open);
+      }),
     [breakpoint, update],
   );
+
+  const setDockOpen = useCallback(
+    (dock: DockId, open: boolean) =>
+      update((previous) => {
+        if (!open) {
+          const active = activeModuleFor(previous, breakpoint);
+          return active !== null && dockForSection(active) === dock
+            ? withModule(previous, breakpoint, null)
+            : previous;
+        }
+        return withModule(previous, breakpoint, moduleForDock(dock));
+      }),
+    [breakpoint, update],
+  );
+
+  const active = activeModuleFor(state, breakpoint);
+  const mode = modeForState(state, breakpoint);
+  const panelVisible = panelIsVisible(state, breakpoint);
 
   return useMemo(
     () => ({
       breakpoint,
       state,
-      dockOverlays: breakpoint === 'compact',
-      usesWorkbench: usesWorkbench(breakpoint),
+      sheets: sheetsOverStage(breakpoint),
+      activeModule: active,
       mode,
-      setMode,
-      isDockOpen: (dock: DockId) => dockIsOpen(state, breakpoint, dock),
-      isOpen: (id: SectionId) => sectionIsOpen(state, breakpoint, id),
+      panelVisible,
+      setModule,
+      toggleModule: toggle,
+      setPanelSheet,
+      isActive: (id: ModuleId) => active === id,
       isVisible: (id: SectionId) => sectionIsVisible(state, breakpoint, id),
-      setSection,
-      toggleSection,
-      setDockOpen,
-      setDockWidth,
       reveal,
+      setSection,
+      setDockOpen,
     }),
-    [breakpoint, state, mode, setMode, setSection, toggleSection, setDockOpen, setDockWidth, reveal],
+    [
+      breakpoint,
+      state,
+      active,
+      mode,
+      panelVisible,
+      setModule,
+      toggle,
+      setPanelSheet,
+      reveal,
+      setSection,
+      setDockOpen,
+    ],
   );
 }
 
@@ -264,6 +307,8 @@ export interface RailProps {
   readonly drivingProvenance: Provenance | null;
   readonly drivingOrigin: TelemetryOrigin | null;
   readonly totalEvents: number;
+  /** Which modules carry a selection the reader is not looking at. */
+  readonly moduleBadges: Readonly<Partial<Record<ModuleId, string>>>;
 }
 
 const BACKEND_RAIL: readonly { id: BackendId; short: string; title: string }[] = [
@@ -272,44 +317,100 @@ const BACKEND_RAIL: readonly { id: BackendId; short: string; title: string }[] =
   { id: 'qemu', short: 'QEM', title: 'QEMU firmware — real firmware, commandable' },
 ];
 
+const MODULE_GLYPH: Readonly<Record<ModuleId, string>> = {
+  modules: '⌗',
+  signal: '∿',
+  source: '‹›',
+  learn: '◪',
+  lab: '⚙',
+};
+
 /**
- * 56 px, always visible, never collapses.
+ * 64 px, always visible, never collapses — and now it is the navigation.
  *
- * Mode, backend, connection and provenance. The provenance chip here is a
- * SUMMARY of the banner in the inspector, not a second opinion: both read
- * `store.drivingProvenance` and `store.drivingOrigin`, so they cannot disagree.
- * The banner keeps its own prose and its own ids — this is a colour and a word.
+ * W3's `Control | Analyze` switch and its section navigator both lived inside
+ * the workbench, which meant the reader had to open a panel to find out what
+ * panels there were. The five modules are mutually exclusive, so they are a
+ * `radiogroup` in the one zone that is always on screen; clicking the checked
+ * one again clears it and gives the robot the whole content area.
+ *
+ * The two honesty badges stay at the foot of it. That is a product requirement
+ * rather than decoration: a zone that can be closed is a zone that can hide
+ * whether what is on screen was measured, simulated or inferred.
  */
 export function Rail(props: RailProps): ReactElement {
-  const { shell, backendId, onBackendChange, status, drivingProvenance, drivingOrigin, totalEvents } = props;
+  const {
+    shell,
+    backendId,
+    onBackendChange,
+    status,
+    drivingProvenance,
+    drivingOrigin,
+    totalEvents,
+    moduleBadges,
+  } = props;
   return (
-    <nav className="rail" data-testid="rail" aria-label="mode, backend and provenance">
-      <div className="rail-group">
-        <button
-          type="button"
-          className={`rail-btn${shell.isVisible('learn') ? ' active' : ''}`}
-          data-rail-mode="learn"
-          title="Learn — guided lessons against the live robot"
-          onClick={() => shell.reveal('learn')}
-        >
-          <span className="rail-glyph" aria-hidden="true">
-            ◪
-          </span>
-          <span className="rail-label">Learn</span>
-        </button>
-        <button
-          type="button"
-          className={`rail-btn${shell.isVisible('lab') ? ' active' : ''}`}
-          data-rail-mode="lab"
-          title="Lab — the unrestricted surface"
-          onClick={() => shell.reveal('lab')}
-        >
-          <span className="rail-glyph" aria-hidden="true">
-            ⚙
-          </span>
-          <span className="rail-label">Lab</span>
-        </button>
+    <nav className="rail" data-testid="rail" aria-label="modules, backend and provenance">
+      <div className="rail-group" role="radiogroup" aria-label="active module" data-testid="rail-modules">
+        {MODULE_IDS.map((id) => {
+          const active = shell.isActive(id);
+          const badge = moduleBadges[id];
+          return (
+            <button
+              key={id}
+              type="button"
+              role="radio"
+              aria-checked={active}
+              aria-label={MODULE_LABEL[id]}
+              className={`rail-btn rail-module${active ? ' active' : ''}`}
+              data-module-nav={id}
+              data-active={String(active)}
+              title={
+                badge === undefined
+                  ? `${MODULE_LABEL[id]} — one module at a time; click again to give the robot the whole area`
+                  : `${MODULE_LABEL[id]} — ${badge}`
+              }
+              onClick={() => shell.toggleModule(id)}
+            >
+              <span className="rail-glyph" aria-hidden="true">
+                {MODULE_GLYPH[id]}
+              </span>
+              <span className="rail-label">{MODULE_RAIL_LABEL[id]}</span>
+              {/*
+                §5.1, at icon size. A selection that landed in a module the
+                reader is not looking at is still announced where they ARE
+                looking. `data-dock-badge` keeps U6's attribute name so the
+                debug hook's one document-wide lookup still finds it.
+              */}
+              {badge !== undefined && !active && (
+                <span className="rail-badge" data-dock-badge={id} data-selection="true">
+                  <i className="dock-badge-dot" aria-hidden="true" />
+                  <span className="rail-badge-text">{badge}</span>
+                </span>
+              )}
+            </button>
+          );
+        })}
       </div>
+
+      {/* Compact only: the side panel is a sheet there, so it needs a way back. */}
+      {shell.sheets && (
+        <div className="rail-group">
+          <button
+            type="button"
+            className={`rail-btn${shell.panelVisible ? ' active' : ''}`}
+            data-testid="rail-panel-toggle"
+            aria-expanded={shell.panelVisible}
+            title="commands, face and the selected joint"
+            onClick={() => shell.setPanelSheet(!shell.panelVisible)}
+          >
+            <span className="rail-glyph" aria-hidden="true">
+              ▤
+            </span>
+            <span className="rail-label">Panel</span>
+          </button>
+        </div>
+      )}
 
       <div className="rail-group" role="radiogroup" aria-label="telemetry backend">
         {BACKEND_RAIL.map((choice) => (
@@ -331,9 +432,10 @@ export function Rail(props: RailProps): ReactElement {
       <div className="rail-spacer" />
 
       {/*
-        The two honesty badges, in the one zone that cannot be closed. The
-        plan's words: the provenance badge must never be more than a glance
-        away, and that is a product requirement rather than decoration.
+        The two honesty badges, in the one zone that cannot be closed. They are
+        a SUMMARY of the side panel's trust card, not a second opinion: both
+        read `store.drivingProvenance` and `store.drivingOrigin`, so they cannot
+        disagree.
       */}
       <div className="rail-status" data-testid="rail-status">
         <span
@@ -358,561 +460,459 @@ export function Rail(props: RailProps): ReactElement {
   );
 }
 
-// ------------------------------------------------------------------- docks
+// -------------------------------------------------------------- the modules
 
-export interface DockSectionSpec {
-  readonly id: SectionId;
+export interface ModuleSpec {
+  readonly id: ModuleId;
   readonly label: string;
-  readonly glyph: string;
-  /**
-   * What the header says while the section is collapsed — §5.1.
-   *
-   * `null` means nothing worth summarising. A non-null value is rendered as
-   * `Modules ● R4`, so a selection that landed in a closed section is still
-   * visible, just summarised, instead of happening where nobody can see it.
-   */
-  readonly badge: string | null;
-  /** True when the badge is about the CURRENT selection rather than a count. */
-  readonly badgeIsSelection: boolean;
+  /** What the title line says beside the label. `null` means nothing worth saying. */
+  readonly note: string | null;
+  readonly noteIsSelection: boolean;
   readonly body: ReactNode;
 }
 
-export interface DocksProps {
+export interface ModuleColumnProps {
   readonly shell: ShellController;
-  readonly sections: readonly DockSectionSpec[];
+  readonly modules: readonly ModuleSpec[];
 }
 
-const DOCK_META: Readonly<Record<DockId, { label: string; hint: string }>> = {
-  control: { label: 'controls', hint: 'commands, face and the Lab — the surfaces that drive this robot' },
-  analysis: { label: 'analysis', hint: 'inspector, modules, signal, source and lessons' },
-};
-
 /**
- * The workbench regime and the two-dock regime, and the scrim that closes a
- * Compact sheet.
+ * The one module column.
  *
- * At Wide (>= 1700 px) `.docks` is in flow and the two docks U6 built take
- * width from the stage; two 360 px docks plus a 64 px rail still leave >=
- * 1276 px of stage there, which clears the 50%-area rule comfortably.
- *
- * Below Wide there is ONE workbench — Phase 4 W3, §3 of the plan. Two docks
- * cannot give a laptop 45 ch of prose AND the stage half the screen: 360+360
- * leaves 43.9% of the area at 1440x900 and 320+320 leaves 49.3%, so the choice
- * was made by arithmetic rather than by preference. One 540 px workbench leaves
- * 56.0%.
- *
- * `.docks` still wraps both regimes, and it still carries `data-sections`. That
- * is deliberate: every pane rule W2 keyed on `[data-sections='one']` — the
- * Source pane's two height regimes, the arch canvas, pane spacing, scroll
- * ownership — goes on working through the change with no pane-rule edits at
- * all, because what those rules describe is "one pane owns this column", which
- * is exactly what a workbench is.
+ * It is rendered at every width and in every state — see the module comment on
+ * why panes may never be unmounted — and it is the COLUMN that disappears when
+ * no module is active. `[data-sections='one']` is kept on the wrapper because
+ * every W2 pane rule keyed on it (the Source pane's two height regimes, the
+ * arch canvas, the lab code block, scroll ownership, pane spacing) describes
+ * exactly this arrangement: one pane owning one column's height behind one
+ * scroller.
  */
-export function Docks(props: DocksProps): ReactElement {
-  const { shell, sections } = props;
-  const overlayOpen = shell.dockOverlays && DOCK_IDS.some((dock) => shell.isDockOpen(dock));
+export function ModuleColumn(props: ModuleColumnProps): ReactElement {
+  const { shell, modules } = props;
+  const active = shell.activeModule;
 
   return (
     <>
       {/*
-        The scrim. Only at Compact, where the workbench is a sheet over the
-        stage: it is what closes it by clicking beside it. It is deliberately
-        NOT rendered at Medium any more — the workbench is in flow there, there
-        is nothing to click "beside", and a scrim over an interactive stage
-        would be the overlay model surviving its own retirement.
+        The scrim. Only at Compact, where the module is a sheet over the stage:
+        it is what closes it by clicking beside it.
       */}
-      {overlayOpen && (
+      {shell.sheets && active !== null && (
         <button
           type="button"
           className="dock-scrim"
           data-testid="dock-scrim"
-          aria-label="close the workbench"
-          onClick={() => {
-            for (const dock of DOCK_IDS) if (shell.isDockOpen(dock)) shell.setDockOpen(dock, false);
-          }}
+          aria-label="close the module"
+          onClick={() => shell.setModule(null)}
         />
       )}
 
-      {/*
-        `data-sections` is the STRUCTURAL form of what used to be a viewport
-        media query — Phase 4 W2, and W3 is the change it was built for.
-
-        `one` means one pane owns the column's height: it renders at its natural
-        height, the body is the single scroller, and the panes inside it do not
-        bound themselves. `many` means several open sections share the column,
-        each bounded, which is what keeps the architecture graph and the Signal
-        trace on screen together at Wide.
-
-        W3 changed what SETS it — a workbench is `one` by definition — and
-        nothing that reads it changed with it. That was the whole point of
-        publishing it as state rather than leaving it inside `@media`.
-      */}
       <div
-        className="docks"
-        data-testid="docks"
-        data-overlay={String(shell.dockOverlays)}
-        data-regime={shell.usesWorkbench ? 'workbench' : 'docks'}
-        data-sections={isSingleOpen(shell.breakpoint) ? 'one' : 'many'}
+        className="docks module-column"
+        data-testid="module-column"
+        data-sections="one"
+        data-regime="module"
+        data-overlay={String(shell.sheets)}
+        data-active-module={active ?? ''}
+        data-breakpoint={shell.breakpoint}
       >
-        {shell.usesWorkbench ? (
-          <Workbench shell={shell} sections={sections} />
-        ) : (
-          DOCK_IDS.map((dock) => (
-            <Dock
-              key={dock}
-              dock={dock}
-              shell={shell}
-              sections={sections.filter((s) => dockForSection(s.id) === dock)}
-            />
-          ))
-        )}
-      </div>
-    </>
-  );
-}
-
-export interface WorkbenchProps {
-  readonly shell: ShellController;
-  readonly sections: readonly DockSectionSpec[];
-}
-
-/**
- * ONE workbench: a mode switch, a section navigator, and the current pane.
- *
- * ```text
- * +----------------------------------+
- * |  Control | Analyze          [>]  |  <- the mode switch, 2 top-level ideas
- * |  Inspector Modules Signal Source |  <- the section navigator, this mode's
- * +----------------------------------+
- * |  Signal                          |  <- the pane title
- * |  ...the pane, and nothing else   |
- * ```
- *
- * The brief's words, and the three things they rule out:
- *
- *  - *"preserve Control and Analyze as top-level concepts, but make them two
- *    modes of a single laptop workbench"* — so the two domains survive; what
- *    does not survive is two of them being on screen at once, each with its own
- *    navigation, its own open state and its own scroll position.
- *  - *"use tabs or a compact section navigator before using nested
- *    accordions"* — so the collapsed-accordion column is gone below Wide. A
- *    pane is chosen from a row of tabs, and the panes that are not chosen are
- *    `display: none` rather than a stack of headers competing for the column.
- *  - *"once a learner is in Signal, that pane should feel like the current
- *    task, not like one accordion section inside a dock inside another dock
- *    beside another dock"* — so the chosen pane gets a plain `<h2>` title and
- *    the entire column, and there is exactly one scroller under it.
- *
- * ## What did NOT change, on purpose
- *
- * **Every pane is still mounted.** `data-open="false"` is `display: none`, the
- * same relationship the accordion's `hidden` body had, and for the same four
- * reasons in this module's header comment: L4's refusal check counts
- * `.src-line` nodes, L6's lesson checks sample while a movement runs, L4 counts
- * `concept-text` elements, and V8 reads the drawn quaternion. An unmounted pane
- * makes all four vacuous.
- *
- * **§5.1 still holds.** A selection that lands in a pane the reader is not
- * looking at is still announced where they ARE looking — on that pane's tab in
- * the navigator, and, when it landed in the other mode, as a dot on the mode
- * switch. It is the same `badge`/`badgeIsSelection` pair the collapsed
- * accordion header used, rendered on the thing that is now on screen.
- *
- * **The mode is derived, not stored.** See `modeForState()`.
- */
-export function Workbench(props: WorkbenchProps): ReactElement {
-  const { shell, sections } = props;
-  const mode = shell.mode;
-  const open = shell.isDockOpen(mode);
-  const inMode = sections.filter((s) => dockForSection(s.id) === mode);
-  const active = inMode.find((s) => shell.isOpen(s.id)) ?? null;
-
-  return (
-    <aside
-      className="workbench"
-      data-testid="workbench"
-      data-workbench=""
-      data-mode={mode}
-      data-open={String(open)}
-      data-overlay={String(shell.dockOverlays)}
-      data-breakpoint={shell.breakpoint}
-      aria-label="workbench"
-    >
-      {/*
-        Collapsed, the workbench is a 44 px icon strip and every one of the
-        eight panes is still one click away — the reachability promise U6 made
-        with two strips, kept with one, and 44 px cheaper for the stage.
-      */}
-      {!open && (
-        <div className="dock-strip workbench-strip" data-testid="workbench-strip">
-          <button
-            type="button"
-            className="dock-strip-btn dock-toggle"
-            data-testid="workbench-toggle"
-            data-dock-toggle-for={mode}
-            aria-expanded={false}
-            title="open the workbench"
-            onClick={() => shell.setDockOpen(mode, true)}
-          >
-            ‹
-          </button>
-          {sections.map((section) => (
-            <button
-              key={section.id}
-              type="button"
-              className={`dock-strip-btn${section.badgeIsSelection ? ' has-selection' : ''}`}
-              data-dock-strip={section.id}
-              title={section.badge === null ? section.label : `${section.label} — ${section.badge}`}
-              onClick={() => shell.reveal(section.id)}
-            >
-              <span aria-hidden="true">{section.glyph}</span>
-              {section.badgeIsSelection && <i className="dock-strip-dot" aria-hidden="true" />}
-            </button>
-          ))}
-        </div>
-      )}
-
-      {open && (
-        <div className="workbench-frame">
-          {/* ------------------------------------------------ the mode switch */}
-          <div className="workbench-head">
-            <div className="workbench-modes" role="radiogroup" aria-label="workbench mode">
-              {DOCK_IDS.map((id) => {
-                /* A selection sitting in the OTHER mode is still announced —
-                   as a dot here, because the navigator only lists one mode's
-                   panes and §5.1 does not stop at a mode boundary. */
-                const carries = sections.some(
-                  (s) => dockForSection(s.id) === id && s.badgeIsSelection && s.id !== active?.id,
-                );
-                return (
-                  <button
-                    key={id}
-                    type="button"
-                    role="radio"
-                    aria-checked={mode === id}
-                    className={`workbench-mode${mode === id ? ' active' : ''}`}
-                    data-workbench-mode={id}
-                    title={DOCK_META[id].hint}
-                    onClick={() => shell.setMode(id)}
-                  >
-                    {MODE_LABEL[id]}
-                    {carries && <i className="dock-badge-dot" aria-hidden="true" />}
-                  </button>
-                );
-              })}
-            </div>
-            <button
-              type="button"
-              className="workbench-collapse"
-              data-testid="workbench-toggle"
-              data-dock-toggle-for={mode}
-              aria-expanded
-              title="close the workbench — the robot takes the whole shell"
-              onClick={() => shell.setDockOpen(mode, false)}
-            >
-              ›
-            </button>
-          </div>
-
-          {/* -------------------------------------------- the section navigator */}
-          <div
-            className="workbench-nav"
-            role="tablist"
-            data-testid="workbench-nav"
-            aria-label={`${MODE_LABEL[mode]} panes`}
-          >
-            {inMode.map((section) => {
-              const isActive = section.id === active?.id;
-              return (
-                <button
-                  key={section.id}
-                  type="button"
-                  role="tab"
-                  id={`nav-${section.id}`}
-                  aria-selected={isActive}
-                  aria-controls={`pane-${section.id}`}
-                  className={`workbench-tab${isActive ? ' active' : ''}`}
-                  data-section-nav={section.id}
-                  title={section.badge === null ? section.label : `${section.label} — ${section.badge}`}
-                  onClick={() => shell.setSection(section.id, true)}
-                >
-                  <span className="workbench-tab-label">{section.label}</span>
-                  {/*
-                    §5.1, on the navigator.
-
-                    Only a SELECTION badge, never a count. "13 commands" beside
-                    every tab is the density the brief is complaining about;
-                    `Inspector ● R4` is the thing a reader would otherwise miss,
-                    and it is the one the harness asserts is legible.
-                  */}
-                  {!isActive && section.badgeIsSelection && section.badge !== null && (
-                    <span
-                      className="dock-badge is-selection"
-                      data-dock-badge={section.id}
-                      data-selection="true"
-                    >
-                      <i className="dock-badge-dot" aria-hidden="true" />
-                      {section.badge}
-                    </span>
-                  )}
-                </button>
-              );
-            })}
-          </div>
-
+        <div className="module-frame" data-testid="module-frame">
           {/*
-            THE single scroller. `data-scroll-owner` is a contract, not a hint:
-            the harness asserts that every OTHER vertical scroller inside a pane
-            either carries `data-2d-surface` or does not exist. `.dock-body` is
-            kept as a class because W2's `[data-sections='one'] .dock-body`
-            spacing rule is about a column owned by one pane, which is what this
-            is.
+            THE single scroller for the module column. `data-scroll-owner` is a
+            contract, not a hint: the harness asserts that every OTHER vertical
+            scroller inside a pane either carries `data-2d-surface` or does not
+            exist.
           */}
           <div
-            className="dock-body workbench-body"
-            data-testid="workbench-body"
+            className="dock-body module-body"
+            data-testid="module-body"
             data-any-open={String(active !== null)}
-            data-scroll-owner="workbench"
+            data-scroll-owner="module"
           >
-            {sections.map((section) => {
-              const sectionOpen = shell.isOpen(section.id);
+            {modules.map((module) => {
+              const isActive = module.id === active;
               return (
                 <section
-                  key={section.id}
-                  className={`pane dock-section workbench-pane${sectionOpen ? ' is-open' : ''}`}
-                  id={`pane-${section.id}`}
-                  role="tabpanel"
-                  data-pane={section.id}
-                  data-dock-section={section.id}
-                  data-dock={dockForSection(section.id)}
-                  data-open={String(sectionOpen)}
-                  aria-labelledby={`pane-${section.id}-title`}
+                  key={module.id}
+                  className={`pane dock-section module-pane${isActive ? ' is-open' : ''}`}
+                  id={`pane-${module.id}`}
+                  data-pane={module.id}
+                  data-dock-section={module.id}
+                  data-dock={dockForSection(module.id)}
+                  data-module={module.id}
+                  data-open={String(isActive)}
+                  aria-labelledby={`pane-${module.id}-title`}
                 >
                   {/*
-                    A TITLE, not a toggle. The navigator above already decides
-                    which pane is showing, and a chevron that collapses the one
-                    pane on screen is the accordion-inside-a-dock idiom the
-                    brief asked us to stop using. The `<h2>` and the id stay
-                    exactly as the pane contract specifies them.
+                    A TITLE, not a toggle and not a tab. The rail decides which
+                    module is showing; a chevron that collapses the one module
+                    on screen is the accordion idiom the brief asked us to stop
+                    using, and a navigator row inside the column would be a
+                    second copy of the rail.
                   */}
-                  <h2
-                    className="pane__header dock-section-header workbench-pane-title"
-                    data-pane-chrome="header"
-                  >
-                    <span className="dock-section-label" id={`pane-${section.id}-title`}>
-                      {section.label}
+                  <h2 className="pane__header module-title" data-pane-chrome="header">
+                    <span className="dock-section-label" id={`pane-${module.id}-title`}>
+                      {module.label}
                     </span>
-                    {section.badge !== null && (
+                    {module.note !== null && (
                       <span
-                        className={`workbench-pane-note${section.badgeIsSelection ? ' is-selection' : ''}`}
-                        data-pane-note={section.id}
+                        className={`module-note${module.noteIsSelection ? ' is-selection' : ''}`}
+                        data-pane-note={module.id}
                       >
-                        {section.badge}
+                        {module.note}
                       </span>
                     )}
+                    <button
+                      type="button"
+                      className="module-close"
+                      data-module-close={module.id}
+                      title="close this module — the robot takes the whole content area"
+                      onClick={() => shell.setModule(null)}
+                    >
+                      ✕
+                    </button>
                   </h2>
                   <div
-                    className="pane__content dock-section-body"
-                    data-pane-content={section.id}
+                    className="pane__content dock-section-body module-content"
+                    data-pane-content={module.id}
                     data-scroll-owner="pane"
-                    hidden={!sectionOpen}
+                    hidden={!isActive}
                   >
-                    {section.body}
+                    {module.body}
                   </div>
                 </section>
               );
             })}
           </div>
         </div>
-      )}
-    </aside>
+      </div>
+    </>
   );
 }
 
-export interface DockProps {
-  readonly dock: DockId;
+// ----------------------------------------------------------- the side panel
+
+export interface PanelCardSpec {
+  readonly id: PanelId;
+  readonly label: string;
+  /** The "more info" screen this card opens, if it has one. */
+  readonly more: { readonly label: string; readonly onOpen: () => void } | null;
+  readonly body: ReactNode;
+  /**
+   * What the card's header still says when the panel had to fold it away.
+   *
+   * A folded card is a disclosure, and §11.4 forbids a disclosure from being
+   * where a correctness surface first appears — so whatever mark the card
+   * carries has to survive the fold. The Face's summary is its pixel
+   * provenance; Commands' is the count of zero-frame faces; the joint glance's
+   * is the selected joint and the provenance of its reading.
+   */
+  readonly summary: ReactNode;
+  /**
+   * Deliberately absent: there is no "elastic" card.
+   *
+   * The first version made the Face card `flex: 0 1 auto` on the theory that a
+   * 128x64 panel is the one surface that can give up height without hiding a
+   * word. On screen it was crushed to **10 px** — and, worse, the crushing did
+   * not register: a `container-type: inline-size` box does not contribute its
+   * overflow to an ancestor's scrollable overflow, so `overflowPx` went on
+   * reading 0 while the whole card was invisible. A safety valve the assertion
+   * cannot see is worse than none, so folding — which is visible in the DOM, in
+   * `data-folded`, and in the card's own summary — is the only mechanism.
+   */
+}
+
+export interface SidePanelProps {
   readonly shell: ShellController;
-  readonly sections: readonly DockSectionSpec[];
+  /** The trust card. Rendered FIRST and never behind a disclosure. */
+  readonly trust: ReactNode;
+  readonly cards: readonly PanelCardSpec[];
 }
 
 /**
- * One dock: its icon strip, its accordion and its drag handle.
+ * Which card folds when the panel runs out of height, and in what order.
  *
- * The 44 px icon strip is all the dock shows until it is opened, which is how
- * every pane stays REACHABLE at every breakpoint without any of them costing
- * the stage a pixel.
+ * The reader's own priority, from §11.4: *"the key information and face that
+ * you'd want to look at while executing commands"*. The joint glance folds
+ * first — it has an "All 8" screen and a line on the status strip. The face
+ * folds second, keeping its name and its pixel provenance on the header.
+ *
+ * **Commands is not in this list, and neither is the trust card.** They cannot
+ * fold at any height. Commands because it is the surface the whole side panel
+ * exists to hold and because `[data-command="wave"]` is the button four harness
+ * phases press — a vocabulary that disappears on a short window is a vocabulary
+ * that is sometimes not there. The trust card because §11.4 forbids a
+ * correctness surface from living behind a disclosure.
+ *
+ * If those two alone do not fit, the panel OVERFLOWS and the harness fails on
+ * it. That is the intended failure: it is a content problem, and the answer is
+ * to make the content shorter rather than to let a scroller or a clip hide it.
  */
-export function Dock(props: DockProps): ReactElement {
-  const { dock, shell, sections } = props;
-  const drag = useRef<{ startX: number; startWidth: number } | null>(null);
-  const open = shell.isDockOpen(dock);
+const FOLD_ORDER: readonly PanelId[] = ['inspector', 'face'];
 
-  const onResizeDown = useCallback(
-    (event: React.PointerEvent<HTMLDivElement>) => {
-      drag.current = { startX: event.clientX, startWidth: shell.state.dockWidthPx[dock] };
-      event.currentTarget.setPointerCapture(event.pointerId);
-    },
-    [dock, shell.state.dockWidthPx],
-  );
+/**
+ * The right-most side panel — §11.4.
+ *
+ * 280 px, always visible above Compact, and **zero scrollers at every width**.
+ * Three mechanisms, in the order they take effect:
+ *
+ *  1. `overflow: hidden` on `.side-panel-inner`, so a scrollbar cannot appear
+ *     however tall the content gets;
+ *  2. the elastic card — the Face — gives up height before anything else does;
+ *  3. and if that is still not enough, cards **fold** in {@link FOLD_ORDER}
+ *     until the content fits, each keeping its header, its "more info" button
+ *     and its `summary`.
+ *
+ * (3) is the plan's own instruction taken literally: *"If content does not fit,
+ * that is a content problem to solve by disclosure, not by adding a scroller."*
+ * It is measured rather than guessed — no height breakpoint, no `@container`
+ * threshold, no viewport query — because the thing that decides is whether this
+ * particular content fits this particular panel, and only a measurement knows.
+ *
+ * ## Why it cannot oscillate
+ *
+ * Folding is monotone within a render pass: the layout effect folds AT MOST ONE
+ * card per commit and never unfolds. Unfolding happens only when the panel's
+ * own box changes size, which is a window resize or a breakpoint change —
+ * observed on `.side-panel` rather than on its content, so a fold cannot be the
+ * event that triggers the next unfold. Converges in at most three commits.
+ */
+export function SidePanel(props: SidePanelProps): ReactElement {
+  const { shell, trust, cards } = props;
+  const visible = shell.panelVisible;
+  const panelRef = useRef<HTMLElement>(null);
+  const innerRef = useRef<HTMLDivElement>(null);
+  const [folded, setFolded] = useState<readonly PanelId[]>([]);
+  /**
+   * What each card costs while it is open, measured rather than assumed.
+   *
+   * This is what makes the fold REVERSIBLE. Without it the panel could only
+   * ever fold further, so one transient measurement during mount — when the
+   * inner box has no height yet and every card "overflows" — would leave the
+   * panel permanently folded on a screen with room for all four. That is
+   * exactly what the first version did.
+   */
+  const naturalPx = useRef<Partial<Record<PanelId, number>>>({});
 
-  const onResizeMove = useCallback(
-    (event: React.PointerEvent<HTMLDivElement>) => {
-      const start = drag.current;
-      if (start === null) return;
-      // The handle is on the dock's LEFT edge, so dragging left widens it.
-      shell.setDockWidth(dock, clampDockWidth(start.startWidth + (start.startX - event.clientX)));
-    },
-    [dock, shell],
-  );
+  /*
+   * The fit, measured after every commit.
+   *
+   * One step per commit and never more, in both directions: fold the next card
+   * in {@link FOLD_ORDER} when the content overflows, unfold the last one when
+   * there is provably room for it — provably, meaning the slack exceeds what
+   * that card measured while it was open. It converges because the cost is
+   * re-measured from the card itself: if unfolding turns out to cost more than
+   * the last measurement said, the next commit folds it again with the true
+   * number and the comparison stops being true.
+   */
+  useLayoutEffect(() => {
+    const inner = innerRef.current;
+    if (inner === null) return;
+    // Not laid out yet — at Compact with the sheet shut this is 0, and folding
+    // on a zero-height box would fold everything for no reason.
+    if (inner.clientHeight < 80) return;
+    for (const el of inner.querySelectorAll('[data-panel-card]')) {
+      const id = el.getAttribute('data-panel-card');
+      if (id !== null && el.getAttribute('data-folded') === 'false' && isPanelId(id)) {
+        naturalPx.current[id] = el.getBoundingClientRect().height;
+      }
+    }
+    const slack = inner.clientHeight - inner.scrollHeight;
+    if (slack < -1) {
+      setFolded((previous) => {
+        const next = FOLD_ORDER.find((id) => !previous.includes(id));
+        return next === undefined ? previous : [...previous, next];
+      });
+      return;
+    }
+    /*
+      Bring one back, most-recently-folded first — which is highest priority
+      first, because folding runs down {@link FOLD_ORDER}. If the top one still
+      does not fit, a LOWER-priority card that does is unfolded instead: an
+      empty gap on the panel teaches nobody anything, and the card that fits is
+      strictly more information than the space it would otherwise leave.
+    */
+    setFolded((previous) => {
+      for (let i = previous.length - 1; i >= 0; i -= 1) {
+        const id = previous[i];
+        if (id === undefined) continue;
+        const card = inner.querySelector(`[data-panel-card="${id}"]`);
+        const foldedPx = card === null ? 0 : card.getBoundingClientRect().height;
+        const cost = (naturalPx.current[id] ?? Number.POSITIVE_INFINITY) - foldedPx;
+        if (slack > cost + 8) return previous.filter((other) => other !== id);
+      }
+      return previous;
+    });
+  });
 
-  const onResizeUp = useCallback((event: React.PointerEvent<HTMLDivElement>) => {
-    drag.current = null;
-    event.currentTarget.releasePointerCapture(event.pointerId);
+  // The panel's own box changed — a window resize, or the Compact sheet
+  // opening. Observed on the panel rather than on its content, so a fold can
+  // never be the event that triggers the next unfold.
+  useEffect(() => {
+    const panel = panelRef.current;
+    if (panel === null || typeof ResizeObserver === 'undefined') return;
+    const observer = new ResizeObserver(() => setFolded([]));
+    observer.observe(panel);
+    return () => observer.disconnect();
   }, []);
 
-  const anyOpen = sections.some((s) => shell.isOpen(s.id));
-
   return (
-    <aside
-      className="dock"
-      data-testid={`dock-${dock}`}
-      data-dock={dock}
-      data-open={String(open)}
-      data-overlay={String(shell.dockOverlays)}
-      data-breakpoint={shell.breakpoint}
-      aria-label={DOCK_META[dock].label}
-      style={{ ['--dock-w' as string]: `${String(shell.state.dockWidthPx[dock])}px` }}
-    >
-      <div className="dock-strip" data-testid={`dock-strip-${dock}`}>
+    <>
+      {shell.sheets && visible && (
         <button
           type="button"
-          className="dock-strip-btn dock-toggle"
-          data-testid={`dock-toggle-${dock}`}
-          data-dock-toggle-for={dock}
-          aria-expanded={open}
-          title={`${open ? 'close' : 'open'} the ${DOCK_META[dock].label} dock — ${DOCK_META[dock].hint}`}
-          onClick={() => shell.setDockOpen(dock, !open)}
-        >
-          {open ? '›' : '‹'}
-        </button>
-        {sections.map((section) => (
-          <button
-            key={section.id}
-            type="button"
-            className={`dock-strip-btn${shell.isVisible(section.id) ? ' active' : ''}${
-              section.badgeIsSelection ? ' has-selection' : ''
-            }`}
-            data-dock-strip={section.id}
-            title={section.badge === null ? section.label : `${section.label} — ${section.badge}`}
-            onClick={() => shell.reveal(section.id)}
-          >
-            <span aria-hidden="true">{section.glyph}</span>
-            {section.badgeIsSelection && <i className="dock-strip-dot" aria-hidden="true" />}
-          </button>
-        ))}
-      </div>
-
-      {/*
-        The workbench scroller. `data-scroll-owner` is a contract, not a hint:
-        the harness asserts that every OTHER vertical scroller inside a pane
-        either carries `data-2d-surface` or does not exist.
-      */}
-      <div
-        className="dock-body"
-        data-testid={`dock-body-${dock}`}
-        data-any-open={String(anyOpen)}
-        data-scroll-owner="workbench"
-      >
-        {sections.map((section) => {
-          const sectionOpen = shell.isOpen(section.id);
-          return (
-            /*
-              THE PANE STRUCTURAL CONTRACT — Phase 4 W2.
-
-              `section.pane[data-pane]` > `.pane__header h2` > `.pane__content`,
-              labelled by its own title, and `container: pane / inline-size` so
-              everything inside it can ask how wide IT is rather than how wide
-              the window is. The dock-era class names are kept alongside the
-              contract ones on purpose: renaming 3,000 lines of selectors in the
-              same change that introduces container queries is exactly the
-              "visual regressions become unattributable" failure the brief warns
-              about.
-            */
-            <section
-              key={section.id}
-              className={`pane dock-section${sectionOpen ? ' is-open' : ''}`}
-              data-pane={section.id}
-              data-dock-section={section.id}
-              data-dock={dock}
-              data-open={String(sectionOpen)}
-              aria-labelledby={`pane-${section.id}-title`}
-            >
-              <h2 className="pane__header dock-section-header" data-pane-chrome="header">
-                <button
-                  type="button"
-                  className="dock-section-toggle"
-                  data-dock-toggle={section.id}
-                  aria-expanded={sectionOpen}
-                  onClick={() => shell.toggleSection(section.id)}
-                >
-                  <span className="dock-caret" aria-hidden="true">
-                    {sectionOpen ? '▾' : '▸'}
-                  </span>
-                  <span className="dock-section-label" id={`pane-${section.id}-title`}>
-                    {section.label}
-                  </span>
-                  {/*
-                    §5.1. Shown only while the section is collapsed: an open
-                    section shows the real thing, and a badge beside it would
-                    be a second, staler statement of the same fact.
-                  */}
-                  {!sectionOpen && section.badge !== null && (
-                    <span
-                      className={`dock-badge${section.badgeIsSelection ? ' is-selection' : ''}`}
-                      data-dock-badge={section.id}
-                      data-selection={String(section.badgeIsSelection)}
-                    >
-                      {section.badgeIsSelection && <i className="dock-badge-dot" aria-hidden="true" />}
-                      {section.badge}
-                    </span>
-                  )}
-                </button>
-              </h2>
-              {/*
-                `hidden` rather than an unmount. See the module comment: four
-                separate harness invariants depend on these panes staying
-                mounted and live while they are shut.
-              */}
-              <div
-                className="pane__content dock-section-body"
-                data-pane-content={section.id}
-                data-scroll-owner="pane"
-                hidden={!sectionOpen}
-              >
-                {section.body}
-              </div>
-            </section>
-          );
-        })}
-      </div>
-
-      {!shell.dockOverlays && open && (
-        <div
-          className="dock-resizer"
-          data-testid={`dock-resizer-${dock}`}
-          role="separator"
-          aria-orientation="vertical"
-          onPointerDown={onResizeDown}
-          onPointerMove={onResizeMove}
-          onPointerUp={onResizeUp}
-          onDoubleClick={() => shell.setDockWidth(dock, DOCK_DEFAULT_PX[dock])}
-          title="drag to resize · double-click to reset"
+          className="dock-scrim"
+          data-testid="panel-scrim"
+          aria-label="close the side panel"
+          onClick={() => shell.setPanelSheet(false)}
         />
       )}
-    </aside>
+      <aside
+        ref={panelRef}
+        className="side-panel"
+        data-testid="side-panel"
+        data-open={String(visible)}
+        data-overlay={String(shell.sheets)}
+        data-breakpoint={shell.breakpoint}
+        data-folded={folded.join(',')}
+        aria-label="commands, face and the selected joint"
+      >
+        <div className="side-panel-inner" ref={innerRef} data-testid="side-panel-inner">
+          {trust}
+          {cards.map((card) => {
+            const isFolded = folded.includes(card.id);
+            return (
+              <section
+                key={card.id}
+                className={`pane panel-card${isFolded ? ' is-folded' : ''}`}
+                data-pane={card.id}
+                data-panel-card={card.id}
+                data-dock-section={card.id}
+                data-dock={dockForSection(card.id)}
+                data-open={String(!isFolded)}
+                data-folded={String(isFolded)}
+                aria-labelledby={`pane-${card.id}-title`}
+              >
+                <h2 className="pane__header panel-card-title" data-pane-chrome="header">
+                  <span className="dock-section-label" id={`pane-${card.id}-title`}>
+                    {card.label}
+                  </span>
+                  {/*
+                    The summary rides on the header whether the card is folded
+                    or not, so the mark it carries is in the same place either
+                    way and the harness reads one selector rather than two.
+                  */}
+                  <span className="panel-card-summary" data-panel-summary={card.id}>
+                    {card.summary}
+                  </span>
+                  {card.more !== null && (
+                    <button
+                      type="button"
+                      className="panel-more"
+                      data-panel-more={card.id}
+                      onClick={card.more.onOpen}
+                      title={`${card.more.label} — the detail, in a screen of its own`}
+                    >
+                      {card.more.label}
+                    </button>
+                  )}
+                </h2>
+                <div
+                  className="pane__content panel-card-body"
+                  data-pane-content={card.id}
+                  data-scroll-owner="pane"
+                  hidden={isFolded}
+                >
+                  {card.body}
+                </div>
+              </section>
+            );
+          })}
+        </div>
+      </aside>
+    </>
   );
 }
 
-/** Every section id, in draw order. Re-exported so `App` need not import both. */
-export { SECTION_IDS, DOCK_IDS, DOCK_SECTIONS, dockForSection, isSingleOpen };
-export type { SectionId, Breakpoint, DockId };
+// ---------------------------------------------------------------- popovers
+
+export interface PopoverProps {
+  readonly id: string;
+  readonly title: string;
+  readonly open: boolean;
+  readonly onClose: () => void;
+  readonly children: ReactNode;
+}
+
+/**
+ * A "more info" screen — §11.4.
+ *
+ * A native `<dialog>` opened with `showModal()`, so focus containment, `Esc`
+ * and the inert backdrop are the platform's rather than ours; zero new
+ * dependencies, and a closed dialog is `display: none`, so nothing inside one
+ * has a laid-out box, is counted as a scroller or is measured by the type scan.
+ *
+ * Rendered as a sibling of the shell's own columns rather than inside the side
+ * panel, which is what keeps the panel's scroller inventory a statement about
+ * the panel.
+ */
+export function Popover(props: PopoverProps): ReactElement {
+  const { id, title, open, onClose, children } = props;
+  const ref = useRef<HTMLDialogElement>(null);
+
+  useEffect(() => {
+    const el = ref.current;
+    if (el === null) return;
+    if (open && !el.open) el.showModal();
+    if (!open && el.open) el.close();
+  }, [open]);
+
+  return (
+    <dialog
+      ref={ref}
+      className="popover"
+      data-popover={id}
+      data-open={String(open)}
+      aria-label={title}
+      onClose={onClose}
+      onCancel={onClose}
+    >
+      <div className="popover-frame">
+        <header className="popover-head">
+          <h2 className="popover-title">{title}</h2>
+          <button
+            type="button"
+            className="popover-close"
+            data-popover-close={id}
+            onClick={onClose}
+          >
+            Close
+          </button>
+        </header>
+        {/*
+          The popover owns ONE scroller. It is not a pane and it is not on the
+          side panel: it is the screen a reader opened on purpose, and the
+          "never a scrollbar" rule is about the glance surface it expands.
+        */}
+        <div className="popover-body" data-scroll-owner="popover">
+          {children}
+        </div>
+      </div>
+    </dialog>
+  );
+}
+
+/** Re-exported so `App` need not import both modules. */
+export {
+  SECTION_IDS,
+  MODULE_IDS,
+  PANEL_IDS,
+  DOCK_IDS,
+  DOCK_SECTIONS,
+  dockForSection,
+  isModuleId,
+  isPanelId,
+  MODE_LABEL,
+  MODULE_LABEL,
+};
+export type { SectionId, Breakpoint, DockId, ModuleId, PanelId };

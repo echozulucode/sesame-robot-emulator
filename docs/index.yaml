@@ -173,6 +173,10 @@ docs:
     type: findings
     status: complete
 
+  - file: docs/findings/W7-module-first-shell.md
+    type: findings
+    status: complete
+
   # Interface specification
   - file: docs/protocol/sesame-telemetry-v1.md
     type: specification

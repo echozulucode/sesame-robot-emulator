@@ -160,25 +160,59 @@ export function measurementVerdict(
   provenance: Provenance | null,
   origin: TelemetryOrigin | null | undefined,
 ): string {
+  const detail = measurementDetail(provenance, origin);
+  const headline = measurementHeadline(provenance, origin);
+  return detail === '' ? headline : `${headline} ${detail}`;
+}
+
+/**
+ * The CLAIM, in one line — Phase 4 W7.
+ *
+ * The side panel is 280 px wide and may never grow a scrollbar, and the full
+ * verdict is four lines of prose there. §11.4 lets a "more info" screen EXPAND
+ * a correctness surface and forbids it from being where one first appears, so
+ * the split is between the claim and its explanation: this sentence is on the
+ * panel permanently and {@link measurementDetail} is in the screen behind it.
+ *
+ * Both are computed from `isPhysicallyObserved()` and from the same origin, so
+ * the short form and the long form cannot say different things.
+ */
+export function measurementHeadline(
+  provenance: Provenance | null,
+  origin: TelemetryOrigin | null | undefined,
+): string {
   if (provenance === null) return 'Nothing has driven this scene yet.';
   const physical = isPhysicallyObserved({
     provenance,
     ...(origin === null || origin === undefined ? {} : { origin }),
   } as Pick<SesameTelemetry, 'provenance'> & { origin?: TelemetryOrigin });
-  if (physical) return 'These numbers were measured on physical hardware.';
+  return physical ? 'These numbers were measured on physical hardware.' : 'Not a measurement.';
+}
+
+/** Why, in the words that differ per backend. Empty when there is nothing to add. */
+export function measurementDetail(
+  provenance: Provenance | null,
+  origin: TelemetryOrigin | null | undefined,
+): string {
+  if (provenance === null) return '';
+  const physical = isPhysicallyObserved({
+    provenance,
+    ...(origin === null || origin === undefined ? {} : { origin }),
+  } as Pick<SesameTelemetry, 'provenance'> & { origin?: TelemetryOrigin });
+  if (physical) return '';
   switch (origin?.kind) {
     case 'emulator':
       return (
-        'Not a measurement. The firmware really executed and really wrote these angles, but it did ' +
+        'The firmware really executed and really wrote these angles, but it did ' +
         'so on emulated silicon — so this shows what the CODE does, not what a servo horn did.'
       );
     case 'host-model':
-      return 'Not a measurement. A host-side model computed this; no firmware executed.';
+      return 'A host-side model computed this; no firmware executed.';
     case 'replay':
-      return 'Not a measurement. These are recorded bytes; whatever produced them is gone.';
+      return 'These are recorded bytes; whatever produced them is gone.';
     default:
       return (
-        'Not a measurement. No origin was stated, and an unstated origin is treated as “not known ' +
+        'No origin was stated, and an unstated origin is treated as “not known ' +
         'to be physical” rather than assumed to be a robot.'
       );
   }

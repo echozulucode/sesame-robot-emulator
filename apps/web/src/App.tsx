@@ -93,15 +93,31 @@ import { RobotScene, type SceneHandles } from './three/RobotScene.js';
 import { commandedDegFromNode, type AssetFacts, type JointRig } from './three/rig.js';
 import { ArchitectureGraph } from './ui/ArchitectureGraph.js';
 import { AssetPanel } from './ui/AssetPanel.js';
-import { BackendPanel, CommandBar } from './ui/Controls.js';
+import { BackendPanel, CommandBar, FaceBar } from './ui/Controls.js';
 import { EmulatorPanel } from './ui/EmulatorPanel.js';
 import { JointInspector } from './ui/JointInspector.js';
 import { OledPanel } from './ui/OledPanel.js';
 import { SignalTrace } from './ui/SignalTrace.js';
 import { SourceExplorer } from './ui/SourceExplorer.js';
-import { Docks, Rail, useShell, type DockSectionSpec, type SectionId } from './ui/Shell.js';
+import {
+  ModuleColumn,
+  Popover,
+  Rail,
+  SidePanel,
+  useShell,
+  type ModuleSpec,
+  type PanelCardSpec,
+} from './ui/Shell.js';
 import { StatusBar } from './ui/StatusBar.js';
-import { sectionForSelection } from './ui/shell-state.js';
+import {
+  moduleForSelection,
+  MODULE_LABEL,
+  stageRuleFor,
+  type ModuleId,
+} from './ui/shell-state.js';
+import { JointGlance } from './ui/JointInspector.js';
+import { ProvenanceTag } from './ui/ProvenanceTag.js';
+import { TrustCard } from './ui/Controls.js';
 import { lessonProgress, loadProgress } from './lessons/progress.js';
 import { LESSON_BY_ID, LESSONS } from './generated/lessons.js';
 
@@ -194,7 +210,9 @@ export function App(): ReactElement {
    * it as `data-focus-pane`, and `data-stage-rule` alongside it says which of
    * the two rules is in force — see the shell element below.
    */
-  const [focusPane, setFocusPane] = useState<SectionId | null>(null);
+  const [focusPane, setFocusPane] = useState<ModuleId | null>(null);
+  /** Which "more info" screen is open, if any. At most one — it is a modal. */
+  const [popover, setPopover] = useState<'trust' | 'commands' | 'face' | 'inspector' | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   const handles = useRef<SceneHandles | null>(null);
@@ -246,12 +264,25 @@ export function App(): ReactElement {
       // playing it: `LessonRunner` calls `selectSymbol` with origin `source`,
       // and hijacking the accordion there would break Learn at Medium to fix a
       // problem Learn does not have.
-      if (shell.usesWorkbench && next.origin === 'scene') {
-        const target = sectionForSelection(next);
+      /*
+        §5.2 — put the pane that EXPLAINS a scene selection where it can be
+        seen. One module is active at a time now, so revealing one puts the
+        other away, which is why this still fires only for selections that
+        originated in the 3D scene: a click inside a module that is already on
+        screen needs no help, and swapping the module out from under a learner
+        mid-lesson would be worse than the problem it solves.
+
+        It no longer depends on the breakpoint. W3 guarded it with a
+        two-docks-are-both-open predicate, because at Wide the target was
+        already on screen; there is one shell now and the target is only ever
+        visible if it IS the active module.
+      */
+      if (next.origin === 'scene') {
+        const target = moduleForSelection(next);
         if (target !== null) shell.reveal(target);
       }
     },
-    [shell.usesWorkbench, shell.reveal],
+    [shell.reveal],
   );
 
   const selectJointFrom = useCallback(
@@ -739,13 +770,13 @@ export function App(): ReactElement {
         expanded: () => [...expanded],
         toggleNode: (id) => toggleExpanded(id),
         shellBreakpoint: () => shell.breakpoint,
-        shellDockOpen: (dock) => shell.isDockOpen(dock),
-        shellDockOverlays: () => shell.dockOverlays,
-        shellDockWidthPx: (dock) => shell.state.dockWidthPx[dock],
-        shellOpenSections: () => shell.state.open[shell.breakpoint],
+        shellActiveModule: () => shell.activeModule,
+        shellPanelVisible: () => shell.panelVisible,
+        shellSheets: () => shell.sheets,
+        shellMode: () => shell.mode,
+        setModule: (id) => shell.setModule(id),
         setSection: (id, open) => shell.setSection(id, open),
         setDockOpen: (dock, open) => shell.setDockOpen(dock, open),
-        setDockWidth: (dock, px) => shell.setDockWidth(dock, px),
       }),
     [
       shell,
@@ -955,23 +986,41 @@ export function App(): ReactElement {
 
   const commandCount = COMMAND_VOCABULARY.filter((c) => c.command !== '').length;
 
-  const sections: readonly DockSectionSpec[] = [
-    // ------------------------------------------------ the control dock
-    //
-    // Commands, Face and Lab: the three surfaces that DRIVE this robot, in the
-    // dock adjacent to it. Commands and Face were the fixed strip under the
-    // stage until this change; Lab came across from the analysis dock, because
-    // the pane that authors the OLED's pixels belongs beside the OLED it
-    // authors, and because a pose editor is not a reading surface.
+  /*
+   * ================================================ THE SIDE PANEL — W7
+   *
+   * Commands, the face, and a glance at the selected joint. ~280 px, always
+   * visible above Compact, and ZERO scrollers at every width — §11.4 is
+   * explicit that a content problem here is solved by disclosure and not by a
+   * scrollbar, so each card carries a "more info" screen and each card's body
+   * is a fixed number of rows rather than a list that grows.
+   *
+   * The TRUST card is rendered separately and first, because it is the one
+   * §11.4 protects by name and it must not be reachable only through a
+   * disclosure of its own.
+   */
+  const panelCards: readonly PanelCardSpec[] = [
     {
       id: 'commands',
       label: 'Commands',
-      glyph: '▷',
-      badge: busy !== null ? `running ${busy}` : `${String(commandCount)} commands`,
-      badgeIsSelection: busy !== null,
+      more: { label: `All ${String(commandCount)}`, onOpen: () => setPopover('commands') },
+      /*
+        The mark that survives a fold: two of the firmware's faces have zero
+        frames and draw nothing at all (ISSUE-20260823-004). The ⚠ buttons say
+        so when the card is open; this says so when it is not.
+      */
+      /* Folded, the card still says whether this backend can command at all —
+         the receive-only bridge is a correctness surface, not a disabled state. */
+      summary:
+        backend !== null && !backend.canCommand ? (
+          <span className="panel-summary-warn">receive-only</span>
+        ) : busy !== null ? (
+          <span>running {busy}</span>
+        ) : null,
       body:
         backend === null ? null : (
           <CommandBar
+            variant="panel"
             backend={backend}
             status={status}
             busy={busy}
@@ -985,84 +1034,100 @@ export function App(): ReactElement {
     {
       id: 'face',
       label: 'Face',
-      glyph: '☺',
-      badge: store.panelIsAuthored
-        ? `${store.face?.name ?? 'authored'} · authored here`
-        : (store.face?.name ?? 'no face yet'),
-      badgeIsSelection: store.panelIsAuthored,
-      body: (
-        <OledPanel
-          panel={store.panel}
-          textureCanvas={oledCanvas}
-          face={store.face}
-          source={store.oledSource}
-          emptyFace={store.emptyFace}
-          panelElided={oledElided}
-          version={store.version}
-          onRedraw={() => {
-            oledDirty.current += 1;
-          }}
-        />
+      more: { label: 'Larger', onOpen: () => setPopover('face') },
+      /* The pixels' own provenance — `inferred` on the QEMU path, because QEMU
+         attaches no SSD1306 and nothing transmitted them. */
+      summary: (
+        <>
+          {store.face === null ? (
+            <span className="muted">none yet</span>
+          ) : (
+            <code>{store.face.name}</code>
+          )}{' '}
+          {store.oledSource.pixelProvenance === null ? (
+            <span className="muted">no pixels</span>
+          ) : (
+            <ProvenanceTag value={store.oledSource.pixelProvenance} />
+          )}{' '}
+          {/*
+            The zero-frame fact rides on the SUMMARY as well as in the card, so
+            it survives a fold. Two of the firmware's 38 faces draw nothing at
+            all (ISSUE-20260823-004) and that may not be a thing a reader has to
+            open a screen to find out.
+          */}
+          <span
+            className="panel-summary-warn"
+            data-zero-frame-faces="2"
+            title="setFace('stand') and setFace('default') draw nothing — the bitmap is weak-undefined (ISSUE-20260823-004)"
+          >
+            ⚠2
+          </span>
+        </>
       ),
-    },
-    // ------------------------------------------------ the analysis dock
-    {
-      id: 'inspector',
-      label: 'Inspector',
-      glyph: '◈',
-      badge: selected ?? `${String(store.totalEvents)} events`,
-      badgeIsSelection: selected !== null,
       body: (
         <>
-          {backend !== null && (
-            <BackendPanel
-              backend={backend}
-              backendId={backendId}
-              onBackendChange={setBackendId}
-              bridgeUrl={bridgeUrl}
-              onBridgeUrlChange={setBridgeUrl}
-              status={status}
-              drivingProvenance={store.drivingProvenance}
-              drivingOrigin={store.drivingOrigin}
-              provenanceCounts={store.provenanceCounts}
-              originCounts={store.originCounts}
-              totalEvents={store.totalEvents}
-            />
-          )}
-
-          <EmulatorPanel
-            facts={emulatorFacts}
-            status={status}
-            physicallyObservedEvents={store.physicallyObservedEvents}
-          />
-
-          <JointInspector
-            joints={store.joints}
-            rig={rig}
-            selected={selected}
-            onSelect={(joint) => selectJointFrom(joint, 'inspector')}
-            canCommand={backend?.canCommand ?? false}
-            onSetJoint={(joint, deg) => void runSetJoint(joint, deg)}
-          />
-
-          <AssetPanel
-            facts={facts}
-            groundPlaneMm={groundPlaneMm}
-            showTopCover={showTopCover}
-            onToggleTopCover={setShowTopCover}
-            driveFromSimulated={driveFromSimulated}
-            onDriveFromSimulated={setDriveFromSimulated}
-            canDriveFromSimulated={canDriveFromSimulated}
+          <OledPanel
+            variant="panel"
+            panel={store.panel}
+            textureCanvas={oledCanvas}
+            face={store.face}
+            source={store.oledSource}
+            emptyFace={store.emptyFace}
+            panelElided={oledElided}
+            version={store.version}
+            onRedraw={() => {
+              oledDirty.current += 1;
+            }}
           />
         </>
       ),
     },
     {
+      id: 'inspector',
+      label: 'Selected joint',
+      more: { label: 'All 8', onOpen: () => setPopover('inspector') },
+      summary:
+        selected === null ? (
+          <span className="muted">none</span>
+        ) : (
+          <>
+            <b>{selected}</b>{' '}
+            {store.joints[selected].provenance !== null && (
+              <ProvenanceTag value={store.joints[selected].provenance} />
+            )}
+          </>
+        ),
+      body: (
+        <JointGlance
+          joints={store.joints}
+          selected={selected}
+          totalEvents={store.totalEvents}
+          jointsCommanded={JOINT_ORDER.filter((j) => store.joints[j].commandedDeg !== null).length}
+        />
+      ),
+    },
+  ];
+
+  /*
+   * ==================================================== THE MODULES — W7
+   *
+   * `Architecture · Signal · Source · Learn · Lab`, mutually exclusive.
+   *
+   * The exclusivity is structural rather than enforced: `ShellState` holds one
+   * nullable id, so a two-open state is not representable and therefore not
+   * reachable. The rail's radiogroup is the only way to change it.
+   *
+   * The Lab is in the set because it is a large EDITING surface — a pose table,
+   * a pixel editor, a C++ round trip — and not a glance surface. §11.3 asks for
+   * that to be flagged if it proves wrong on screen; it does not. At 535 px of
+   * column at 1440x900 the pose table has room it never had in a 400 px dock.
+   */
+  const modules: readonly ModuleSpec[] = [
+    {
       id: 'modules',
-      label: 'Modules',
-      glyph: '⌗',
-      badge: selection.nodeId ?? `${String(expanded.size)} expanded`,
-      badgeIsSelection: selection.nodeId !== null,
+      label: MODULE_LABEL.modules,
+      note: selection.nodeId ?? null,
+      noteIsSelection: selection.nodeId !== null,
       body: (
         <ArchitectureGraph
           expanded={expanded}
@@ -1079,13 +1144,12 @@ export function App(): ReactElement {
     },
     {
       id: 'signal',
-      label: 'Signal',
-      glyph: '∿',
-      badge:
+      label: MODULE_LABEL.signal,
+      note:
         hitRowCount > 0
           ? `${String(hitRowCount)} rows`
           : `${String(shownTrace?.rows.length ?? 0)} rows · ${String(store.totalEvents)} events`,
-      badgeIsSelection: hitRowCount > 0,
+      noteIsSelection: hitRowCount > 0,
       body: (
         <SignalTrace
           trace={shownTrace}
@@ -1098,10 +1162,9 @@ export function App(): ReactElement {
     },
     {
       id: 'source',
-      label: 'Source',
-      glyph: '‹›',
-      badge: selection.symbolId,
-      badgeIsSelection: selection.symbolId !== null,
+      label: MODULE_LABEL.source,
+      note: selection.symbolId,
+      noteIsSelection: selection.symbolId !== null,
       body: (
         <SourceExplorer
           selection={selection}
@@ -1111,11 +1174,11 @@ export function App(): ReactElement {
           traceRows={shownTrace?.rows ?? EMPTY_ROWS}
           onSelectRow={selectTraceRow}
           /*
-            Below Wide the code view has no scrollbar of its own — the dock body
-            is the single scroller there — so what bounds it is a LINE BUDGET
-            the pane announces and a button can lift, rather than a pixel box.
-            At Wide the pixel box is back and is what L4 measures its scroll
-            assertion against.
+            The module column is `[data-sections='one']` — one pane owning one
+            column behind one scroller — so the code view has no scrollbar of
+            its own below Wide and what bounds it is a LINE BUDGET the pane
+            announces and a button can lift. At Wide the pixel box is back and
+            is what L4 measures its scroll assertion against.
           */
           lineBudget={shell.breakpoint === 'wide' ? 240 : 140}
         />
@@ -1123,37 +1186,64 @@ export function App(): ReactElement {
     },
     {
       id: 'learn',
-      label: 'Learn',
-      glyph: '◪',
-      badge: learnBadge,
-      badgeIsSelection: false,
+      label: MODULE_LABEL.learn,
+      note: learnBadge,
+      noteIsSelection: false,
       body: <LessonRunner wiring={lessonWiring} />,
     },
     {
       id: 'lab',
-      label: 'Lab',
-      glyph: '⚙',
-      badge:
+      label: MODULE_LABEL.lab,
+      note:
         labModificationCount === 0
           ? 'robot unmodified'
           : `${String(labModificationCount)} modification${labModificationCount === 1 ? '' : 's'}`,
-      badgeIsSelection: labModificationCount > 0,
+      noteIsSelection: labModificationCount > 0,
       body: <LabMode wiring={labWiring} />,
     },
   ];
+
+  /**
+   * §5.1 — a selection that landed in a module the reader is not looking at.
+   *
+   * Only SELECTION badges reach the rail, never counts: `Arch ● R4` is the
+   * thing a reader would otherwise miss, and "8 rows" beside every glyph is the
+   * density the brief is complaining about. The note is still on the module's
+   * own title, where the module is.
+   */
+  const moduleBadges: Partial<Record<ModuleId, string>> = {};
+  for (const module of modules) {
+    if (module.noteIsSelection && module.note !== null) moduleBadges[module.id] = module.note;
+  }
 
   return (
     <div
       className="shell"
       data-testid="shell"
       data-breakpoint={shell.breakpoint}
-      data-control-dock-open={String(shell.isDockOpen('control'))}
-      data-analysis-dock-open={String(shell.isDockOpen('analysis'))}
-      data-dock-overlay={String(shell.dockOverlays)}
-      data-shell-regime={shell.usesWorkbench ? 'workbench' : 'docks'}
+      data-active-module={shell.activeModule ?? ''}
+      data-panel-open={String(shell.panelVisible)}
+      data-dock-overlay={String(shell.sheets)}
+      data-shell-regime="module-first"
       data-workbench-mode={shell.mode}
       data-focus-pane={focusPane ?? ''}
-      data-stage-rule={focusPane === null ? 'area-50' : 'focus-exempt'}
+      /*
+        WHICH STAGE RULE IS IN FORCE — §11.2, published rather than inferred.
+
+          area-50     no module active: the stage keeps >= 50% of the VIEWPORT
+          content-50  a module is active: >= 50% of the CONTENT area, which is
+                      the viewport minus the rail, the status strip and the side
+                      panel — the plain reading of "with the robot in the other
+                      half"
+          focus-exempt  W4's focus workspace, the brief's sanctioned exception
+
+        The two are NOT averaged into one loose threshold. The app declares
+        which one it is claiming and the harness asserts the declaration against
+        the measured layout; a harness that decided the regime for itself would
+        branch on the same condition the layout branches on and could never
+        disagree with it.
+      */
+      data-stage-rule={stageRuleFor(shell.activeModule, focusPane)}
     >
       {/*
         The rail/stage/workbench row. The status line is a sibling BELOW it
@@ -1170,7 +1260,20 @@ export function App(): ReactElement {
         drivingProvenance={store.drivingProvenance}
         drivingOrigin={store.drivingOrigin}
         totalEvents={store.totalEvents}
+        moduleBadges={moduleBadges}
       />
+
+      {/*
+        The CONTENT area: the stage and the one active module, and nothing else.
+
+        It is a box of its own rather than three siblings in one row because
+        §11.2's rule is about this box: with a module active the stage keeps
+        >= 50% of the CONTENT area, and the two children are `flex: 1 1 0` with
+        `min-width: 0` on the module, so the split is 50/50 by construction and
+        the stage's own 480 px floor is what it gives way to. A rule stated as
+        structure cannot drift from a rule stated as arithmetic.
+      */}
+      <div className="content" data-testid="content">
 
       {/*
         The stage, and it really is a stage now — Phase 4 W3.
@@ -1211,7 +1314,21 @@ export function App(): ReactElement {
         </div>
         </main>
 
-        <Docks shell={shell} sections={sections} />
+        <ModuleColumn shell={shell} modules={modules} />
+      </div>
+
+      <SidePanel
+        shell={shell}
+        trust={
+          <TrustCard
+            drivingProvenance={store.drivingProvenance}
+            drivingOrigin={store.drivingOrigin}
+            physicallyObservedEvents={store.physicallyObservedEvents}
+            onMore={() => setPopover('trust')}
+          />
+        }
+        cards={panelCards}
+      />
       </div>
 
       {/*
@@ -1247,6 +1364,125 @@ export function App(): ReactElement {
         onCommand={(name) => void runCommand(name)}
         onStop={stopMotion}
       />
+
+      {/*
+        ================================================ "MORE INFO" — §11.4
+
+        Three screens, each opened from the card it expands. They are siblings
+        of the shell's columns rather than children of the side panel, which is
+        what keeps the panel's scroller inventory a statement about the panel: a
+        closed `<dialog>` is `display: none`, so nothing inside one has a box,
+        is counted as a scroller, or is measured by the type scan.
+
+        What is in here is DETAIL, never a first appearance. The driving
+        provenance, the origin with its board, `measurementVerdict()`,
+        `PHYSICAL HARDWARE: NONE`, the receive-only warning, the two ⚠ faces and
+        the "these pixels did not come from the emulator" claim are all on the
+        panel itself; these screens add the paragraph, the counts, the table and
+        the 4x view.
+      */}
+      <Popover
+        id="trust"
+        title="What is driving this scene"
+        open={popover === 'trust'}
+        onClose={() => setPopover(null)}
+      >
+        {backend !== null && (
+          <BackendPanel
+            backend={backend}
+            backendId={backendId}
+            onBackendChange={setBackendId}
+            bridgeUrl={bridgeUrl}
+            onBridgeUrlChange={setBridgeUrl}
+            status={status}
+            drivingProvenance={store.drivingProvenance}
+            drivingOrigin={store.drivingOrigin}
+            provenanceCounts={store.provenanceCounts}
+            originCounts={store.originCounts}
+            totalEvents={store.totalEvents}
+          />
+        )}
+        <EmulatorPanel
+          facts={emulatorFacts}
+          status={status}
+          physicallyObservedEvents={store.physicallyObservedEvents}
+        />
+      </Popover>
+
+      <Popover
+        id="commands"
+        title="The whole command vocabulary"
+        open={popover === 'commands'}
+        onClose={() => setPopover(null)}
+      >
+        {backend !== null && (
+          <CommandBar
+            variant="full"
+            backend={backend}
+            status={status}
+            busy={busy}
+            error={error}
+            onCommand={(name) => void runCommand(name)}
+            onFace={(name) => void runFace(name)}
+            onStop={stopMotion}
+          />
+        )}
+      </Popover>
+
+      <Popover
+        id="face"
+        title="The virtual OLED, at 4×"
+        open={popover === 'face'}
+        onClose={() => setPopover(null)}
+      >
+        {backend !== null && (
+          <FaceBar
+            backend={backend}
+            status={status}
+            busy={busy}
+            onFace={(name) => void runFace(name)}
+          />
+        )}
+        <OledPanel
+          variant="full"
+          panel={store.panel}
+          textureCanvas={oledCanvas}
+          face={store.face}
+          source={store.oledSource}
+          emptyFace={store.emptyFace}
+          panelElided={oledElided}
+          version={store.version}
+          onRedraw={() => {
+            oledDirty.current += 1;
+          }}
+        />
+      </Popover>
+
+      <Popover
+        id="inspector"
+        title="All eight joints"
+        open={popover === 'inspector'}
+        onClose={() => setPopover(null)}
+      >
+        <JointInspector
+          joints={store.joints}
+          rig={rig}
+          selected={selected}
+          onSelect={(joint) => selectJointFrom(joint, 'inspector')}
+          canCommand={backend?.canCommand ?? false}
+          onSetJoint={(joint, deg) => void runSetJoint(joint, deg)}
+        />
+
+        <AssetPanel
+          facts={facts}
+          groundPlaneMm={groundPlaneMm}
+          showTopCover={showTopCover}
+          onToggleTopCover={setShowTopCover}
+          driveFromSimulated={driveFromSimulated}
+          onDriveFromSimulated={setDriveFromSimulated}
+          canDriveFromSimulated={canDriveFromSimulated}
+        />
+      </Popover>
     </div>
   );
 }

@@ -391,28 +391,28 @@
   /* ----------------------------------------------------------- center stage */
   .stage {
     /*
-     * `flex-basis: 0`, not `auto` - Phase 4 W2, and this is a defect fix rather
-     * than a preference.
+     * `flex-basis: 0`, not `auto` — Phase 4 W2, and this is a defect fix rather
+     * than a preference. It is MORE load bearing in W7 than it was in W2.
      *
      * With `auto` the stage's basis is its CONTENT width, and its content is a
-     * WebGL canvas that keeps whatever width it was last given. At 1600x900
-     * with both docks in flow that basis was 844 px, the row overflowed, and
-     * flexbox took the difference out of the only shrinkable items - the docks.
-     * The measured result was a dock 306 px wide whose own state said 400,
-     * while `clampDockWidth()` promises never to return less than 320. A dock
-     * that renders narrower than the width it reports is not a styling
-     * preference; it is the layout and the model disagreeing, and W1 measured
-     * what it cost: about 25 characters of lesson prose against the brief's
-     * 45-75.
+     * WebGL canvas that keeps whatever width it was last given. W2 measured
+     * what that cost when the row held two docks: a dock rendering 306 px wide
+     * whose own state said 400 — the layout and the model disagreeing.
      *
-     * With `0` the docks get the width they claim and the stage takes the rest.
-     * They still shrink, but only once the stage has hit its own floor below.
+     * Here the row is the CONTENT box and the two children are the stage and
+     * the module column, so `1 1 0` on both is what makes §11.2's rule
+     * structural: the split is 50/50 because the flex basis is 0 on each, not
+     * because arithmetic somewhere computed half of something. With `auto` the
+     * stage would claim the canvas's last width and the "stage keeps >= 50% of
+     * the content area" reading would be measuring a coincidence.
      */
     flex: 1 1 0;
     /*
-     * The stage's floor outranks the docks' widths. Both docks are
-     * `flex-shrink: 1`, so at a narrow Wide window they give way rather than
-     * squeezing the robot below the 480 px the harness asserts.
+     * The stage's floor outranks the module's share. The module column is
+     * `min-width: 0`, so on a narrow window it gives way rather than squeezing
+     * the robot below the 480 px the harness asserts — which means the stage
+     * ends up with MORE than half the content there, never less. Measured at
+     * 1280x800: 52.7%.
      */
     min-width: min(480px, 100%);
     min-height: 0;
@@ -608,333 +608,87 @@
    * 1,400 px or more. Below Wide it is absolutely positioned against the shell's
    * right edge, so neither dock can take a pixel from the stage.
    */
+  /* ================================================ THE CONTENT AREA — W7
+   *
+   * `rail | CONTENT | side panel`, and the content is `stage | module`.
+   *
+   * The nesting is the point. §11.2 resolved the rule conflict into two named
+   * regimes, and the second one — *"with a module active the stage keeps >= 50%
+   * of the CONTENT area"* — is a statement about this box. Both children are
+   * `flex: 1 1 0` with `min-width: 0` on the module, so the split is 50/50 BY
+   * CONSTRUCTION rather than by arithmetic somebody has to keep in step with a
+   * changing rail or panel width. The stage's own 480 px floor is what it gives
+   * way to on a narrow window, and it gives way in the safe direction: the
+   * stage ends up with MORE than half, never less.
+   *
+   * `flex: 1 1 0` and not `1 1 auto`, for the reason W2 recorded as a defect
+   * fix: with `auto` a flex item's basis is its CONTENT width, and the stage's
+   * content is a WebGL canvas that keeps whatever width it was last given. The
+   * row overflows and the difference comes out of the only shrinkable item.
+   */
+  .content {
+    flex: 1 1 0;
+    min-width: 0;
+    min-height: 0;
+    display: flex;
+    align-items: stretch;
+    overflow: hidden;
+  }
+
+  /* ---------------------------------------------------- the module column
+   *
+   * ONE module at a time — §11.3. `Architecture · Signal · Source · Learn ·
+   * Lab` are mutually exclusive, and the exclusivity is structural: the state
+   * is one nullable id, so a two-open arrangement is not representable.
+   *
+   * `.docks` and `[data-sections='one']` are kept on the wrapper deliberately.
+   * Every W2 pane rule keyed on them — the Source pane's two height regimes,
+   * the arch canvas, the lab code block, scroll ownership, pane spacing —
+   * describes exactly this arrangement, one pane owning one column behind one
+   * scroller, and every one of them went on working when W7 changed what sets
+   * the attribute. That was the whole point of publishing the regime as state
+   * rather than leaving it inside an `@media` block.
+   */
   .docks {
     display: flex;
     align-items: stretch;
     min-width: 0;
   }
 
-  /* ==================================================== THE ONE WORKBENCH
-   *
-   * Phase 4 W3, and §3 of the plan resolved by the user's rule: *"I'd rather
-   * the robot area shrink. 50% of the screen area is more than enough."*
-   *
-   * Below 1700 px there is ONE workbench, IN FLOW, and the stage genuinely
-   * resizes. Everything the overlay existed to protect — the stage's width —
-   * the user has now said is fine to spend, and spending it buys the one thing
-   * two docks could not: a pane wide enough to read.
-   *
-   *   1440 - 64 rail - 540 workbench = 836 px of stage, 868 tall  -> 56.0%
-   *   two 320 px docks                                            -> 49.3%
-   *   two 360 px docks                                            -> 43.9%
-   *
-   * `--workbench-w` IS the brief's triple. `37.5vw` is 540 px at exactly
-   * 1440 — the recommended target — and the clamp is the recommended 500/560
-   * min and max. Written as one `clamp()` rather than three media queries
-   * because a width that steps is a width that has a wrong value on either side
-   * of the step.
-   */
-  .workbench {
-    --workbench-w: clamp(500px, 37.5vw, 560px);
-    flex: 0 0 auto;
-    display: flex;
-    align-items: stretch;
-    position: relative;
-    min-width: 44px;
-    background: #10141a;
-    border-left: 1px solid var(--line);
-    overflow: hidden;
+  .module-column {
+    flex: 1 1 0;
+    min-width: 0;
+    min-height: 0;
+    padding: 0;
   }
 
   /*
-   * The inset is PADDING on the workbench, not a margin on the frame, so that
-   * `--workbench-w` is the whole footprint the stage arithmetic above spends.
-   * 540 px of footprint leaves a 526 px card and about a 494 px pane, which is
-   * roughly 53 ch of 17 px prose — inside the brief's 45-75 band, and the
-   * number W2 handed forward.
+   * No module: the column has no box at all, and the robot takes the content
+   * area. `display: none` rather than an unmount — the panes inside stay
+   * mounted and live, which four separate harness invariants depend on (see
+   * `ui/Shell.tsx`).
    */
-  .workbench[data-open='true'] {
-    flex: 0 1 var(--workbench-w);
-    width: var(--workbench-w);
-    padding: 12px 12px 12px 0;
-    border-left-color: transparent;
-    background: transparent;
+  .module-column[data-active-module=''] {
+    display: none;
   }
 
-  /* Shut, the workbench is its 44 px icon strip and every pane is still one
-     click away — U6's reachability promise, kept with one strip instead of
-     two, which is 44 px the stage gets back. */
-  .workbench[data-open='false'] {
-    flex: 0 0 44px;
-    width: 44px;
-  }
-
-  .workbench-strip {
-    border-right: 0;
-    border-left: 1px solid var(--line);
-  }
-
-  .workbench-frame {
+  .module-frame {
     flex: 1 1 auto;
     min-width: 0;
     min-height: 0;
     display: flex;
     flex-direction: column;
-    border: 1px solid var(--line);
-    border-radius: 10px;
-    background: #10141a;
-    overflow: hidden;
-  }
-
-  /* --------------------------------------------- Control | Analyze
-   *
-   * The brief: *"preserve Control and Analyze as top-level concepts, but make
-   * them two modes of a single laptop workbench"*. Two segments, 36 px high
-   * (the brief's control size), 14 px floor, and nothing else on the row except
-   * the collapse chevron.
-   */
-  .workbench-head {
-    flex: 0 0 auto;
-    display: flex;
-    align-items: center;
-    gap: var(--space-2);
-    padding: var(--space-2);
-    border-bottom: 1px solid var(--line);
-    background: var(--panel-2);
-  }
-
-  .workbench-modes {
-    flex: 1 1 auto;
-    display: flex;
-    min-width: 0;
-    border: 1px solid var(--line);
-    border-radius: 8px;
-    overflow: hidden;
-  }
-
-  .workbench-mode {
-    flex: 1 1 0;
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    gap: var(--space-1);
-    min-height: 36px;
-    padding: var(--space-1) var(--space-2);
-    background: var(--panel);
-    color: var(--dim);
-    border: 0;
-    cursor: pointer;
-    font: inherit;
-    font-size: var(--font-ui);
-    letter-spacing: 0.06em;
-    text-transform: uppercase;
-  }
-
-  .workbench-mode + .workbench-mode {
-    border-left: 1px solid var(--line);
-  }
-
-  .workbench-mode:hover {
-    color: var(--text);
-  }
-
-  .workbench-mode.active {
-    background: #1d2938;
-    color: #cfe0fb;
-  }
-
-  .workbench-collapse {
-    flex: 0 0 auto;
-    width: 36px;
-    min-height: 36px;
-    background: var(--panel);
-    color: var(--dim);
-    border: 1px solid var(--line);
-    border-radius: 8px;
-    cursor: pointer;
-    font: inherit;
-    font-size: var(--font-heading);
-    line-height: 1;
-  }
-
-  .workbench-collapse:hover {
-    color: var(--text);
-    border-color: var(--accent);
-  }
-
-  /* ------------------------------------------- the section navigator
-   *
-   * *"Use tabs or a compact section navigator BEFORE using nested
-   * accordions."* This is that navigator: one row per mode, three tabs in
-   * Control and five in Analyze, wrapping rather than scrolling because a
-   * horizontal scroller for five words is chrome pretending to be a control.
-   */
-  .workbench-nav {
-    flex: 0 0 auto;
-    display: flex;
-    flex-wrap: wrap;
-    gap: var(--space-1);
-    padding: var(--space-2);
-    border-bottom: 1px solid var(--line);
-    background: var(--panel);
-  }
-
-  .workbench-tab {
-    display: inline-flex;
-    align-items: center;
-    gap: var(--space-1);
-    min-height: 36px;
-    padding: var(--space-1) var(--space-2);
-    background: transparent;
-    color: var(--dim);
-    border: 1px solid transparent;
-    border-radius: 7px;
-    cursor: pointer;
-    font: inherit;
-    font-size: var(--font-ui);
-  }
-
-  .workbench-tab:hover {
-    color: var(--text);
-    border-color: var(--line);
-  }
-
-  .workbench-tab.active {
-    background: #1d2938;
-    border-color: var(--accent);
-    color: #cfe0fb;
-  }
-
-  .workbench-tab .dock-badge {
-    margin-left: 0;
-  }
-
-  /* --------------------------------------------------- the current pane
-   *
-   * A pane that is not the current one is `display: none` — the same
-   * relationship the accordion's `hidden` body had, and mounted for the same
-   * four reasons (see ui/Shell.tsx). It is NOT an unmount.
-   */
-  .workbench-pane[data-open='false'] {
-    display: none;
-  }
-
-  .workbench-pane {
-    border: 0;
-    border-radius: 0;
-    background: transparent;
-  }
-
-  /*
-   * The pane's own title: a heading, not a toggle. *"Once a learner is in
-   * Signal, that pane should feel like the current task"* — so it gets the
-   * pane-title token, the whole column, and no chevron suggesting there is
-   * another accordion underneath it.
-   */
-  .workbench-pane-title {
-    display: flex;
-    flex-wrap: wrap;
-    align-items: baseline;
-    gap: var(--space-1) var(--space-2);
-    padding: 0 var(--space-1) var(--space-2);
-    border-bottom: 1px solid var(--line);
-    color: var(--text);
-    font-size: var(--font-title);
-    letter-spacing: 0.06em;
-    text-transform: uppercase;
-  }
-
-  .workbench-pane-note {
-    margin-left: auto;
-    color: var(--muted);
-    font-size: var(--font-badge);
-    letter-spacing: 0;
-    text-transform: none;
-  }
-
-  .workbench-pane-note.is-selection {
-    color: #cfe0fb;
-  }
-
-  .dock {
-    flex: 0 1 var(--dock-w, 460px);
-    width: var(--dock-w, 460px);
-    min-width: 44px;
-    display: flex;
-    align-items: stretch;
-    position: relative;
     border-left: 1px solid var(--line);
     background: #10141a;
     overflow: hidden;
   }
 
   /*
-   * Closed at Wide: the 44 px icon strip is all that is left, and every pane is
-   * still one click away. `flex-basis` is what shrinks, so the stage grows into
-   * the space — at Wide the docks ARE in flow and pushing is the correct
-   * behaviour.
-   */
-  .dock[data-open='false'] {
-    flex: 0 0 44px;
-    width: 44px;
-  }
-
-  .dock-strip {
-    flex: 0 0 44px;
-    width: 44px;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    gap: 4px;
-    padding: 8px 2px;
-    border-right: 1px solid var(--line);
-    background: #0d1117;
-  }
-
-  .dock-strip-btn {
-    position: relative;
-    width: 34px;
-    height: 30px;
-    background: transparent;
-    color: var(--dim);
-    border: 1px solid transparent;
-    border-radius: 6px;
-    cursor: pointer;
-    font: inherit;
-    font-size: var(--font-heading);
-    line-height: 1;
-  }
-
-  .dock-strip-btn:hover {
-    color: var(--text);
-    border-color: var(--line);
-  }
-
-  .dock-strip-btn.active {
-    border-color: var(--accent);
-    background: #1d2938;
-    color: #cfe0fb;
-  }
-
-  /* §5.1 again, at icon size: a selection that landed in a closed section is
-     still announced, here as a dot on the strip button. */
-  .dock-strip-dot {
-    position: absolute;
-    top: 3px;
-    right: 3px;
-    width: 6px;
-    height: 6px;
-    border-radius: 50%;
-    background: var(--accent);
-  }
-
-  /*
-   * THE dock scroller.
+   * THE single scroller for the module column.
    *
-   * At Wide several sections are open at once and each bounds itself, so this
-   * rarely has anything to scroll. Below Wide it is the ONLY scrollable box in
-   * the dock: one section is open, it renders at its content height, and this is
-   * what a reader drags. See the MEDIUM block below.
+   * `data-scroll-owner` is a contract, not a hint: the harness asserts that
+   * every OTHER vertical scroller inside a pane either carries
+   * `data-2d-surface` or does not exist.
    */
   .dock-body {
     flex: 1 1 auto;
@@ -943,119 +697,104 @@
     display: flex;
     flex-direction: column;
     overflow-y: auto;
-    padding: 8px;
-    gap: 8px;
+    padding: 10px;
+    gap: 10px;
   }
 
-  .dock[data-open='false'] .dock-body {
+  /*
+   * The module column's chrome is 26 px, and that number is load bearing.
+   *
+   * W4's bands are keyed to the ARTIFACT's own box: 720 px for the subsystem
+   * graph, 960 px for the whole 63-node map. The module column gets half the
+   * content area, so every pixel of nesting between the column and
+   * `.arch-surface` pushes those bands to a wider window:
+   *
+   *   surface = (innerWidth - 64 rail - 280 panel) / 2 - chrome
+   *
+   * At 84 px of chrome — a frame border, a dock body's padding, the pane's
+   * padding AND the `.panel` inside it — a 1920x1080 monitor got 691 px and the
+   * causal path. Flattening the panel-inside-a-panel to 26 px gets it 749 and
+   * the subsystem graph. It is also the right thing visually: a card inside a
+   * card inside a column is the nested chrome the brief is complaining about.
+   */
+  /*
+   * `[data-sections='one'] .dock-body` sets 12 px of padding, and it outranks a
+   * bare `.module-body` by specificity. Written at the same weight so the
+   * intent is visible rather than accidental: the pane's own padding inside is
+   * the module column's only inset, and the 24 px this saves is 24 px of
+   * architecture surface at every width.
+   */
+  [data-sections='one'] .dock-body.module-body {
+    gap: 0;
+    padding: 0;
+  }
+
+  .module-pane[data-open='false'] {
     display: none;
   }
 
-  .dock-section {
+  .module-pane {
     display: flex;
     flex-direction: column;
     min-height: 0;
-    border: 1px solid var(--line);
-    border-radius: 8px;
-    background: var(--panel);
-    overflow: hidden;
+    border: 0;
+    background: transparent;
   }
 
   /*
-   * An OPEN section shares the dock's height with the other open ones rather than
-   * stacking to its natural height. That is what keeps V8's requirement true at
-   * Wide: the architecture graph and the Signal trace are both open by default
-   * and both on screen at once, because the cross-highlight between them is the
-   * feature and a scroll between them destroys it.
+   * The module's own title: a heading, not a toggle and not a tab row.
    *
-   * Below Wide this is overridden: one section, natural height, one scroller.
+   * The rail decides which module is showing. A chevron here would be the
+   * accordion the brief asked us to stop using, and a navigator row would be a
+   * second copy of the rail three inches to its right.
    */
-  .dock-section.is-open {
-    flex: 1 1 0;
-    min-height: 220px;
-  }
-
-  .dock-section-header {
-    margin: 0;
-    font-size: var(--font-title);
-    font-weight: 600;
-  }
-
-  /* `flex-wrap` because the title is 20px now: a 12px title left room for the
-     §5.1 badge beside it in a 230px dock, and a 20px one does not. The badge
-     drops to its own line rather than being cut, which is the same trade the
-     rest of this workstream makes. */
-  .dock-section-toggle {
-    width: 100%;
+  .module-title {
     display: flex;
     flex-wrap: wrap;
-    align-items: center;
+    align-items: baseline;
     gap: var(--space-1) var(--space-2);
-    padding: var(--space-2) var(--space-2);
-    background: var(--panel-2);
-    color: var(--dim);
-    border: 0;
+    margin: 0;
+    padding: 0 var(--space-1) var(--space-2);
     border-bottom: 1px solid var(--line);
-    cursor: pointer;
-    font: inherit;
+    color: var(--text);
     font-size: var(--font-title);
+    font-weight: 600;
     letter-spacing: 0.06em;
     text-transform: uppercase;
-    text-align: left;
   }
 
-  .dock-section.is-open .dock-section-toggle {
-    color: var(--text);
-  }
-
-  .dock-caret {
-    color: var(--muted);
-    font-size: var(--font-badge);
-  }
-
-  .dock-section-label {
-    flex: 0 1 auto;
-    min-inline-size: 0;
-  }
-
-  /*
-   * §5.1 — the badge on a collapsed header.
-   *
-   * Clicking `R4` in the 3D scene highlights it in the graph, the trace and the
-   * inspector. If those sections are collapsed the highlight happens where nobody
-   * can see it and the app appears to do nothing, which would be a regression in
-   * the feature Phase 2 spent the most effort on. So a collapsed header carries a
-   * dot and a summary — `Modules ● R4` — and the selection is still visible, just
-   * summarised.
-   */
-  .dock-badge {
+  .module-note {
     margin-left: auto;
-    display: inline-flex;
-    align-items: center;
-    gap: var(--space-1);
-    max-width: 100%;
-    overflow: visible;
-    text-overflow: clip;
-    white-space: normal;
-    text-align: right;
+    color: var(--muted);
     font-size: var(--font-badge);
     letter-spacing: 0;
     text-transform: none;
-    color: var(--muted);
   }
 
-  .dock-badge.is-selection {
+  .module-note.is-selection {
     color: #cfe0fb;
   }
 
-  .dock-badge-dot {
+  .module-close {
     flex: 0 0 auto;
-    width: 6px;
-    height: 6px;
-    border-radius: 50%;
-    background: var(--accent);
+    width: 36px;
+    min-height: 36px;
+    background: transparent;
+    color: var(--dim);
+    border: 1px solid transparent;
+    border-radius: 7px;
+    cursor: pointer;
+    font: inherit;
+    font-size: var(--font-badge);
+    line-height: 1;
   }
 
+  .module-close:hover {
+    color: var(--text);
+    border-color: var(--line);
+  }
+
+  .module-content,
   .dock-section-body {
     flex: 1 1 auto;
     min-height: 0;
@@ -1066,11 +805,406 @@
     padding: 10px;
   }
 
-  /* Collapsed is `hidden`, never an unmount: four separate harness invariants
-     depend on these panes staying mounted and live while they are shut. See the
-     module comment in ui/Shell.tsx. */
   .dock-section-body[hidden] {
     display: none;
+  }
+
+  /* ================================================== THE SIDE PANEL — W7
+   *
+   * §11.4, and the one hard rule in it:
+   *
+   * > *"Never its own scrollbar — neither Commands nor Face. If content does
+   * > not fit, that is a content problem to solve by disclosure, not by adding
+   * > a scroller."*
+   *
+   * Three declarations do that, and the third is the one that makes the
+   * assertion honest rather than decorative:
+   *
+   *  1. `overflow: hidden` here, so a scrollbar cannot appear;
+   *  2. every card `flex: 0 0 auto` except `.is-elastic` — the Face, the one
+   *     surface that can be made smaller without hiding a word, and the one
+   *     with a 4x screen to go back to;
+   *  3. the harness asserts `scrollHeight <= clientHeight` AS WELL AS zero
+   *     scrollers, because `overflow: hidden` turns "it scrolls" into "it is
+   *     cut", which is worse rather than better, and a scroller count alone
+   *     would read zero while a provenance badge sat below the fold.
+   *
+   * 280 px, and the number is arithmetic rather than taste — see `PANEL_W_PX`
+   * in `ui/shell-state.ts`: it is the width that leaves the architecture module
+   * 727 px of surface at 1920x1080, over W4's 720 px subsystem boundary, where
+   * 300 px leaves 717 and drops the pane back to the causal path.
+   */
+  .side-panel {
+    --panel-w: 280px;
+    flex: 0 0 var(--panel-w);
+    width: var(--panel-w);
+    min-width: var(--panel-w);
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+    border-left: 1px solid var(--line);
+    background: #10141a;
+    overflow: hidden;
+  }
+
+  /*
+   * 4 px of gap and 4 px of padding, and that is a measurement rather than a
+   * taste: at 8 px the fold logic could not fit the Face card at 1440x900 and
+   * the joint glance at 1920x1080 — both by single-digit pixels. The panel pays
+   * for chrome in the one currency §11.4 will not let it spend.
+   */
+  .side-panel-inner {
+    flex: 1 1 auto;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-1);
+    padding: var(--space-1);
+    overflow: hidden;
+  }
+
+  /*
+   * `overflow: visible`, deliberately, and this is the declaration that makes
+   * the panel's assertion real.
+   *
+   * A card that clipped its own content would keep `side-panel-inner`'s
+   * `scrollHeight` equal to its `clientHeight`, so the harness's "the panel
+   * does not overflow" reading would go on saying 0 while a provenance badge
+   * sat behind the clip. With the cards visible, any content that does not fit
+   * propagates into the panel's own scrollable-overflow region and the number
+   * moves. One `overflow: hidden`, at the top, is the whole containment.
+   */
+  .panel-card {
+    flex: 0 0 auto;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    background: var(--panel);
+    overflow: visible;
+  }
+
+  .panel-card-title {
+    flex: 0 0 auto;
+    border-radius: 7px 7px 0 0;
+    display: flex;
+    align-items: center;
+    gap: var(--space-1);
+    margin: 0;
+    /* The 36 px control inside sets the row's height; the padding here is only
+       what keeps it off the border, and four of these rows is 20 px of panel. */
+    padding: 2px var(--space-2);
+    border-bottom: 1px solid var(--line);
+    background: var(--panel-2);
+    color: var(--dim);
+    font-size: var(--font-badge);
+    font-weight: 600;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+  }
+
+  .panel-card-body {
+    flex: 1 1 auto;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-1);
+    padding: var(--space-2);
+    overflow: visible;
+  }
+
+  /*
+   * The summary that rides on a card's header, folded or not — see
+   * `PanelCardSpec.summary`. It is what keeps a folded card's correctness mark
+   * on the panel rather than behind the disclosure that folded it.
+   */
+  .panel-card-summary {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--space-1);
+    min-width: 0;
+    overflow: visible;
+    text-overflow: clip;
+    white-space: normal;
+    font-size: var(--font-badge);
+    font-weight: 400;
+    letter-spacing: 0;
+    text-transform: none;
+    color: var(--muted);
+  }
+
+  .panel-summary-warn {
+    color: var(--warn);
+  }
+
+  .panel-card.is-folded {
+    flex: 0 0 auto;
+  }
+
+  .panel-card-body[hidden] {
+    display: none;
+  }
+
+  /*
+   * "More info" — a button, at the brief's 36 px minimum target, on the card it
+   * expands. It is never the FIRST place a correctness surface appears; §11.4
+   * is explicit and `PanelReading.correctness` asserts it.
+   */
+  .panel-more {
+    margin-left: auto;
+    min-height: 36px;
+    padding: var(--space-1) var(--space-2);
+    background: transparent;
+    color: var(--accent);
+    border: 1px solid var(--line);
+    border-radius: 6px;
+    cursor: pointer;
+    font: inherit;
+    font-size: var(--font-badge);
+    letter-spacing: 0;
+    text-transform: none;
+  }
+
+  .panel-more:hover {
+    color: #cfe0fb;
+    border-color: var(--accent);
+  }
+
+  /* ------------------------------------------------------ the trust card
+   *
+   * The card §11.4 is written about, and the reason the panel is not merely a
+   * convenience: the driving provenance, the origin with its board,
+   * `measurementVerdict()` and `PHYSICAL HARDWARE: NONE` are here, above every
+   * disclosure, at every width.
+   */
+  /*
+   * The trust card wears `.prov-banner` for its colour — the border says which
+   * provenance is driving — and the banner's own 10 px margin and padding are
+   * a second card inside the card here. Removed rather than tolerated: every
+   * pixel this card spends is a pixel the Face and the joint glance do not
+   * have, and the side panel pays for height in the one currency §11.4 will
+   * not let it spend.
+   */
+  .panel-trust {
+    margin: 0;
+    padding: 0;
+    border-radius: 8px;
+    background: var(--panel);
+  }
+
+  .panel-trust .prov-banner-head {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--space-1);
+    margin: 0;
+  }
+
+  /*
+   * The glance card's key/value pairs stay a two-column grid at 280 px.
+   *
+   * W2's container query stacks `dl.kv` below 520 px of pane, which is right
+   * for a dock that got narrow and wrong for a card that was DESIGNED at this
+   * width: stacking doubles the row count, and the side panel pays for height
+   * in the one currency §11.4 will not let it spend — a scroller. Five stacked
+   * pairs is 220 px; five rows is 120.
+   */
+  .joint-glance .kv {
+    grid-template-columns: auto minmax(0, 1fr);
+    row-gap: var(--space-1);
+  }
+
+  .panel-trust #measurement-verdict {
+    margin: 0;
+    color: var(--text);
+    font-size: var(--font-badge);
+    line-height: var(--leading-body);
+  }
+
+  /*
+   * `display: inline` with real spaces, NOT `inline-flex` with a gap.
+   *
+   * W3 measured this rather than choosing it: a flex item is blockified, and a
+   * block box drops the trailing whitespace inside it, so the environment line
+   * LOOKED right and serialised as `PHYSICAL HARDWARE:NONE` to `textContent`,
+   * to a screen reader, and to anyone who copied it. A correctness surface has
+   * to be correct in the accessibility tree too.
+   */
+  .panel-hardware {
+    display: inline;
+    overflow: visible;
+    text-overflow: clip;
+    font-size: var(--font-badge);
+    letter-spacing: 0.05em;
+  }
+
+  .panel-hardware-label {
+    color: var(--muted);
+  }
+
+  .panel-hardware-none {
+    color: var(--ok, #7fd18a);
+  }
+
+  .panel-hardware-some {
+    color: var(--warn);
+  }
+
+  /* ------------------------------------------------- the panel's own panes
+   *
+   * The cards hold the same components the docks did, so the components' own
+   * `.panel` chrome is stripped here rather than in the components: a card IS
+   * the panel, and a panel inside a panel is the nested-chrome density the
+   * brief is complaining about.
+   */
+  .panel-card-body > .panel {
+    border: 0;
+    border-radius: 0;
+    background: transparent;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-2);
+    min-height: 0;
+  }
+
+  .command-bar-panel .cmd-grid {
+    gap: var(--space-1);
+  }
+
+  .command-bar-panel .cmd-grid.faces {
+    margin-top: 0;
+  }
+
+  .command-bar-panel .note {
+    margin: 0;
+  }
+
+  .panel-card-body > .panel > .panel-header {
+    margin: 0;
+  }
+
+  /*
+   * The OLED at an INTEGER 2x — 256 px in a 280 px panel.
+   *
+   * W2 handed the integer-zoom policy on as open: `width: 100%` in a 377 px
+   * pane made one logical pixel 2.94 device pixels and put the SSD1306's
+   * page-grid lines between them. A fixed-width panel is the first arrangement
+   * where an integer zoom is simply available, so this takes it. The elastic
+   * card can shrink it below 2x on a short window, which is a legibility trade
+   * the 4x "more info" screen exists to answer.
+   */
+  .oled-panel-compact .oled-canvas {
+    width: 256px;
+    max-width: 100%;
+    height: auto;
+    /* The safety valve for a short window: the glass gives up height before
+       the panel gives up a word. `object-fit` rather than a smaller integer
+       zoom, because a non-integer zoom is the thing W2 recorded as putting the
+       SSD1306's page-grid lines between device pixels. */
+    max-height: 100%;
+    object-fit: contain;
+    align-self: center;
+  }
+
+  .oled-panel-compact {
+    min-height: 0;
+  }
+
+  /* Short-form warnings on the panel: the claim, not the paragraph. */
+  .warn-short p {
+    margin: var(--space-1) 0 0;
+  }
+
+  .joint-glance .kv {
+    margin: 0;
+  }
+
+  /* ================================================== THE "MORE INFO" SCREENS
+   *
+   * A native `<dialog>`, so focus containment, `Esc` and the inert backdrop are
+   * the platform's rather than ours — zero new dependencies. A closed dialog is
+   * `display: none`, which is what keeps everything inside one out of the
+   * panel's scroller inventory, out of the type scan and out of the laid-out
+   * pane count.
+   */
+  .popover {
+    width: min(920px, 92vw);
+    max-width: 92vw;
+    max-height: 88vh;
+    padding: 0;
+    border: 1px solid var(--line);
+    border-radius: 12px;
+    background: var(--panel);
+    color: var(--text);
+    overflow: hidden;
+  }
+
+  .popover::backdrop {
+    background: rgba(6, 9, 13, 0.62);
+  }
+
+  .popover-frame {
+    display: flex;
+    flex-direction: column;
+    max-height: 88vh;
+    min-height: 0;
+  }
+
+  .popover-head {
+    flex: 0 0 auto;
+    display: flex;
+    align-items: center;
+    gap: var(--space-3);
+    padding: var(--space-3);
+    border-bottom: 1px solid var(--line);
+    background: var(--panel-2);
+  }
+
+  .popover-title {
+    margin: 0;
+    font-size: var(--font-title);
+    letter-spacing: 0.04em;
+  }
+
+  .popover-close {
+    margin-left: auto;
+    min-height: 36px;
+    padding: var(--space-1) var(--space-3);
+    background: var(--panel);
+    color: var(--text);
+    border: 1px solid var(--line);
+    border-radius: 7px;
+    cursor: pointer;
+    font: inherit;
+    font-size: var(--font-ui);
+  }
+
+  .popover-close:hover {
+    border-color: var(--accent);
+    color: #cfe0fb;
+  }
+
+  /*
+   * The popover owns ONE scroller. It is not a pane and it is not the side
+   * panel: it is a screen a reader opened on purpose, and the "never a
+   * scrollbar" rule is about the glance surface it expands.
+   */
+  .popover-body {
+    flex: 1 1 auto;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-3);
+    padding: var(--space-3);
+    overflow-y: auto;
+  }
+
+  .oled-canvas[data-oled-zoom='4'] {
+    width: 512px;
+    max-width: 100%;
+    height: auto;
   }
 
   /* ======================================================= THE PANE CONTRACT
@@ -1081,24 +1215,12 @@
    *     <h2 class="pane__header" data-pane-chrome="header"> ... </h2>
    *     <div class="pane__content" data-pane-content=ID data-scroll-owner="pane">
    *
-   * and the whole reason the contract is worth writing down is the single
-   * declaration below: `container: pane / inline-size`. Everything inside a
-   * pane can now ask **how wide this pane is**, which is the question that
-   * actually decides whether Signal fits a five-column row or the Inspector
-   * fits a key beside its value. A viewport query cannot answer it: the same
-   * 1440 px window holds a 399 px pane in a docked column and a 651 px pane in
-   * an overlay, and W3's workbench will hold a third width again.
-   *
-   * `container-type: inline-size` also applies layout and inline-size
-   * containment, so a pane becomes a containing block for absolutely positioned
-   * descendants. The one absolutely positioned thing inside a pane is
-   * `.arch-expand`, positioned against `.arch-node` - a nearer positioned
-   * ancestor - so nothing moves.
-   *
-   * The dock-era class names stay alongside these. Renaming 3,000 lines of
-   * selectors in the same change that introduces container queries is exactly
-   * the "visual regressions become unattributable" mistake the brief warns
-   * against.
+   * and the whole reason it is worth writing down is the single declaration
+   * below: `container: pane / inline-size`. Everything inside a pane can ask
+   * **how wide this pane is**, which is the question that decides whether
+   * Signal fits a five-column row or the Inspector fits a key beside its value.
+   * A viewport query cannot answer it: the same 1920 px window holds a 280 px
+   * side-panel card and a 775 px module.
    */
   .pane {
     container: pane / inline-size;
@@ -1111,9 +1233,8 @@
   /*
    * `min-inline-size: 0` is the brief's, and it is load bearing: without it a
    * flex or grid child refuses to shrink below its content's min-content width,
-   * which is how a 96-column line of C++ or a 47-character witness string
-   * pushes a whole pane wider than its dock. Every pane's own overflow rule is
-   * written assuming this holds.
+   * which is how a 96-column line of C++ pushes a whole pane wider than its
+   * column. Every pane's own overflow rule assumes this holds.
    */
   .pane__content {
     min-inline-size: 0;
@@ -1121,25 +1242,10 @@
 
   /* ============================================== ONE PANE, OR SEVERAL - W2
    *
-   * These rules used to be the second half of `@media (max-width: 1440px)`,
-   * and they were never really about the window. What they describe is a
-   * REGIME: whether one pane owns the dock's height, or several open sections
-   * share it. `Docks` publishes that as `data-sections` on `.docks`, from the
-   * same `isSingleOpen()` the accordion already obeys, so the rule now says
-   * what it means.
-   *
-   * `one`  - the open pane renders at its natural height, `.dock-body` is the
-   *          single scroller, and no pane bounds itself. This is the reader's
-   *          "I'd rather scroll through the pane vertically than have tiny
-   *          content and many scrollbars".
-   * `many` - each open section is bounded and scrolls its own content, which is
-   *          what keeps the architecture graph and the Signal trace on screen
-   *          together at Wide.
-   *
-   * Collapsed headers must not be squeezed away by an open section taller than
-   * the dock, which is why `one` pins every section to `0 0 auto`.
-   *
-   * W3 changes what SETS the attribute. Nothing that reads it has to change.
+   * The module column is `one` BY DEFINITION now: one module, its natural
+   * height, and `.dock-body` as the single scroller. W7 changed what sets the
+   * attribute and nothing that reads it had to change — which is what W2 built
+   * it for.
    */
   [data-sections='one'] .dock-section,
   [data-sections='one'] .dock-section.is-open {
@@ -1152,51 +1258,41 @@
     overflow: visible;
   }
 
-  /* ------------------------------------------------------------- LEGIBILITY
-   *
-   * This block used to RAISE five families of text below Wide - 13 to 13.5px
-   * against an 11-12px base. Every one of those overrides is gone (W1): 13px is
-   * below the floor, and a query that sets a size at all is a compact mode by
-   * another name. What is left is SPACING, which one wide column can afford and
-   * which the brief is explicit has to be corrected alongside type.
-   */
   [data-sections='one'] .dock-body {
     padding: var(--space-3);
   }
 
-  /* The workbench IS `one` by definition, and this is the seam W2 built: every
-     rule above and in `@layer panes` that reads `[data-sections]` — the Source
-     pane's two height regimes, the arch canvas, the lab code block, scroll
-     ownership, pane spacing — went on working when W3 changed what SETS the
-     attribute, with no pane-rule edits at all. */
-  .workbench-body {
-    gap: 0;
+  /* §5.1 at icon size: a selection that landed in a module the reader is not
+     looking at is still announced, on the rail button that opens it. */
+  .rail-badge {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 3px;
+    max-width: 100%;
+    color: #cfe0fb;
+    font-size: var(--font-badge);
+    line-height: var(--leading-tight);
+    overflow: visible;
+    text-overflow: clip;
+    white-space: normal;
+    overflow-wrap: break-word;
   }
 
-  /*
-   * The pane's OWN spacing moved to a container query (see `panes`), and the
-   * container sweep is what forced it: `.dock-section-body` carried 10px of
-   * padding at Wide and 12 below it, so the architecture canvas inside a pane
-   * driven to exactly 720px measured 672px in one window and 668px in another.
-   * Four pixels, and the invariant that says a pane at a given container width
-   * renders identically regardless of viewport was right to fail on them. A
-   * pane wide enough to afford roomier padding is a fact about the pane.
-   */
+  .rail-badge-text {
+    min-width: 0;
+  }
 
-  .dock-resizer {
-    position: absolute;
-    left: 0;
-    top: 0;
-    bottom: 0;
+  .dock-badge-dot {
+    flex: 0 0 auto;
     width: 6px;
-    cursor: col-resize;
-    background: transparent;
-    touch-action: none;
-    z-index: 2;
+    height: 6px;
+    border-radius: 50%;
+    background: var(--accent);
   }
 
-  .dock-resizer:hover {
-    background: #253247;
+  .rail-module {
+    position: relative;
   }
 
   .dock-scrim {
@@ -1209,36 +1305,20 @@
     cursor: pointer;
   }
 
-  /* ================================================================ MEDIUM
-   *
-   * 1200-1699 px, the laptop. ONE workbench, IN FLOW — Phase 4 W3.
-   *
-   * There is nothing left in this block. That is the finding, not an omission:
-   * the workbench is an ordinary flex item in an ordinary row, so the laptop
-   * regime needs no viewport rule at all beyond the two that select it
-   * (`Docks` renders a workbench instead of two docks below 1700 px, and the
-   * COMPACT block below floats it under 1200). Everything else — the width,
-   * the inset, the mode switch, the navigator, the single scroller — is either
-   * a `clamp()` that is correct at every width or a `[data-sections]` rule that
-   * is about the column rather than the window.
-   *
-   * What used to be here was the overlay: `.docks { position: absolute }`, a
-   * 92vw cap, two overlay widths, a `margin-right: 88px` on the stage to
-   * reserve the two icon strips, and a suppressed resizer. All of it existed to
-   * stop the stage losing width. The user's rule is that losing width is fine,
-   * so all of it is gone, and with it the scrim, the z-order and the shadow.
-   */
-
   /* =============================================================== COMPACT
    *
-   * Below 1200 px the workbench cannot sit beside the stage AND leave it half
-   * the screen: 64 px of rail plus the brief's 500 px minimum leaves the stage
-   * about 48% of the area at 1150 px. So below that it is a SHEET over the
-   * stage — the only arrangement a 1000 px window can hold — and §7's area rule
-   * gives way to the Compact floors it names as the backstop.
+   * Below 1200 px the four boxes do not fit side by side:
+   *
+   *   64 rail + 280 panel + 480 stage floor + 376 module = 1200.
+   *
+   * So below it the side panel and the module are SHEETS over the stage, they
+   * take turns, and §7's area rule gives way to the Compact floors it names as
+   * the backstop. The rail carries a `Panel` button there, because a panel that
+   * holds the provenance badges may never become unreachable.
    */
   @media (max-width: 1199px) {
-    .docks {
+    .module-column,
+    .side-panel {
       position: absolute;
       z-index: 5;
       top: 0;
@@ -1247,30 +1327,32 @@
       /* Capped so the robot is still visibly there behind the sheet. A sheet
          that covers everything is a modal, and this is not one. */
       max-width: 92vw;
+      padding: 0;
     }
 
-    .workbench[data-open='true'] {
-      flex: 0 1 auto;
+    .module-column {
       width: min(640px, 86vw);
-      padding: 0;
-      border-left: 1px solid var(--line);
-      background: #10141a;
       box-shadow: -14px 0 34px rgba(0, 0, 0, 0.5);
     }
 
-    .workbench[data-open='true'] .workbench-frame {
+    .module-frame {
       border: 0;
       border-radius: 0;
     }
 
-    /* The stage reserves the strip's width and no more. A margin rather than a
-       flex column, because a column is a thing that could later grow. */
-    .stage {
-      margin-right: 44px;
+    .side-panel {
+      width: min(360px, 86vw);
+      box-shadow: -14px 0 34px rgba(0, 0, 0, 0.5);
     }
 
-    .dock-resizer {
+    .side-panel[data-open='false'] {
       display: none;
+    }
+
+    /* The stage reserves nothing: the sheets are out of flow, so the robot
+       keeps the whole shell and the area rule has nothing to measure. */
+    .content {
+      flex: 1 1 auto;
     }
   }
 
@@ -1281,29 +1363,21 @@
    * > *"This is the one place where I would interpret 'robot must remain
    * > dominant' as product identity and persistent causal feedback, not
    * > literally 'the robot must own more pixels than every task surface at
-   * > every instant.' Enforcing literal pixel dominance while reading 429 lines
-   * > of C++ or navigating 63 nodes would make those tools unusable."*
+   * > every instant.'"*
+   *
+   * It survives W7 unchanged in kind and is MORE useful, not less: the ordinary
+   * layout now gives the architecture half the content area, and the workspace
+   * gives it the rest. That is the answer to the one thing W7 cannot do — see
+   * the findings — namely a >= 1000 px surface below about 2500 px of window,
+   * which the published 50%-of-content rule forbids by arithmetic.
    *
    * An EXPLICIT ACTION, never a width: `data-focus-pane` is set by a button in
-   * the pane it is for, `data-stage-rule` next to it says which of the two
-   * stage rules is in force, and the arrangement ends when that pane leaves the
-   * screen. Three properties make it the narrow exception it is meant to be:
-   *
-   *  1. **The stage is still there and still live.** It keeps a floor of its
-   *     own - `--focus-stage-w` - and the WebGL canvas is never unmounted, so
-   *     the causal feedback the brief is protecting keeps arriving. What it
-   *     stops being is the majority of the pixels.
-   *  2. **Nothing is hidden, only narrowed.** The control dock keeps its 44 px
-   *     strip at Wide, so U6's promise that every pane is one click away holds
-   *     inside the workspace too.
-   *  3. **The graph does NOT get a fourth mode.** The workspace changes the
-   *     pane's WIDTH; `archModeForWidth()` then chooses `full` because 960 px
-   *     is really there. A workspace on a 1280 px window gives the subsystem
-   *     graph, and says so, rather than claiming a map that would not fit.
+   * the pane it is for, `data-stage-rule` says which of the three stage rules
+   * is in force, and the arrangement ends when that module leaves the screen.
    */
   .shell[data-focus-pane='modules'] {
     /* 240 px is a live reference, not a thumbnail: the GLB still reads as a
-       robot at that width, and it is what leaves ~1,000 px of pane at 1440. */
+       robot at that width. */
     --focus-stage-w: clamp(240px, 18vw, 340px);
   }
 
@@ -1312,91 +1386,28 @@
     min-width: var(--focus-stage-w);
   }
 
-  /* The 480 px canvas floor is W3's ORDINARY-layout floor and this is the one
+  /* The 480 px canvas floor is the ORDINARY-layout floor and this is the one
      arrangement it does not describe. The focus floor replaces it rather than
      removing it, and the harness asserts the replacement by name. */
   .shell[data-focus-pane='modules'] .viewport {
     min-width: 0;
   }
 
-  .shell[data-focus-pane='modules'] .docks {
+  .shell[data-focus-pane='modules'] .module-column {
     flex: 1 1 auto;
     min-width: 0;
   }
 
-  .shell[data-focus-pane='modules'] .workbench[data-open='true'] {
-    flex: 1 1 auto;
-    width: auto;
-  }
-
-  /* At Wide the two docks stay, and the one holding the focused pane takes the
-     width the stage gave up. The other keeps its strip - see (2) above. */
-  .shell[data-focus-pane='modules'] .dock[data-dock='analysis'] {
-    flex: 1 1 auto;
-    width: auto;
-  }
-
-  .shell[data-focus-pane='modules'] .dock[data-dock='control'] {
-    flex: 0 0 44px;
-    width: 44px;
-  }
-
-  .shell[data-focus-pane='modules'] .dock[data-dock='control'] .dock-body,
-  .shell[data-focus-pane='modules'] .dock-resizer {
-    display: none;
-  }
-
-  /*
-   * Height, not only width — and this is the half that decides whether the
-   * workspace is worth opening.
-   *
-   * At Wide the analysis dock holds three open sections at `flex: 1 1 0`, so
-   * the graph gets a third of the column and `fitView` fits the SHORT side:
-   * measured at 1760x1000, the collapsed map landed at zoom 0.40 and its 14 px
-   * edge labels at 5.7 px on screen. Widening the pane to 1,201 px without
-   * giving it height would have moved that number barely at all, which would
-   * have made the whole workspace a decoration.
-   *
-   * The focused section takes four shares instead of one, the graph's canvas
-   * takes 62vh instead of 52, and the other sections keep their `min-height` -
-   * so the Signal trace is still on screen beside the graph at Wide, which is
-   * V8's requirement and the thing this workspace exists to make usable rather
-   * than to replace.
-   */
-  .shell[data-focus-pane='modules'] .dock-section[data-dock-section='modules'].is-open {
-    flex: 4 1 0;
-    /*
-     * `flex` alone was not enough and the screenshot said so.
-     *
-     * At Wide the analysis dock holds three open sections whose combined
-     * `min-height: 220px` already exceeds the column, so there is no free space
-     * for a flex ratio to divide: four shares of nothing is nothing, and the
-     * graph stayed 180 px tall inside a workspace that had just given it 1,200
-     * px of width. The floor is what actually reserves the height; the ratio is
-     * what spends any surplus. The other sections keep theirs, so the Signal
-     * trace is still there under the graph rather than hidden.
-     */
-    min-height: 74vh;
-  }
-
-
-  /* At Compact the workbench is a sheet over the stage, so there is no width to
-     take from anything; the sheet widens to what the viewport allows and the
-     representation is chosen from the result like everywhere else. */
   @media (max-width: 1199px) {
-    /* `92vw`, not `min(92vw, 100%)`: at Compact `.docks` is absolutely
-       positioned and shrink-to-fit, so a percentage here resolves against a
-       box whose width depends on this one and the sheet collapsed to 307 px -
+    /* `92vw`, not `min(92vw, 100%)`: at Compact the sheet is absolutely
+       positioned and shrink-to-fit, so a percentage resolves against a box
+       whose width depends on this one and the sheet collapsed to 307 px —
        narrower than it is with the workspace SHUT, which is the opposite of
        what the action claims to do. Measured, not reasoned about. */
-    .shell[data-focus-pane='modules'] .workbench[data-open='true'] {
-      flex: 0 1 auto;
+    .shell[data-focus-pane='modules'] .module-column {
       width: 92vw;
     }
 
-    /* The stage gives up nothing here, because the sheet takes nothing: it is
-       out of flow. §7's area rule does not apply at Compact either, so the
-       focus exemption has nothing to exempt. */
     .shell[data-focus-pane='modules'] .stage {
       flex: 1 1 0;
       min-width: min(480px, 100%);
@@ -1895,6 +1906,61 @@
 }
 
 @layer panes {
+  /* =========================================== THE MODULE COLUMN'S CHROME - W7
+   *
+   * These two rules live in `panes` rather than beside the rest of the module
+   * geometry in `shell`, and that placement is the finding rather than a
+   * refactor. W4 recorded the same trap: `@layer shell` LOSES to `@layer
+   * components`, so the first version of both of these sat next to the column's
+   * own rules, looked right, and did nothing at all — `.panel { padding: 12px }`
+   * and `.panel-header h2` are both in `components`.
+   *
+   * 1. The pane IS the card. A `.panel` inside it is a second border, a second
+   *    background and a second padding around the same content, and it costs
+   *    26 px of the artifact's own box at every width — which is 26 px of the
+   *    720/960 boundaries W4's representations are keyed to.
+   */
+  .module-content > .panel {
+    border: 0;
+    border-radius: 0;
+    background: transparent;
+    padding: 0;
+  }
+
+  /*
+   * 2. ...and a second TITLE. W3 handed this over as the clearest single thing
+   *    left on screen: the column says ARCHITECTURE at 20 px and the panel
+   *    inside it says ARCHITECTURE again at 18 px. The pane contract's `<h2>`
+   *    is the one `aria-labelledby` points at, so it is the one that stays; the
+   *    panel's own subtitle beside it repeats nothing and stays with it.
+   */
+  .module-content > .panel > .panel-header > h2 {
+    display: none;
+  }
+
+  /*
+   * 3. The side panel's own type. `.prov-banner p` is 17 px reading prose in
+   *    `components`, which is right in a 900 px popover and is four lines in a
+   *    262 px card. The verdict is a one-line CLAIM here (the paragraph is in
+   *    the "More" screen), so it takes the badge token — the 14 px floor, never
+   *    below it, and not a size chosen for this box.
+   */
+  .panel-trust #measurement-verdict {
+    margin: 0;
+    font-size: var(--font-badge);
+    line-height: var(--leading-body);
+    color: var(--text);
+  }
+
+  /* Four face buttons in one row of a 262 px card rather than two. */
+  .face-bar .cmd {
+    padding: var(--space-1) var(--space-1);
+  }
+
+  .face-bar .note {
+    margin: 0;
+  }
+
   /* ============================================================ architecture */
 
   /*
@@ -4480,16 +4546,16 @@
    * record band.
    */
   @container pane (width < 32.5rem) {
-    [data-pane='inspector'] table.joints,
-    [data-pane='inspector'] table.joints tbody {
+    [data-pane='joints'] table.joints,
+    [data-pane='joints'] table.joints tbody {
       display: block;
     }
 
-    [data-pane='inspector'] table.joints thead {
+    [data-pane='joints'] table.joints thead {
       display: none;
     }
 
-    [data-pane='inspector'] table.joints tbody tr {
+    [data-pane='joints'] table.joints tbody tr {
       display: block;
       border: 1px solid var(--line);
       border-radius: 6px;
@@ -4497,7 +4563,7 @@
       margin-bottom: var(--space-2);
     }
 
-    [data-pane='inspector'] table.joints tbody td {
+    [data-pane='joints'] table.joints tbody td {
       display: grid;
       grid-template-columns: fit-content(40%) minmax(0, 1fr);
       gap: var(--space-2);
@@ -4508,7 +4574,7 @@
 
     /* The label is a label, whatever the cell it sits in is styled as: the
        joint-name cell is monospace and semi-bold, and its label should not be. */
-    [data-pane='inspector'] table.joints tbody td .cell-label {
+    [data-pane='joints'] table.joints tbody td .cell-label {
       display: block;
       color: var(--muted);
       font-family: var(--font-sans);
