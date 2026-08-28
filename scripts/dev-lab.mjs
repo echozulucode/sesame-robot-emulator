@@ -94,7 +94,7 @@ function launch(label, command, args, colour, options = {}) {
   kid.on('exit', (code, signal) => {
     if (shuttingDown) return;
     process.stdout.write(
-      `${prefix}exited (${signal ?? String(code)}) — stopping the other process too\n`,
+      `${prefix}exited (${signal ?? String(code)}) - stopping the other process too\n`,
     );
     shutdown(code ?? 1);
   });
@@ -127,7 +127,7 @@ process.on('SIGTERM', () => shutdown(0));
 
 process.stdout.write(
   `dev-lab: lab host (${backend}) on :${hostPort}, vite in front of it\n` +
-    'dev-lab: open the vite URL below, not the lab host one — the proxy keeps it one origin\n\n',
+    'dev-lab: open the vite URL below, not the lab host one - the proxy keeps it one origin\n\n',
 );
 
 await requireFreePort(hostPort);

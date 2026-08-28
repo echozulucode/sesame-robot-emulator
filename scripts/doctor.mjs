@@ -104,7 +104,7 @@ add(
   hasUpstream ? 'OK' : 'WARN',
   'firmware/upstream',
   hasUpstream ? 'present (pinned)' : 'not fetched',
-  hasUpstream ? '' : 'bash scripts/fetch-upstream.sh — the source explorer refuses to render without it',
+  hasUpstream ? '' : 'bash scripts/fetch-upstream.sh - the source explorer refuses to render without it',
 );
 
 // ── ports ────────────────────────────────────────────────────────────────
@@ -115,14 +115,22 @@ const portFree = (port) =>
     probe.listen(port, '127.0.0.1', () => probe.close(() => resolve(true)));
   });
 
-for (const [port, who] of [
-  [8099, 'lab host (just dev)'],
-  [5173, 'vite (just dev)'],
-  [8080, 'sesame-api (just api)'],
+// 8099 and 5173 are hard requirements: dev-lab.mjs pre-flights 8099 and exits,
+// and vite cannot bind 5173. Report those as blocking rather than advisory --
+// an earlier version said "none blocking" while `just dev` could not start.
+for (const [port, who, blocking] of [
+  [8099, 'lab host (just dev)', true],
+  [5173, 'vite (just dev)', true],
+  [8080, 'sesame-api (just api)', false],
 ]) {
   // eslint-disable-next-line no-await-in-loop
   const free = await portFree(port);
-  add(free ? 'OK' : 'WARN', `port ${String(port)}`, free ? 'free' : `IN USE — ${who} will fail`, free ? '' : 'stop whatever holds it');
+  add(
+    free ? 'OK' : blocking ? 'FAIL' : 'WARN',
+    `port ${String(port)}`,
+    free ? 'free' : `in use - ${who} cannot start`,
+    free ? '' : 'stop it, or it may be your own dev server already running',
+  );
 }
 
 // ── report ───────────────────────────────────────────────────────────────
@@ -144,6 +152,6 @@ if (failures > 0) {
 }
 process.stdout.write(
   warnings > 0
-    ? `  Ready — ${String(warnings)} warning(s), none blocking \`just dev\`.\n\n`
+    ? `  Ready - ${String(warnings)} warning(s), none blocking \`just dev\`.\n\n`
     : '  Ready. Run `just dev`.\n\n',
 );

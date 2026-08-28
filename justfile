@@ -1,11 +1,18 @@
 # Sesame Lab — task runner
 #
-# Every recipe is a single command so it works under whichever shell `just`
-# picks (Git Bash, cmd, or PowerShell) without shell-specific syntax.
+# On Windows `just` defaults to `sh`, which is only on PATH inside Git Bash —
+# from a PowerShell prompt every recipe failed with "could not find the shell
+# `sh`". Pin the shell explicitly instead of depending on how the terminal was
+# opened. `powershell.exe` (5.1) ships with Windows and is always present;
+# recipes are single commands, so nothing here needs PowerShell 7.
+#
+# Every recipe is one command, so no shell-specific syntax is involved.
 #
 #   just            show this
 #   just dev        the emulator and the web UI, together   <- start here
 #   just doctor     check that everything this needs exists
+
+set windows-shell := ["powershell.exe", "-NoLogo", "-NoProfile", "-Command"]
 
 # ─────────────────────────────────────────────────────────────── quick start
 
@@ -21,7 +28,7 @@ default:
     @echo "  just doctor     check prerequisites"
     @echo "  just check      build + typecheck + 934 tests + 11 validators"
     @echo ""
-    @just --list --unsorted --list-heading ''
+    @just --list --unsorted
 
 # Lab host on :8099 + vite in front of it; stops both together. Open the vite URL.
 # Real firmware in QEMU + the web UI, together. START HERE.
