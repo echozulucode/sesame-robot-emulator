@@ -107,17 +107,19 @@
  *      1440x900 and 2560x1440, one per breakpoint plus the two the plan names —
  *      and at each one measures the CANVAS rather than its container: at least
  *      45% of the window's height and at least 480 px wide, with the robot
- *      actually drawn in the middle of the drawing buffer. It asserts that
- *      below Wide the dock OVERLAYS the stage instead of pushing it, by
- *      measuring the stage's width with the dock shut and again with it open;
- *      that a collapsed section whose content just became selected says so on
- *      its header and that `selectJoint` auto-expands the graph below Wide;
- *      that the collapse state survives a real reload; and it re-runs
- *      ISSUE-20260823-023 at every breakpoint AND across a dock resize, because
- *      that bug was found by a user after a layout change and this is a layout
- *      change. Learn plays lesson 2 end to end at Medium and the Lab's C++
- *      export is re-parsed at Compact, so a collapsed accordion cannot break a
- *      whole mode without being noticed.
+ *      actually drawn in the middle of the drawing buffer. There are TWO docks
+ *      now — `control` (Commands, Face, Lab) inboard and `analysis`
+ *      (Inspector, Modules, Signal, Source, Learn) outboard — so the
+ *      overlay-not-push rule is measured once per dock; below Wide exactly one
+ *      section is open across both and the dock body is the ONLY scrollable box
+ *      in it; nothing in the dock is smaller at Medium than at Wide; and `wave`
+ *      is reachable from the status line, HIT-TESTED, with both docks shut. It
+ *      also asserts the collapsed-header badge, the §5 auto-expand, reload
+ *      persistence, and re-runs ISSUE-20260823-023 at every breakpoint AND
+ *      across a resize of EACH dock, because that bug was found by a user after
+ *      a layout change and this is a layout change. Learn plays lesson 2 end to
+ *      end at Medium and the Lab's C++ export is re-parsed at Compact, so a
+ *      collapsed accordion cannot break a whole mode without being noticed.
  *
  * Usage: node scripts/capture-web-screenshots.mjs [--out <dir>] [--skip-qemu]
  * Exit 0 pass · 1 fail · 3 no browser found.
@@ -347,10 +349,10 @@ const DEFAULT_WINDOW = { width: 1600, height: 1000 };
  * round-tripping.
  */
 const RESPONSIVE_WINDOWS = [
-  { label: 'compact', width: 880, height: 900, breakpoint: 'compact' },
-  { label: 'laptop-small', width: 1280, height: 800, breakpoint: 'medium' },
-  { label: 'laptop', width: 1440, height: 900, breakpoint: 'medium' },
-  { label: 'desktop', width: 2560, height: 1440, breakpoint: 'wide' },
+  { label: 'compact', width: 880, height: 900, breakpoint: 'compact', u5SharePct: 82.0 },
+  { label: 'laptop-small', width: 1280, height: 800, breakpoint: 'medium', u5SharePct: 80.0 },
+  { label: 'laptop', width: 1440, height: 900, breakpoint: 'medium', u5SharePct: 80.0 },
+  { label: 'desktop', width: 2560, height: 1440, breakpoint: 'wide', u5SharePct: 86.9 },
 ];
 
 async function launchBrowser(url, window = DEFAULT_WINDOW) {
@@ -1142,14 +1144,34 @@ await waitFor(
 
   check(state.backend === 'bridge', `the app reports backend "${state.backend}"`);
 
+  //
+  // The claim is that telemetry arriving over the WebSocket REACHES THE SCENE,
+  // so the comparison is polled until the two agree rather than sampled once
+  // after `waitSceneCaughtUp()`. The replay is still streaming here: the store
+  // can move between the "caught up" poll and the read that follows it, and a
+  // single sample then fails on a race rather than on a defect — the same false
+  // alarm `waitQuiescent()` exists to prevent elsewhere in this file. Nothing
+  // is weakened: if the scene never converges, the last reading is asserted and
+  // fails exactly as before, and a stalled render loop still never converges.
   await waitSceneCaughtUp('the scene to apply telemetry arriving over the WebSocket');
-  const wired = await page.evaluate('window.__sesame.sceneJoints()');
+  let wired = await page.evaluate('window.__sesame.sceneJoints()');
+  const agrees = (rows) => {
+    const driven = rows.filter((j) => j.storeCommandedDeg !== null);
+    return (
+      driven.length === 8 &&
+      driven.every((j) => Math.abs(j.sceneCommandedDeg - j.storeCommandedDeg) < 1e-4)
+    );
+  };
+  for (let attempt = 0; attempt < 40 && !agrees(wired); attempt += 1) {
+    await sleep(150);
+    wired = await page.evaluate('window.__sesame.sceneJoints()');
+  }
   const commanded = wired.filter((j) => j.storeCommandedDeg !== null);
   check(commanded.length === 8, `only ${commanded.length}/8 joints were driven over the WebSocket`);
   for (const joint of commanded) {
     check(
       Math.abs(joint.sceneCommandedDeg - joint.storeCommandedDeg) < 1e-4,
-      `${joint.joint}: scene ${joint.sceneCommandedDeg}° vs wire ${joint.storeCommandedDeg}°`,
+      `${joint.joint}: scene ${joint.sceneCommandedDeg}° vs wire ${joint.storeCommandedDeg}° — the scene never caught up with the WebSocket stream`,
     );
   }
   // A replayed fixture did not happen on any robot, and the bridge says so.
@@ -4856,12 +4878,26 @@ if (SKIP_QEMU) {
 //     found that bug after a layout change and this IS a layout change, so it is
 //     re-run at every breakpoint AND across a dock resize, which is now the one
 //     remaining path that resizes the renderer's canvas;
-//   * the dock OVERLAYS rather than pushes below Wide — the stage's measured
-//     width is identical with the dock shut and with it open, which is the rule
-//     that gives the laptop its robot back;
+//   * EACH of the two docks OVERLAYS rather than pushes below Wide — the
+//     stage's measured width is identical with both shut, with the control dock
+//     open, and with the analysis dock open. That is the rule that gives the
+//     laptop its robot back, and there are two docks to break it now;
+//   * below Wide exactly ONE section is open across both docks, and the dock
+//     body is the ONLY scrollable box inside the open dock. Both come from a
+//     reader: "when I select one of the panes, the other should be collapsed"
+//     and "I'd rather have to scroll through the pane vertically than tiny
+//     content and many scrollbars";
+//   * nothing in the dock is SMALLER at Medium or Compact than it is at Wide —
+//     the machine-checkable form of "I cannot read any of the content";
+//   * `wave` is reachable with both docks SHUT. The vocabulary moved into the
+//     control dock, so what carries that promise now is the status line's
+//     `[data-quick-command]` cluster, and it is hit-tested with
+//     `elementFromPoint` rather than merely found in the DOM;
 //   * a collapsed section whose content just became selected shows a header
-//     badge, and `selectJoint` auto-expands its target section below Wide (§5);
-//   * the collapse state survives a real reload;
+//     badge, and `selectJoint` auto-expands its target section below Wide (§5)
+//     — in the ANALYSIS dock only, because a selection is something to read
+//     about and must never yank the controls away;
+//   * the collapse state survives a real reload, for both docks;
 //   * Learn still plays lesson 2 end to end at Medium, and the Lab's C++ export
 //     still round-trips at Compact — the two places a collapsed accordion could
 //     have broken a whole mode rather than a pixel count.
@@ -4966,6 +5002,36 @@ if (SKIP_QEMU) {
     return { worst, footContactSpreadMm: spread, samples: frames.length };
   };
 
+  /**
+   * A shell reading taken only once the layout has stopped moving.
+   *
+   * Two things settle late and both produce a plausible-looking wrong number:
+   * R3F resizes its drawing buffer from a `ResizeObserver` a frame after the
+   * box changes, and the browser window itself is still being clamped to the
+   * display for the first moments after launch — which is how a `shut` reading
+   * once reported a 1347 px window and the `open` reading beside it reported
+   * 1313. So read twice and require agreement rather than sleeping and hoping.
+   */
+  const settledShell = async (page, why) => {
+    let previous = null;
+    for (let i = 0; i < 30; i += 1) {
+      const reading = await page.evaluate('window.__sesame.shell()');
+      if (
+        previous !== null &&
+        previous.windowHeightPx === reading.windowHeightPx &&
+        Math.abs(previous.canvasWidthPx - reading.canvasWidthPx) < 0.5 &&
+        Math.abs(previous.canvasHeightPx - reading.canvasHeightPx) < 0.5 &&
+        Math.abs(previous.stageWidthPx - reading.stageWidthPx) < 0.5
+      ) {
+        return reading;
+      }
+      previous = reading;
+      await sleep(220);
+    }
+    problems.push(`the layout never settled while waiting for ${why}`);
+    return previous;
+  };
+
   const bootPage = async (window) => {
     const shellPage = await launchBrowser(shellBridge.url, window);
     await waitFor(
@@ -5022,18 +5088,15 @@ if (SKIP_QEMU) {
       await shellPage.evaluate(
         'window.__sesame.setDockOpen("control", false); window.__sesame.setDockOpen("analysis", false)',
       );
-      await sleep(500);
-      const shut = await shellPage.evaluate('window.__sesame.shell()');
+      const shut = await settledShell(shellPage, `${where} with both docks shut`);
 
       await shellPage.evaluate('window.__sesame.setDockOpen("control", true)');
-      await sleep(700);
-      const controlOpen = await shellPage.evaluate('window.__sesame.shell()');
+      const controlOpen = await settledShell(shellPage, `${where} with the control dock open`);
 
       await shellPage.evaluate(
         'window.__sesame.setDockOpen("control", false); window.__sesame.setDockOpen("analysis", true)',
       );
-      await sleep(700);
-      const open = await shellPage.evaluate('window.__sesame.shell()');
+      const open = await settledShell(shellPage, `${where} with the analysis dock open`);
 
       check(
         shut.breakpoint === window.breakpoint,
@@ -5095,6 +5158,11 @@ if (SKIP_QEMU) {
               `(${shut.canvasWidthPx.toFixed(1)} -> ${reading.canvasWidthPx.toFixed(1)})`,
           );
         }
+        check(
+          controlOpen.docks.control.scrollers.length <= 1,
+          `at ${where} the control dock has ${controlOpen.docks.control.scrollers.length} ` +
+            `scrollable box(es): ${JSON.stringify(controlOpen.docks.control.scrollers)}`,
+        );
         // The overlay's width is FREE — it costs the stage nothing — so it is
         // used. 460 px was the old one-dock width and was too narrow to read.
         check(
@@ -5154,9 +5222,9 @@ if (SKIP_QEMU) {
       })()`);
       check(quickRan.ok, `the status line's wave button did not click at ${where}: ${quickRan.why}`);
       await sleep(900);
-      const afterQuick = await shellPage.evaluate('window.__sesame.snapshot()');
+      const afterQuick = await shellPage.evaluate('window.__sesame.provenance()');
       check(
-        afterQuick.store.totalEvents > 0,
+        (afterQuick?.totalEvents ?? 0) > 0,
         `clicking the status line's wave button at ${where} produced no telemetry at all`,
       );
 
@@ -5221,6 +5289,9 @@ if (SKIP_QEMU) {
       // the dock body is the only scrollable box in the dock, exactly one
       // section is open across BOTH docks, and nothing is smaller than it is at
       // Wide (compared after the loop, once both readings exist).
+      if (window.breakpoint === 'wide') {
+        await shellPage.evaluate('window.__sesame.setDockOpen("control", true)');
+      }
       await openSection(shellPage.evaluate, 'source');
       await shellPage.evaluate('window.__sesame.selectSymbol("runWavePose")');
       await sleep(800);
@@ -5230,8 +5301,8 @@ if (SKIP_QEMU) {
       const sourceView = await shellPage.evaluate(`(() => {
         const lines = document.querySelectorAll('.src-line').length;
         const note = document.querySelector('[data-testid="source-window"]');
-        const text = (note?.textContent ?? '').replace(/\s+/g, ' ').trim();
-        const m = /showing lines (\d+)[^\d]+(\d+) of (\d+)/.exec(text);
+        const text = (note?.textContent ?? '').replace(/\\s+/g, ' ').trim();
+        const m = /showing lines (\\d+)[^\\d]+(\\d+) of (\\d+)/.exec(text);
         return {
           lines,
           text,
@@ -5320,17 +5391,23 @@ if (SKIP_QEMU) {
         })}`,
       );
 
+      // The capture shows the CONTROL dock with `Commands` up: that is the
+      // change itself — the vocabulary that used to be a strip under the robot,
+      // in a second vertical dock beside it — and the robot is behind it at its
+      // full width, which is the claim the numbers above make.
+      await focusSection(shellPage.evaluate, 'commands');
       shellShots.push(
         await shellPage.shoot(
           `u5-shell-${window.label}.png`,
-          `the two-dock shell at ${where}: the 3D canvas is ` +
+          `the two-dock shell at ${where}: the command vocabulary in the control dock beside the ` +
+            `robot rather than in a strip under it, and the 3D canvas ` +
             `${open.canvasWidthPx.toFixed(0)}x${open.canvasHeightPx.toFixed(0)} — ` +
-            `${open.viewportHeightSharePct.toFixed(0)}% of the window height, up from ` +
-            `${window.breakpoint === 'wide' ? '86.9' : '80.0'}% before the stage strip was removed — ` +
-            `with the analysis dock ` +
+            `${open.viewportHeightSharePct.toFixed(1)}% of the window height, up from ` +
+            `${window.u5SharePct.toFixed(1)}% when that strip existed. ` +
             (window.breakpoint === 'wide'
-              ? 'docked beside the control dock'
-              : `overlaying the stage at ${open.docks.analysis.rectWidthPx.toFixed(0)} px rather than pushing it`),
+              ? 'Both docks are in flow; the status line under the robot carries the glance state.'
+              : `The dock overlays the stage at ${controlOpen.docks.control.rectWidthPx.toFixed(0)} px ` +
+                `instead of pushing it, and the status line keeps wave and stop one click away.`),
         ),
       );
 
@@ -5376,6 +5453,7 @@ if (SKIP_QEMU) {
       measured.push({
         window: `${window.width}x${window.height}`,
         breakpoint: shut.breakpoint,
+        u5ViewportHeightSharePct: window.u5SharePct,
         docksShut: {
           stageWidthPx: shut.stageWidthPx,
           canvasWidthPx: shut.canvasWidthPx,
@@ -5637,12 +5715,18 @@ if (SKIP_QEMU) {
           `(${afterLesson.viewportHeightSharePct.toFixed(1)}% of the window)`,
       );
 
+      // The lesson's own quiz clicks a module in the 3D scene, which is the §5
+      // path and legitimately reveals the architecture graph — so by the last
+      // step Learn is the collapsed header carrying `Command one joint 5/6`.
+      // Put it back up for the capture; the assertions above already proved the
+      // lesson never lost its place while it was down there.
+      await focusSection(learnPage.evaluate, 'learn');
       shellShots.push(
         await learnPage.shoot(
           'u5-learn-at-medium.png',
-          'lesson 2 played end to end on a 1440x900 laptop: the Learn section is one of six in an ' +
-            'overlaying dock, six checks passed against real telemetry, and the 3D stage kept its ' +
-            'full width the whole time',
+          'lesson 2 played end to end on a 1440x900 laptop: the Learn section is one of five in a ' +
+            '720 px analysis overlay, six checks passed against real telemetry, and the 3D stage ' +
+            'kept its full width the whole time',
         ),
       );
     } finally {
@@ -5765,8 +5849,9 @@ if (SKIP_QEMU) {
       shellShots.push(
         await labPage12.shoot(
           'u5-lab-at-compact.png',
-          'the Lab as a full-height sheet on an 880 px window: two frames captured from the eight ' +
-            'sliders and the exported C++ re-parsed here, byte for byte the same poses',
+          'the Lab as a full-height sheet on an 880 px window — a control-dock section now, beside ' +
+            'the OLED it authors: two frames captured from the eight sliders and the exported C++ ' +
+            're-parsed here, byte for byte the same poses',
         ),
       );
     } finally {
@@ -5858,8 +5943,10 @@ console.log(
     `the source explorer rendered the pinned tree at its own line numbers and refused a ` +
     `one-byte-tampered copy of it; lessons 1, 2, 4 and 5 were played end to end against real ` +
     `telemetry, with six checks driven to FAILED first; the 3D canvas held at least 45% of the ` +
-    `window height and 480 px of width at all four window sizes, and below 1441 px the dock ` +
-    `overlaid the stage without taking a pixel from it` +
+    `window height and 480 px of width at all four window sizes; below 1441 px BOTH docks ` +
+    `overlaid the stage without taking a pixel from it, one pane was open at a time behind ` +
+    `exactly one scrollbar, nothing in the dock was smaller at Medium than at Wide, and wave ` +
+    `stayed reachable from the status line with both docks shut` +
     (phases.qemuCommanded?.ran === true
       ? `; a clicked button drove real firmware under QEMU and every joint it moved carries ` +
         `origin.kind="emulator" with isPhysicallyObserved() false`

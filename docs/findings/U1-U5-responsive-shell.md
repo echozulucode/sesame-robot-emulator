@@ -1,12 +1,23 @@
 ---
 task: "U1–U5 — responsive shell: left rail · maximised stage · collapsible right dock"
 phase: 3
-status: complete
+status: superseded in part by U6
 date: 2026-08-26
 owns: apps/web, scripts/capture-web-screenshots.mjs
+superseded-by: docs/findings/U6-two-dock-shell.md
 ---
 
 # U1–U5 — the responsive shell
+
+> **Read `U6-two-dock-shell.md` after this one.** Three parts of what follows
+> are no longer what is on screen: the *stage strip* that held the commands and
+> the OLED is gone (both are sections of a second, inboard **control dock**, and
+> a 34 px status line took its place); below Wide there is **one open section
+> across both docks** rather than one per dock, behind **one scrollbar**; and the
+> `[data-command="wave"]` reachability assertion was replaced by a stronger,
+> hit-tested one. Everything else here — the overlay-not-push rule, the stage
+> floor, the mounted-not-unmounted sections, the §5 badges and the
+> `origin === 'scene'` restriction — is still in force and still asserted.
 
 **Trigger:** a user evaluating the product on a laptop — *"For medium screens like
 my laptop, you can barely see the robot at all."*

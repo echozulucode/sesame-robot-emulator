@@ -11,11 +11,19 @@
  *    `#measurement-verdict`). It lives in the dock's inspector section, and a
  *    summary of the same two badges is pinned to the rail, which never
  *    collapses.
- *  - {@link CommandBar} — the command and face vocabulary. It lives on the
- *    STAGE, under the robot, and is therefore reachable at every breakpoint
- *    without opening anything. A button that drives the robot belongs beside
- *    the robot, and `[data-command="wave"]` is what the harness clicks in four
- *    separate phases.
+ *  - {@link CommandBar} — the command and face vocabulary. It is the
+ *    `Commands` section of the CONTROL dock, the inboard one, beside the robot
+ *    it drives. It was a fixed strip under the stage until U6; the strip cost
+ *    the 3D viewport up to 176 px of height, which is the one thing the shell
+ *    exists to maximise.
+ *
+ *    `[data-command="wave"]` is what the harness clicks in four separate
+ *    phases, and it stays the single unambiguous handle on the real vocabulary:
+ *    the status line's shortcuts are `[data-quick-command]`, deliberately a
+ *    different attribute, so no selector can click a shortcut when it meant the
+ *    vocabulary. Phases 6 and 7 open this section and hit-test the button
+ *    before clicking it — `HTMLElement.click()` fires on a `hidden` element
+ *    too, and a check that a hidden button works proves nothing.
  *
  * Every id, `data-*` attribute and class name below is the one it was before.
  * The split is layout; the provenance surfaces are correctness.
@@ -60,7 +68,7 @@ export interface ControlsProps {
   readonly totalEvents: number;
 }
 
-/** What the stage's command bar needs, and nothing else. */
+/** What the control dock's command bar needs, and nothing else. */
 export interface CommandBarProps {
   readonly backend: TelemetryBackend;
   readonly status: BackendStatus;
