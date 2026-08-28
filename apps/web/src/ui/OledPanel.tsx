@@ -15,6 +15,7 @@ import { useEffect, useRef, useState, type ReactElement } from 'react';
 
 import type { EmptyFaceEvent, FaceView, OledSource } from '../state/telemetry-store.js';
 import { FACE_PIXEL_SOURCE, type VirtualOledPanel } from '../oled/framebuffer.js';
+import type { PixelOrigin } from '../oled/pixel-provenance.js';
 import { OriginTag, ProvenanceTag } from './ProvenanceTag.js';
 
 /** Logical pixel -> screen pixel. 8 keeps 1024x512, which is still a sane texture. */
@@ -35,20 +36,24 @@ export interface OledPanelProps {
   readonly version: number;
   readonly onRedraw: () => void;
   /**
-   * Set when the backend's origin lists the panel among the subsystems it does
-   * not model — `ssd1306-panel` is in QEMU's `elided` list, and
-   * `oledFramebuffer` is `false`.
+   * Where the pixels came from, derived from the backend's own capability
+   * document — Phase 4 W8, and see `oled/pixel-provenance.ts`.
    *
    * This is the one place in the app where a truthful UI could quietly become a
    * lying one. The firmware under QEMU really does emit `face.expression`
    * events, so there is a face name to draw and the bitmaps to draw it with —
    * and drawing it is *useful*, because the 3D robot needs a screen. What must
    * not happen is those host-rendered pixels being presented as though the
-   * emulator produced them. They are already tagged `inferred` by the store;
-   * this flag is what lets the panel say the harder part out loud: no pixels
-   * crossed any boundary, because there is no panel on the far side.
+   * emulator produced them.
+   *
+   * It was a boolean (`panelElided`) computed in `App`. It is a derived VALUE
+   * now because the interesting case is no longer binary: a QEMU image built
+   * with `SESAME_TELEMETRY_OLED` enabled reports `oledFramebuffer: true`, drops
+   * `ssd1306-panel` from `elided` and sends `oled.frame`, and this pane then
+   * has to say the opposite thing — with no edit here, which is the property
+   * `oled-provenance.test.ts` fakes the capability to prove.
    */
-  readonly panelElided: boolean;
+  readonly origin: PixelOrigin;
   /**
    * `panel` is the side-panel card - Phase 4 W7.
    *
@@ -74,7 +79,7 @@ export function OledPanel(props: OledPanelProps): ReactElement {
     emptyFace,
     version,
     onRedraw,
-    panelElided,
+    origin,
     variant = 'full',
   } = props;
   const compact = variant === 'panel';
@@ -240,7 +245,10 @@ export function OledPanel(props: OledPanelProps): ReactElement {
         </dl>
       )}
 
-      {!compact && <p className="note">{source.detail}</p>}
+      {/*
+        `source.detail` used to be printed here as well. It is the last of
+        {@link PixelOrigin.paragraphs} now, so the screen states it once.
+      */}
 
       {/*
         The ⚠ count is on the card's HEADER SUMMARY rather than in its body —
@@ -251,42 +259,39 @@ export function OledPanel(props: OledPanelProps): ReactElement {
         stay open at 1440x900 at all.
       */}
 
-      {panelElided && compact && (
-        /*
-          The SHORT form, on the panel - Phase 4 W7.
+      {/*
+        THE PARAGRAPH IS NOT ON THE PANEL — Phase 4 W8.
 
-          The claim itself ("these pixels did not come from the emulator") and
-          the `inferred` badge beside it are on the panel; the two paragraphs
-          that explain why QEMU attaches no SSD1306 are in the "more info"
-          screen. That is a popover EXPANDING a correctness surface, which
-          §11.4 allows, rather than being where it first appears, which it does
-          not.
-        */
-        <div className="warn warn-short" data-testid="oled-elided">
-          <strong>These pixels did not come from the emulator.</strong>
-          <p className="muted">
-            Drawn here from <code>firmware/face-bitmaps.h</code> and labelled <code>inferred</code>.
-          </p>
-        </div>
-      )}
+        > *"just show an info icon to click on and / or mouse over to see the
+        > info."*
 
-      {panelElided && !compact && (
-        <div className="warn" data-testid="oled-elided-detail">
-          <strong>These pixels did not come from the emulator.</strong>
-          <p>
-            The backend’s origin lists <code>ssd1306-panel</code> among the subsystems it does not
-            model, and its <code>oledFramebuffer</code> capability is <code>false</code>: QEMU
-            attaches no SSD1306 to this machine, so <code>display.display()</code> inside the guest
-            writes to nothing observable. What the firmware <em>does</em> emit is the face{' '}
-            <em>name</em>, and that really did cross the UART.
-          </p>
-          <p className="muted">
-            So the image above is drawn here, on the host, from{' '}
-            <code>firmware/face-bitmaps.h</code> — the same arrays the firmware would have used. It
-            is shown because the 3D robot needs a screen, and it is labelled{' '}
-            <code>inferred</code> because nothing transmitted it. It is not a capture of the
-            emulator’s framebuffer, and there is no framebuffer to capture.
-          </p>
+        What was here in the `panel` variant was a `warn-short` block: the claim
+        in bold and a line of explanation under it, about 60 px of a panel that
+        may never grow a scrollbar. It is behind `[data-info="oled-pixels"]` on
+        the Face card's header summary now — hover, focus or click.
+
+        **The BADGE did not move.** `ProvenanceTag` on that same summary still
+        says `inferred` (or `observed`, once the framebuffer hook is on) at every
+        width and with every screen shut, which is the correctness surface §11.4
+        protects by name. A popover may expand a claim; it may not be where the
+        claim first appears, and the badge IS the claim.
+
+        The 4x screen keeps the whole thing, and it is now generated from
+        {@link PixelOrigin} rather than written out here, so the elided case and
+        the observed case cannot drift apart.
+      */}
+      {!compact && (
+        <div
+          className={origin.fromEmulator ? 'note-block' : 'warn'}
+          data-testid={origin.fromEmulator ? 'oled-observed-detail' : 'oled-elided-detail'}
+          data-pixel-origin={origin.state}
+        >
+          <strong>{origin.claim}</strong>
+          {origin.paragraphs.map((paragraph, index) => (
+            <p key={paragraph.slice(0, 24)} className={index === 0 ? undefined : 'muted'}>
+              {paragraph}
+            </p>
+          ))}
         </div>
       )}
 

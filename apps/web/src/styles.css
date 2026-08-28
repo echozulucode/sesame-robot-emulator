@@ -890,6 +890,15 @@
     border-radius: 7px 7px 0 0;
     display: flex;
     align-items: center;
+    /*
+     * WRAPS — Phase 4 W8. The header carries a label, a summary that may hold
+     * two badges and an info icon, and a 36 px "more" button, in 280 px. Adding
+     * the icon put the Face card's `⚠2` under the word `Larger`, and both of
+     * those are correctness surfaces that W1's own rule forbids truncating. A
+     * second line is the honest answer; `min-width: 0` on the summary is not,
+     * because shrinking is what produced the overlap.
+     */
+    flex-wrap: wrap;
     gap: var(--space-1);
     margin: 0;
     /* The 36 px control inside sets the row's height; the padding here is only
@@ -922,6 +931,7 @@
   .panel-card-summary {
     display: inline-flex;
     align-items: center;
+    flex-wrap: wrap;
     gap: var(--space-1);
     min-width: 0;
     overflow: visible;
@@ -940,6 +950,55 @@
 
   .panel-card.is-folded {
     flex: 0 0 auto;
+  }
+
+  /* ================================ THE ELASTIC CARD — Phase 4 W8
+   *
+   * > *"Maximize the height of the commands pane if it fits."*
+   *
+   * `1 0 auto`, and the `0` is the whole safety argument: this card may GROW
+   * into space nothing else wanted and may never SHRINK. W7's Face card was
+   * `0 1 auto`, was crushed to 10 px on a short window, and the crushing did
+   * not register at all — a `container-type: inline-size` box does not
+   * contribute its overflow to an ancestor's scrollable overflow, so the
+   * panel's own "did it overflow" reading stayed at 0 while the card was
+   * invisible. Growth has no equivalent failure: there is nothing to hide.
+   *
+   * The cap is what stops "maximise" becoming "a 600 px card holding six
+   * buttons". At 2560x1440 the panel has about 600 px of slack; 24rem of
+   * Commands uses the part of it that makes the buttons better and leaves the
+   * rest as the panel's own tail, exactly as today.
+   */
+  .panel-card[data-elastic='true']:not(.is-folded) {
+    flex: 1 0 auto;
+    max-block-size: 24rem;
+  }
+
+  /*
+   * ...and held still while the panel measures itself.
+   *
+   * `SidePanel`'s layout effect sets `data-measuring` for the duration of one
+   * synchronous read. Without this rule the elastic card would have already
+   * absorbed the slack the measurement is trying to find, and the answer would
+   * be 0 every time — a measurement taken in the presence of the thing being
+   * measured. It is never on across a paint.
+   */
+  .side-panel-inner[data-measuring] .panel-card[data-elastic='true'] {
+    flex-grow: 0;
+  }
+
+  /* The buttons take the height the card was given, rather than the card
+     holding a stack of 36 px controls above 200 px of nothing. */
+  .panel-card[data-elastic='true'] .command-bar-panel {
+    flex: 1 1 auto;
+    min-height: 0;
+  }
+
+  .panel-card[data-elastic='true'] .command-bar-panel .cmd-grid {
+    flex: 1 1 auto;
+    align-content: stretch;
+    grid-auto-rows: minmax(36px, 1fr);
+    max-block-size: 12rem;
   }
 
   .panel-card-body[hidden] {
@@ -969,6 +1028,100 @@
   .panel-more:hover {
     color: #cfe0fb;
     border-color: var(--accent);
+  }
+
+  /* ================================== THE INFO AFFORDANCE — Phase 4 W8
+   *
+   * > *"just show an info icon to click on and / or mouse over to see the
+   * > info."*
+   *
+   * 20 px of glyph, 36 px of target — the W6 rule is about what a pointer has
+   * to hit, not about what is painted, so the box is padded rather than the
+   * circle grown. The tip is a PORTAL into `document.body`: the side panel is
+   * `overflow: hidden` and every pane is `contain: layout` by way of
+   * `container-type`, so a tip rendered in place would be both contained and
+   * clipped. See `ui/InfoDot.tsx`.
+   */
+  .info-dot {
+    position: relative;
+    flex: none;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    inline-size: 1.25rem;
+    block-size: 1.25rem;
+    /* The hit area, without the paint area. */
+    outline-offset: 2px;
+    padding: 0;
+    margin: 0 var(--space-1);
+    border: 1px solid var(--line);
+    border-radius: 50%;
+    background: var(--panel-2);
+    color: var(--accent);
+    cursor: help;
+    font: inherit;
+    font-size: var(--font-badge);
+    font-style: italic;
+    font-weight: 700;
+    line-height: 1;
+  }
+
+  .info-dot::after {
+    /* The 36 px target, centred on the 20 px circle and painting nothing. */
+    content: '';
+    position: absolute;
+    inline-size: 36px;
+    block-size: 36px;
+  }
+
+  .info-dot:hover,
+  .info-dot:focus-visible {
+    border-color: var(--accent);
+    color: #cfe0fb;
+  }
+
+  .info-tip {
+    position: fixed;
+    z-index: 60;
+    max-inline-size: 20rem;
+    padding: var(--space-2);
+    border: 1px solid var(--accent);
+    border-radius: 6px;
+    background: #10141a;
+    color: var(--text);
+    font-size: var(--font-ui);
+    line-height: var(--leading-body);
+    box-shadow: 0 6px 20px rgb(0 0 0 / 45%);
+    pointer-events: none;
+  }
+
+  /* The one-line guidance the QEMU default needs where there is no lab host. */
+  .panel-no-lab-host {
+    margin: 0;
+  }
+
+  /* The observed-framebuffer counterpart of `.warn`, in the 4x screen: the same
+     block, in the colour of a fact rather than of a caveat. */
+  .note-block {
+    border: 1px solid var(--line);
+    border-left: 3px solid var(--accent);
+    border-radius: 6px;
+    padding: var(--space-2);
+    background: var(--panel-2);
+  }
+
+  .pixel-origin-claim {
+    margin-top: 0;
+  }
+
+  .panel-inline-more {
+    padding: 0;
+    border: 0;
+    background: none;
+    color: var(--accent);
+    cursor: pointer;
+    font: inherit;
+    text-decoration: underline;
   }
 
   /* ------------------------------------------------------ the trust card
@@ -2831,7 +2984,26 @@
     overflow-y: auto;
   }
 
-  /* ------------------------------------------------------------------ outline */
+  /* ------------------------------------------------------------------ outline
+   *
+   * MINIFIED — Phase 4 W8, and the first half of the user's request.
+   *
+   * > *"the list of items, like 'runDancePose' should be in the left side of
+   * > the Source pane and minified"*
+   *
+   * Measured before this rule, at 1440x900 with `movement-sequences.h`
+   * selected: 25 symbols, one per row, each row 510 px wide with the name
+   * itself 468 px of it, and the outline 720 px TALL — taller than the code it
+   * is supposed to be an index of. That is the shape a full-width list has, and
+   * no amount of type or spacing fixes it.
+   *
+   * `auto-fill` is the fix and it is deliberately NOT a threshold: the column
+   * count is intrinsic, so the same rule gives a 510 px stacked outline four
+   * columns and a 12rem left column exactly one, and there is no third number
+   * for the container-query static check to reject. 11rem is the widest symbol
+   * this tree has (`movement-prototypes`) at the UI size plus its kind glyph
+   * and its line number.
+   */
   .source-outline-row {
     align-items: baseline;
     background: none;
@@ -2875,6 +3047,13 @@
     color: var(--muted);
     flex: none;
     font-size: var(--font-badge);
+  }
+
+  .source-outline {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(11rem, 1fr));
+    gap: 0 var(--space-2);
+    align-content: start;
   }
 
   /* --------------------------------------------------------------------- code */
@@ -4648,6 +4827,100 @@
 
     [data-pane='learn'] .lesson-list {
       grid-template-columns: repeat(auto-fill, minmax(18rem, 1fr));
+    }
+  }
+
+  /* ------------------------------------------------------------- SOURCE
+   *
+   * "Does this pane have room for the outline BESIDE the code?" — Phase 4 W8.
+   *
+   * > *"the source list file list should be adjusted. e.g. when
+   * > movement-sequences.h is select in SOURCE, the list of items, like
+   * > 'runDancePose' should be in the left side of the Source pane and
+   * > minified; the right side should be all the source content, etc. which is
+   * > presently below it."*
+   *
+   * The three regions have been STACKED since L4, because the analysis dock was
+   * 320-520 px and three columns needed about 700. The module column is half
+   * the content area now, so the question is worth asking again — but it is
+   * still a question, not a constant, which is why it is a container query and
+   * why the fallback is the arrangement that shipped.
+   *
+   * **The threshold is 45rem, which is W2's existing `wide` band, and there is
+   * no new number.** It is also the honest one, by arithmetic rather than by
+   * convenience. At 45rem of pane the content box is 696 px; the outline column
+   * is 12rem and the gap is `--space-3`, so the code column gets about 490 px —
+   * which is *more* than the whole Source pane has at 1440x900 today (510 px of
+   * box, of which the code is all of it). Anything narrower would hand the
+   * reader a code column of about 340 px, and `movement-sequences.h` runs to
+   * 96 columns: a two-column layout that made every line scroll sideways would
+   * be a worse answer to this request than not doing it.
+   *
+   * What that costs, stated rather than buried: the module column is
+   * `(innerWidth - 344) / 2 - 25`, so two columns need
+   * `2 x (720 + 25) + 344 = 1834 px` of viewport. **1920x1080 and 2560x1440 get
+   * the two-column Source; 1280, 1440 and 1760 keep the stack** — 1760x1000
+   * misses it by 26 px of pane. Those widths still get the minified outline
+   * above, which is where most of the complaint actually was.
+   *
+   * The CONTEXT region goes in the right column under the code, not in the left
+   * one under the outline: *"the right side should be all the source content,
+   * etc. which is presently below it"*.
+   */
+  @container pane (width >= 45rem) {
+    /*
+      `.pane__content` is in every selector here for the cascade rather than for
+      the structure: `[data-sections='one'] .pane__content .source-code` is
+      (0,3,0) and stacks the three regions, so a (0,2,0) rule in this block
+      would lose to it however far down the file it sat. `@container` does not
+      change specificity, and a rule that looks right and does nothing is the
+      trap `@layer` set for W4 twice.
+    */
+    [data-pane='source'] .pane__content .source-body {
+      grid-template-columns: minmax(0, 12rem) minmax(0, 1fr);
+      grid-template-rows: auto auto;
+      grid-template-areas:
+        'outline code'
+        'outline context';
+      column-gap: var(--space-3);
+      /* The outline is an index, not a column of equal weight: it takes its
+         content height at the top rather than stretching to the code's. */
+      align-items: start;
+    }
+
+    [data-pane='source'] .pane__content .source-outline {
+      grid-area: outline;
+    }
+
+    [data-pane='source'] .pane__content .source-code-wrap {
+      grid-area: code;
+    }
+
+    [data-pane='source'] .pane__content .source-context {
+      grid-area: context;
+    }
+
+    /*
+     * The code becomes a BOUNDED viewport again, and that is the half of this
+     * change that matters to the assertions.
+     *
+     * In the stacked arrangement the code box takes its content height and is
+     * bounded by a LINE BUDGET the pane announces — so `.source-code` never
+     * scrolls, and L4's "selecting a joint SCROLLED the code view to the
+     * symbol's first line" degenerates into "the line is somewhere in a 3,000 px
+     * box", which is true of every line and proves nothing. Beside a 12rem
+     * outline the same box would also be 3,000 px of code next to 550 px of
+     * index, which is not a two-column layout so much as a column with a note.
+     *
+     * 420px is W2's own number for this box, reused rather than reinvented. It
+     * is the one place in a pane where a second vertical scroller is allowed,
+     * because it carries `data-2d-surface="code"`.
+     */
+    [data-pane='source'] .pane__content .source-code {
+      max-block-size: 420px;
+      min-block-size: 0;
+      flex: 1 1 auto;
+      overflow: auto;
     }
   }
 

@@ -52,6 +52,7 @@ import {
   ReactFlow,
   ReactFlowProvider,
   useReactFlow,
+  useStore,
   type Edge,
   type Node,
   type NodeProps,
@@ -196,7 +197,7 @@ function SesameNode({ data }: NodeProps<Node<SesameNodeData>>): ReactElement {
 const NODE_TYPES = { sesame: SesameNode };
 
 /**
- * Re-frame the viewport when the graph changes shape.
+ * Re-frame the viewport when the graph changes SHAPE.
  *
  * React Flow's `fitView` prop only fires on mount, so without this an expansion
  * adds nine rows of chain below the fold and the learner sees nothing happen.
@@ -208,9 +209,23 @@ const NODE_TYPES = { sesame: SesameNode };
  *
  * `subsystem` never zooms out. Its whole reason for existing is that a label
  * shrunk to 6 px is not a label, so the zoom floor is 1 and what moves is the
- * viewport, centred on the focus node and its immediate neighbours. That makes
- * a cross-highlight visible rather than merely correct: selecting `R4` in the
- * 3D scene pans this graph to `R4`.
+ * viewport, centred on the focus node and its immediate neighbours.
+ *
+ * ## Shape is not selection — and conflating them was a bug
+ *
+ * > *"the graph looks awesome. One complaint is that when I click on a node, it
+ * > zooms out and I need to keep manually zooming in."*
+ *
+ * `focusId` and `pathIds` used to be DEPENDENCIES of this effect. A node click
+ * changes the selection, which changes both, which re-ran the effect, which in
+ * `full` fell through to `fitView({ padding: 0.16 })` — refitting all 63 nodes
+ * and throwing away whatever zoom the reader had scrolled to. The whole map was
+ * refitted as a side effect of asking about one box in it.
+ *
+ * They are read through a REF now, so the frame chosen when the shape changes
+ * is still the frame around the current focus, and a selection on its own no
+ * longer re-fits anything. {@link RevealSelection} is what answers a selection,
+ * and it may only PAN: see its own comment.
  */
 function Reframe({
   mode,
@@ -220,6 +235,7 @@ function Reframe({
   focusId,
   pathIds,
   widthKey,
+  expandWasExplicit,
 }: {
   readonly mode: ArchitectureMode;
   readonly layoutKey: string;
@@ -240,13 +256,75 @@ function Reframe({
    * workspace a decoration.
    */
   readonly widthKey: number | null;
+  /**
+   * True when the shape changed because the reader pressed `+n`.
+   *
+   * A ref rather than a prop value, because it is an EVENT and a prop would
+   * make it part of the effect's dependency list — which is the exact mistake
+   * this whole component is fixing. It is read and cleared once per effect run.
+   */
+  readonly expandWasExplicit: { current: boolean };
 }): null {
   const flow = useReactFlow();
   const previous = useRef<ReadonlySet<string> | null>(null);
+  /** The last shape/box this effect framed, so it can tell them apart. */
+  const lastLayout = useRef<string | null>(null);
+  const lastBox = useRef<string | null>(null);
+  /*
+    The focus and its chain, READ but not DEPENDED ON.
+
+    The frame this effect chooses is still built around whatever is selected
+    now; what changed is that selecting something is no longer an event that
+    re-frames. Refs are the whole of that distinction, and it is the fix for
+    "clicking a node zooms out".
+  */
+  const focusRef = useRef(focusId);
+  const pathRef = useRef(pathIds);
+  focusRef.current = focusId;
+  pathRef.current = pathIds;
 
   useEffect(() => {
+    const focusNow = focusRef.current;
+    const pathNow = pathRef.current;
     const before = previous.current;
     previous.current = expanded;
+    /*
+     * WHY did this run, and is it a reason to re-fit?
+     *
+     * Three causes reach this effect and only two of them are re-frames:
+     *
+     *   the BOX changed   mode, or the surface's width — the focus workspace
+     *                     opening is the case W4 added `widthKey` for, and a
+     *                     transform does not grow with its container, so this
+     *                     must fit;
+     *   an EXPANSION      the reader pressed `+n`. W4's rule: fit the subtree
+     *                     that opened rather than the whole map;
+     *   a SELECTION       `applySelection` calls `expansionsFor()`, which opens
+     *                     whatever chain is needed to put the selected node on
+     *                     screen. THIS is the user's complaint. The shape did
+     *                     change, so the effect legitimately runs, and re-fitting
+     *                     here is what threw away the zoom they had chosen.
+     *
+     * The first two re-fit. The third does not: the viewport is left exactly
+     * where the reader put it and {@link RevealSelection} pans to the node if it
+     * ended up off screen.
+     */
+    const explicit = expandWasExplicit.current;
+    expandWasExplicit.current = false;
+    const boxKey = `${mode}|${String(widthKey)}`;
+    const boxChanged = lastBox.current !== boxKey;
+    lastBox.current = boxKey;
+    lastLayout.current = layoutKey;
+    /*
+      Note what is NOT in this predicate: whether the layout key changed.
+      Measured, and it is the second half of the same defect — selecting
+      `servo.setServoAngle` re-runs this effect with an IDENTICAL node list,
+      because `scope` is memoised on `focusId` and produces a new object for the
+      same nodes. Requiring a shape change here let that run fall through to the
+      fit, and the zoom went 1.44 -> 1.33 -> 1.00 in the one representation
+      whose floor is its whole point. What decides is the CAUSE, not the diff.
+    */
+    const selectionOnly = before !== null && !boxChanged && !explicit;
     const opened = before === null ? [] : [...expanded].filter((id) => !before.has(id));
     const focus: string | null = opened.length === 1 ? (opened[0] as string) : null;
     // Two frames: React Flow measures nodes after paint, and fitting against
@@ -254,6 +332,10 @@ function Reframe({
     const id = requestAnimationFrame(() =>
       requestAnimationFrame(() => {
         if (mode === 'subsystem') {
+          // Same rule as the full graph below: a selection re-frames nothing.
+          // The subsystem's zoom is pinned to 1 either way, so what this
+          // prevents is the viewport jumping while the reader reads.
+          if (selectionOnly) return;
           // The focus, what it leads to, and what led TO it. The predecessor is
           // what makes the frame answer a question rather than centre a box:
           // for `R1` it brings `MG90S` into view, which is "which servo drives
@@ -271,9 +353,9 @@ function Reframe({
            * the same question ("what led to this") answered further back.
            */
           const around = [
-            ...pathIds,
-            focusId,
-            ...childrenOf(focusId).map((c) => c.id),
+            ...pathNow,
+            focusNow,
+            ...childrenOf(focusNow).map((c) => c.id),
           ].filter((n) => visibleIds.includes(n));
           /*
            * If the whole neighbourhood FITS at zoom 1, frame the whole
@@ -339,6 +421,17 @@ function Reframe({
             });
           return;
         }
+        /*
+         * The fix, in one branch — Phase 4 W8.
+         *
+         * > *"when I click on a node, it zooms out and I need to keep manually
+         * > zooming in."*
+         *
+         * Measured before this: zoom 0.501 -> 0.348 on a single click, because
+         * selecting `movement` expanded the chain to it and the effect fell
+         * through to the whole-graph `fitView` below.
+         */
+        if (selectionOnly) return;
         if (focus !== null) {
           const subtree = [focus, ...childrenOf(focus).map((c) => c.id)].filter((n) =>
             visibleIds.includes(n),
@@ -350,8 +443,104 @@ function Reframe({
       }),
     );
     return () => cancelAnimationFrame(id);
-    // `layoutKey` is what actually changed; `expanded` is read for the diff.
-  }, [flow, mode, layoutKey, expanded, visibleIds, focusId, pathIds, widthKey]);
+    /*
+      `layoutKey` is what actually changed; `expanded` is read for the diff.
+
+      **`focusId` and `pathIds` are deliberately NOT here.** They are read from
+      refs above. A selection changes both of them, and having them in this list
+      is what made a node click re-fit the whole 63-node graph — the defect the
+      user reported. React's exhaustive-deps rule would put them back; the
+      disable is the point rather than an oversight.
+    */
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [flow, mode, layoutKey, expanded, visibleIds, widthKey, expandWasExplicit]);
+
+  return null;
+}
+
+/**
+ * Answer a SELECTION by panning, never by zooming — Phase 4 W8.
+ *
+ * > *"when I click on a node, it zooms out and I need to keep manually zooming
+ * > in."*
+ *
+ * The rule this implements is narrow and is asserted as stated: **the zoom does
+ * not decrease across a node click, in either representation that has a
+ * viewport.** So:
+ *
+ *  - the current zoom is read off React Flow and handed straight back to
+ *    `setCenter`, which is the one API here that takes a zoom rather than
+ *    computing one. `fitView` computes one, which is why it is not used;
+ *  - and the pan happens ONLY when the selected node is outside the canvas, so
+ *    clicking a box that is already on screen moves nothing at all. A viewport
+ *    that recentres on every click is its own kind of unusable.
+ *
+ * `w` and `h` come from React Flow's own store rather than from a DOM
+ * measurement, so "is this node on screen" is asked in the same coordinate
+ * space the library places nodes in.
+ */
+function RevealSelection({
+  mode,
+  focusId,
+  visibleIds,
+}: {
+  readonly mode: ArchitectureMode;
+  readonly focusId: string;
+  readonly visibleIds: readonly string[];
+}): null {
+  const flow = useReactFlow();
+  const width = useStore((s) => s.width);
+  const height = useStore((s) => s.height);
+  /**
+   * The focus this effect last answered.
+   *
+   * It exists so the effect fires on a SELECTION and on nothing else. Its
+   * dependency list also holds `visibleIds`, which changes whenever the layout
+   * does — and answering a layout change here would race `Reframe`'s own
+   * animated `fitView`, read a zoom mid-flight and freeze the graph at it. That
+   * is not hypothetical: it is how the subsystem view came out at 0.917 with
+   * 13.21 px labels, in a representation whose whole claim is a zoom floor of 1.
+   */
+  const answered = useRef<string | null>(null);
+
+  useEffect(() => {
+    if (!visibleIds.includes(focusId)) return;
+    if (width < 1 || height < 1) return;
+    // The first run is the mount, and `fitView` owns the mount.
+    if (answered.current === focusId) return;
+    const first = answered.current === null;
+    answered.current = focusId;
+    if (first) return;
+    // One frame: a selection can arrive in the same commit that mounted the
+    // node, and an unmeasured node has no position worth panning to.
+    const raf = requestAnimationFrame(() => {
+      const node = flow.getNode(focusId);
+      if (node === undefined) return;
+      /*
+        The zoom in force, and never below this representation's own floor.
+        `setCenter` takes a zoom and applies it exactly, so handing it a value
+        read mid-animation would PIN the graph there — which is how a pan
+        turned into a zoom-out in the one view that is not allowed one.
+      */
+      const zoom = Math.max(flow.getZoom(), mode === 'subsystem' ? 1 : 0);
+      const viewport = flow.getViewport();
+      const nodeW = node.measured?.width ?? 220;
+      const nodeH = node.measured?.height ?? 72;
+      const cx = node.position.x + nodeW / 2;
+      const cy = node.position.y + nodeH / 2;
+      // Where that centre currently is, in canvas pixels.
+      const sx = cx * zoom + viewport.x;
+      const sy = cy * zoom + viewport.y;
+      const insetX = Math.min(width / 3, (nodeW * zoom) / 2 + 16);
+      const insetY = Math.min(height / 3, (nodeH * zoom) / 2 + 16);
+      const onScreen =
+        sx >= insetX && sx <= width - insetX && sy >= insetY && sy <= height - insetY;
+      if (onScreen) return;
+      // The zoom that is in force, handed back unchanged. This is the whole fix.
+      void flow.setCenter(cx, cy, { zoom, duration: 200 });
+    });
+    return () => cancelAnimationFrame(raf);
+  }, [flow, mode, focusId, visibleIds, width, height]);
 
   return null;
 }
@@ -394,6 +583,24 @@ function ArchitectureGraphInner(props: ArchitectureGraphProps): ReactElement {
    */
   const { ref: surfaceRef, widthPx: surfaceWidthPx, band } = useContainerWidth();
   const mode = archModeForWidth(surfaceWidthPx ?? Number.NaN);
+
+  /*
+   * Did the READER expand something, or did a selection do it for them?
+   *
+   * `applySelection` calls `expansionsFor()` and opens whatever chain is needed
+   * to put the selected node on screen, so `expanded` grows on a plain node
+   * click. Both paths end in the same `expanded` prop and the graph cannot tell
+   * them apart from the value — so the one that came through a `+n` press says
+   * so on the way past. See {@link Reframe}.
+   */
+  const expandWasExplicit = useRef(false);
+  const handleToggle = useCallback(
+    (id: string) => {
+      expandWasExplicit.current = true;
+      onToggle(id);
+    },
+    [onToggle],
+  );
 
   const focusId = useMemo(
     () => focusNodeFor(selection.nodeId, activeNodeIds),
@@ -441,10 +648,10 @@ function ArchitectureGraphInner(props: ArchitectureGraphProps): ReactElement {
           compact: mode === 'subsystem',
           width: metrics.nodeW,
           height: metrics.nodeH,
-          onToggle,
+          onToggle: handleToggle,
         },
       })),
-    [layout, selection, activeNodeIds, onToggle, mode, metrics],
+    [layout, selection, activeNodeIds, handleToggle, mode, metrics],
   );
 
   const edges = useMemo<Edge[]>(
@@ -613,7 +820,13 @@ function ArchitectureGraphInner(props: ArchitectureGraphProps): ReactElement {
                 focusId={focusId}
                 pathIds={path.nodeIds}
                 widthKey={surfaceWidthPx}
+                expandWasExplicit={expandWasExplicit}
               />
+              {/*
+                Selection is answered here and nowhere else, and it may only
+                pan. See {@link RevealSelection}.
+              */}
+              <RevealSelection mode={mode} focusId={focusId} visibleIds={visibleIds} />
             </ReactFlow>
           </div>
         )}

@@ -19,6 +19,7 @@ import { Mesh, Object3D, Quaternion, Vector3 } from 'three';
 
 import type { BackendId, BackendStatus, EmulatorFacts } from './backends/types.js';
 import { layoutArchitecture } from './arch/layout.js';
+import { pixelOrigin } from './oled/pixel-provenance.js';
 import { ARCH_NODES, HAND_AUTHORED, UPSTREAM_COMMIT } from './generated/architecture-graph.js';
 import { ANNOTATIONS_UPSTREAM_COMMIT, CURRICULUM } from './generated/source-annotations.js';
 import { archNodesInSymbol, citationsForSymbol, SYMBOL_BY_ID } from './source/model.js';
@@ -407,7 +408,22 @@ export interface PanelReading {
   /** `scrollHeight - clientHeight` on the panel. Must be <= 1. */
   readonly overflowPx: number;
   /** The cards on it, and whether each has a box a reader can see. */
-  readonly cards: readonly { readonly id: string; readonly visible: boolean; readonly heightPx: number }[];
+  /**
+   * Every card on the panel, in DOM order.
+   *
+   * The ORDER is asserted from Phase 4 W8 onward: *"the face should be at the
+   * very top"*, so `cards[0].id` is `face` and the trust card follows it. It is
+   * read out of the DOM rather than from the spec array because the claim is
+   * about what a reader meets first.
+   */
+  readonly cards: readonly {
+    readonly id: string;
+    readonly visible: boolean;
+    readonly heightPx: number;
+    readonly folded: boolean;
+    /** The one card allowed to take measured slack — W8's `ELASTIC_CARD`. */
+    readonly elastic: boolean;
+  }[];
   /**
    * The correctness surfaces that must be ON the panel rather than only behind
    * a "more info" screen — §11.4.
@@ -581,6 +597,16 @@ export interface SesameDebugApi {
     writes: number;
     face: { name: string; frame: number; provenance: Provenance } | null;
     source: { kind: string; pixelProvenance: Provenance | null; triggerProvenance: Provenance | null };
+    /**
+     * What the pane CLAIMS about where the pixels came from — Phase 4 W8.
+     *
+     * Derived from the backend's own `oledFramebuffer` / `elided` capability
+     * document by `oled/pixel-provenance.ts`, never from which backend is
+     * selected. It is published here so the harness can assert that a QEMU
+     * image WITHOUT the framebuffer hook says `elided`, and that one WITH it
+     * says `observed`, without either assertion naming a backend.
+     */
+    pixels: { state: string; claim: string; fromEmulator: boolean; paragraphs: number };
     emptyFace: { requested: string; reason: string } | null;
     /** `oled_screen`'s material actually carries a texture whose image is our canvas. */
     projectedIn3d: boolean;
@@ -851,6 +877,15 @@ export function installDebugHook(wiring: DebugHookWiring): () => void {
           pixelProvenance: store.oledSource.pixelProvenance,
           triggerProvenance: store.oledSource.triggerProvenance,
         },
+        pixels: (() => {
+          const origin = pixelOrigin(wiring.emulatorFacts(), store.oledSource);
+          return {
+            state: origin.state,
+            claim: origin.claim,
+            fromEmulator: origin.fromEmulator,
+            paragraphs: origin.paragraphs.length,
+          };
+        })(),
         emptyFace:
           store.emptyFace === null
             ? null
@@ -1310,9 +1345,22 @@ export function installDebugHook(wiring: DebugHookWiring): () => void {
       ): { depth: number; chain: readonly string[]; scrollers: readonly string[] } => {
         const describe = (el: Element): string => {
           const testid = el.getAttribute('data-testid');
-          if (testid !== null) return `[${testid}]`;
           const cls = (el.getAttribute('class') ?? '').split(/\s+/).filter((c) => c !== '')[0];
-          return cls === undefined ? el.tagName.toLowerCase() : `.${cls}`;
+          const name =
+            testid !== null ? `[${testid}]` : cls === undefined ? el.tagName.toLowerCase() : `.${cls}`;
+          /*
+            The DECLARED two-dimensional surfaces are marked — Phase 4 W8.
+
+            W2's rule is "a pane owns one ORDINARY vertical scroller; anything
+            else that scrolls has to declare itself with `data-2d-surface`", and
+            the container sweep has always read the list that way. This reading
+            did not mark them because until W8 no declared surface inside the
+            module column actually scrolled: the Source code region took its
+            content height. Beside the outline it is a bounded 420 px viewport
+            again, so the marker has to be here too — and it is a MARKER rather
+            than a filter, so a new declared surface still shows up in the list.
+          */
+          return el.hasAttribute('data-2d-surface') ? `${name}(2d)` : name;
         };
         // A `<textarea>` of exported C++ scrolls because it is a text control,
         // not because the layout nested three boxes; that is a different thing
@@ -1393,6 +1441,8 @@ export function installDebugHook(wiring: DebugHookWiring): () => void {
           id: el.getAttribute('data-panel-card') ?? '',
           visible: laidOut(el),
           heightPx: el.getBoundingClientRect().height,
+          folded: el.getAttribute('data-folded') === 'true',
+          elastic: el.getAttribute('data-elastic') === 'true',
         })),
         correctness: PANEL_CORRECTNESS.map(({ what, selector }) => {
           const el = document.querySelector(selector);

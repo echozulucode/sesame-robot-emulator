@@ -1083,8 +1083,69 @@ await waitFor(
     );
   }
 
+  /*
+   * ============================ THE DEFAULT BACKEND — Phase 4 W8
+   *
+   * > *"The QEMU should be the default."*
+   *
+   * This page is served by the BRIDGE, so there is no lab host on its origin at
+   * all — which is also what `pnpm demo:web` gives a reader. The contract under
+   * test is therefore the awkward half of the request rather than the easy one:
+   *
+   *   1. the app opens on `qemu`, because that is the default and because
+   *      silently landing on the host model when the emulator is unreachable is
+   *      the substitution this whole project exists to refuse;
+   *   2. and it SAYS SO. `[data-testid="panel-no-lab-host"]` is on the side
+   *      panel, not behind a disclosure, because "an unexplained error" is a
+   *      thing a user of this project has already reported once.
+   *
+   * The other two legs are asserted where they can be: phase 11 boots a lab
+   * host with `--backend sim` and requires the app to have DETECTED it (below),
+   * and phase 6 boots one with QEMU and requires it to stay.
+   */
   const backend = await page.evaluate('window.__sesame.backendId()');
-  check(backend === 'sim', `the default backend is "${backend}", expected "sim"`);
+  check(
+    backend === 'qemu',
+    `with no lab host on the origin the app opened on "${backend}"; QEMU is the default and the ` +
+      `absence of a lab host is not a reason to substitute the host model for the emulator`,
+  );
+  const noLabHostGuidance = await page.evaluate(`(() => {
+    const el = document.querySelector('[data-testid="panel-no-lab-host"]');
+    if (el === null) return { present: false };
+    const box = el.getBoundingClientRect();
+    return {
+      present: true,
+      text: el.innerText,
+      laidOut: box.width > 0 && box.height > 0,
+      insidePopover: el.closest('[data-popover]') !== null,
+    };
+  })()`);
+  check(
+    noLabHostGuidance.present === true &&
+      noLabHostGuidance.laidOut === true &&
+      noLabHostGuidance.insidePopover === false,
+    `the app defaulted to QEMU with no lab host behind it and the panel does not say so: ` +
+      `${JSON.stringify(noLabHostGuidance)}. The guidance may not live only inside a "more info" ` +
+      `screen — that is an unexplained error with a paragraph hidden behind it.`,
+  );
+  phases.defaultBackend = {
+    servedBy: 'bridge (no lab host)',
+    opened: backend,
+    guidanceOnPanel: noLabHostGuidance.present === true,
+    guidanceInsidePopover: noLabHostGuidance.insidePopover === true,
+  };
+
+  // Phases 1-4 are about the SIMULATOR and the replay stream, so they choose
+  // one explicitly from here. The default is asserted above rather than
+  // depended on below.
+  await page.evaluate('window.__sesame.setBackend("sim")');
+  await waitFor(
+    page.evaluate,
+    'window.__sesame.backendId()',
+    (v) => v === 'sim',
+    'the app to switch to the simulator for phases 1-4',
+  );
+  await sleep(400);
 
   // ------------------------------------------- world-frame stability samples
   //
@@ -2389,16 +2450,148 @@ await waitFor(
       `"Fit View" shrinking labels until everything technically fits and nothing is usable. What ` +
       `moves instead is the viewport, which is why the surface is a declared [data-2d-surface].`,
   );
-  // No screenshot here on purpose: a pane driven 440 px wider than the dock
-  // that holds it spills off the right of the window, which is fine for a
-  // measurement and misleading as a picture. Phase 12 photographs the same
-  // representation in a layout a reader can actually reach - 1280x800 with the
-  // focus workspace open, where 859 px of surface is the honest answer.
+  // =====================================================================
+  // W8: CLICKING A NODE MUST NOT ZOOM OUT
+  // =====================================================================
+  //
+  // > *"the graph looks awesome. One complaint is that when I click on a node,
+  // > it zooms out and I need to keep manually zooming in."*
+  //
+  // A real defect with a real cause: `focusId` and `pathIds` were DEPENDENCIES
+  // of the re-frame effect, so a selection re-ran it, and in the `full`
+  // representation it fell through to `fitView({ padding: 0.16 })` — refitting
+  // all 63 nodes and discarding whatever zoom the reader had scrolled to.
+  //
+  // The invariant is stated as the user stated it and asserted as a number:
+  // **the zoom does not decrease across a node click.** It is checked in BOTH
+  // representations that have a viewport, and in each one the reader is first
+  // put somewhere a refit would visibly undo — zoomed IN past the fitted zoom —
+  // because a check that clicks at the fitted zoom cannot tell "kept the zoom"
+  // from "refitted to the same number".
+  //
+  // `archGraph().viewportZoom` is W7's published transform, read off the DOM
+  // rather than recomputed, so this cannot agree with itself by construction.
+  const zoomOf = () => page.evaluate('window.__sesame.archGraph().viewportZoom');
+  /**
+   * Click the first node in `candidates` a pointer could actually reach.
+   *
+   * Two details, both learned the hard way.
+   *
+   * **A LIST, not one id.** Phase 7 drives the modules pane 440 px wider than
+   * the column that holds it, on purpose, so part of the graph is off the right
+   * of the window and `elementFromPoint` returns null for it. Which node that
+   * is depends on the layout; requiring one particular node to be hit-testable
+   * would make this check fail for a reason that has nothing to do with what it
+   * asserts.
+   *
+   * **`el.click()`, not synthetic `mousedown`/`mouseup`.** A hand-built
+   * `MouseEvent` has `view === null`, and React Flow's drag machinery reads
+   * `sourceEvent.view.document` — which threw `Cannot read properties of null
+   * (reading 'document')` into the page's error log on the first run of this
+   * check. `HTMLElement.click()` dispatches the event the platform would.
+   */
+  const clickArchNode = (candidates) =>
+    page.evaluate(`(() => {
+      for (const id of ${JSON.stringify(candidates)}) {
+        const node = document.querySelector('[data-arch-node="' + id + '"]');
+        if (node === null) continue;
+        const box = node.getBoundingClientRect();
+        if (box.width < 1 || box.height < 1) continue;
+        const x = box.left + box.width / 2;
+        const y = box.top + box.height / 2;
+        if (x < 0 || y < 0 || x > window.innerWidth || y > window.innerHeight) continue;
+        const hit = document.elementFromPoint(x, y);
+        if (hit === null || !node.contains(hit)) continue;
+        hit.click();
+        return { ok: true, node: id };
+      }
+      return { ok: false, why: 'no candidate node was hit-testable' };
+    })()`);
+
+  const zoomChecks = [];
+  {
+    // The pane is still 900 px wide here, so this is the SUBSYSTEM view.
+    const candidates = subsystemReading.renderedNodeIds.filter(
+      (id) => id !== subsystemReading.selectedNodeId,
+    );
+    const before = await zoomOf();
+    const clicked = await clickArchNode(candidates);
+    await sleep(900);
+    const after = await zoomOf();
+    check(
+      clicked.ok === true,
+      `could not click any of ${candidates.length} node(s) in the subsystem representation: ` +
+        `${JSON.stringify(clicked)}`,
+    );
+    check(
+      before !== null && after !== null && after >= before - 1e-6,
+      `clicking ${JSON.stringify(clicked.node)} in the SUBSYSTEM representation took the zoom from ` +
+        `${before} to ${after}. A selection may pan; it may never zoom out. This representation's ` +
+        `whole claim is that at zoom 1 the authored size is the size on screen.`,
+    );
+    zoomChecks.push({ representation: 'subsystem', node: clicked.node ?? null, before, after });
+  }
   await page.evaluate(`(() => {
     const pane = document.querySelector('[data-pane="modules"]');
     if (pane !== null) pane.style.width = '';
   })()`);
   await sleep(900);
+
+  {
+    // ...and the FULL graph, which is where the user met it. The focus
+    // workspace is the one arrangement in this window that mounts all 63 nodes.
+    await page.evaluate(`document.querySelector('[data-testid="arch-workspace-toggle"]').click()`);
+    await sleep(1600);
+    const mounted = await page.evaluate('window.__sesame.archGraph()');
+    if (mounted.mode === 'full' || mounted.mode === 'subsystem') {
+      // Zoom IN first, past whatever `fitView` chose. A refit on selection is
+      // only VISIBLE against a zoom the reader chose, and this is the gesture
+      // the complaint describes ("I need to keep manually zooming in").
+      const fitted = await zoomOf();
+      await page.evaluate(`(() => {
+        const zoomIn = document.querySelector('.react-flow__controls-zoomin');
+        if (zoomIn !== null) { zoomIn.click(); zoomIn.click(); }
+      })()`);
+      await sleep(900);
+      const zoomedIn = await zoomOf();
+      check(
+        zoomedIn !== null && fitted !== null && zoomedIn > fitted + 1e-3,
+        `the zoom-in control did not change the ${mounted.mode} graph's zoom (${fitted} -> ` +
+          `${zoomedIn}); without that this check cannot tell "kept the zoom" from "refitted"`,
+      );
+      const candidates = mounted.renderedNodeIds.filter((id) => id !== mounted.selectedNodeId);
+      const clicked = await clickArchNode(candidates);
+      await sleep(1000);
+      const after = await zoomOf();
+      const selected = await page.evaluate('window.__sesame.archGraph().selectedNodeId');
+      check(
+        clicked.ok === true && selected === clicked.node,
+        `clicking a node in the ${mounted.mode} representation did not select it ` +
+          `(${JSON.stringify(clicked)}, selection is ${JSON.stringify(selected)})`,
+      );
+      check(
+        after !== null && zoomedIn !== null && after >= zoomedIn - 1e-6,
+        `clicking ${JSON.stringify(clicked.node)} in the ${mounted.mode} representation took the ` +
+          `zoom from ${zoomedIn} to ${after}. THIS is the user's complaint, as a number: a node ` +
+          `click re-fitted the whole graph and threw away the zoom they had chosen. Selecting a ` +
+          `node may PAN to it and may not refit.`,
+      );
+      zoomChecks.push({
+        representation: mounted.mode,
+        node: clicked.node ?? null,
+        fitted,
+        before: zoomedIn,
+        after,
+      });
+    } else {
+      problems.push(
+        `the architecture workspace mounted "${mounted.mode}", so the zoom-on-click invariant was ` +
+          `not checked against a React Flow viewport at all`,
+      );
+    }
+    await page.evaluate(`document.querySelector('[data-testid="arch-workspace-toggle"]').click()`);
+    await sleep(1200);
+  }
 
   // ------------------------------- W4: the cross-highlight, in the PATH view
   //
@@ -2580,6 +2773,15 @@ await waitFor(
   phases.architectureAndTrace = {
     ok: true,
     backend: 'sim',
+    /**
+     * W8 — the zoom across a node click, in both representations that have a
+     * viewport.
+     *
+     * `before` is a zoom the reader chose (the full graph is deliberately
+     * zoomed IN past `fitView`'s answer first), `after` is the zoom once the
+     * click has been answered. `after >= before` is the whole invariant.
+     */
+    zoomOnSelection: zoomChecks,
     graph: {
       upstreamCommit: collapsed.upstreamCommit,
       totalNodes: collapsed.totalNodes,
@@ -4428,6 +4630,25 @@ if (SKIP_QEMU) {
       60000,
     );
 
+    /*
+      THE DEFAULT, on the origin it was written for — Phase 4 W8.
+
+      A QEMU lab host is serving this page, so the reader who runs `just dev` or
+      `just run` gets exactly this. Nothing is clicked and nothing is set: the
+      app must already be on the emulator, and it must NOT be showing the "no
+      lab host" guidance, which is the state the same default produces on the
+      bridge-served page in phase 1.
+    */
+    const opened6 = await evaluate('window.__sesame.backendId()');
+    check(
+      opened6 === 'qemu',
+      `served by a QEMU lab host, the app opened on "${opened6}" rather than the emulator`,
+    );
+    check(
+      (await evaluate(`document.querySelectorAll('[data-testid="panel-no-lab-host"]').length`)) === 0,
+      'the app is talking to a lab host and the panel still says there is none',
+    );
+
     await evaluate('window.__sesame.setBackend("qemu")');
 
     // Best effort: if the emulator is still booting when the page arrives,
@@ -4481,13 +4702,55 @@ if (SKIP_QEMU) {
           `LEGACY V1 board and saying anything else would let it pass for the current one`,
       );
       check(facts.mode === 'qemu', `RobotState.mode came back ${JSON.stringify(facts.mode)}`);
+      /*
+        THE PANEL, AND THE TWO STATEMENTS ABOUT IT — rewritten in Phase 4 W8.
+
+        These two checks used to read `oledFramebuffer === false` and
+        `elided.includes('ssd1306-panel')` as constants. They are not constants:
+        the default image now ships the firmware's OLED framebuffer hook, so the
+        capability is TRUE and `ssd1306-panel` has been replaced by
+        `ssd1306-glass`. An assertion that goes on demanding the old values is
+        an assertion that fails on a product improvement, which is the same
+        failure mode as one that goes on passing against a deleted regime.
+
+        What is invariant, and what is asserted instead:
+
+          1. the emulator declares the panel situation SOMEHOW. Exactly one of
+             the two names is in `elided`, always — `ssd1306-panel` when no
+             framebuffer is observable, `ssd1306-glass` when the buffer is
+             observed but the DEVICE is still absent. Neither being there would
+             mean the emulator had stopped saying anything about a chip it does
+             not attach;
+          2. the two statements AGREE. `oledFramebuffer: true` with
+             `ssd1306-panel` still elided is a contradiction, and it is the
+             shape a half-finished capability change would take;
+          3. and the glass is never claimed. The hook reads `getBuffer()` before
+             `display.display()` pushes it at a chip that is not there, so no
+             pixel has been confirmed to reach any panel on either image.
+      */
+      const elided = Array.isArray(facts.elided) ? facts.elided : [];
+      const bufferElided = elided.includes('ssd1306-panel');
+      const glassElided = elided.includes('ssd1306-glass');
       check(
-        facts.oledFramebuffer === false,
-        'the backend claims an OLED framebuffer; QEMU attaches no SSD1306 to this machine',
+        bufferElided !== glassElided,
+        `the emulator's elided list names ${JSON.stringify(elided.filter((e) => e.startsWith('ssd1306')))} ` +
+          `for the panel. Exactly one of ssd1306-panel and ssd1306-glass belongs there: the first ` +
+          `says no framebuffer is observable, the second says the framebuffer is observed and the ` +
+          `DEVICE still is not. Both or neither means the emulator has stopped saying which.`,
       );
       check(
-        Array.isArray(facts.elided) && facts.elided.includes('ssd1306-panel'),
-        `the elided list does not mention the panel: ${JSON.stringify(facts.elided)}`,
+        facts.oledFramebuffer === !bufferElided,
+        `the emulator declares oledFramebuffer=${String(facts.oledFramebuffer)} while ` +
+          `ssd1306-panel is ${bufferElided ? '' : 'not '}in its elided list. Those are two ` +
+          `statements of one fact and they must agree; the app treats a disagreement as "no ` +
+          `framebuffer", which is the safe direction but not a licence for the emulator to ` +
+          `contradict itself.`,
+      );
+      check(
+        glassElided || bufferElided,
+        `nothing in ${JSON.stringify(elided)} mentions the SSD1306 at all. QEMU attaches no panel ` +
+          `to this machine on either image, and silence about that is exactly what the elided ` +
+          `list exists to prevent.`,
       );
       for (const board of ['s2mini', 'distro-v3-s3']) {
         check(
@@ -4894,20 +5157,171 @@ if (SKIP_QEMU) {
     );
 
     // ------------------------------------------------------- the OLED, honestly
+    //
+    // Rewritten for Phase 4 W8, and the rewrite is the point.
+    //
+    // The sentence "these pixels did not come from the emulator" used to be a
+    // paragraph on the side panel, and the check read its `innerText`. Two
+    // things changed and both are asserted here instead:
+    //
+    //   1. the paragraph is behind an INFO ICON — click, hover or focus — and
+    //      the BADGE stayed on the panel. §11.4 allows a popover to expand a
+    //      correctness surface and forbids it being where one first appears, so
+    //      the check is now that the badge is on the panel with every screen
+    //      shut AND that the explanation is reachable, rather than that a
+    //      particular string is painted in a particular box;
+    //   2. what the pane claims is DERIVED from `oledFramebuffer` / `elided`
+    //      rather than from which backend is selected. `oled().pixels` is that
+    //      derivation, published. This image models no SSD1306, so the state
+    //      must be `elided`; an image built with `SESAME_TELEMETRY_OLED`
+    //      enabled reports the capability and sends `oled.frame`, and the same
+    //      code path must then read `observed` with no edit in the app. That
+    //      half is proved by faking the capability in `oled-provenance.test.ts`,
+    //      because it does not need an image to be true.
     const oled6 = await evaluate('window.__sesame.oled()');
-    const elidedNote = await evaluate(
-      `document.querySelector('[data-testid="oled-elided"]')?.innerText ?? ''`,
+    /*
+     * THE EXPECTATION IS DERIVED FROM THE EMULATOR'S OWN DECLARATION.
+     *
+     * This is the assertion that had to survive the image changing under it,
+     * and it did: the default QEMU image now ships the framebuffer hook, so
+     * `oledFramebuffer` is true, `ssd1306-panel` is gone from `elided` and
+     * `ssd1306-glass` is there in its place. A check that had hard-coded
+     * "elided" would now be failing on a product improvement, and a check that
+     * hard-coded "observed" would stop noticing if the hook were turned off.
+     *
+     * So the harness computes what the pane OUGHT to say from
+     * `emulatorFacts()` — the same document the app reads — and asserts the
+     * pane agrees. Neither side names an image, and the older `cli` image would
+     * flip both sides together.
+     */
+    const facts6 = await evaluate('window.__sesame.emulatorFacts()');
+    const hookOn =
+      facts6 !== null &&
+      facts6.oledFramebuffer === true &&
+      !(facts6.elided ?? []).includes('ssd1306-panel');
+    const expectedPixelState = hookOn ? (oled6.source.kind === 'wire' ? 'observed' : 'host-rendered') : 'elided';
+    check(
+      oled6.pixels.state === expectedPixelState,
+      `the emulator declares oledFramebuffer=${String(facts6?.oledFramebuffer)} and elided=` +
+        `${JSON.stringify(facts6?.elided)}, the store's pixels arrived as "${oled6.source.kind}", ` +
+        `so the pane should derive "${expectedPixelState}" and it derived ` +
+        `${JSON.stringify(oled6.pixels)}. The state is a function of the capability document; ` +
+        `anything else means the derivation stopped reading it.`,
+    );
+    // Whatever the image, the two axes stay separate: an emulated framebuffer
+    // is not a measurement. This is the sentence the brief is written about.
+    check(
+      originReading6.physicallyObservedEvents === 0,
+      `${originReading6.physicallyObservedEvents} events claimed physical observation while the ` +
+        `OLED framebuffer hook was on. Emulated bytes are not a measurement.`,
+    );
+    if (hookOn) {
+      check(
+        oled6.pixels.fromEmulator === true &&
+          /came from the emulator/i.test(oled6.pixels.claim) &&
+          oled6.source.kind === 'wire' &&
+          oled6.source.pixelProvenance === 'observed',
+        `the image ships the framebuffer hook and the pane still says ` +
+          `${JSON.stringify(oled6.pixels)} with pixels "${oled6.source.kind}"/` +
+          `"${oled6.source.pixelProvenance}". The whole point of deriving this from the ` +
+          `capability document is that turning the hook ON changes the claim with no edit in the app.`,
+      );
+      // ...and the qualifier the sibling documented is not smoothed away: the
+      // hook reads getBuffer() BEFORE display.display(), so the device is still
+      // elided and the pane may not claim anything reached glass.
+      check(
+        (facts6.elided ?? []).includes('ssd1306-glass'),
+        `the emulator dropped ssd1306-glass from elided; the SSD1306 device is still absent and ` +
+          `nothing has confirmed a pixel reached any panel`,
+      );
+    } else {
+      check(
+        oled6.pixels.fromEmulator === false &&
+          /did not come from the emulator/i.test(oled6.pixels.claim) &&
+          (oled6.source.pixelProvenance === null || oled6.source.pixelProvenance === 'inferred'),
+        `this image models no framebuffer and the pane derived ${JSON.stringify(oled6.pixels)} ` +
+          `with pixel provenance ${JSON.stringify(oled6.source.pixelProvenance)}`,
+      );
+    }
+    /** The claim, whichever way it came out — used by the DOM checks below. */
+    const pixelClaim6 = oled6.pixels.claim;
+
+    // The affordance itself, in the DOM, with every screen SHUT.
+    const pixelInfo = await evaluate(`(() => {
+      const badge = document.querySelector('[data-panel-summary="face"] .prov');
+      const dot = document.querySelector('[data-info="oled-pixels"]');
+      const laidOut = (el) => {
+        if (el === null) return false;
+        const box = el.getBoundingClientRect();
+        return box.width > 0 && box.height > 0;
+      };
+      return {
+        badgeText: badge === null ? null : badge.textContent.trim(),
+        badgeOnPanel: laidOut(badge) && badge.closest('[data-popover]') === null,
+        dotOnPanel: laidOut(dot) && dot.closest('[data-popover]') === null,
+        dotTitle: dot === null ? null : dot.getAttribute('title'),
+        dotLabel: dot === null ? null : dot.getAttribute('aria-label'),
+        dotTargetPx: dot === null ? 0 : Math.round(dot.getBoundingClientRect().width),
+        // The PARAGRAPH is not on the panel. This is the half of the change a
+        // "tidy the panel" instruction could have taken too far.
+        paragraphOnPanel: [
+          ...document.querySelectorAll('[data-testid="side-panel"] p, [data-testid="side-panel"] strong'),
+        ].some((el) => /ssd1306|framebuffer|face-bitmaps|drawBitmap/i.test(el.textContent ?? '')),
+        openScreens: document.querySelectorAll('dialog[open]').length,
+      };
+    })()`);
+    check(
+      pixelInfo.openScreens === 0,
+      `${pixelInfo.openScreens} "more info" screen(s) were open while reading the panel`,
     );
     check(
-      oled6.source.pixelProvenance === null || oled6.source.pixelProvenance === 'inferred',
-      `the OLED claims its pixels are ${JSON.stringify(oled6.source.pixelProvenance)}. QEMU ` +
-        `transmits no framebuffer, so any pixels on screen were drawn host-side and are inferred`,
+      pixelInfo.badgeOnPanel === true && pixelInfo.badgeText === oled6.source.pixelProvenance,
+      `the pixel-provenance BADGE on the side panel reads ${JSON.stringify(pixelInfo.badgeText)} ` +
+        `while the store says ${JSON.stringify(oled6.source.pixelProvenance)}: ` +
+        `${JSON.stringify(pixelInfo)}. It is a correctness surface and §11.4 forbids it living ` +
+        `behind a disclosure — moving the paragraph is allowed, moving the badge is not.`,
     );
     check(
-      /did not come from the emulator/i.test(elidedNote),
-      'the OLED panel does not say that its pixels were not produced by the emulator, even though ' +
-        'ssd1306-panel is in the elided list',
+      pixelInfo.dotOnPanel === true && pixelInfo.dotTitle === pixelClaim6,
+      `the info affordance is missing or does not carry the DERIVED claim ` +
+        `${JSON.stringify(pixelClaim6)}: ${JSON.stringify(pixelInfo)}`,
     );
+    check(
+      pixelInfo.paragraphOnPanel === false,
+      'the explanation is still painted on the side panel; the whole point of the icon is that the ' +
+        'panel gets the height back',
+    );
+
+    // FOCUS reveals the tip — the keyboard half of "click on and / or mouse
+    // over". A hover that is only a hover is not an affordance.
+    await evaluate(`document.querySelector('[data-info="oled-pixels"]').focus()`);
+    await sleep(300);
+    const tipText = await evaluate(
+      `document.querySelector('[data-info-tip="oled-pixels"]')?.textContent ?? ''`,
+    );
+    check(
+      tipText === pixelClaim6,
+      `focusing the info icon revealed ${JSON.stringify(tipText)}, not the derived claim ` +
+        `${JSON.stringify(pixelClaim6)}`,
+    );
+
+    // ...and CLICK opens the screen with the paragraphs in it.
+    await evaluate(`document.querySelector('[data-info="oled-pixels"]').click()`);
+    await sleep(400);
+    const pixelScreen = await evaluate(`(() => {
+      const dialog = document.querySelector('[data-popover="oled-pixels"]');
+      if (dialog === null) return { open: false };
+      return { open: dialog.open === true, text: dialog.innerText };
+    })()`);
+    check(
+      pixelScreen.open === true &&
+        /ssd1306/i.test(pixelScreen.text ?? '') &&
+        /framebuffer/i.test(pixelScreen.text ?? '') &&
+        (pixelScreen.text ?? '').includes(pixelClaim6),
+      `the info screen did not open with the explanation in it: ${JSON.stringify(pixelScreen).slice(0, 400)}`,
+    );
+    await evaluate(`document.querySelector('[data-popover-close="oled-pixels"]')?.click()`);
+    await sleep(300);
 
     const snapshot6 = await evaluate('window.__sesame.snapshot()');
     check(
@@ -4931,8 +5345,26 @@ if (SKIP_QEMU) {
     );
     await sleep(400);
     await labPage.shoot(
-      'v4-browser-qemu-oled-inferred.png',
-      'the OLED under QEMU: the firmware emitted a face NAME and no pixels (ssd1306-panel is elided), so the framebuffer is drawn host-side and labelled inferred rather than presented as the emulator’s output',
+      /*
+        RENAMED in Phase 4 W8, from `v4-browser-qemu-oled-inferred.png`.
+
+        The old name asserted the answer. It was true of the `cli` image — no
+        framebuffer, `ssd1306-panel` elided, pixels drawn host-side and labelled
+        `inferred` — and the default image is `cli-oled` now, which emits the
+        guest's own framebuffer and whose pixels are `observed`. A filename that
+        states a conclusion the picture no longer supports is the same hazard as
+        a note about a deleted regime, so the name says what the picture is OF
+        and the caption is DERIVED from what was measured in this run.
+      */
+      'v4-browser-qemu-oled.png',
+      `the OLED under QEMU on the ${hookOn ? 'cli-oled' : 'cli'} image: the emulator declares ` +
+        `oledFramebuffer=${String(facts6?.oledFramebuffer)} and elides ` +
+        `${JSON.stringify((facts6?.elided ?? []).filter((e) => e.startsWith('ssd1306')))}, the ` +
+        `pixels arrived as "${oled6.source.kind}" and are labelled ` +
+        `${JSON.stringify(oled6.source.pixelProvenance)}, and the pane derives ` +
+        `"${oled6.pixels.state}" — ${pixelClaim6} The badge is on the side panel; the paragraph ` +
+        `is behind the ⓘ beside it. isPhysicallyObserved() is false either way: an emulated ` +
+        `framebuffer is not a measurement.`,
     );
 
     const labErrors = labPage.errors();
@@ -4978,7 +5410,20 @@ if (SKIP_QEMU) {
         pixelProvenance: oled6.source.pixelProvenance,
         kind: oled6.source.kind,
         litPixels: oled6.litPixels,
-        elidedNoteShown: /did not come from the emulator/i.test(elidedNote),
+        // Phase 4 W8: the derivation, and where each half of it is rendered.
+        oledHookOn: hookOn,
+        expectedPixelState,
+        declaredCapability: {
+          oledFramebuffer: facts6?.oledFramebuffer ?? null,
+          elided: facts6?.elided ?? null,
+        },
+        derived: oled6.pixels,
+        badgeOnPanel: pixelInfo.badgeOnPanel,
+        badgeText: pixelInfo.badgeText,
+        infoDotOnPanel: pixelInfo.dotOnPanel,
+        paragraphOnPanel: pixelInfo.paragraphOnPanel,
+        tipOnFocus: tipText === pixelClaim6,
+        screenOpensWithExplanation: pixelScreen.open === true,
       },
       canvasPixels: snapshot6.canvasPixels,
       shots: [idleShot.name, waveShot.name],
@@ -5118,6 +5563,22 @@ if (SKIP_QEMU) {
     await evaluate('void location.reload()');
     await sleep(500);
     await waitReady('the app to come back after the pre-test reload');
+
+    /*
+      THE THIRD LEG of the default — Phase 4 W8.
+
+      This lab host runs `--backend sim`, and it says so at `/lab/session`. The
+      app has to have READ that: opening on QEMU here would put a reader in
+      front of an error while a perfectly good robot answered on the same
+      origin, which is the mismatch the plain "always QEMU" reading produces.
+      Phase 1 asserts the no-host leg and phase 6 the QEMU leg; this is the one
+      that proves the choice is a detection rather than a constant.
+    */
+    const opened11 = await evaluate('window.__sesame.backendId()');
+    check(
+      opened11 === 'sim',
+      `the lab host on this origin reports backend "sim" and the app opened on "${opened11}"`,
+    );
 
     // Lab is a dock section now. Everything below drags a pointer across the
     // pixel canvas at real coordinates, so the section has to be laid out —
@@ -5939,6 +6400,8 @@ if (SKIP_QEMU) {
   const PANEL_W_PX = 280;
   /** Per-window record of what the side panel folded, reported with the phase. */
   const panelFolds = {};
+  /** W8: which arrangement the Source pane got at each window, measured. */
+  const sourceArrangements = {};
   /** The architecture's own box in the ORDINARY layout, per window — W4's constraint. */
   const archSurfaces = [];
   const FRAME_EPS_MM_12 = 1e-6;
@@ -6064,6 +6527,22 @@ if (SKIP_QEMU) {
       (v) => v === true,
       `the app to load at ${window.width}x${window.height}`,
       60000,
+    );
+    /*
+      The simulator, chosen rather than inherited — Phase 4 W8.
+
+      These pages are served by the BRIDGE, which has no lab host, so the app
+      opens on the QEMU default and reports that there is nothing behind it.
+      That contract is asserted once, in phase 1, against the same server. Phase
+      12 is about LAYOUT and it needs a backend that answers, so it says which
+      one it wants instead of depending on a default it is not testing.
+    */
+    await shellPage.evaluate('window.__sesame.setBackend("sim")');
+    await waitFor(
+      shellPage.evaluate,
+      'window.__sesame.backendId()',
+      (v) => v === 'sim',
+      `the simulator to be selected at ${window.width}x${window.height}`,
     );
     await waitFor(
       shellPage.evaluate,
@@ -6462,9 +6941,21 @@ if (SKIP_QEMU) {
             `(${JSON.stringify(reading.moduleColumn.laidOutPanes)}). One at a time is §11.3, and ` +
             `it is the state's shape rather than a rule something can forget to apply.`,
         );
+        /*
+          ORDINARY scrollers, and the qualifier is W2's rather than a loophole
+          opened here. A pane owns exactly one ordinary vertical scroller and
+          anything else that scrolls must DECLARE itself with
+          `data-2d-surface` — the container sweep has always read it that way,
+          and this check simply had no declared surface to meet until W8 made
+          the Source code region a bounded viewport beside the outline. The
+          declared ones are still listed, so a new one cannot appear unnoticed.
+        */
+        const ordinaryColumnScrollers = reading.moduleColumn.scrollers.filter(
+          (name) => !name.endsWith('(2d)'),
+        );
         check(
-          reading.moduleColumn.scrollers.length <= 1,
-          `at ${where} the "${id}" module column has ${reading.moduleColumn.scrollers.length} ` +
+          ordinaryColumnScrollers.length <= 1,
+          `at ${where} the "${id}" module column has ${ordinaryColumnScrollers.length} ordinary ` +
             `scrollable box(es): ${JSON.stringify(reading.moduleColumn.scrollers)}. There is one, ` +
             `and it is the column body.`,
         );
@@ -6580,12 +7071,82 @@ if (SKIP_QEMU) {
           `at ${where} the Commands card reads ${JSON.stringify(commandsCard)}. It is excluded ` +
             `from the fold order at every height, and its wave button is a 36 px target.`,
         );
+        /*
+          ============ W8: THE FACE AT THE TOP, AND COMMANDS TAKING THE SLACK
+
+          > *"The face should be at the very top. Maximize the height of the
+          > commands pane if it fits."*
+
+          Two separate claims, and the second is the one with a mechanism behind
+          it. The Commands card is `flex: 1 0 auto` — it may GROW into space
+          nothing else wanted and may never shrink — so where the panel has
+          slack it is measurably taller than the height its own content needs,
+          and where the panel is short it is exactly that height and nothing has
+          been crushed. W7's elastic Face card was `0 1 auto`, was crushed to
+          10 px, and the crushing did not register at all; growth has no
+          equivalent failure mode, which is why the direction matters more than
+          the number.
+        */
+        const cardOrder = reading.panel.cards.map((c) => c.id);
+        check(
+          cardOrder[0] === 'face',
+          `at ${where} the side panel's cards are ${JSON.stringify(cardOrder)}. The face is the ` +
+            `surface a reader watches while pressing a command and it was 190 px down the panel; ` +
+            `§11.4 is about a correctness surface being ON the panel rather than about which card ` +
+            `is first, and every one of them still is.`,
+        );
+        const elasticCards = reading.panel.cards.filter((c) => c.elastic);
+        check(
+          elasticCards.length === 1 && elasticCards[0].id === 'commands',
+          `at ${where} ${elasticCards.length} card(s) declare themselves elastic: ` +
+            `${JSON.stringify(elasticCards.map((c) => c.id))}. Exactly one may, and it is the one ` +
+            `that can never fold.`,
+        );
+        /*
+          The measurement itself: how much of the panel is still unused once
+          every card has been laid out. It cannot be negative — that is the
+          overflow check above — and where it is large the elastic card should
+          have eaten into it rather than leaving the panel with a long empty
+          tail. `24rem` caps the growth on purpose, so a very tall panel keeps a
+          tail and that is reported rather than asserted away.
+        */
+        const panelTail = await shellPage.evaluate(`(() => {
+          const inner = document.querySelector('[data-testid="side-panel-inner"]');
+          if (inner === null) return null;
+          const kids = [...inner.children];
+          const last = kids[kids.length - 1];
+          if (last === undefined) return null;
+          const style = getComputedStyle(inner);
+          const bottom =
+            inner.getBoundingClientRect().bottom - parseFloat(style.paddingBottom || '0');
+          const commands = inner.querySelector('[data-panel-card="commands"]');
+          const body = commands === null ? null : commands.querySelector('.command-bar-panel');
+          return {
+            tailPx: Math.round(bottom - last.getBoundingClientRect().bottom),
+            commandsPx: commands === null ? 0 : Math.round(commands.getBoundingClientRect().height),
+            commandsContentPx: body === null ? 0 : Math.round(body.scrollHeight),
+          };
+        })()`);
+        check(
+          panelTail !== null && panelTail.tailPx >= -1,
+          `at ${where} the side panel's last card runs ${JSON.stringify(panelTail)} past the box`,
+        );
+        check(
+          panelTail !== null && panelTail.commandsPx >= panelTail.commandsContentPx,
+          `at ${where} the Commands card is ${panelTail?.commandsPx} px tall around ` +
+            `${panelTail?.commandsContentPx} px of content — the elastic card may only ever GROW, ` +
+            `and a card shorter than its own content is the crushing W7 could not see.`,
+        );
         panelFolds[window.label] = {
           panelHeightPx: Math.round(reading.panel.rectHeightPx),
+          order: cardOrder,
           cards: reading.panel.cards.map((c) => ({ id: c.id, heightPx: Math.round(c.heightPx) })),
-          folded: reading.panel.cards.filter((c) => c.heightPx < 60).map((c) => c.id),
+          folded: reading.panel.cards.filter((c) => c.folded).map((c) => c.id),
           overflowPx: reading.panel.overflowPx,
           scrollers: reading.panel.scrollers.length,
+          // W8: what "maximise the commands pane if it fits" came out as.
+          commandsPx: panelTail?.commandsPx ?? null,
+          unusedTailPx: panelTail?.tailPx ?? null,
         };
       }
 
@@ -6803,10 +7364,22 @@ if (SKIP_QEMU) {
           `"${sourceView.text}". The announcement IS the bound — a cap a reader cannot read is the ` +
           `same class of lie as a wrong line number.`,
       );
+      /*
+        ONE ORDINARY scroller, and the declared surfaces listed beside it.
+
+        This reading is taken with the SOURCE pane open, which from Phase 4 W8
+        is the one pane that can legitimately hold a second scrolling box: at
+        720 px of pane and up the code region sits beside the outline as a
+        bounded 420 px viewport, and it carries `data-2d-surface="code"` — W2's
+        declared exemption, the same one the container sweep has always honoured.
+        The marker is in the LIST rather than filtered out of it, so an
+        undeclared scroller still fails and a new declared one is still visible
+        in the message.
+      */
+      const openedOrdinary = opened.moduleColumn.scrollers.filter((n) => !n.endsWith('(2d)'));
       check(
-        opened.moduleColumn.scrollers.length === 1 &&
-          opened.moduleColumn.scrollers[0] === '[module-body]',
-        `at ${where} the module column has ${opened.moduleColumn.scrollers.length} scrollable ` +
+        openedOrdinary.length === 1 && openedOrdinary[0] === '[module-body]',
+        `at ${where} the module column has ${openedOrdinary.length} ordinary scrollable ` +
           `box(es): ${JSON.stringify(opened.moduleColumn.scrollers)}. There is exactly one, and it ` +
           `is the column body — "I'd rather have to scroll through the pane vertically than tiny ` +
           `content and many scrollbars".`,
@@ -6821,6 +7394,57 @@ if (SKIP_QEMU) {
         `at ${where} the source pane rendered ${sourceView.lines} lines with no scroller of its ` +
           `own; the announced budget is ${window.breakpoint === 'wide' ? 240 : 140}`,
       );
+
+      /*
+        ============ THE SOURCE PANE'S TWO ARRANGEMENTS — Phase 4 W8
+
+        > *"the list of items, like 'runDancePose' should be in the left side of
+        > the Source pane and minified; the right side should be all the source
+        > content, etc. which is presently below it."*
+
+        Measured in the shell a reader actually gets, rather than at a driven
+        container width: the module column is `(innerWidth - 344) / 2 - 25`, so
+        the pane crosses 720 px between 1760x1000 and 1920x1080 and the
+        arrangement a given window gets is a FACT about that window. Recorded
+        for every one of them, and photographed at the first window that has it.
+      */
+      const sourceArrangement = await shellPage.evaluate(`(() => {
+        const pane = document.querySelector('[data-pane="source"]');
+        const body = pane === null ? null : pane.querySelector('.source-body');
+        const outline = pane === null ? null : pane.querySelector('.source-outline');
+        const code = pane === null ? null : pane.querySelector('.source-code');
+        if (body === null || outline === null || code === null) return null;
+        return {
+          panePx: pane.clientWidth,
+          columns: getComputedStyle(body).gridTemplateColumns.split(/\\s+/).length,
+          outlineWidthPx: Math.round(outline.getBoundingClientRect().width),
+          outlineHeightPx: Math.round(outline.getBoundingClientRect().height),
+          codeWidthPx: Math.round(code.getBoundingClientRect().width),
+          codeHeightPx: Math.round(code.getBoundingClientRect().height),
+          codeScrolls: code.scrollHeight > code.clientHeight + 1,
+          declared2d: code.getAttribute('data-2d-surface'),
+        };
+      })()`);
+      check(
+        sourceArrangement !== null &&
+          sourceArrangement.columns === (sourceArrangement.panePx >= 720 ? 2 : 1),
+        `at ${where} the Source pane is ${sourceArrangement?.panePx} px and laid its regions out in ` +
+          `${sourceArrangement?.columns} column(s); the threshold is 720 px of pane`,
+      );
+      sourceArrangements[window.label] = sourceArrangement;
+      if (window.label === 'desktop') {
+        shellShots.push(
+          await shellPage.shoot(
+            'w8-source-outline-beside-code.png',
+            `the Source module at ${where}, the first window whose module column reaches 720 px of ` +
+              `pane: the symbol outline is a ${sourceArrangement?.outlineWidthPx} px column on the ` +
+              `left and the source fills the ${sourceArrangement?.codeWidthPx} px on the right, ` +
+              `where both used to be stacked and the outline was a full-width list taller than the ` +
+              `code it indexes. Below 720 px of pane they still stack, and the outline is minified ` +
+              `into as many columns as it has room for.`,
+          ),
+        );
+      }
 
       // ============ THE ARCHITECTURE'S OWN BOX, IN THE ORDINARY LAYOUT — W4
       //
@@ -6996,6 +7620,22 @@ if (SKIP_QEMU) {
         (v) => v === true,
         `the app to come back after a real reload at ${where}`,
         60000,
+      );
+      /*
+        A reload re-runs the default-backend probe, and this page is served by
+        the BRIDGE — there is no lab host on its origin, so the app comes back
+        on the QEMU default and nothing drives the robot. That is the correct
+        product behaviour and phase 1 asserts it; here it is a fact to work
+        around rather than to depend on. Without this the ISSUE-20260823-023
+        sweep below samples a robot nothing is commanding, and its own vacuity
+        guard catches it: "the foot contact varied by only 0.000 mm".
+      */
+      await shellPage.evaluate('window.__sesame.setBackend("sim")');
+      await waitFor(
+        shellPage.evaluate,
+        'window.__sesame.backendId()',
+        (v) => v === 'sim',
+        `the simulator to be re-selected after the reload at ${where}`,
       );
       await sleep(600);
       const afterReload = await shellPage.evaluate('window.__sesame.shell()');
@@ -7366,6 +8006,35 @@ if (SKIP_QEMU) {
           }
           const step = pane.querySelector('.lesson-step');
           if (step !== null) signature.lessonStepDisplay = getComputedStyle(step).display;
+          /*
+            SOURCE — Phase 4 W8. "Does this pane have room for the outline
+            beside the code?"
+
+            Three readings, because the arrangement is three decisions and any
+            one of them could be the one that regressed: how many column tracks
+            the three regions are laid out in, whether the code region is a
+            bounded viewport or takes its content height, and how many columns
+            the minified outline itself folds into. The last is intrinsic
+            (\`repeat(auto-fill, minmax(11rem, 1fr))\`) rather than keyed to a
+            threshold, which is why it can be read at every width without adding
+            a third number for the static check to reject.
+          */
+          const sourceBody = pane.querySelector('.source-body');
+          if (sourceBody !== null) {
+            signature.sourceBodyColumns =
+              getComputedStyle(sourceBody).gridTemplateColumns.split(/\\s+/).length;
+            const codeBox = pane.querySelector('.source-code');
+            signature.sourceCodeOverflowY =
+              codeBox === null ? null : getComputedStyle(codeBox).overflowY;
+            signature.sourceCodeIs2d = codeBox !== null && codeBox.hasAttribute('data-2d-surface');
+            const outlineBox = pane.querySelector('.source-outline');
+            signature.sourceOutlineColumns =
+              outlineBox === null
+                ? null
+                : getComputedStyle(outlineBox).gridTemplateColumns.split(/\\s+/).length;
+            signature.sourceOutlineWidthPx =
+              outlineBox === null ? null : Math.round(outlineBox.getBoundingClientRect().width);
+          }
           const prose = pane.querySelector('.lesson-explanation');
           if (prose !== null) {
             const ch = chOf(prose);
@@ -7443,7 +8112,11 @@ if (SKIP_QEMU) {
         return readings;
       })()`);
 
-    const PANES = ['joints', 'signal', 'learn', 'modules'];
+    /*
+      `source` joined the sweep in Phase 4 W8, because W8 gave it its first
+      container-driven arrangement. Everything else here is W2's.
+    */
+    const PANES = ['joints', 'signal', 'learn', 'modules', 'source'];
     const sweeps = {};
     for (const window12 of [
       { label: '1280x800', width: 1280, height: 800 },
@@ -7512,6 +8185,79 @@ if (SKIP_QEMU) {
               `${where}: the lesson step renders as "${s.lessonStepDisplay}"; at ${WIDE_PX} px and ` +
                 `above the control sits beside the prose it acts on`,
             );
+          }
+          if (s.sourceBodyColumns !== undefined) {
+            // ================================ W8: THE SOURCE ARRANGEMENT
+            //
+            // > *"the list of items, like 'runDancePose' should be in the left
+            // > side of the Source pane and minified; the right side should be
+            // > all the source content, etc. which is presently below it."*
+            //
+            // Two tracks at and above 720 px of pane, one below. The boundary is
+            // W2's existing `wide` threshold and not a new number — the sweep's
+            // static check would reject a third — and 719/722 are in the width
+            // list precisely so this is asserted ON it rather than near it.
+            check(
+              s.sourceBodyColumns === (wide ? 2 : 1),
+              `${where}: the Source pane lays its three regions out in ` +
+                `${s.sourceBodyColumns} column track(s). At ${WIDE_PX} px and above the outline is ` +
+                `a narrow left column and the code fills the right; below it they stack, because a ` +
+                `code column of about 340 px would make every one of movement-sequences.h's ` +
+                `96-column lines scroll sideways.`,
+            );
+            // And the code region's regime follows the arrangement, which is
+            // what keeps L4's "it SCROLLED to the symbol" assertion meaningful:
+            // an unbounded box has `scrollHeight === clientHeight`, so a line is
+            // always "inside the viewport" and the check proves nothing.
+            check(
+              s.sourceCodeOverflowY === (wide ? 'auto' : 'hidden'),
+              `${where}: the code region's overflow-y is "${s.sourceCodeOverflowY}". Beside the ` +
+                `outline it is a bounded 420 px viewport that genuinely scrolls; stacked it takes ` +
+                `its content height and the LINE BUDGET is what bounds it.`,
+            );
+            check(
+              s.sourceCodeIs2d === true,
+              `${where}: the code region stopped declaring data-2d-surface, which is the only ` +
+                `reason a pane is allowed a second vertical scroller`,
+            );
+            /*
+              THE MINIFIED OUTLINE, and the expectation is arithmetic rather
+              than a table.
+
+              `repeat(auto-fill, minmax(11rem, 1fr))` with an 8 px column gap
+              puts `floor((W + gap) / (11rem + gap))` tracks in a box of width
+              W, so the expected count is computed from the box the browser
+              actually gave the outline. That is what makes this INTRINSIC
+              rather than a third threshold: the same one declaration gives a
+              full-width stacked pane four columns and the 12rem left column
+              exactly one, and there is no number for W2's static check to
+              reject. Before it, 25 symbols in one full-width column made a
+              720 px-TALL index of a 3,000 px file, which is what the complaint
+              was about.
+            */
+            const OUTLINE_MIN_PX = 176; // 11rem, and the root size is not fluid
+            const OUTLINE_GAP_PX = 8; // --space-2
+            const expectedOutlineColumns = Math.max(
+              1,
+              Math.floor(
+                ((s.sourceOutlineWidthPx ?? 0) + OUTLINE_GAP_PX) / (OUTLINE_MIN_PX + OUTLINE_GAP_PX),
+              ),
+            );
+            check(
+              s.sourceOutlineColumns === expectedOutlineColumns,
+              `${where}: the minified outline is in ${s.sourceOutlineColumns} column(s) in a ` +
+                `${s.sourceOutlineWidthPx} px box; auto-fill at 11rem with an 8 px gap gives ` +
+                `${expectedOutlineColumns}.`,
+            );
+            // ...and beside the code it is exactly one, which is what "a narrow
+            // left column" means.
+            if (wide) {
+              check(
+                s.sourceOutlineColumns === 1 && (s.sourceOutlineWidthPx ?? 0) <= 200,
+                `${where}: the outline column is ${s.sourceOutlineWidthPx} px wide in ` +
+                  `${s.sourceOutlineColumns} column(s); beside the code it is a 12rem index.`,
+              );
+            }
           }
           if (s.archBand !== undefined) {
             // The React band is measured on the SURFACE, which is the artifact's
@@ -8130,6 +8876,11 @@ if (SKIP_QEMU) {
         'the app to come back for the Compact Lab run',
         60000,
       );
+      // The reload re-ran the default-backend probe and this origin is the
+      // bridge, with no lab host behind it — see the note at the reload in the
+      // window sweep above.
+      await evaluate('window.__sesame.setBackend("sim")');
+      await sleep(400);
       await openSection(evaluate, 'lab');
       const compact = await evaluate('window.__sesame.shell()');
       check(compact.breakpoint === 'compact', `the Lab run is at "${compact.breakpoint}", not Compact`);
@@ -8229,16 +8980,26 @@ if (SKIP_QEMU) {
       navigation: "the rail's radiogroup; no accordion, no navigator row, no mode switch",
       modeLabel: 'Control | Analyze, DERIVED from the active module and never stored',
       chromePx: 25,
+      /*
+        W8 — the Source pane's arrangement per window, measured rather than
+        derived. The outline sits beside the code from 1920x1080 up; below that
+        the module column is under 720 px of pane and the three regions stack.
+      */
+      sourceArrangements,
     },
     sidePanel: {
       widthPx: PANEL_W_PX,
-      cards: ['trust (Driving)', ...PANEL_IDS],
+      // The ORDER, as rendered — Phase 4 W8 put the face at the top. Read off
+      // the DOM in `folds[].order` at every window as well, so this line cannot
+      // drift away from what the panel does.
+      cards: ['face', 'trust (Driving)', 'commands', 'inspector'],
       scrollers: 0,
       rule: 'zero scrollers AND zero overflow at every width; disclosure, never a scroller',
       disclosure:
-        'cards FOLD in priority order (inspector, face, commands) when the panel runs out of ' +
-        'height, measured rather than keyed to a breakpoint; a folded card keeps its header, its ' +
-        '"more info" button and a summary carrying its correctness mark',
+        'cards FOLD in priority order (inspector, face) when the panel runs out of height, ' +
+        'measured rather than keyed to a breakpoint; a folded card keeps its header, its ' +
+        '"more info" button and a summary carrying its correctness mark. Commands and the trust ' +
+        'card never fold, and Commands GROWS into whatever slack is left, capped at 24rem',
       folds: panelFolds,
       moreInfo: {
         trust: 'the backend switch, PROVENANCE_MEANING, the emulator qualifiers and the counts',

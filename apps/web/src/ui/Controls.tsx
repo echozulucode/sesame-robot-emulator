@@ -276,6 +276,19 @@ export interface TrustCardProps {
   readonly drivingOrigin: TelemetryOrigin | null;
   /** `store.physicallyObservedEvents` — a counter, never a constant. */
   readonly physicallyObservedEvents: number;
+  /**
+   * True when the app is on QEMU and nothing answered `/lab/session` — W8.
+   *
+   * QEMU is the default now, and this repository ships two arrangements where
+   * there is no QEMU behind the origin: `pnpm demo:web` serves the built app
+   * from the bridge, and any static server does the same. Defaulting into an
+   * unexplained failure there is a problem a user of this project has already
+   * reported, so the CLAIM — there is no lab host, and the emulator does not
+   * run in this tab — is on the panel, and the paragraph naming the command
+   * that starts one is in the "More" screen beside the backend switch that
+   * moves off it.
+   */
+  readonly noLabHost: boolean;
   readonly onMore: () => void;
 }
 
@@ -307,7 +320,7 @@ export interface TrustCardProps {
  * flex item is blockified and a block box drops its trailing whitespace.
  */
 export function TrustCard(props: TrustCardProps): ReactElement {
-  const { drivingProvenance, drivingOrigin, physicallyObservedEvents, onMore } = props;
+  const { drivingProvenance, drivingOrigin, physicallyObservedEvents, noLabHost, onMore } = props;
   return (
     <section
       className={`pane panel-card panel-trust prov-banner prov-${drivingProvenance ?? 'none'}`}
@@ -365,6 +378,21 @@ export function TrustCard(props: TrustCardProps): ReactElement {
               : `${String(physicallyObservedEvents)} OBSERVED EVENTS`}
           </span>
         </span>
+        {noLabHost && (
+          /*
+            One line, on the panel, in the state where the default cannot be
+            honoured. It is not a second opinion: `status.detail` says the same
+            thing and `[data-testid="qemu-unreachable"]` in the "More" screen
+            carries the paragraph and the command. What may not happen is the
+            reader meeting only a red dot.
+          */
+          <p className="warn-inline panel-no-lab-host" data-testid="panel-no-lab-host">
+            No lab host on this origin, so there is no emulator to drive.{' '}
+            <button type="button" className="panel-inline-more" onClick={onMore}>
+              how to start one
+            </button>
+          </p>
+        )}
       </div>
     </section>
   );

@@ -72,6 +72,7 @@
  * inside it.
  */
 import {
+  Fragment,
   useCallback,
   useEffect,
   useLayoutEffect,
@@ -651,6 +652,43 @@ export interface SidePanelProps {
 const FOLD_ORDER: readonly PanelId[] = ['inspector', 'face'];
 
 /**
+ * The card that takes whatever height is left — Phase 4 W8.
+ *
+ * > *"Maximize the height of the commands pane if it fits."*
+ *
+ * It is `Commands` for the same reason `Commands` can never fold: it is the
+ * surface the panel exists to hold. **It grows and it never shrinks** —
+ * `flex: 1 0 auto` in the stylesheet, not `0 1 auto` — and that distinction is
+ * W7's own scar tissue: the elastic Face card was `0 1 auto`, was crushed to
+ * 10 px on a short window, and the crushing did not register because a
+ * `container-type: inline-size` box does not contribute its overflow to an
+ * ancestor. A card that can only grow cannot be crushed, and a card that can
+ * only grow into MEASURED slack cannot push anything else out.
+ *
+ * The measurement is in the layout effect below, and it has to hold this card
+ * still while it takes it — see `data-measuring`.
+ */
+const ELASTIC_CARD: PanelId = 'commands';
+
+/**
+ * Where the trust card sits — Phase 4 W8.
+ *
+ * > *"The face should be at the very top."*
+ *
+ * W7 drew the trust card first and treated that as a consequence of §11.4. It
+ * is not one. §11.4 says a correctness surface may not be demoted into a
+ * popover — it must be ON the panel, not behind a disclosure — and says nothing
+ * whatever about which card is at the top. The trust card is still on the
+ * panel, still unfoldable, still carrying all four of its named surfaces, and
+ * the harness still reads every one of them with every screen shut. Only the
+ * order moved.
+ *
+ * `null` would put it first again, and the constant is named so that a future
+ * reader can see this was a decision rather than a rendering accident.
+ */
+const TRUST_BELOW: PanelId | null = 'face';
+
+/**
  * The right-most side panel — §11.4.
  *
  * 280 px, always visible above Compact, and **zero scrollers at every width**.
@@ -658,10 +696,11 @@ const FOLD_ORDER: readonly PanelId[] = ['inspector', 'face'];
  *
  *  1. `overflow: hidden` on `.side-panel-inner`, so a scrollbar cannot appear
  *     however tall the content gets;
- *  2. the elastic card — the Face — gives up height before anything else does;
- *  3. and if that is still not enough, cards **fold** in {@link FOLD_ORDER}
- *     until the content fits, each keeping its header, its "more info" button
- *     and its `summary`.
+ *  2. cards **fold** in {@link FOLD_ORDER} until the content fits, each keeping
+ *     its header, its "more info" button and its `summary`;
+ *  3. and where there is slack rather than a shortfall, {@link ELASTIC_CARD}
+ *     takes it — Phase 4 W8. It grows and never shrinks, so it can only ever
+ *     consume space nothing else wanted.
  *
  * (3) is the plan's own instruction taken literally: *"If content does not fit,
  * that is a content problem to solve by disclosure, not by adding a scroller."*
@@ -711,13 +750,74 @@ export function SidePanel(props: SidePanelProps): ReactElement {
     // Not laid out yet — at Compact with the sheet shut this is 0, and folding
     // on a zero-height box would fold everything for no reason.
     if (inner.clientHeight < 80) return;
-    for (const el of inner.querySelectorAll('[data-panel-card]')) {
+    /*
+     * THE SLACK, measured with the elastic card held still — Phase 4 W8.
+     *
+     * W7 measured `inner.clientHeight - inner.scrollHeight` and called the
+     * positive case "there is room". **It is never positive.** `scrollHeight`
+     * is defined as at least `clientHeight`, so on a panel with space to spare
+     * that expression is exactly 0 and W7's unfold branch — the one its own
+     * findings call the fix that made folding reversible — could not fire even
+     * once. Reversibility was coming entirely from the `ResizeObserver` reset
+     * below, which is why nobody noticed. Measured on the shipped build: 1408 px
+     * of panel holding 801 px of cards, `scrollHeight` 1408, slack 0.
+     *
+     * So the slack is measured from the boxes instead: the bottom of the last
+     * card against the bottom of the inner box's content area. That is a real
+     * number in both directions — negative when the content overflows, and
+     * genuinely positive when it does not.
+     *
+     * `data-measuring` is on for the duration, and CSS turns off the Commands
+     * card's `flex-grow` while it is. Without that the answer would always be 0
+     * again, for the new reason that the elastic card had eaten the slack: a
+     * measurement taken in the presence of the thing being measured.
+     */
+    inner.setAttribute('data-measuring', 'true');
+    const innerStyle = getComputedStyle(inner);
+    const contentBottom =
+      inner.getBoundingClientRect().bottom -
+      parseFloat(innerStyle.paddingBottom || '0') -
+      parseFloat(innerStyle.borderBottomWidth || '0');
+    /*
+      `-Infinity`, and the first version had `contentBottom` here.
+
+      `lastBottom = Math.max(contentBottom, ...cards)` can only ever be >=
+      `contentBottom`, so `slack = contentBottom - lastBottom` was <= 0 by
+      construction — the same shape as the defect this measurement replaced,
+      where `clientHeight - scrollHeight` was <= 0 for the same reason. Measured
+      with it: a 775 px panel holding 546 px of cards reported slack 0 and left
+      the Face card folded with 229 px to spare. A quantity that cannot come out
+      positive is not a measurement of slack.
+    */
+    let lastBottom = Number.NEGATIVE_INFINITY;
+    for (const el of inner.querySelectorAll('[data-panel-card], [data-testid="panel-trust"]')) {
+      const box = el.getBoundingClientRect();
+      if (box.bottom > lastBottom) lastBottom = box.bottom;
       const id = el.getAttribute('data-panel-card');
       if (id !== null && el.getAttribute('data-folded') === 'false' && isPanelId(id)) {
-        naturalPx.current[id] = el.getBoundingClientRect().height;
+        naturalPx.current[id] = box.height;
       }
     }
-    const slack = inner.clientHeight - inner.scrollHeight;
+    inner.removeAttribute('data-measuring');
+    if (!Number.isFinite(lastBottom)) return;
+
+    const slack = contentBottom - lastBottom;
+    /*
+      PUBLISHED, because a fold that cannot be explained cannot be debugged.
+
+      `data-slack-px` is the natural slack this pass measured and each card's
+      `data-natural-px` is what it cost while it was open — the two numbers the
+      fold and the unfold are decided from. They are on the DOM rather than in a
+      closure so the harness can assert the DECISION rather than only its
+      outcome, and so that "why is the Face card folded on a screen with 229 px
+      to spare" is a question a screenshot can answer.
+    */
+    inner.setAttribute('data-slack-px', String(Math.round(slack)));
+    for (const el of inner.querySelectorAll('[data-panel-card]')) {
+      const id = el.getAttribute('data-panel-card');
+      const natural = id !== null && isPanelId(id) ? naturalPx.current[id] : undefined;
+      el.setAttribute('data-natural-px', natural === undefined ? '' : String(Math.round(natural)));
+    }
     if (slack < -1) {
       setFolded((previous) => {
         const next = FOLD_ORDER.find((id) => !previous.includes(id));
@@ -777,13 +877,18 @@ export function SidePanel(props: SidePanelProps): ReactElement {
         data-folded={folded.join(',')}
         aria-label="commands, face and the selected joint"
       >
-        <div className="side-panel-inner" ref={innerRef} data-testid="side-panel-inner">
-          {trust}
+        <div
+          className="side-panel-inner"
+          ref={innerRef}
+          data-testid="side-panel-inner"
+          data-trust-below={TRUST_BELOW ?? ''}
+        >
+          {TRUST_BELOW === null && trust}
           {cards.map((card) => {
             const isFolded = folded.includes(card.id);
             return (
+              <Fragment key={`slot-${card.id}`}>
               <section
-                key={card.id}
                 className={`pane panel-card${isFolded ? ' is-folded' : ''}`}
                 data-pane={card.id}
                 data-panel-card={card.id}
@@ -791,6 +896,8 @@ export function SidePanel(props: SidePanelProps): ReactElement {
                 data-dock={dockForSection(card.id)}
                 data-open={String(!isFolded)}
                 data-folded={String(isFolded)}
+                /* The one card allowed to take measured slack. See ELASTIC_CARD. */
+                data-elastic={String(card.id === ELASTIC_CARD)}
                 aria-labelledby={`pane-${card.id}-title`}
               >
                 <h2 className="pane__header panel-card-title" data-pane-chrome="header">
@@ -826,6 +933,8 @@ export function SidePanel(props: SidePanelProps): ReactElement {
                   {card.body}
                 </div>
               </section>
+              {card.id === TRUST_BELOW && trust}
+              </Fragment>
             );
           })}
         </div>

@@ -177,6 +177,10 @@ docs:
     type: findings
     status: complete
 
+  - file: docs/findings/W8-four-pieces-of-feedback.md
+    type: findings
+    status: complete
+
   - file: docs/findings/EXP6-QEMU-oled.md
     type: findings
     status: complete

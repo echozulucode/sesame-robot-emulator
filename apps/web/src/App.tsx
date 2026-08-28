@@ -63,11 +63,13 @@ import { COMMAND_VOCABULARY, OLED_HEIGHT, OLED_WIDTH } from '@sesame-lab/sesame-
 import { Suspense, useCallback, useEffect, useMemo, useRef, useState, type ReactElement } from 'react';
 
 import { BridgeBackend, sameOriginBridgeUrl } from './backends/bridge-backend.js';
+import { DEFAULT_BACKEND, probeLabHost, type LabHostProbe } from './backends/default-backend.js';
 import { defaultLabBaseUrl, QemuBackend } from './backends/qemu-backend.js';
 import { SimBackend } from './backends/sim-backend.js';
 import type { BackendId, BackendStatus, TelemetryBackend } from './backends/types.js';
 import { installDebugHook } from './debug-hook.js';
 import { renderAuthoredBitmap } from './oled/framebuffer.js';
+import { pixelOrigin } from './oled/pixel-provenance.js';
 import { symbolAt, symbolContains, SYMBOL_BY_ID } from './source/model.js';
 import { expansionsFor } from './arch/layout.js';
 import { flattenWrites, outOfRangeAngles, type SequenceDoc } from './editors/sequence.js';
@@ -115,6 +117,7 @@ import {
   stageRuleFor,
   type ModuleId,
 } from './ui/shell-state.js';
+import { InfoDot } from './ui/InfoDot.js';
 import { JointGlance } from './ui/JointInspector.js';
 import { ProvenanceTag } from './ui/ProvenanceTag.js';
 import { TrustCard } from './ui/Controls.js';
@@ -168,7 +171,23 @@ export function App(): ReactElement {
   }, []);
   const oledDirty = useRef(0);
 
-  const [backendId, setBackendId] = useState<BackendId>('sim');
+  /*
+   * QEMU is the default — Phase 4 W8, and the user's own sentence.
+   *
+   * > *"The QEMU should be the default."*
+   *
+   * The initial value is the constant so the first paint is already on the
+   * emulator: `just dev` and `just run` both put a QEMU lab host on this
+   * origin, and a frame of "Simulated model" before switching would be the
+   * app claiming a host model drove something it did not. The probe below then
+   * corrects it to `sim` where the lab host says it is running the simulator —
+   * see `backends/default-backend.ts` for why the no-host case does NOT fall
+   * back to `sim`.
+   */
+  const [backendId, setBackendId] = useState<BackendId>(DEFAULT_BACKEND);
+  /** What `/lab/session` said, or `null` until it has answered. */
+  const [labProbe, setLabProbe] = useState<LabHostProbe | null>(null);
+  const backendPicked = useRef(false);
   const [bridgeUrl, setBridgeUrl] = useState(sameOriginBridgeUrl());
   const [labUrl, setLabUrl] = useState(defaultLabBaseUrl());
   const [status, setStatus] = useState<BackendStatus>({
@@ -212,7 +231,9 @@ export function App(): ReactElement {
    */
   const [focusPane, setFocusPane] = useState<ModuleId | null>(null);
   /** Which "more info" screen is open, if any. At most one — it is a modal. */
-  const [popover, setPopover] = useState<'trust' | 'commands' | 'face' | 'inspector' | null>(null);
+  const [popover, setPopover] = useState<
+    'trust' | 'commands' | 'face' | 'inspector' | 'oled-pixels' | null
+  >(null);
   const [error, setError] = useState<string | null>(null);
 
   const handles = useRef<SceneHandles | null>(null);
@@ -322,6 +343,35 @@ export function App(): ReactElement {
     },
     [applySelection],
   );
+
+  /*
+   * ------------------------------------------------ what is behind this origin
+   *
+   * One request, once, on mount. It can only move the app from the QEMU default
+   * to `sim`, and only while the reader has not chosen for themselves —
+   * `backendPicked` is set by `chooseBackend` below, so a probe that lands after
+   * a click cannot undo the click. Everything else it does is record what it
+   * found, which is what turns "no lab host" into guidance instead of an
+   * unexplained error.
+   */
+  useEffect(() => {
+    let disposed = false;
+    void probeLabHost(labUrl).then((probe) => {
+      if (disposed) return;
+      setLabProbe(probe);
+      if (backendPicked.current) return;
+      setBackendId((previous) => (previous === DEFAULT_BACKEND ? probe.backend : previous));
+    });
+    return () => {
+      disposed = true;
+    };
+  }, [labUrl]);
+
+  /** A backend the READER chose. Pins it against the probe landing late. */
+  const chooseBackend = useCallback((id: BackendId) => {
+    backendPicked.current = true;
+    setBackendId(id);
+  }, []);
 
   // ----------------------------------------------------------- backend swap
   useEffect(() => {
@@ -751,7 +801,9 @@ export function App(): ReactElement {
             if (id === 'qemu') setLabUrl(url);
             else setBridgeUrl(url);
           }
-          setBackendId(id);
+          // Through the same door a reader's click goes through, so a probe
+          // that lands after the harness has chosen cannot override it.
+          chooseBackend(id);
           // Give the effect a turn of the event loop to tear down and rebuild.
           await new Promise((resolve) => setTimeout(resolve, 0));
         },
@@ -782,6 +834,7 @@ export function App(): ReactElement {
       shell,
       applySelection,
       backendId,
+      chooseBackend,
       expanded,
       oledCanvas,
       runCommand,
@@ -804,9 +857,15 @@ export function App(): ReactElement {
   // backend's identity. `oledFramebuffer: false` and `ssd1306-panel` in
   // `elided` are two independent statements of the same fact, and either one is
   // enough to stop host-drawn pixels being presented as the emulator's.
-  const oledElided =
-    emulatorFacts !== null &&
-    (!emulatorFacts.oledFramebuffer || emulatorFacts.elided.includes('ssd1306-panel'));
+  /*
+    Derived from the capability document, in one place, by a tested pure
+    function — Phase 4 W8. `oled/pixel-provenance.ts` carries the reasoning; the
+    property that matters here is that a QEMU image built with
+    `SESAME_TELEMETRY_OLED` enabled reports `oledFramebuffer: true`, drops
+    `ssd1306-panel` from `elided` and sends `oled.frame`, and every surface below
+    changes what it says with no edit in this file.
+  */
+  const oledOrigin = pixelOrigin(emulatorFacts, store.oledSource);
 
   const traces = traceStore.traces;
   const shownTrace = traces.find((t) => t.id === shownTraceId) ?? traces[0] ?? null;
@@ -995,11 +1054,101 @@ export function App(): ReactElement {
    * scrollbar, so each card carries a "more info" screen and each card's body
    * is a fixed number of rows rather than a list that grows.
    *
-   * The TRUST card is rendered separately and first, because it is the one
-   * §11.4 protects by name and it must not be reachable only through a
-   * disclosure of its own.
+   * The TRUST card is rendered separately, because it is the one §11.4 protects
+   * by name and it must not be reachable only through a disclosure of its own.
+   *
+   * ## The FACE is first — Phase 4 W8
+   *
+   * > *"The face should be at the very top."*
+   *
+   * W7 drew the trust card first and called that a consequence of §11.4. It is
+   * not: §11.4 is about a correctness surface being VISIBLE on the panel rather
+   * than behind a disclosure, and it says nothing about which card is at the
+   * top. The trust card is still on the panel, still unfoldable, still carrying
+   * all four of its named surfaces, and the harness still reads every one of
+   * them with every screen shut — so the invariant is untouched and only the
+   * order changed. What the order buys is the thing the reader asked for: the
+   * 128x64 glass is the surface you watch while you press a command, and it was
+   * 190 px down the panel.
    */
   const panelCards: readonly PanelCardSpec[] = [
+    {
+      id: 'face',
+      label: 'Face',
+      /*
+        `4x`, not `Larger` — Phase 4 W8, and it is 28 px of panel.
+
+        The header holds the label, the face name, the pixel-provenance badge,
+        the info icon and the two zero-frame faces in 280 px; with `Larger` it
+        wrapped to a second line at every window, and the 28 px that cost is
+        exactly what pushed the joint glance into a fold at 1760x1000. It also
+        names what the screen actually is — "The virtual OLED, at 4x".
+      */
+      more: { label: '4×', onOpen: () => setPopover('face') },
+      /*
+        The pixels' own provenance, and it is DERIVED — `inferred` on today's
+        QEMU image because it models no SSD1306, `observed` the moment an image
+        built with `SESAME_TELEMETRY_OLED` reports `oledFramebuffer: true` and
+        starts sending `oled.frame`. Nothing here names a backend.
+
+        The BADGE is the correctness surface and it stays on this summary at
+        every width, folded or not. The two paragraphs that explain it are
+        behind the `ⓘ` beside it — hover, focus or click — which is Phase 4 W8
+        and the user's own request.
+      */
+      summary: (
+        <>
+          {store.face === null ? (
+            <span className="muted">none yet</span>
+          ) : (
+            <code>{store.face.name}</code>
+          )}{' '}
+          {store.oledSource.pixelProvenance === null ? (
+            <span className="muted">no pixels</span>
+          ) : (
+            <ProvenanceTag value={store.oledSource.pixelProvenance} />
+          )}
+          <span data-pixel-origin={oledOrigin.state} data-from-emulator={String(oledOrigin.fromEmulator)}>
+            <InfoDot
+              id="oled-pixels"
+              label="Where did these pixels come from?"
+              tip={oledOrigin.claim}
+              onOpen={() => setPopover('oled-pixels')}
+            />
+          </span>{' '}
+          {/*
+            The zero-frame fact rides on the SUMMARY as well as in the card, so
+            it survives a fold. Two of the firmware's 38 faces draw nothing at
+            all (ISSUE-20260823-004) and that may not be a thing a reader has to
+            open a screen to find out.
+          */}
+          <span
+            className="panel-summary-warn"
+            data-zero-frame-faces="2"
+            title="setFace('stand') and setFace('default') draw nothing — the bitmap is weak-undefined (ISSUE-20260823-004)"
+          >
+            ⚠2
+          </span>
+        </>
+      ),
+      body: (
+        <>
+          <OledPanel
+            variant="panel"
+            panel={store.panel}
+            textureCanvas={oledCanvas}
+            face={store.face}
+            source={store.oledSource}
+            emptyFace={store.emptyFace}
+            origin={oledOrigin}
+            version={store.version}
+            onRedraw={() => {
+              oledDirty.current += 1;
+            }}
+          />
+        </>
+      ),
+    },
     {
       id: 'commands',
       label: 'Commands',
@@ -1030,57 +1179,6 @@ export function App(): ReactElement {
             onStop={stopMotion}
           />
         ),
-    },
-    {
-      id: 'face',
-      label: 'Face',
-      more: { label: 'Larger', onOpen: () => setPopover('face') },
-      /* The pixels' own provenance — `inferred` on the QEMU path, because QEMU
-         attaches no SSD1306 and nothing transmitted them. */
-      summary: (
-        <>
-          {store.face === null ? (
-            <span className="muted">none yet</span>
-          ) : (
-            <code>{store.face.name}</code>
-          )}{' '}
-          {store.oledSource.pixelProvenance === null ? (
-            <span className="muted">no pixels</span>
-          ) : (
-            <ProvenanceTag value={store.oledSource.pixelProvenance} />
-          )}{' '}
-          {/*
-            The zero-frame fact rides on the SUMMARY as well as in the card, so
-            it survives a fold. Two of the firmware's 38 faces draw nothing at
-            all (ISSUE-20260823-004) and that may not be a thing a reader has to
-            open a screen to find out.
-          */}
-          <span
-            className="panel-summary-warn"
-            data-zero-frame-faces="2"
-            title="setFace('stand') and setFace('default') draw nothing — the bitmap is weak-undefined (ISSUE-20260823-004)"
-          >
-            ⚠2
-          </span>
-        </>
-      ),
-      body: (
-        <>
-          <OledPanel
-            variant="panel"
-            panel={store.panel}
-            textureCanvas={oledCanvas}
-            face={store.face}
-            source={store.oledSource}
-            emptyFace={store.emptyFace}
-            panelElided={oledElided}
-            version={store.version}
-            onRedraw={() => {
-              oledDirty.current += 1;
-            }}
-          />
-        </>
-      ),
     },
     {
       id: 'inspector',
@@ -1255,7 +1353,7 @@ export function App(): ReactElement {
       <Rail
         shell={shell}
         backendId={backendId}
-        onBackendChange={setBackendId}
+        onBackendChange={chooseBackend}
         status={status}
         drivingProvenance={store.drivingProvenance}
         drivingOrigin={store.drivingOrigin}
@@ -1324,6 +1422,13 @@ export function App(): ReactElement {
             drivingProvenance={store.drivingProvenance}
             drivingOrigin={store.drivingOrigin}
             physicallyObservedEvents={store.physicallyObservedEvents}
+            /*
+              The default is QEMU; this is the state where the origin has no
+              QEMU behind it. Both halves are required: the guidance is about
+              the LAB HOST, so it has no business appearing while the reader is
+              deliberately on the bridge or the simulator.
+            */
+            noLabHost={backendId === 'qemu' && labProbe?.labHost === 'absent'}
             onMore={() => setPopover('trust')}
           />
         }
@@ -1391,7 +1496,7 @@ export function App(): ReactElement {
           <BackendPanel
             backend={backend}
             backendId={backendId}
-            onBackendChange={setBackendId}
+            onBackendChange={chooseBackend}
             bridgeUrl={bridgeUrl}
             onBridgeUrlChange={setBridgeUrl}
             status={status}
@@ -1450,12 +1555,50 @@ export function App(): ReactElement {
           face={store.face}
           source={store.oledSource}
           emptyFace={store.emptyFace}
-          panelElided={oledElided}
+          origin={oledOrigin}
           version={store.version}
           onRedraw={() => {
             oledDirty.current += 1;
           }}
         />
+      </Popover>
+
+      {/*
+        THE INFO SCREEN — Phase 4 W8.
+
+        The fifth `<dialog>`, rendered as a sibling of the shell's columns for
+        the same reason as the other four: a closed dialog is `display: none`,
+        so nothing inside one has a laid-out box, is counted as a scroller or is
+        measured by the type scan, and the side panel's inventory stays a
+        statement about the side panel.
+
+        Its content is `PixelOrigin.paragraphs` — DERIVED. The claim it opens
+        with is the same string the icon's tip shows, from the same object, so
+        the one-line form and the long form cannot say different things. That is
+        the discipline W7 applied to `measurementHeadline()` /
+        `measurementDetail()`, applied here.
+      */}
+      <Popover
+        id="oled-pixels"
+        title="Where these pixels came from"
+        open={popover === 'oled-pixels'}
+        onClose={() => setPopover(null)}
+      >
+        <div className="pixel-origin" data-pixel-origin={oledOrigin.state}>
+          <p className="pixel-origin-claim" data-testid="pixel-origin-claim">
+            <strong>{oledOrigin.claim}</strong>
+          </p>
+          {oledOrigin.paragraphs.map((paragraph) => (
+            <p key={paragraph.slice(0, 24)} className="note">
+              {paragraph}
+            </p>
+          ))}
+          <p className="note muted">
+            Pixel provenance is <ProvenanceTag value={store.oledSource.pixelProvenance ?? 'inferred'} />{' '}
+            — the badge on the Face card says the same word, and it says it whether this screen is
+            open or not.
+          </p>
+        </div>
       </Popover>
 
       <Popover

@@ -277,6 +277,13 @@ Verified by asking the OS, by PID, after the fact: **0 orphans in 25 connect/dis
 
 ### 3.3 One firmware-image change
 
+> **Superseded default (2026-08-28, EXP6-QEMU).** `QemuSesameRobot` now boots
+> **`distro-v1-esp32-cli-oled.flash.bin`** — this image plus `-DSESAME_TELEMETRY_OLED=1`, which puts
+> the OLED framebuffer on the wire at a measured +1.0 % on a full `rn wv`. Everything below still
+> describes the `cli` image accurately, and that image is still supported and still reports
+> `oledFramebuffer: false`. See [`EXP6-QEMU-oled.md`](EXP6-QEMU-oled.md).
+
+
 The Q1 `nowifi` image injects `currentCommand = "wave"` into `setup()`, because nothing could ask
 the robot to move. That is now noise in front of every command, so
 `build-qemu-images.mjs cli` builds **`distro-v1-esp32-cli.flash.bin`**: the same Wi-Fi elision and

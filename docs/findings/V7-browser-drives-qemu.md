@@ -247,7 +247,10 @@ floor to start sliding, and the QEMU wave sweeps the same 37.5 mm of foot height
 it.
 
 Three new captures: `v3-browser-qemu-booting.png`, `v3-browser-qemu-idle.png`,
-`v3-browser-qemu-commanded-wave.png`, plus `v4-browser-qemu-oled-inferred.png`.
+`v3-browser-qemu-commanded-wave.png`, plus `v4-browser-qemu-oled.png` — renamed from
+`v4-browser-qemu-oled-inferred.png` in Phase 4 W8, because the default QEMU image now
+ships the firmware’s framebuffer hook and those pixels are `observed` rather than
+`inferred`. The capture is the same one; only the name stopped asserting the answer.
 
 ### 4.1 Phase 5 was corrected, not weakened
 
