@@ -66,7 +66,29 @@
   :root {
     /* ------------------------------------------------------------ colour
      * Endorsed by the brief as "mostly better than the current typography
-     * suggests" — W1 is not a repaint, so these are unchanged.
+     * suggests" — W1 is not a repaint, so these were unchanged by it.
+     *
+     * ## What W6 changed, and why it is a measurement rather than a taste
+     *
+     * The brief's contrast invariant is 4.5:1 for normal text. Measured in a
+     * real browser against the composited background of every visible run of
+     * text, `--muted` at `#6b7688` failed it EVERYWHERE it was used:
+     *
+     *   3.52:1 on --panel-2   3.80:1 on --panel   4.02:1 on the pane card
+     *   4.06:1 on the status strip
+     *
+     * — and among the runs it failed on were `PHYSICAL HARDWARE:`, `SYSTEM:`,
+     * every `origin not stated` badge and every trace witness. Those are
+     * correctness surfaces, so this is not a polish item.
+     *
+     * `#838da0` is the smallest lift that clears 4.5:1 on every background it
+     * is measured against (worst: 4.84 on --panel-2). `--dim` stays where it
+     * is; the one place it failed was a #23303f selection background, which is
+     * darkened below rather than moving the token, because the token was not
+     * the thing that was wrong.
+     *
+     * `--focus` is new and is the brief's own value. It had no token before,
+     * which is why the app was relying on the browser's default ring.
      */
     --bg: #0d1015;
     --panel: #151a22;
@@ -74,12 +96,13 @@
     --line: #262d39;
     --text: #dfe5ee;
     --dim: #8b95a6;
-    --muted: #6b7688;
+    --muted: #838da0;
     --accent: #6e9ee6;
     --warn: #e6b45a;
     --observed: #4ec9a0;
     --simulated: #6e9ee6;
     --inferred: #c08de0;
+    --focus: #b9d4ff;
     color-scheme: dark;
 
     /* --------------------------------------------------------------- type
@@ -178,6 +201,46 @@
   .mono {
     font-family: var(--font-mono);
     font-size: var(--font-code);
+  }
+
+  /* ------------------------------------------------------- the focus ring
+   *
+   * Phase 4 W6, and it is an ADDITION rather than a repair: the tab walk found
+   * every one of the 66-70 focusable controls in every module reachable and
+   * ringed, because nothing in this file had ever written `outline: none`. What
+   * it was ringed WITH was the browser's default, which is a different colour
+   * in every Chromium theme and is not something this project can assert.
+   *
+   * `:where()` so the whole rule has zero specificity: a component that wants a
+   * different ring writes one and wins without `!important`, and a component
+   * that writes a plain `outline: none` still loses to nothing — which is why
+   * the harness measures the ring's CONTRAST off the focused element rather
+   * than trusting that this rule exists.
+   *
+   * `*` rather than a list of the usual suspects, and the wildcard is what the
+   * measurement asked for: Chromium makes a SCROLL CONTAINER keyboard-focusable
+   * on its own, so `.pane__content.panel-card-body` turns up in the tab order
+   * with no tabindex anywhere in this app's source. A selector list would have
+   * left it on the user-agent ring, which the harness measured at 1.08:1
+   * against the panel behind it.
+   *
+   * `outline-offset: 2px` is the brief's.
+   */
+  :where(*):focus-visible {
+    outline: 2px solid var(--focus);
+    outline-offset: 2px;
+  }
+
+  /* ------------------------------------------------- disclosure targets
+   *
+   * `<summary>` measured 24.8 px — over WCAG's 24 px floor and under the
+   * project's 36 — on six disclosures across Signal, the emulator panel, Learn
+   * and the Lab. `min-block-size` rather than `display: flex`, because
+   * blockifying a summary drops the marker the affordance is made of.
+   */
+  summary {
+    min-block-size: 36px;
+    padding-block: 6px;
   }
 }
 
@@ -461,7 +524,7 @@
    */
   .stage-status {
     flex: 0 0 auto;
-    height: 32px;
+    height: 36px;
     display: flex;
     align-items: center;
     gap: 8px;
@@ -567,6 +630,14 @@
     flex: 0 0 auto;
   }
 
+  /*
+   * 26 px was 27.2 px measured, which is over WCAG's 24 px floor and under the
+   * project's 36 — Phase 4 W6. These four are the quick commands, the one
+   * control cluster that is reachable at every width with no module open, so
+   * they are exactly the "high-frequency control" the brief sizes at 36.
+   * The status strip is 32 px tall and does not grow: the button is allowed to
+   * overhang it, which is why the strip's own `overflow` is not `hidden`.
+   */
   .status-cmd {
     background: var(--panel-2);
     color: var(--text);
@@ -576,7 +647,8 @@
     font: inherit;
     font-size: var(--font-ui);
     padding: 1px 10px;
-    min-height: 26px;
+    min-height: 36px;
+    min-width: 36px;
   }
 
   .status-cmd:hover:not(:disabled) {
@@ -858,8 +930,37 @@
     min-height: 0;
     display: flex;
     flex-direction: column;
-    gap: var(--space-1);
-    padding: var(--space-1);
+    /*
+      2px rather than `--space-1`, for the same reason as the padding below:
+      each card already carries a border and its own padding, so the gap is the
+      cheapest chrome in the panel and the three of them are six pixels the
+      content can have instead.
+    */
+    gap: 2px;
+    /*
+      No block padding, and it is exactly the four pixels W6 took — Phase 4 W6.
+      Growing the status strip from 32 px to 36 px, so the quick commands could
+      reach the project's target floor, shortened everything above it by 4 px,
+      and the panel had between 0 and 2 px of headroom at 1280x800: the harness
+      caught it as `overflowPx = 2` on three of the five modules. The panel's
+      cards carry their own padding, so the strip a reader loses here is the
+      inner box's, not the content's.
+
+      The trade is better than even, and both ends were measured rather than
+      assumed. In a state neither the harness nor W5 happened to visit —
+      1280x800, the simulator, one `wave` in the trace, which grows the trust
+      card by about 19 px — the same panel is:
+
+        pre-W6   32 px strip, 4 px padding, 4 px gaps   14 px over its box
+        now      36 px strip, no block padding, 2 px    8 px over
+
+      That residual is a finding rather than a change. It is the shape W5 gave
+      the panel — two `0 0 auto` cards that cannot shrink sitting above two that
+      can — and it belongs to whoever revisits the panel, not to the workstream
+      that moved a status strip. What W6 owed was not making it worse; what it
+      actually did was take four pixels for a target and give six back.
+    */
+    padding: 0 var(--space-1);
     overflow: hidden;
   }
 
@@ -1797,8 +1898,27 @@
     color: var(--muted);
   }
 
+  /*
+   * A count of zero, de-emphasised WITHOUT alpha — Phase 4 W6.
+   *
+   *  put #4ec9a0 on a panel at about 1.6:1. The row it dims
+   * most often is , which is the single fact this project
+   * most wants a reader to be able to read, so it was a correctness surface
+   * rendered below the point of legibility.  is 4.84:1 on the same
+   * panel and still reads as "nothing here".
+   */
+  /*
+   * A count of zero, de-emphasised WITHOUT alpha — Phase 4 W6.
+   *
+   * It was `opacity: 0.35`, which put #4ec9a0 on a panel at about 1.6:1. The
+   * row it dims most often is `physical-robot 0` — the single fact this
+   * project most wants a reader to be able to read — so a correctness surface
+   * was being rendered below the point of legibility. `--muted` is 4.84:1 on
+   * the same panel and still reads as "nothing here".
+   */
   .prov-zero {
-    opacity: 0.35;
+    color: var(--muted);
+    border-color: var(--line);
   }
 
   .prov-lg {
@@ -2022,6 +2142,34 @@
   .joint-name {
     font-family: ui-monospace, monospace;
     font-weight: 600;
+  }
+
+  /*
+   * The joint's own name, and the keyboard's way in — Phase 4 W6.
+   *
+   * It paints as the text it replaced: no chrome at rest, because the whole
+   * row is already a click target and a second visible button inside it would
+   * read as a different action. What it adds is a tab stop, a focus ring and
+   * `aria-pressed`. 36 px of block size is the project target floor, taken as
+   * padding rather than as a taller row, so the seven-cell record W5 measured
+   * keeps its alignment.
+   */
+  .joint-pick {
+    background: none;
+    border: none;
+    border-radius: 4px;
+    color: inherit;
+    cursor: pointer;
+    font: inherit;
+    min-block-size: 36px;
+    min-inline-size: 36px;
+    padding: 0 4px;
+    text-align: left;
+  }
+
+  .joint-pick:hover {
+    color: var(--text);
+    text-decoration: underline;
   }
 
   .num {
@@ -2744,6 +2892,9 @@
 
   .arch-branch {
     min-block-size: 36px;
+    /* 33.9 x 36 and 32.1 x 36 measured before W6 — the block axis was
+       floored and the inline axis was not. */
+    min-inline-size: 36px;
     padding: var(--space-1) var(--space-2);
     background: transparent;
     color: var(--muted);
@@ -2767,6 +2918,7 @@
 
   .arch-branch-more {
     min-block-size: 36px;
+    min-inline-size: 36px;
     padding: var(--space-1) var(--space-2);
     background: transparent;
     color: var(--dim);
@@ -3212,10 +3364,13 @@
     font: inherit;
     font-size: var(--font-ui);
     padding: 3px 8px;
+    /* 32.8 px measured before W6. The project floor is 36. */
+    min-block-size: 36px;
+    min-inline-size: 36px;
   }
 
   .source-tab.active {
-    background: #23303f;
+    background: #1e2a37;
     border-color: var(--accent);
     color: var(--text);
   }
@@ -3273,7 +3428,10 @@
    * this tree has (`movement-prototypes`) at the UI size plus its kind glyph
    * and its line number.
    */
+  /* 28.8 px measured before W6; the outline is a bounded scroller, so the
+     extra height it takes is scroll rather than layout. */
   .source-outline-row {
+    min-block-size: 36px;
     align-items: baseline;
     background: none;
     border: none;
@@ -3294,7 +3452,7 @@
   }
 
   .source-outline-row.is-selected {
-    background: #23303f;
+    background: #1e2a37;
     border-left-color: var(--accent);
     color: var(--text);
   }
@@ -3353,14 +3511,27 @@
     white-space: pre;
   }
 
-  /* Outside the selected symbol: present, readable, clearly not the subject. */
-  .src-line {
-    opacity: 0.45;
-  }
-
+  /*
+   * "Outside the selected symbol: present, readable, clearly not the subject."
+   *
+   * That was `opacity: 0.45` on the line, and it was the worst contrast
+   * failure in the app — Phase 4 W6. Group opacity composites the WHOLE
+   * subtree onto the backdrop, so the measured ratios for the C++ that a
+   * reader is here to read were:
+   *
+   *   .src-num 1.66:1   .cpp-comment 1.92:1   .cpp-keyword 2.43:1
+   *   .cpp-string 2.53:1   .cpp-type 2.73:1   .cpp-plain 3.44:1
+   *
+   * against a 4.5:1 floor, on 238 lines of the pinned tree at once. Dimming
+   * by alpha cannot be made to pass: even at `opacity: 1` the palette's floor
+   * is 3.59:1, which is why the two colours below moved as well.
+   *
+   * So the emphasis is by ADDITION now: every line is painted at full
+   * strength, and the selected symbol is the one that gets a background. The
+   * subject is what is lit, not what is left un-dimmed.
+   */
   .src-line.in-symbol {
-    background: #121a24;
-    opacity: 1;
+    background: #16202c;
   }
 
   /* A line some artefact in this repository cites, by file:line. */
@@ -3403,7 +3574,8 @@
   }
 
   /* C++ tokens. Legibility only — nothing in this app rests on a token colour. */
-  .cpp-comment { color: #6b8a63; }
+  /* Lifted from #6b8a63 — W6: it measured 4.28:1 on the .did-run background. */
+  .cpp-comment { color: #7ba070; }
   .cpp-string { color: #d69d78; }
   .cpp-preproc { color: #c08de0; }
   .cpp-number { color: #b8cea0; }
@@ -3517,7 +3689,7 @@
   .chip-node.is-selected,
   .chip-joint.is-selected,
   .chip-concept.is-selected {
-    background: #23303f;
+    background: #1e2a37;
     border-color: var(--accent);
     color: var(--text);
   }
@@ -3698,7 +3870,7 @@
   }
 
   .level-tab.active {
-    background: #23303f;
+    background: #1e2a37;
     border-color: var(--accent);
     color: var(--text);
   }
@@ -3762,9 +3934,23 @@
     gap: 6px;
   }
 
+  /*
+   * `minmax(0, …)` on both flexible tracks — Phase 4 W6.
+   *
+   * `22px 1fr auto` sized the badge column to its max-content, so a lesson
+   * carrying both `conceptual` and `outline` pushed the card 14 px past the
+   * module body and turned `.module-body` into an UNDECLARED horizontal
+   * scroller: 551 px of scrollWidth in 534 px of box, on the Learn module, at
+   * every window. It is the same defect W5 found on `.lab-body` with the Pose
+   * table, in a different pane, and it is the reason the harness now reads
+   * every module's pane for horizontal overflow rather than only the Lab's.
+   *
+   * The brief's own answer for this case is the wrap below: *"CSS: badges wrap
+   * to a second line."*
+   */
   .lesson-card {
     display: grid;
-    grid-template-columns: 22px 1fr auto;
+    grid-template-columns: 22px minmax(0, 1fr) minmax(0, auto);
     grid-template-areas:
       "order title badges"
       "order progress progress"
@@ -3785,9 +3971,20 @@
     border-color: var(--accent);
   }
 
+  /*
+   * Locked is not DISABLED — Phase 4 W6.
+   *
+   * The card stays a live button ("locked — read it, but finish meet-sesame
+   * first"), so WCAG's inactive-component exemption does not cover it, and the
+   * `opacity: 0.55` it used to carry measured 1.93:1 on the order number and
+   * 2.52:1 on the badges — on 18 of the 19 cards. A dashed border and a dimmer
+   * body say "locked" without taking any of that text below the floor. The
+   * `cursor: not-allowed` went with it: it was describing a card you can in
+   * fact click.
+   */
   .lesson-card.is-locked {
-    opacity: 0.55;
-    cursor: not-allowed;
+    border-style: dashed;
+    color: var(--dim);
   }
 
   .lesson-card.is-outline {
@@ -3805,6 +4002,8 @@
   .lesson-card-badges {
     grid-area: badges;
     display: flex;
+    flex-wrap: wrap;
+    justify-content: flex-end;
     gap: 4px;
   }
   .lesson-card-progress {
@@ -4284,8 +4483,11 @@
     padding: 5px 7px;
   }
 
+  /* Same reasoning as  — W6. Not alpha. */
+  /* Same reasoning as `.lesson-card.is-locked` — W6. Not alpha. */
   .lesson-challenge.is-locked {
-    opacity: 0.6;
+    border-style: dashed;
+    color: var(--dim);
   }
 
   /* -------------------------------------------------------------- outlines */
@@ -5558,14 +5760,74 @@
 
 @layer overrides {
   /*
-   * Empty on purpose, and declared on purpose.
-   *
    * The layer exists so that the escape hatch has a name. Anything that must
    * beat a pane - a user-preference query such as `prefers-reduced-motion`, a
    * print rule, a temporary fix with an issue number on it - belongs here rather
    * than outside the layers, where it would silently outrank all of them.
    *
-   * W6 fills it: reduced motion disables the camera tweens and the accordion
-   * slides.
+   * W6 fills it, with the two user preferences the brief names.
    */
+
+  /* ------------------------------------------------- coarse pointers
+   *
+   * The brief's second target tier: 36 px for a mouse, 44 px for a finger, on
+   * the controls a learner hits most. It is scoped to a NAMED list rather than
+   * applied to every button, because 44 px on the Source outline's 25 rows or
+   * on the eight joint rows would push each of those lists past a phone's
+   * whole viewport — and a list nobody can see is not more usable than a list
+   * whose rows are 36 px.
+   *
+   * `pointer: coarse` and not `hover: none`: a touchscreen laptop is coarse and
+   * hovering, and the finger is the thing being sized for.
+   */
+  @media (pointer: coarse) {
+    .status-cmd,
+    .cmd,
+    .rail-btn,
+    .module-close,
+    .panel-more,
+    .lesson-button {
+      min-block-size: 44px;
+      min-inline-size: 44px;
+    }
+
+    /*
+      And the strip grows to hold them. `.stage-status` is `overflow: hidden`,
+      so a 44 px button in a 36 px row would report a 44 px rect and paint 36 —
+      a target-size check reading `getBoundingClientRect` would pass while the
+      bottom eight pixels of every quick command were clipped away.
+    */
+    .stage-status {
+      height: 52px;
+    }
+  }
+
+  /* ---------------------------------------------------- reduced motion
+   *
+   * What this file actually animates is: nothing. There is not one
+   * `transition:` or `@keyframes` in 5,800 lines, which is a policy the brief
+   * would endorse and which W6 is not going to celebrate as compliance —
+   * because the motion in this app is not in the stylesheet. It is in
+   * `@xyflow/react`'s stylesheet (imported into the `reset` layer, above), in
+   * React Flow's animated `fitView`/`setCenter` calls, and in OrbitControls'
+   * inertial damping. The first is CSS and is turned off here; the other two
+   * are JavaScript and are turned off in `ui/prefers-reduced-motion.ts`, where
+   * the same media query is read once and handed to both.
+   *
+   * The `*` rule is therefore a backstop for the third-party layer and for
+   * whatever the next workstream adds, not the answer on its own. The harness
+   * proves the answer by MEASURING that a graph reframe has already settled
+   * 40 ms after a click and that the camera stops the instant a drag ends.
+   */
+  @media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+      animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.01ms !important;
+      transition-delay: 0ms !important;
+      scroll-behavior: auto !important;
+    }
+  }
 }

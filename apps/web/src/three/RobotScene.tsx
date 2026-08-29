@@ -31,6 +31,7 @@ import {
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
 
+import { prefersReducedMotion } from '../ui/prefers-reduced-motion.js';
 import type { TelemetryStore } from '../state/telemetry-store.js';
 import {
   applyCommandedDeg,
@@ -189,7 +190,19 @@ function CameraControls({ refs }: { readonly refs: SceneRefs }): null {
 
   useEffect(() => {
     const c = new OrbitControls(camera as PerspectiveCamera, domElement);
-    c.enableDamping = true;
+    /*
+      Inertial damping is the one piece of camera motion in this app, and it is
+      exactly what `prefers-reduced-motion: reduce` names — Phase 4 W6. It is a
+      three.js integration inside `useFrame`, so no CSS rule can reach it: with
+      damping on, the camera keeps gliding for roughly a second after the
+      pointer is released, which the harness measures by sampling
+      `worldFrame().cameraPositionMm` 60 ms and 560 ms after a drag ends.
+
+      Read live rather than at construction: the preference can change while the
+      page is open, and `enableDamping` is a plain property OrbitControls reads
+      on every `update()`.
+    */
+    c.enableDamping = !prefersReducedMotion();
     c.dampingFactor = 0.08;
     // Set once, at construction, and never written again. Nothing in this app
     // re-aims the camera at the robot: if the view appears to drift, the cause
@@ -210,7 +223,14 @@ function CameraControls({ refs }: { readonly refs: SceneRefs }): null {
     };
   }, [camera, domElement, refs]);
 
-  useFrame(() => controls.current?.update());
+  useFrame(() => {
+    const c = controls.current;
+    if (c === null) return;
+    // Re-read every frame: the preference is a live media query, and a reader
+    // who turns it on mid-session must not have to reload to be listened to.
+    c.enableDamping = !prefersReducedMotion();
+    c.update();
+  });
   return null;
 }
 

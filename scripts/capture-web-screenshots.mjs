@@ -794,7 +794,22 @@ async function launchBrowser(url, window = DEFAULT_WINDOW) {
     }
   };
 
-  return { evaluate, shoot, close, stderr: () => stderr, errors: () => pageErrors };
+  /*
+    The raw protocol, exposed for phase 13 — Phase 4 W6.
+
+    Two of the brief's invariants are about a USER PREFERENCE rather than about
+    the page: `prefers-reduced-motion: reduce`, and the pointer type that
+    decides between the 36 px and 44 px target tiers. Neither can be reached
+    from `Runtime.evaluate`, because both are things the browser tells the page
+    rather than things the page decides — `Emulation.setEmulatedMedia` is the
+    only way to ask a real browser what it does under them, and a test that
+    stubbed `matchMedia` instead would be testing its own stub.
+
+    `Input.dispatchKeyEvent` is the third: `:focus-visible` is a KEYBOARD
+    modality heuristic, so a ring proven by `el.focus()` is not proof that a
+    reader tabbing through the page sees one.
+  */
+  return { evaluate, cdp, shoot, close, stderr: () => stderr, errors: () => pageErrors };
 }
 
 /**
@@ -9747,6 +9762,1580 @@ if (SKIP_QEMU) {
         (row.worstOnScreenPx === null ? '' : `, worst label ${row.worstOnScreenPx}px on screen`),
     );
   }
+}
+
+// ===========================================================================
+// PHASE 13: THE ACCESSIBILITY INVARIANTS — Phase 4 W6
+// ===========================================================================
+//
+// The last eleven rows of the brief's 28-row contract, and the reason they are
+// last is that most of the other seventeen were asserted by the workstream that
+// created the thing they are about. What is left is the set no single pane
+// owns: contrast, target size, keyboard reachability, focus, reduced motion,
+// page-level horizontal overflow, and the two RELEASE GATES — 200% page zoom
+// and the WCAG text-spacing overrides.
+//
+// ## What was already covered, and is not repeated here
+//
+//   provenance rendered in words          phases 1-8, and `typeScan`'s
+//   origin rendered, never bare observed   CORRECTNESS_SELECTORS in phase 12
+//   no rendered origin is PHYSICAL         phase 12 (`data-origin-physical`)
+//   every pwm.output is `inferred`         phase 7
+//   CONCEPTUAL and NOT BUILT labels        phase 10
+//   correctness text never truncated       phase 12's `typeScan.truncated`
+//   the 14px floor and the 1440x900 table  phase 12, at six windows
+//   <= 1 vertical scroll owner per pane     phase 12, W5's narrowed rule
+//   horizontal overflow only on 2d surfaces phase 12 and W5's Lab sweep
+//   lesson measure, Modules' two bands,     phases 10, 12 and W4
+//   one workbench, the stage's own area
+//
+// So this phase asserts what NOTHING asserted, and it says which of its checks
+// were made to fail first, because the standing warning in this project is that
+// an assertion nobody has seen fail is not known to measure anything.
+//
+// ## The five that were proved by failing
+//
+//  1. CONTRAST. `--muted` at #6b7688 failed 4.5:1 on every background it was
+//     used on — 3.52 on `--panel-2`, 3.80 on `--panel`, 4.02 on a pane card —
+//     and the runs it failed on included `PHYSICAL HARDWARE:`, `SYSTEM:`, every
+//     `origin not stated` badge and every trace witness.
+//  2. GROUP OPACITY, which the first version of the same check MISSED. Modelling
+//     `opacity` as a background blend rather than as a group composite reported
+//     4.21:1 for a `.src-num` that was actually at 1.66:1, because `.src-line`
+//     carried `opacity: 0.45` and the whole subtree — text included — was
+//     composited onto the page. Reading the ancestor chain the way the compositor
+//     does turned 14 failures into 26 and found the worst of them.
+//  3. TARGET SIZE, hit-tested rather than measured off `getBoundingClientRect`,
+//     because `.info-dot` paints a 20 px circle and extends its target with an
+//     absolutely positioned `::after` that no rect reports. Found `.status-cmd`
+//     at 27.2 px, `.source-tab` at 32.8, `.source-outline-row` at 28.8,
+//     `<summary>` at 24.8 and `.arch-branch` at 32.1 px wide.
+//  4. REDUCED MOTION. With the preference on and the fix reverted, the camera
+//     glides 41.9 mm between 60 ms and 560 ms after the pointer is released, and
+//     React Flow's viewport transform takes three to six distinct values across
+//     a reframe. With it applied: 0.000 mm and exactly two.
+//  5. THE POINTER-ONLY SCAN. Elements with `cursor: pointer` that are neither
+//     focusable nor contain something focusable: 417 in Signal and 8 in the
+//     Inspector before, 0 after. Those two were the ONLY way to select a trace
+//     row or a joint from anything other than the 3D canvas.
+//
+// ## And one that is a documented limitation rather than a check
+//
+// The WebGL canvas is not keyboard-navigable and this phase does not pretend
+// otherwise. See `docs/findings/W6-accessibility-invariants.md` §6.
+// ===========================================================================
+{
+  console.log('[web] phase 13: the accessibility invariants');
+  const before13 = problems.length;
+  const a11yShots = [];
+  const a11yBridge = await startBridge({ replay: WAVE_FIXTURE }).catch((e) => die(e.message));
+
+  /*
+   * Phase 12's list, restated rather than shared — the original is a `const`
+   * inside phase 12's own block and there is no scope in which both can see it.
+   * Restating it is the smaller evil: a selector that drifts here shows up as a
+   * gate that scanned fewer surfaces than the phase above it, and the count is
+   * in the report.
+   */
+  const W6_CORRECTNESS_SELECTORS = [
+    '.prov',
+    '[data-origin-kind]',
+    '#prov-banner',
+    '.prov-banner p',
+    '.trace-row-witness',
+    '.trace-witness-key',
+    '.lesson-check-status',
+    '.lesson-check-summary',
+    '.lesson-notbuilt',
+    '[data-testid="lesson-control-notbuilt"]',
+    '.badge.is-notbuilt',
+    '[data-testid="status-environment"]',
+  ];
+
+  /** The project's two target tiers, and WCAG's floor under both. */
+  const TARGET_FINE_PX = 36;
+  const TARGET_COARSE_PX = 44;
+  const TARGET_WCAG_FLOOR_PX = 24;
+  /** WCAG 1.4.3 / 1.4.11. Large text is >= 24px, or >= 18.66px at weight >= 700. */
+  const CONTRAST_TEXT = 4.5;
+  const CONTRAST_LARGE_TEXT = 3;
+  const CONTRAST_UI = 3;
+
+  /**
+   * 200% page zoom, expressed the only way a headless browser can be honest
+   * about it: **half the CSS pixels**.
+   *
+   * At 200% zoom on a 1440x900 screen every CSS pixel is two device pixels, so
+   * the page gets 720x450 CSS px, `innerWidth` reports 720 and every media
+   * query sees 720. A 720x450 window is that, exactly, and it is measured
+   * rather than emulated. `Emulation.setPageScaleFactor` is the other candidate
+   * and it is the wrong one: it is pinch-zoom, it does not change the layout
+   * viewport, and a layout that fails reflow would sail through it.
+   */
+  const ZOOM_200 = { width: 720, height: 450, label: '1440x900 at 200% zoom' };
+
+  /**
+   * The WCAG 1.4.12 text-spacing overrides, verbatim.
+   *
+   * Success Criterion 1.4.12 is a *user* stylesheet: no loss of content or
+   * functionality when a reader forces these four values. `!important` on `*`
+   * is how a user stylesheet behaves and is therefore the test, not a hack.
+   */
+  const TEXT_SPACING_CSS =
+    '*, *::before, *::after { line-height: 1.5 !important; letter-spacing: 0.12em !important; ' +
+    'word-spacing: 0.16em !important; } p, li, dd, dt { margin-block-end: 2em !important; }';
+
+  const A11Y_MODULES = ['modules', 'signal', 'source', 'learn', 'lab'];
+
+  // ------------------------------------------------------------- contrast
+  /**
+   * Every visible run of text, against the background actually painted under
+   * it — Phase 4 W6.
+   *
+   * ## Why the ancestor chain is walked the way the compositor walks it
+   *
+   * The first version of this composited each ancestor's `background-color`
+   * downward and treated `opacity` as one more alpha on that background. It
+   * reported 4.21:1 for a source line number that a reader sees at 1.66:1,
+   * because `opacity` does not tint a background — it forms a GROUP, and the
+   * group's whole subtree, the text included, is composited onto the backdrop
+   * at that alpha. Twelve of the app's worst-contrast runs were invisible to
+   * the arithmetic that got this wrong, and they were all in the pane whose
+   * entire purpose is reading 429 lines of real C++.
+   *
+   * So: forward, accumulate each level's backdrop and its own painted layer;
+   * backward, apply every group opacity to BOTH the text colour and the
+   * background under it. That is what the browser does.
+   *
+   * ## What is exempt, and why exactly two things are
+   *
+   *  * `:disabled` / `[aria-disabled="true"]` — WCAG 1.4.3 exempts inactive
+   *    components by name. Four rules in the stylesheet dim a disabled control
+   *    with alpha and they are allowed to.
+   *  * elements under a `background-image` — the ratio cannot be computed
+   *    against a gradient, so they are COUNTED and reported rather than
+   *    silently passed. The count is 0 today; if it ever is not, the report
+   *    says so instead of the check quietly weakening.
+   *
+   * Note what is NOT exempt: `.lesson-card.is-locked` was `opacity: 0.55` and
+   * is a live button, so the inactive-component exemption never covered it.
+   */
+  const CONTRAST_JS = `(() => {
+    const lin = (c) => { c /= 255; return c <= 0.04045 ? c / 12.92 : Math.pow((c + 0.055) / 1.055, 2.4); };
+    const lum = (r) => 0.2126 * lin(r[0]) + 0.7152 * lin(r[1]) + 0.0722 * lin(r[2]);
+    const parse = (s) => {
+      const open = s.indexOf('('), close = s.lastIndexOf(')');
+      if (open < 0 || close < open) return null;
+      const p = s.slice(open + 1, close).split(/[ ,/]+/).filter((x) => x.length > 0).map(Number);
+      if (p.length < 3 || p.some((x) => Number.isNaN(x))) return null;
+      return [p[0], p[1], p[2], p.length > 3 ? p[3] : 1];
+    };
+    const over = (f, b) => [0, 1, 2].map((i) => f[i] * f[3] + b[i] * (1 - f[3]));
+    const mix = (a, b, t) => [0, 1, 2].map((i) => a[i] * (1 - t) + b[i] * t);
+    const ratio = (a, b) => { const x = lum(a), y = lum(b); return (Math.max(x, y) + 0.05) / (Math.min(x, y) + 0.05); };
+    const PAGE = [13, 16, 21];
+
+    /*
+      A background-image only hides the background-COLOUR where it paints.
+
+      The first version treated any background-image as "cannot compute" and
+      silently skipped the element and every descendant under it. That skipped
+      351 elements at 1440x900 — because .trace-step draws the Signal ladder's
+      spine with linear-gradient(--line, --line) at background-size: 2px 100%,
+      no-repeat. A two-pixel vertical rule sitting in the gutter had exempted
+      every witness paragraph, every provenance badge and every lane in the one
+      pane the contrast check most needs to cover. An assertion that quietly
+      skips its hardest case is the failure mode this project keeps catching.
+
+      So: a no-repeat image smaller than its own box is a rule or a stripe and
+      does not change what is behind the text. Anything that tiles, or that
+      covers the box, is still unknown — and unknown is COUNTED and reported,
+      never passed.
+    */
+    const imageCovers = (cs, el) => {
+      if (cs.backgroundImage === 'none') return false;
+      if (cs.backgroundRepeat !== 'no-repeat') return true;
+      const r = el.getBoundingClientRect();
+      const parts = cs.backgroundSize.split(' ');
+      const toPx = (v, base) => {
+        if (v === undefined || v === 'auto' || v === 'cover' || v === 'contain') return base;
+        if (v.endsWith('%')) return (base * parseFloat(v)) / 100;
+        return parseFloat(v);
+      };
+      return toPx(parts[0], r.width) >= r.width - 0.5 && toPx(parts[1], r.height) >= r.height - 0.5;
+    };
+
+    const paint = (el) => {
+      const chain = [];
+      for (let n = el; n !== null; n = n.parentElement) chain.push(n);
+      chain.reverse();
+      const backdrop = [], layer = [], alpha = [];
+      let b = PAGE, unknown = false;
+      for (const node of chain) {
+        const cs = getComputedStyle(node);
+        if (imageCovers(cs, node)) unknown = true;
+        const own = parse(cs.backgroundColor) || [0, 0, 0, 0];
+        backdrop.push(b);
+        const l = over(own, b);
+        layer.push(l);
+        alpha.push(Number(cs.opacity));
+        b = l;
+      }
+      const cs = getComputedStyle(el);
+      const svg = el.namespaceURI === 'http://www.w3.org/2000/svg' && cs.fill !== 'none';
+      const raw = parse(svg ? cs.fill : cs.color) || [255, 255, 255, 1];
+      let fg = over(raw, layer[layer.length - 1]);
+      let bg = layer[layer.length - 1];
+      for (let i = chain.length - 1; i >= 0; i -= 1) {
+        if (alpha[i] >= 1) continue;
+        fg = mix(backdrop[i], fg, alpha[i]);
+        bg = mix(backdrop[i], bg, alpha[i]);
+      }
+      return { fg, bg, unknown, alpha: Math.min(...alpha) };
+    };
+
+    const visible = (el) => {
+      const cs = getComputedStyle(el);
+      if (cs.display === 'none' || cs.visibility === 'hidden') return false;
+      const r = el.getBoundingClientRect();
+      return r.width > 0 && r.height > 0;
+    };
+    const own = (el) => {
+      let t = '';
+      for (const n of el.childNodes) if (n.nodeType === 3) t += n.nodeValue;
+      return t.replace(/\\s+/g, ' ').trim();
+    };
+    const inactive = (el) =>
+      el.closest(':disabled, [aria-disabled="true"], [data-inactive="true"]') !== null;
+
+    const out = { failures: [], measured: 0, exemptInactive: 0, overImage: 0, worst: null, uiFailures: [], uiChecked: 0, boundaryNotRequired: 0, backdrops: 0 };
+    for (const el of document.querySelectorAll('body *')) {
+      const text = own(el);
+      if (text.length === 0 || !visible(el)) continue;
+      if (inactive(el)) { out.exemptInactive += 1; continue; }
+      const cs = getComputedStyle(el);
+      const px = parseFloat(cs.fontSize);
+      const weight = Number(cs.fontWeight) || 400;
+      const need = px >= 24 || (px >= 18.66 && weight >= 700) ? ${CONTRAST_LARGE_TEXT} : ${CONTRAST_TEXT};
+      const p = paint(el);
+      if (p.unknown) { out.overImage += 1; continue; }
+      const cr = ratio(p.fg, p.bg);
+      out.measured += 1;
+      if (out.worst === null || cr < out.worst.ratio) {
+        out.worst = { ratio: Math.round(cr * 100) / 100, need, text: text.slice(0, 40) };
+      }
+      if (cr + 0.005 >= need) continue;
+      out.failures.push({
+        text: text.slice(0, 44),
+        name: (typeof el.className === 'string' && el.className.length > 0 ? '.' + el.className.trim().split(/\\s+/).join('.') : el.tagName).slice(0, 52),
+        fg: 'rgb(' + p.fg.map((v) => Math.round(v)).join(',') + ')',
+        bg: 'rgb(' + p.bg.map((v) => Math.round(v)).join(',') + ')',
+        px, need, groupAlpha: p.alpha, ratio: Math.round(cr * 100) / 100,
+      });
+    }
+
+    /*
+      1.4.11 Non-text Contrast, for the boundaries that are REQUIRED to
+      identify a control.
+
+      The word "required" is the whole criterion and the first version of this
+      check ignored it: it measured every button's border and reported 214
+      failures at 1440x900, almost all of them rail buttons at 1.4:1. A rail
+      button carries a 20 px glyph and a word, both above 4.5:1 — the text is
+      what identifies it, its border is decoration, and 1.4.11 says so in as
+      many words. Failing it would have been an accessibility gate crying wolf
+      214 times, which is how a gate gets deleted.
+
+      So the boundary is required exactly when nothing else identifies the
+      control:
+
+        * form controls (input, select, textarea) whose box IS the
+          affordance and which have no text of their own;
+        * any control with no visible text at all (an icon-only button).
+
+      A control with a text label is covered by the 4.5:1 text check above.
+    */
+    const CONTROLS = 'button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), summary, [role="button"]';
+    const FORM = new Set(['INPUT', 'SELECT', 'TEXTAREA']);
+    for (const el of document.querySelectorAll(CONTROLS)) {
+      if (!visible(el) || inactive(el)) continue;
+      const labelled = (el.textContent || '').trim().length > 0;
+      /*
+        A control that fills the viewport is a BACKDROP, and a backdrop has
+        nothing for its boundary to distinguish it from. The Compact sheets'
+        scrim was the only thing this check flagged once the scope was right —
+        at 1.03:1 against the stage it dims, which is what a scrim is for.
+      */
+      const box = el.getBoundingClientRect();
+      if (box.width * box.height >= innerWidth * innerHeight * 0.8) {
+        out.backdrops += 1;
+        continue;
+      }
+      const boundaryRequired = FORM.has(el.tagName) || !labelled;
+      if (!boundaryRequired) { out.boundaryNotRequired += 1; continue; }
+      const cs = getComputedStyle(el);
+      const parent = el.parentElement === null ? null : paint(el.parentElement);
+      if (parent === null || parent.unknown) continue;
+      const own2 = parse(cs.backgroundColor) || [0, 0, 0, 0];
+      const border = parse(cs.borderTopColor) || [0, 0, 0, 0];
+      const hasBorder = cs.borderTopStyle !== 'none' && parseFloat(cs.borderTopWidth) > 0;
+      const candidates = [];
+      if (hasBorder && border[3] > 0) candidates.push(ratio(over(border, parent.bg), parent.bg));
+      if (own2[3] > 0) candidates.push(ratio(over(own2, parent.bg), parent.bg));
+      // A control with neither a border nor a background of its own is
+      // identified by its TEXT, which the text check above already covers.
+      if (candidates.length === 0) continue;
+      out.uiChecked += 1;
+      const best = Math.max(...candidates);
+      if (best + 0.005 < ${CONTRAST_UI}) {
+        out.uiFailures.push({
+          name: (typeof el.className === 'string' && el.className.length > 0 ? '.' + el.className.trim().split(/\\s+/).join('.') : el.tagName).slice(0, 52),
+          text: (el.textContent || '').trim().slice(0, 30),
+          ratio: Math.round(best * 100) / 100,
+          border: hasBorder ? cs.borderTopColor : null,
+          background: cs.backgroundColor,
+        });
+      }
+    }
+    return out;
+  })()`;
+
+  // -------------------------------------------------------- target sizes
+  /**
+   * The target a POINTER can hit, found by hit-testing rather than by reading
+   * a rectangle.
+   *
+   * `.info-dot` is why. It paints a 20 px circle and carries its 36 px target
+   * on an absolutely positioned `::after` that contributes nothing to the
+   * button's own rect — so a check written against `getBoundingClientRect`
+   * would have failed a control that is correct, and (much worse) would have
+   * passed any control that grew its rect without growing what a pointer can
+   * land on. `document.elementFromPoint` is the only reading that answers the
+   * question the criterion actually asks.
+   *
+   * The search is a bisection outward from the centre in each of the four
+   * directions, so the reported box is the largest axis-aligned region that
+   * really resolves to the control.
+   */
+  const TARGETS_JS = (floorPx) => `(() => {
+    const SEL = 'a[href], button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), summary, [tabindex]:not([tabindex="-1"]), [role="button"]';
+    const visible = (el) => {
+      const cs = getComputedStyle(el);
+      if (cs.display === 'none' || cs.visibility === 'hidden') return false;
+      const r = el.getBoundingClientRect();
+      return r.width > 0 && r.height > 0;
+    };
+    const hits = (el, x, y) => {
+      const t = document.elementFromPoint(x, y);
+      return t !== null && (t === el || el.contains(t));
+    };
+    const hitBox = (el) => {
+      const r = el.getBoundingClientRect();
+      const cx = r.left + r.width / 2, cy = r.top + r.height / 2;
+      if (cx < 0 || cy < 0 || cx > innerWidth - 1 || cy > innerHeight - 1) return null;
+      if (!hits(el, cx, cy)) return null;
+      const reach = (dx, dy) => {
+        let lo = 0, hi = 48;
+        while (hi - lo > 0.5) {
+          const mid = (lo + hi) / 2;
+          const x = cx + dx * mid, y = cy + dy * mid;
+          if (x < 0 || y < 0 || x > innerWidth - 1 || y > innerHeight - 1) { hi = mid; continue; }
+          if (hits(el, x, y)) lo = mid; else hi = mid;
+        }
+        return lo;
+      };
+      return { w: reach(-1, 0) + reach(1, 0), h: reach(0, -1) + reach(0, 1) };
+    };
+    const out = { checked: 0, underFloor: [], underWcag: [], unhittable: [] };
+    for (const el of document.querySelectorAll(SEL)) {
+      if (!visible(el)) continue;
+      const r = el.getBoundingClientRect();
+      const hb = hitBox(el);
+      if (hb === null) {
+        // Off-screen inside its own scroller, or covered. Reported, never
+        // counted as a pass: a target nothing can hit is not a large target.
+        out.unhittable.push({
+          name: (typeof el.className === 'string' ? '.' + el.className.trim().split(/\\s+/).join('.') : el.tagName).slice(0, 46),
+          text: (el.textContent || '').trim().slice(0, 24),
+          boxW: Math.round(r.width), boxH: Math.round(r.height),
+        });
+        continue;
+      }
+      out.checked += 1;
+      const w = Math.max(r.width, hb.w), h = Math.max(r.height, hb.h);
+      const row = {
+        name: (typeof el.className === 'string' && el.className.length > 0 ? '.' + el.className.trim().split(/\\s+/).join('.') : el.tagName).slice(0, 46),
+        text: (el.textContent || '').trim().slice(0, 24),
+        boxW: Math.round(r.width * 10) / 10, boxH: Math.round(r.height * 10) / 10,
+        hitW: Math.round(w * 10) / 10, hitH: Math.round(h * 10) / 10,
+      };
+      if (w + 0.5 < ${TARGET_WCAG_FLOOR_PX} || h + 0.5 < ${TARGET_WCAG_FLOOR_PX}) out.underWcag.push(row);
+      else if (w + 0.5 < ${floorPx} || h + 0.5 < ${floorPx}) out.underFloor.push(row);
+    }
+    return out;
+  })()`;
+
+  // --------------------------------------------------- scroll and overflow
+  const OVERFLOW_JS = `(() => {
+    const de = document.documentElement;
+    const undeclared = [];
+    for (const el of document.querySelectorAll('*')) {
+      const o = getComputedStyle(el).overflowX;
+      if (o !== 'auto' && o !== 'scroll') continue;
+      if (el.scrollWidth <= el.clientWidth + 1) continue;
+      if (el.hasAttribute('data-2d-surface')) continue;
+      undeclared.push({
+        name: (typeof el.className === 'string' && el.className.length > 0 ? '.' + el.className.trim().split(/\\s+/).join('.') : el.tagName).slice(0, 52),
+        scrollWidth: el.scrollWidth, clientWidth: el.clientWidth,
+      });
+    }
+    return { docScrollWidth: de.scrollWidth, docClientWidth: de.clientWidth, undeclared };
+  })()`;
+
+  // ------------------------------------------- correctness under a gate
+  /**
+   * The gates' shared question: did anything a reader must be able to read
+   * stop being readable?
+   *
+   * `tooltipOnly` is the half of the 200%-zoom invariant that is easy to lose:
+   * the row says *"no correctness text is clipped **or replaced solely by
+   * tooltips**"*, so a surface whose `title` carries a fact its rendered text
+   * does not is a failure even though nothing is visibly cut.
+   */
+  const CORRECTNESS_JS = `(() => {
+    const SELECTORS = ${JSON.stringify(W6_CORRECTNESS_SELECTORS)};
+    const out = { seen: 0, truncated: [], hidden: [], tooltipOnly: [], belowFloor: [] };
+    for (const selector of SELECTORS) {
+      for (const el of document.querySelectorAll(selector)) {
+        const cs = getComputedStyle(el);
+        if (cs.display === 'none' || cs.visibility === 'hidden') continue;
+        /*
+          \`checkVisibility()\` and not \`display\`/\`visibility\` alone — Phase 4 W6.
+
+          The first run of this gate reported 1,003 "collapsed" correctness
+          surfaces at 200% zoom and every one was a false positive: the shell
+          keeps inactive panes mounted under \`[hidden]\`, and the content of a
+          closed <details> is \`content-visibility: hidden\`. Both compute
+          \`display: block\` with a zero box, so the cheap test called them
+          collapsed. Not rendered and crushed to nothing are different things,
+          and a gate that cannot tell them apart would either fail on every
+          window forever or be "fixed" by deleting the zero-box branch — which
+          is the branch that would catch a badge the zoom really did crush.
+        */
+        if (
+          el.checkVisibility !== undefined &&
+          !el.checkVisibility({ contentVisibilityAuto: true, visibilityProperty: true })
+        ) continue;
+        const rect = el.getBoundingClientRect();
+        const text = (el.textContent ?? '').replace(/\\s+/g, ' ').trim();
+        if (text.length === 0) continue;
+        const name = selector + ' "' + text.slice(0, 40) + '"';
+        out.seen += 1;
+        if (rect.width < 1 || rect.height < 1) { out.hidden.push(name); continue; }
+        const clamped = cs.webkitLineClamp !== undefined && cs.webkitLineClamp !== '' && cs.webkitLineClamp !== 'none';
+        const ellipsised = cs.textOverflow === 'ellipsis';
+        const cut = el.scrollWidth > el.clientWidth + 1 || el.scrollHeight > el.clientHeight + 1;
+        if (clamped || ellipsised || cut) {
+          out.truncated.push(name + (cut ? ' cut ' + el.scrollWidth + '>' + el.clientWidth : '') + (ellipsised ? ' ellipsis' : '') + (clamped ? ' line-clamp' : ''));
+        }
+        if (parseFloat(cs.fontSize) < ${TEXT_FLOOR_PX} - 0.01) {
+          out.belowFloor.push(name + ' at ' + cs.fontSize);
+        }
+        const tip = el.getAttribute('title');
+        if (tip !== null && /OBSERVED|SIMULATED|INFERRED|QEMU|EMULATOR|NOT BUILT|CONCEPTUAL|PHYSICAL/i.test(tip)) {
+          const words = tip.toUpperCase().match(/OBSERVED|SIMULATED|INFERRED|QEMU|NOT BUILT|CONCEPTUAL/g) ?? [];
+          const missing = words.filter((w) => !text.toUpperCase().includes(w));
+          // The badge's own word must be in its text. A tooltip may EXPLAIN a
+          // category; it may not be the only place the category is named.
+          const claimed = el.getAttribute('data-provenance');
+          if (claimed !== null && !text.toLowerCase().includes(claimed.toLowerCase())) {
+            out.tooltipOnly.push(name + ' claims data-provenance="' + claimed + '" and does not render the word');
+          }
+          void missing;
+        }
+      }
+    }
+    return out;
+  })()`;
+
+  // ------------------------------------------------------- provenance colour
+  /**
+   * The judgement call the brief settles in one sentence: *"provenance needs
+   * redundant text, not clever iconography"*.
+   *
+   * Two checks, and the second is the one with teeth. Every `[data-provenance]`
+   * must RENDER its own value as a word — that is the redundancy. And no
+   * element anywhere may be painted in one of the three provenance hues while
+   * belonging to no datum that names the category in text, which is the
+   * colour-only failure stated as a property of the page rather than as a list
+   * of the places somebody remembered to check.
+   *
+   * ## Where the colour scan stops, and why that is a decision
+   *
+   * It scans `[data-provenance]`, `[data-badge]`, `.prov`, `.badge`,
+   * `.trace-row` and `.arch-event-btn` and their descendants — the elements
+   * that belong to a provenance datum — not every element in the body. The
+   * three hues are ordinary palette colours as well as semantic ones, and a
+   * whole-page scan flags everything that merely happens to be green.
+   *
+   * The whole-page version was run once and found one thing worth having
+   * found, which is now fixed rather than exempted: the rail's connection lamp
+   * was a `●` in `--observed` green with no adjacent word — the same hue as the
+   * provenance category, meaning something else entirely, which is the brief's
+   * own warning about green lamps read from the other side. It carries a
+   * distinct glyph per state now and the status line spells the state out in a
+   * word. What keeps that fixed is the finding, not this check.
+   */
+  const PROVENANCE_JS = `(() => {
+    const HUES = { observed: 'rgb(78, 201, 160)', simulated: 'rgb(110, 158, 230)', inferred: 'rgb(192, 141, 224)' };
+    const visible = (el) => {
+      const cs = getComputedStyle(el);
+      if (cs.display === 'none' || cs.visibility === 'hidden') return false;
+      const r = el.getBoundingClientRect();
+      return r.width > 0 && r.height > 0;
+    };
+    const out = { badges: 0, withoutWord: [], colourOnly: [] };
+    for (const el of document.querySelectorAll('[data-provenance]')) {
+      if (!visible(el)) continue;
+      out.badges += 1;
+      const want = el.getAttribute('data-provenance');
+      const text = (el.textContent || '').toLowerCase();
+      // The wrapper rows carry data-provenance too; the WORD has to be inside
+      // the datum, not necessarily on the element that declares the attribute.
+      if (!text.includes(want)) {
+        out.withoutWord.push({ want, text: (el.textContent || '').trim().slice(0, 44) });
+      }
+    }
+    /* The colour-only test. See the comment above this constant. */
+    const SCOPE = '[data-provenance], [data-badge], .prov, .badge, .trace-row, .arch-event-btn';
+    for (const el of document.querySelectorAll(SCOPE + ', ' + SCOPE.split(', ').map((s) => s + ' *').join(', '))) {
+      if (!visible(el)) continue;
+      const cs = getComputedStyle(el);
+      const hue = Object.entries(HUES).find(
+        ([, v]) => cs.color === v || cs.borderTopColor === v || cs.backgroundColor === v,
+      );
+      if (hue === undefined) continue;
+      /*
+        An ORIGIN badge names itself, in the protocol's own words.
+
+        The first version of this looked only for the three provenance words and
+        flagged nine elements: every origin-host-model badge, which is painted
+        in the simulated blue and reads "host model (@sesame-lab/sesame-sim)".
+        That badge's meaning is entirely in its text — it is describeOrigin()'s
+        return value — and the hue is a family resemblance, not the message. So
+        a datum that carries data-origin-kind passes on having non-empty text,
+        which is a property OriginTag guarantees by construction:
+        describeOrigin() never returns the empty string, precisely so a UI
+        cannot end up showing a bare colour.
+      */
+      const datum = el.closest('[data-provenance], [data-badge], [data-origin-kind]');
+      const scope = datum ?? el;
+      const text = (scope.textContent || '').toLowerCase();
+      if (scope.hasAttribute('data-origin-kind') && text.length > 0) continue;
+      if (!/observed|simulated|inferred|conceptual|not built|boundary|ran/.test(text)) {
+        out.colourOnly.push({
+          hue: hue[0],
+          name: (typeof el.className === 'string' && el.className.length > 0 ? '.' + el.className.trim().split(/\\s+/).join('.') : el.tagName).slice(0, 46),
+          text: (el.textContent || '').trim().slice(0, 30),
+          title: el.getAttribute('title'),
+        });
+      }
+    }
+    return out;
+  })()`;
+
+  // ---------------------------------------------------------- the tab walk
+  /**
+   * Every focusable element, reached by a real Tab key, with the ring the
+   * browser paints under KEYBOARD modality.
+   *
+   * `el.focus()` would have been easier and would have proved less:
+   * `:focus-visible` is a modality heuristic, and a button focused by script
+   * after a click does not match it. `Input.dispatchKeyEvent` makes the walk
+   * the same walk a reader does.
+   *
+   * The ring is then measured three ways, because "has an outline" is exactly
+   * the sort of claim this project has been caught making:
+   *   - it exists (`outline-style` is not `none`, or there is a `box-shadow`);
+   *   - it CONTRASTS with what is behind it, at 3:1, computed here;
+   *   - and the focused element is not entirely hidden — WCAG 2.4.11, tested
+   *     by hit-testing the element itself rather than by trusting that it is
+   *     in the DOM.
+   */
+  const FOCUSABLE_SEL =
+    'a[href], button:not([disabled]), input:not([disabled]), select:not([disabled]), ' +
+    'textarea:not([disabled]), summary, [tabindex]:not([tabindex="-1"])';
+
+  const FOCUS_STATE_JS = `(() => {
+    const lin = (c) => { c /= 255; return c <= 0.04045 ? c / 12.92 : Math.pow((c + 0.055) / 1.055, 2.4); };
+    const lum = (r) => 0.2126 * lin(r[0]) + 0.7152 * lin(r[1]) + 0.0722 * lin(r[2]);
+    const parse = (s) => {
+      const open = s.indexOf('('), close = s.lastIndexOf(')');
+      if (open < 0 || close < open) return null;
+      const p = s.slice(open + 1, close).split(/[ ,/]+/).filter((x) => x.length > 0).map(Number);
+      if (p.length < 3 || p.some((x) => Number.isNaN(x))) return null;
+      return [p[0], p[1], p[2], p.length > 3 ? p[3] : 1];
+    };
+    const over = (f, b) => [0, 1, 2].map((i) => f[i] * f[3] + b[i] * (1 - f[3]));
+    const ratio = (a, b) => { const x = lum(a), y = lum(b); return (Math.max(x, y) + 0.05) / (Math.min(x, y) + 0.05); };
+    const el = document.activeElement;
+    if (el === null || el === document.body || el === document.documentElement) return null;
+    const cs = getComputedStyle(el);
+    const r = el.getBoundingClientRect();
+    const behind = (() => {
+      let n = el.parentElement, b = [13, 16, 21];
+      const stack = [];
+      while (n !== null) { stack.push(n); n = n.parentElement; }
+      stack.reverse();
+      for (const node of stack) {
+        const c = parse(getComputedStyle(node).backgroundColor) || [0, 0, 0, 0];
+        b = over(c, b);
+      }
+      return b;
+    })();
+    const ringColour = parse(cs.outlineColor);
+    const hasOutline = cs.outlineStyle !== 'none' && parseFloat(cs.outlineWidth) > 0;
+    const hasShadow = cs.boxShadow !== 'none';
+    // Is any part of the element itself hit-testable? WCAG 2.4.11 asks that the
+    // focused component is not ENTIRELY hidden by author content.
+    const pts = [
+      [r.left + r.width / 2, r.top + r.height / 2],
+      [r.left + 2, r.top + 2], [r.right - 2, r.top + 2],
+      [r.left + 2, r.bottom - 2], [r.right - 2, r.bottom - 2],
+    ];
+    let reachable = 0;
+    for (const [x, y] of pts) {
+      if (x < 0 || y < 0 || x > innerWidth - 1 || y > innerHeight - 1) continue;
+      const t = document.elementFromPoint(x, y);
+      if (t !== null && (t === el || el.contains(t))) reachable += 1;
+    }
+    const onScreen = r.bottom > 0 && r.right > 0 && r.top < innerHeight && r.left < innerWidth;
+    return {
+      name: (typeof el.className === 'string' && el.className.length > 0 ? '.' + el.className.trim().split(/\\s+/).join('.') : el.tagName).slice(0, 46),
+      text: (el.textContent || '').trim().slice(0, 24),
+      key: (() => {
+        /*
+          The identity is the STAMP the enumeration left, not an index this
+          side recomputes.
+
+          The first version recomputed it — and did so against a selector that
+          had been left as an unsubstituted placeholder, so the list was empty,
+          every key came back as "-1|…", and not one of them could ever match a
+          key from the enumeration. The walk then reported 75 of the page's
+          focusables unreachable while reaching all of them. Two things follow:
+          an identity that is derived twice is an identity that can disagree
+          with itself, and a check whose failure message is a list of things
+          that are demonstrably fine is a check to distrust, not a defect to
+          chase.
+        */
+        return el.getAttribute('data-w6-focus') ?? ('unstamped|' + el.tagName + '|' + (el.textContent || '').trim().slice(0, 20));
+      })(),
+      focusVisible: (() => { try { return el.matches(':focus-visible'); } catch (e) { return null; } })(),
+      hasRing: hasOutline || hasShadow,
+      outlineStyle: cs.outlineStyle,
+      outlineWidth: cs.outlineWidth,
+      ringRatio: hasOutline && ringColour !== null ? Math.round(ratio(over(ringColour, behind), behind) * 100) / 100 : null,
+      onScreen, reachable,
+    };
+  })()`;
+
+  const ENUM_FOCUSABLE_JS = `(() => {
+    const out = [];
+    for (const el of document.querySelectorAll(${JSON.stringify(FOCUSABLE_SEL)})) {
+      const cs = getComputedStyle(el);
+      if (cs.display === 'none' || cs.visibility === 'hidden') continue;
+      const r = el.getBoundingClientRect();
+      if (r.width <= 0 || r.height <= 0) continue;
+      const id = String(out.length) + '|' + el.tagName + '|' + (typeof el.className === 'string' ? el.className.trim().split(/s+/).join('.') : '') + '|' + (el.textContent || '').trim().slice(0, 20);
+      el.setAttribute('data-w6-focus', id);
+      out.push(id);
+    }
+    return out;
+  })()`;
+
+  /**
+   * Clickable, and not reachable from a keyboard.
+   *
+   * `cursor: pointer` on an element that is neither focusable, nor contains
+   * something focusable, nor sits inside something focusable, is the shape of a
+   * `<div onClick>`. It is a heuristic and it is stated as one — but it is a
+   * heuristic that found both of this app's real keyboard gaps and nothing
+   * else, at 425 elements across five modules and the Inspector screen.
+   */
+  const POINTER_ONLY_JS = `(() => {
+    const F = ${JSON.stringify(FOCUSABLE_SEL)};
+    const out = [];
+    for (const el of document.querySelectorAll('body *')) {
+      const cs = getComputedStyle(el);
+      if (cs.display === 'none' || cs.visibility === 'hidden') continue;
+      if (cs.cursor !== 'pointer') continue;
+      const r = el.getBoundingClientRect();
+      if (r.width <= 0 || r.height <= 0) continue;
+      if (el.matches(F) || el.querySelector(F) !== null || el.closest(F) !== null) continue;
+      /*
+        The unit is the DATUM, not the element.
+
+        A clickable row spreads cursor:pointer over every cell inside it, and
+        the first version of this scan reported 113 of them on the Inspector
+        screen: eight rows, and the 105 cells that inherit the cursor. The
+        question the check is asking is whether the thing you can click has a
+        keyboard equivalent, and for the joint row the equivalent is the button
+        inside it — so the scan climbs to the outermost CONTIGUOUS ancestor that
+        also says cursor:pointer, and asks the question there.
+
+        A row with nothing focusable inside it still fails, which is what the
+        check is for: that was the state of both the joint rows and the trace
+        lanes before W6.
+      */
+      let top = el;
+      while (
+        top.parentElement !== null &&
+        getComputedStyle(top.parentElement).cursor === 'pointer'
+      ) top = top.parentElement;
+      if (top !== el && top.querySelector(F) !== null) continue;
+      if (el.getAttribute('role') === 'button' && el.hasAttribute('tabindex')) continue;
+      out.push({
+        name: (typeof el.className === 'string' && el.className.length > 0 ? '.' + el.className.trim().split(/\\s+/).join('.') : el.tagName).slice(0, 46),
+        text: (el.textContent || '').trim().slice(0, 30),
+      });
+    }
+    const seen = new Map();
+    for (const row of out) {
+      if (!seen.has(row.name)) seen.set(row.name, { name: row.name, text: row.text, n: 0 });
+      seen.get(row.name).n += 1;
+    }
+    return [...seen.values()];
+  })()`;
+
+  /**
+   * A page, optionally under an emulated user preference.
+   *
+   * `emulated` goes to `Emulation.setEmulatedMedia`, which this Chromium
+   * accepts for `prefers-reduced-motion` and **rejects for `pointer`** — the
+   * first run of the coarse-pointer leg reported `matchMedia('(pointer:
+   * coarse)')` false and then dutifully found five controls under 44 px,
+   * measuring a CSS rule that had never been asked to apply.
+   *
+   * `coarse: true` is the working route: touch emulation makes Blink report a
+   * coarse primary pointer, and unlike `setDeviceMetricsOverride({mobile:
+   * true})` it leaves the layout viewport alone — 854 px of `innerWidth`
+   * either way, so the 44 px rule is measured at the same width as the 36 px
+   * one rather than at a mobile viewport nothing else in this run visits.
+   */
+  const bootA11y = async (window, emulated = [], { coarse = false } = {}) => {
+    const page = await launchBrowser(a11yBridge.url, window);
+    if (coarse) {
+      await page.cdp('Emulation.setTouchEmulationEnabled', { enabled: true, maxTouchPoints: 5 });
+      await page.cdp('Emulation.setEmitTouchEventsForMouse', {
+        enabled: true,
+        configuration: 'mobile',
+      });
+      await page.cdp('Page.reload');
+    }
+    if (emulated.length > 0) {
+      await page.cdp('Emulation.setEmulatedMedia', { features: emulated });
+      await page.cdp('Page.reload');
+    }
+    await waitFor(
+      page.evaluate,
+      'typeof window.__sesame !== "undefined" && window.__sesame.ready',
+      (v) => v === true,
+      `the app to load at ${window.width}x${window.height} for phase 13`,
+      60000,
+    );
+    await page.evaluate('window.__sesame.setBackend("sim")');
+    await waitFor(
+      page.evaluate,
+      'window.__sesame.backendId()',
+      (v) => v === 'sim',
+      `the simulator at ${window.width}x${window.height} for phase 13`,
+    );
+    await page.evaluate('window.__sesame.run("wave")');
+    await sleep(2200);
+    return page;
+  };
+
+  const pressTab = async (page) => {
+    for (const type of ['rawKeyDown', 'keyUp']) {
+      await page.cdp('Input.dispatchKeyEvent', {
+        type,
+        windowsVirtualKeyCode: 9,
+        nativeVirtualKeyCode: 9,
+        key: 'Tab',
+        code: 'Tab',
+      });
+    }
+  };
+
+  const a11y = {
+    contrast: { floors: { text: CONTRAST_TEXT, largeText: CONTRAST_LARGE_TEXT, ui: CONTRAST_UI }, byWindow: {} },
+    targets: { finePx: TARGET_FINE_PX, coarsePx: TARGET_COARSE_PX, wcagFloorPx: TARGET_WCAG_FLOOR_PX, byWindow: {} },
+    keyboard: {},
+    provenance: {},
+    zoom200: {},
+    textSpacing: {},
+    reducedMotion: {},
+    pageOverflow: {},
+  };
+
+  /* ------------------------------------------------------------------- 1 */
+  // Contrast, targets, keyboard and overflow, at the primary target and at the
+  // one window where every pane is at its narrowest band.
+  for (const window of [
+    { width: 1440, height: 900, label: 'laptop' },
+    { width: 880, height: 900, label: 'compact' },
+  ]) {
+    const where = `${window.width}x${window.height}`;
+    const page = await bootA11y(window);
+    try {
+      const contrast = { failures: [], measured: 0, uiFailures: [], uiChecked: 0, boundaryNotRequired: 0, backdrops: 0, overImage: 0, exemptInactive: 0, worst: null };
+      const targets = { checked: 0, underFloor: [], underWcag: [], unhittable: [] };
+      const overflow = [];
+      const pointerOnly = [];
+
+      for (const moduleId of A11Y_MODULES) {
+        await page.evaluate(`window.__sesame.setModule(${JSON.stringify(moduleId)})`);
+        await sleep(700);
+
+        const c = await page.evaluate(CONTRAST_JS);
+        contrast.measured += c.measured;
+        contrast.overImage += c.overImage;
+        contrast.exemptInactive += c.exemptInactive;
+        if (c.worst !== null && (contrast.worst === null || c.worst.ratio < contrast.worst.ratio)) {
+          contrast.worst = { ...c.worst, module: moduleId };
+        }
+        for (const f of c.failures) contrast.failures.push({ ...f, module: moduleId });
+        contrast.uiChecked += c.uiChecked;
+        contrast.boundaryNotRequired += c.boundaryNotRequired;
+        contrast.backdrops += c.backdrops;
+        for (const f of c.uiFailures) contrast.uiFailures.push({ ...f, module: moduleId });
+
+        const t = await page.evaluate(TARGETS_JS(TARGET_FINE_PX));
+        targets.checked += t.checked;
+        for (const row of t.underFloor) targets.underFloor.push({ ...row, module: moduleId });
+        for (const row of t.underWcag) targets.underWcag.push({ ...row, module: moduleId });
+        for (const row of t.unhittable) targets.unhittable.push({ ...row, module: moduleId });
+
+        const o = await page.evaluate(OVERFLOW_JS);
+        check(
+          o.docScrollWidth <= o.docClientWidth + 1,
+          `at ${where} with the ${moduleId} module up the PAGE scrolls horizontally: ` +
+            `documentElement.scrollWidth ${o.docScrollWidth} > clientWidth ${o.docClientWidth}. ` +
+            `The brief allows horizontal overflow on a declared [data-2d-surface] and nowhere else, ` +
+            `least of all on the document.`,
+        );
+        if (o.undeclared.length > 0) {
+          overflow.push({ module: moduleId, undeclared: o.undeclared });
+        }
+        check(
+          o.undeclared.length === 0,
+          `at ${where} the ${moduleId} module has ${o.undeclared.length} UNDECLARED horizontal ` +
+            `scroller(s): ${JSON.stringify(o.undeclared)}. Only a surface that declares itself ` +
+            `[data-2d-surface] — code, a table, the graph, the pixel editor — may exceed its box ` +
+            `sideways; anything else is a layout that did not fit and said nothing.`,
+        );
+
+        for (const row of await page.evaluate(POINTER_ONLY_JS)) {
+          pointerOnly.push({ ...row, module: moduleId });
+        }
+      }
+
+      /*
+        The Inspector's "more info" screen, opened deliberately.
+
+        It is where the eight-joint table lives — the pane whose `<tr onClick>`
+        was one of the two keyboard gaps — and no module opens it, so a sweep
+        of the five modules would have said the app was clean while the joint
+        list stayed unreachable.
+
+        `setSection` first, and by data attribute rather than by button text:
+        at Compact the side panel is a SHEET, so the `More` button that opens
+        this screen is not on the page until the sheet is, and a text search for
+        it would have found nothing and reported a clean sweep of an empty
+        popover. The `check` below requires eight pickers, so a screen that did
+        not open fails rather than passes.
+      */
+      await page.evaluate('window.__sesame.setSection("inspector", true)');
+      await sleep(500);
+      await page.evaluate(
+        `(() => { const b = document.querySelector('[data-panel-more="inspector"]'); if (b !== null) b.click(); return b !== null; })()`,
+      );
+      await sleep(600);
+      for (const row of await page.evaluate(POINTER_ONLY_JS)) {
+        pointerOnly.push({ ...row, module: 'inspector screen' });
+      }
+      {
+        const t = await page.evaluate(TARGETS_JS(TARGET_FINE_PX));
+        for (const row of t.underFloor) targets.underFloor.push({ ...row, module: 'inspector screen' });
+        for (const row of t.underWcag) targets.underWcag.push({ ...row, module: 'inspector screen' });
+        const c = await page.evaluate(CONTRAST_JS);
+        for (const f of c.failures) contrast.failures.push({ ...f, module: 'inspector screen' });
+      }
+      const joints = await page.evaluate(`document.querySelectorAll('[data-joint-pick]').length`);
+      check(
+        joints === 8,
+        `the Inspector screen renders ${String(joints)} keyboard-operable joint pickers, not 8. ` +
+          `Selecting a joint has exactly two affordances — the WebGL mesh and this list — and the ` +
+          `mesh is pointer-only by construction, so this list is the whole of the non-pointer path.`,
+      );
+
+      check(
+        contrast.failures.length === 0,
+        `at ${where}, ${contrast.failures.length} visible run(s) of text are below the contrast ` +
+          `floor: ${contrast.failures
+            .slice(0, 6)
+            .map((f) => `${f.module} ${f.name} ${String(f.ratio)}:1 (needs ${String(f.need)}) ${f.fg} on ${f.bg}${f.groupAlpha < 1 ? ` at opacity ${String(f.groupAlpha)}` : ''} "${f.text}"`)
+            .join('; ')}`,
+      );
+      check(
+        contrast.uiFailures.length === 0,
+        `at ${where}, ${contrast.uiFailures.length} control boundary/ies are below 3:1 against ` +
+          `what is behind them: ${contrast.uiFailures.slice(0, 6).map((f) => `${f.module} ${f.name} ${String(f.ratio)}:1`).join('; ')}`,
+      );
+      check(
+        targets.underWcag.length === 0,
+        `at ${where}, ${targets.underWcag.length} pointer target(s) are below WCAG's absolute ` +
+          `24x24 floor: ${targets.underWcag.slice(0, 6).map((t) => `${t.module} ${t.name} ${String(t.hitW)}x${String(t.hitH)}`).join('; ')}`,
+      );
+      check(
+        targets.underFloor.length === 0,
+        `at ${where}, ${targets.underFloor.length} pointer target(s) are under the project's ` +
+          `${TARGET_FINE_PX}x${TARGET_FINE_PX} fine-pointer policy: ${targets.underFloor
+            .slice(0, 8)
+            .map((t) => `${t.module} ${t.name} hit ${String(t.hitW)}x${String(t.hitH)} (box ${String(t.boxW)}x${String(t.boxH)}) "${t.text}"`)
+            .join('; ')}. The measurement is a hit test, not a rectangle: a control may pay for ` +
+          `its target in padding or in a pseudo-element, and neither shows up in getBoundingClientRect.`,
+      );
+      check(
+        pointerOnly.length === 0,
+        `at ${where}, ${pointerOnly.reduce((a, r) => a + r.n, 0)} element(s) carry cursor:pointer ` +
+          `and are reachable only with a pointer: ${pointerOnly.slice(0, 6).map((r) => `${r.module} ${r.name} x${String(r.n)}`).join('; ')}. ` +
+          `Every one of those is a click a keyboard cannot make.`,
+      );
+
+      a11y.contrast.byWindow[where] = {
+        measured: contrast.measured,
+        failures: contrast.failures.length,
+        requiredBoundariesChecked: contrast.uiChecked,
+        boundariesIdentifiedByTheirLabel: contrast.boundaryNotRequired,
+        backdropsExempted: contrast.backdrops,
+        uiFailures: contrast.uiFailures.length,
+        exemptInactive: contrast.exemptInactive,
+        overBackgroundImage: contrast.overImage,
+        worstMeasured: contrast.worst,
+      };
+      a11y.targets.byWindow[where] = {
+        checked: targets.checked,
+        underFine: targets.underFloor.length,
+        underWcagFloor: targets.underWcag.length,
+        unhittable: targets.unhittable.length,
+      };
+      a11y.pageOverflow[where] = { undeclaredHorizontalScrollers: overflow };
+
+      /* ------------------------------------------------------ the tab walk */
+      /*
+        Close the Inspector screen FIRST, and check that it closed.
+
+        It is a modal `<dialog>`, which traps Tab inside itself — and the first
+        run of this walk left it open. The result was not an error: the walk
+        cycled through the dialog's own controls, broke on the first repeat, and
+        reported 86 of the page's focusables as unreachable. A focus-trap
+        working exactly as designed, measured as a defect. The `check` on the
+        popover state is what stops that being a silent condition next time.
+      */
+      await page.evaluate(
+        `(() => { const b = document.querySelector('[data-popover-close]'); if (b !== null) b.click(); return true; })()`,
+      );
+      await page.evaluate('window.__sesame.setSection("inspector", false)');
+      await sleep(500);
+      const stillOpen = await page.evaluate(
+        `document.querySelectorAll('[data-popover][open], dialog[open]').length`,
+      );
+      check(
+        stillOpen === 0,
+        `at ${where}, ${String(stillOpen)} popover(s) were still open when the Tab walk started. A ` +
+          `modal dialog traps focus, so every focusable outside it would be reported unreachable.`,
+      );
+      await page.evaluate('window.__sesame.setModule("signal")');
+      await sleep(700);
+      const expected = await page.evaluate(ENUM_FOCUSABLE_JS);
+      /*
+        Start the walk from the FIRST focusable rather than from wherever the
+        last thing this phase did left the sequential-navigation point, and
+        keep going past the wrap instead of breaking on the first repeat. The
+        loop ends when a whole pass adds nothing new, so a walk that starts in
+        the middle still covers the page.
+      */
+      await page.evaluate(
+        `(() => { const el = document.querySelector('[data-w6-focus]'); if (el !== null) el.focus(); return el !== null; })()`,
+      );
+      const reached = new Set();
+      const ringless = [];
+      const dimRing = [];
+      const obscured = [];
+      const record = (state) => {
+        if (state === null || reached.has(state.key)) return false;
+        reached.add(state.key);
+        if (!state.hasRing) ringless.push(state);
+        else if (state.ringRatio !== null && state.ringRatio < CONTRAST_UI) dimRing.push(state);
+        if (state.onScreen && state.reachable === 0) obscured.push(state);
+        return true;
+      };
+      record(await page.evaluate(FOCUS_STATE_JS));
+      let sinceNew = 0;
+      for (let i = 0; i < expected.length * 2 + 40 && sinceNew < 20; i += 1) {
+        await pressTab(page);
+        sinceNew = record(await page.evaluate(FOCUS_STATE_JS)) ? 0 : sinceNew + 1;
+      }
+      await page.evaluate(
+        `(() => { for (const el of document.querySelectorAll('[data-w6-focus]')) el.removeAttribute('data-w6-focus'); return true; })()`,
+      );
+      const missed = expected.filter((e) => !reached.has(e));
+      check(
+        missed.length === 0,
+        `at ${where} the Signal module has ${missed.length} visible focusable element(s) that a ` +
+          `Tab walk never reaches: ${missed.slice(0, 6).join(' | ')}`,
+      );
+      check(
+        ringless.length === 0,
+        `at ${where}, ${ringless.length} focused element(s) paint no focus indicator at all: ` +
+          `${ringless.slice(0, 5).map((s) => `${s.name} "${s.text}"`).join('; ')}`,
+      );
+      check(
+        dimRing.length === 0,
+        `at ${where}, ${dimRing.length} focus ring(s) are below ${CONTRAST_UI}:1 against what is ` +
+          `behind them: ${dimRing.slice(0, 5).map((s) => `${s.name} ${String(s.ringRatio)}:1`).join('; ')}. ` +
+          `A ring nobody can see is the same as no ring.`,
+      );
+      check(
+        obscured.length === 0,
+        `at ${where}, ${obscured.length} focused element(s) are on screen and ENTIRELY covered by ` +
+          `something else — WCAG 2.4.11: ${obscured.slice(0, 5).map((s) => `${s.name} "${s.text}"`).join('; ')}`,
+      );
+      a11y.keyboard[where] = {
+        focusable: expected.length,
+        tabReached: reached.size,
+        unreached: missed.length,
+        withoutRing: ringless.length,
+        ringBelow3to1: dimRing.length,
+        obscuredWhileFocused: obscured.length,
+        pointerOnlyClickables: pointerOnly.length,
+        keyboardJointPickers: joints,
+      };
+
+      /* --------------------------------------------------- provenance colour */
+      await page.evaluate('window.__sesame.setModule("signal")');
+      await sleep(700);
+      const prov = await page.evaluate(PROVENANCE_JS);
+      check(
+        prov.withoutWord.length === 0,
+        `at ${where}, ${prov.withoutWord.length} provenance badge(s) declare a category and do not ` +
+          `render its word: ${JSON.stringify(prov.withoutWord.slice(0, 5))}. The brief's rule is ` +
+          `redundant TEXT, not iconography: the word is what survives a grayscale screen, a ` +
+          `colour-blind reader and a forced-colors mode, and the hue is the decoration.`,
+      );
+      check(
+        prov.colourOnly.length === 0,
+        `at ${where}, ${prov.colourOnly.length} element(s) are painted in a provenance hue and ` +
+          `belong to no datum that names the category in text: ${JSON.stringify(prov.colourOnly.slice(0, 5))}`,
+      );
+      /*
+        Colour removed entirely, and photographed.
+
+        `grayscale(1)` on the root collapses every hue in the app to its
+        luminance — the three provenance colours, the warn amber, the accent,
+        the connection lamp. The check above is the argument; this is the
+        evidence, and it is a capture rather than a number because "the meaning
+        survives" is the sort of claim a reader should be able to check with
+        their own eyes.
+
+        Contrast is re-measured through the filter as well. Grayscale is not
+        luminance-preserving for the WCAG formula — two hues can differ in
+        ratio before it and not after — so a palette that passed only because
+        of hue would fail here.
+      */
+      if (where === '1440x900') {
+        await page.evaluate('window.__sesame.setModule("signal")');
+        await sleep(500);
+        await page.evaluate(
+          `(() => { const s = document.createElement('style'); s.id = 'w6-grayscale'; s.textContent = ':root { filter: grayscale(1); }'; document.head.appendChild(s); return true; })()`,
+        );
+        await sleep(500);
+        const greyProv = await page.evaluate(PROVENANCE_JS);
+        check(
+          greyProv.badges > 0 && greyProv.withoutWord.length === 0,
+          `with the page rendered in grayscale, ${greyProv.withoutWord.length} of ` +
+            `${greyProv.badges} provenance badge(s) no longer state their category in words.`,
+        );
+        a11yShots.push(
+          await page.shoot(
+            'w6-grayscale-provenance.png',
+            `the Signal ladder with every hue in the app collapsed to luminance ` +
+              `(filter: grayscale(1)). ${String(greyProv.badges)} provenance badges still read ` +
+              `OBSERVED IN THIS APP, SIMULATED and INFERRED FOR EXPLANATION in words, each beside ` +
+              `its origin; the colour was carrying nothing the text was not. The connection lamp ` +
+              `in the rail keeps its state as a glyph rather than a hue for the same reason.`,
+          ),
+        );
+        a11y.provenance.grayscale = {
+          badges: greyProv.badges,
+          withoutWord: greyProv.withoutWord.length,
+          shot: 'w6-grayscale-provenance.png',
+        };
+        await page.evaluate(
+          `(() => { const s = document.getElementById('w6-grayscale'); if (s !== null) s.remove(); return true; })()`,
+        );
+        await sleep(300);
+      }
+      a11y.provenance[where] = {
+        badges: prov.badges,
+        withoutWord: prov.withoutWord.length,
+        colourOnly: prov.colourOnly.length,
+        note:
+          'every [data-provenance] renders its own value as a word; the three hues carry no ' +
+          'meaning that the text does not also carry',
+      };
+    } finally {
+      page.close();
+    }
+  }
+
+  /* ------------------------------------------------------------------- 2 */
+  // The 200%-zoom gate, and the WCAG text-spacing gate, on the brief's own
+  // critical flow: open Signal, send wave, read the witness chain, open Source,
+  // return, open the Inspector.
+  const runGate = async (page, label) => {
+    const found = { truncated: [], hidden: [], tooltipOnly: [], belowFloor: [], overflow: [], seen: 0 };
+    for (const moduleId of A11Y_MODULES) {
+      await page.evaluate(`window.__sesame.setModule(${JSON.stringify(moduleId)})`);
+      await sleep(700);
+      const c = await page.evaluate(CORRECTNESS_JS);
+      found.seen += c.seen;
+      for (const key of ['truncated', 'hidden', 'tooltipOnly', 'belowFloor']) {
+        for (const row of c[key]) found[key].push(`${moduleId}: ${row}`);
+      }
+      const o = await page.evaluate(OVERFLOW_JS);
+      if (o.docScrollWidth > o.docClientWidth + 1) {
+        found.overflow.push(`${moduleId}: document scrolls ${o.docScrollWidth} > ${o.docClientWidth}`);
+      }
+      for (const u of o.undeclared) found.overflow.push(`${moduleId}: ${u.name} ${u.scrollWidth}>${u.clientWidth}`);
+    }
+    check(
+      found.seen > 0,
+      `${label}: the correctness scan found NOTHING to measure. That is a broken scan, not a clean run.`,
+    );
+    check(
+      found.truncated.length === 0,
+      `${label}: ${found.truncated.length} correctness surface(s) are clipped, ellipsised or ` +
+        `line-clamped: ${found.truncated.slice(0, 6).join(' | ')}`,
+    );
+    check(
+      found.hidden.length === 0,
+      `${label}: ${found.hidden.length} correctness surface(s) collapsed to no box at all: ` +
+        `${found.hidden.slice(0, 6).join(' | ')}`,
+    );
+    check(
+      found.tooltipOnly.length === 0,
+      `${label}: ${found.tooltipOnly.length} correctness surface(s) state their category only in a ` +
+        `title attribute: ${found.tooltipOnly.slice(0, 4).join(' | ')}. The invariant is that no ` +
+        `correctness text may be "replaced solely by tooltips".`,
+    );
+    check(
+      found.belowFloor.length === 0,
+      `${label}: ${found.belowFloor.length} correctness surface(s) fell below the ${TEXT_FLOOR_PX}px ` +
+        `floor: ${found.belowFloor.slice(0, 6).join(' | ')}`,
+    );
+    check(
+      found.overflow.length === 0,
+      `${label}: ${found.overflow.length} horizontal overflow(s) that no [data-2d-surface] declared: ` +
+        `${found.overflow.slice(0, 6).join(' | ')}`,
+    );
+    return found;
+  };
+
+  {
+    const page = await bootA11y(ZOOM_200);
+    try {
+      const found = await runGate(page, ZOOM_200.label);
+      // The critical flow the brief names, driven rather than described.
+      await page.evaluate('window.__sesame.setModule("signal")');
+      await sleep(600);
+      const witnesses = await page.evaluate(
+        `[...document.querySelectorAll('.trace-row-witness')].filter((e) => e.scrollHeight <= e.clientHeight + 1).length`,
+      );
+      const totalWitnesses = await page.evaluate(`document.querySelectorAll('.trace-row-witness').length`);
+      check(
+        totalWitnesses > 0 && witnesses === totalWitnesses,
+        `${ZOOM_200.label}: ${String(totalWitnesses - witnesses)} of ${String(totalWitnesses)} ` +
+          `witness paragraphs are cut off. "Read the complete witness chain" is one of the six ` +
+          `steps the brief runs this gate on.`,
+      );
+      const contrast = await page.evaluate(CONTRAST_JS);
+      check(
+        contrast.failures.length === 0,
+        `${ZOOM_200.label}: ${contrast.failures.length} contrast failure(s) that do not occur at ` +
+          `100%: ${contrast.failures.slice(0, 4).map((f) => `${f.name} ${String(f.ratio)}:1`).join('; ')}`,
+      );
+      a11yShots.push(
+        await page.shoot(
+          'w6-zoom-200.png',
+          `the app at ${ZOOM_200.width}x${ZOOM_200.height} CSS px, which is 1440x900 at 200% page ` +
+            `zoom. ${String(found.seen)} correctness surfaces were scanned across five modules: ` +
+            `${String(found.truncated.length)} truncated, ${String(found.hidden.length)} collapsed, ` +
+            `${String(found.belowFloor.length)} below the ${TEXT_FLOOR_PX}px floor, and ` +
+            `${String(found.overflow.length)} undeclared horizontal overflows.`,
+        ),
+      );
+      a11y.zoom200 = {
+        viewportCssPx: `${ZOOM_200.width}x${ZOOM_200.height}`,
+        equivalentTo: '1440x900 at 200% page zoom',
+        correctnessSurfacesScanned: found.seen,
+        truncated: found.truncated.length,
+        collapsed: found.hidden.length,
+        belowTypeFloor: found.belowFloor.length,
+        undeclaredOverflow: found.overflow.length,
+        witnessParagraphsWhole: `${String(witnesses)}/${String(totalWitnesses)}`,
+      };
+    } finally {
+      page.close();
+    }
+  }
+
+  {
+    const page = await bootA11y({ width: 1440, height: 900 });
+    try {
+      await page.evaluate(
+        `(() => { const s = document.createElement('style'); s.id = 'wcag-text-spacing'; s.textContent = ${JSON.stringify(TEXT_SPACING_CSS)}; document.head.appendChild(s); return true; })()`,
+      );
+      await sleep(700);
+      const applied = await page.evaluate(
+        `(() => { const cs = getComputedStyle(document.body); return { lineHeight: cs.lineHeight, fontSize: cs.fontSize, letterSpacing: cs.letterSpacing, wordSpacing: cs.wordSpacing }; })()`,
+      );
+      // The overrides must actually be in force. A gate that silently failed to
+      // apply its own stylesheet would pass every time.
+      const lh = parseFloat(applied.lineHeight) / parseFloat(applied.fontSize);
+      check(
+        Math.abs(lh - 1.5) < 0.02 && parseFloat(applied.letterSpacing) > 0 && parseFloat(applied.wordSpacing) > 0,
+        `the WCAG text-spacing overrides did not take: computed ${JSON.stringify(applied)}. ` +
+          `The gate is meaningless unless the stylesheet it injects is the one in force.`,
+      );
+      const found = await runGate(page, 'WCAG 1.4.12 text spacing at 1440x900');
+      a11yShots.push(
+        await page.shoot(
+          'w6-text-spacing.png',
+          `1440x900 with WCAG 1.4.12's text-spacing overrides forced: line-height 1.5, ` +
+            `letter-spacing 0.12em, word-spacing 0.16em, 2em after every paragraph. ` +
+            `${String(found.seen)} correctness surfaces scanned, ${String(found.truncated.length)} ` +
+            `truncated, ${String(found.overflow.length)} undeclared horizontal overflows.`,
+        ),
+      );
+      a11y.textSpacing = {
+        override: TEXT_SPACING_CSS,
+        computedOnBody: applied,
+        correctnessSurfacesScanned: found.seen,
+        truncated: found.truncated.length,
+        collapsed: found.hidden.length,
+        undeclaredOverflow: found.overflow.length,
+      };
+    } finally {
+      page.close();
+    }
+  }
+
+  /* ------------------------------------------------------------------- 3 */
+  // Coarse pointers. The 44 px tier is a MEDIA QUERY, so it is asserted by
+  // telling a real browser it has a finger and measuring again.
+  {
+    const page = await bootA11y({ width: 880, height: 900 }, [], { coarse: true });
+    try {
+      const coarse = await page.evaluate(`matchMedia('(pointer: coarse)').matches`);
+      const fine = await page.evaluate(`matchMedia('(pointer: fine)').matches`);
+      check(
+        coarse === true && fine === false,
+        `the browser reports pointer:coarse=${String(coarse)} pointer:fine=${String(fine)} on the ` +
+          `coarse leg. Every measurement below would be reading the 36 px rule and calling it 44.`,
+      );
+      const primary = await page.evaluate(`(() => {
+        const SEL = '.status-cmd, .cmd, .rail-btn, .module-close, .panel-more, .lesson-button';
+        const out = [];
+        for (const el of document.querySelectorAll(SEL)) {
+          const cs = getComputedStyle(el);
+          if (cs.display === 'none' || cs.visibility === 'hidden') continue;
+          const r = el.getBoundingClientRect();
+          if (r.width <= 0 || r.height <= 0) continue;
+          if (r.width + 0.5 < ${TARGET_COARSE_PX} || r.height + 0.5 < ${TARGET_COARSE_PX}) {
+            out.push({
+              name: (typeof el.className === 'string' ? '.' + el.className.trim().split(/\\s+/).join('.') : el.tagName).slice(0, 46),
+              w: Math.round(r.width * 10) / 10, h: Math.round(r.height * 10) / 10,
+            });
+          }
+        }
+        return { checked: document.querySelectorAll(SEL).length, under: out };
+      })()`);
+      check(
+        primary.under.length === 0,
+        `under an emulated coarse pointer, ${primary.under.length} primary control(s) are below ` +
+          `${TARGET_COARSE_PX}x${TARGET_COARSE_PX}: ${JSON.stringify(primary.under.slice(0, 6))}`,
+      );
+      a11y.targets.coarse = { emulated: coarse, checked: primary.checked, under: primary.under.length };
+    } finally {
+      page.close();
+    }
+  }
+
+  /* ------------------------------------------------------------------- 4 */
+  // Reduced motion, measured on both legs — Phase 4 W6.
+  //
+  // Two motions, and neither is CSS:
+  //
+  //   the graph's reframe   React Flow interpolates the viewport transform in
+  //                         JavaScript and writes the finished value each frame
+  //   the camera's glide    OrbitControls integrates inertia inside useFrame
+  //
+  // So the reading is taken from the page's own animation frames — the sampler
+  // runs in the browser, because a CDP round trip is slower than the tween — and
+  // from `worldFrame().cameraPositionMm`, which is three.js's own number.
+  //
+  // The discriminator is DISTINCT VALUES, not "did it move": both legs must
+  // move, or the reduced-motion leg would pass by doing nothing at all.
+  const VIEWPORT_SAMPLER = `(() => {
+    window.__w6Samples = [];
+    const read = () => { const e = document.querySelector('.react-flow__viewport'); return e === null ? null : e.style.transform; };
+    const t0 = performance.now();
+    const tick = () => {
+      window.__w6Samples.push(read());
+      if (performance.now() - t0 < 1200) requestAnimationFrame(tick);
+    };
+    requestAnimationFrame(tick);
+    return true;
+  })()`;
+
+  const DRAG_THE_CAMERA = `(() => {
+    const canvas = [...document.querySelectorAll('canvas')].find((c) => c.getContext('webgl2') !== null || c.getContext('webgl') !== null);
+    if (canvas === undefined) return false;
+    const r = canvas.getBoundingClientRect();
+    const at = (x, y, buttons) => ({ bubbles: true, clientX: r.left + x, clientY: r.top + y, pointerId: 1, button: 0, buttons, isPrimary: true, pointerType: 'mouse' });
+    canvas.dispatchEvent(new PointerEvent('pointerdown', at(200, 200, 1)));
+    for (let i = 1; i <= 12; i += 1) {
+      document.dispatchEvent(new PointerEvent('pointermove', at(200 + i * 9, 200, 1)));
+      canvas.dispatchEvent(new PointerEvent('pointermove', at(200 + i * 9, 200, 1)));
+    }
+    document.dispatchEvent(new PointerEvent('pointerup', at(308, 200, 0)));
+    canvas.dispatchEvent(new PointerEvent('pointerup', at(308, 200, 0)));
+    return true;
+  })()`;
+
+  const motionLeg = async (reduce) => {
+    const page = await bootA11y(
+      { width: 2560, height: 1440 },
+      reduce ? [{ name: 'prefers-reduced-motion', value: 'reduce' }] : [],
+    );
+    try {
+      const matches = await page.evaluate(`matchMedia('(prefers-reduced-motion: reduce)').matches`);
+      check(
+        matches === reduce,
+        `the browser reports prefers-reduced-motion=${String(matches)} on the leg that asked for ` +
+          `${String(reduce)}. Every number below would be measuring the wrong preference.`,
+      );
+
+      // --- the graph -----------------------------------------------------
+      await page.evaluate('window.__sesame.setModule("modules")');
+      await sleep(1800);
+      // The node has to be BOTH visible and off screen for `Reframe` to have
+      // anything to do, which is what these two expansions arrange.
+      await page.evaluate('window.__sesame.toggleNode("movement")');
+      await sleep(900);
+      await page.evaluate('window.__sesame.toggleNode("servos")');
+      await sleep(1200);
+      await page.evaluate(VIEWPORT_SAMPLER);
+      await page.evaluate('window.__sesame.selectNode("servo.setServoAngle")');
+      await sleep(1400);
+      const samples = await page.evaluate('window.__w6Samples');
+      const distinct = [...new Set(samples)];
+      const moved = samples.length > 1 && samples[0] !== samples[samples.length - 1];
+
+      // --- the camera ----------------------------------------------------
+      const camera = () => page.evaluate('window.__sesame.worldFrame()?.cameraPositionMm ?? null');
+      const dragged = await page.evaluate(DRAG_THE_CAMERA);
+      check(dragged === true, 'phase 13 could not find the WebGL canvas to drag');
+      await sleep(60);
+      const at60 = await camera();
+      await sleep(500);
+      const at560 = await camera();
+      const glideMm =
+        at60 === null || at560 === null
+          ? null
+          : Math.hypot(at60[0] - at560[0], at60[1] - at560[1], at60[2] - at560[2]);
+
+      return { matches, frames: samples.length, distinct: distinct.length, moved, glideMm };
+    } finally {
+      page.close();
+    }
+  };
+
+  const motionOn = await motionLeg(false);
+  const motionReduced = await motionLeg(true);
+
+  check(
+    motionOn.moved && motionOn.distinct >= 3,
+    `with motion ALLOWED the graph reframe produced ${String(motionOn.distinct)} distinct viewport ` +
+      `transform(s) over ${String(motionOn.frames)} frames (moved: ${String(motionOn.moved)}). ` +
+      `Fewer than three means there was no tween to disable, and the reduced-motion leg below ` +
+      `would be measuring nothing — which is precisely the hollow assertion this project keeps ` +
+      `catching.`,
+  );
+  check(
+    motionOn.glideMm !== null && motionOn.glideMm > 1,
+    `with motion ALLOWED the camera moved ${String(motionOn.glideMm)} mm between 60 ms and 560 ms ` +
+      `after the drag ended. Inertial damping is the only camera motion in this app; if it is not ` +
+      `there on this leg, the leg below proves nothing.`,
+  );
+  check(
+    motionReduced.moved && motionReduced.distinct <= 2,
+    `under prefers-reduced-motion: reduce the graph reframe took ` +
+      `${String(motionReduced.distinct)} distinct transforms (moved: ${String(motionReduced.moved)}). ` +
+      `It must still MOVE — the reader asked for less motion, not for a graph that ignores them — ` +
+      `and it must get there in one step rather than being interpolated.`,
+  );
+  check(
+    motionReduced.glideMm !== null && motionReduced.glideMm < 0.001,
+    `under prefers-reduced-motion: reduce the camera still glided ` +
+      `${String(motionReduced.glideMm)} mm after the pointer was released. OrbitControls' damping ` +
+      `is JavaScript inside useFrame and no CSS rule reaches it; it has to be switched off.`,
+  );
+
+  a11y.reducedMotion = {
+    graphReframe: {
+      allowed: { distinctTransforms: motionOn.distinct, frames: motionOn.frames, moved: motionOn.moved },
+      reduced: { distinctTransforms: motionReduced.distinct, frames: motionReduced.frames, moved: motionReduced.moved },
+    },
+    cameraGlideMmAfterPointerUp: {
+      allowed: motionOn.glideMm === null ? null : Math.round(motionOn.glideMm * 1000) / 1000,
+      reduced: motionReduced.glideMm === null ? null : Math.round(motionReduced.glideMm * 1000) / 1000,
+    },
+    what: 'React Flow fitView/setCenter durations -> 0, OrbitControls enableDamping -> false, and the CSS backstop in @layer overrides',
+  };
+
+  /* ------------------------------------------------------------------- 5 */
+  // Dragging alternatives — WCAG 2.5.7, where dragging is not essential.
+  {
+    const page = await bootA11y({ width: 1440, height: 900 });
+    try {
+      await page.evaluate('window.__sesame.setModule("lab")');
+      await sleep(900);
+      /*
+        The Lab opens CLOSED and then on a tab that has no sliders on it, so
+        both clicks are needed before the scan means anything. Without them the
+        scan finds zero range inputs and a "0 of 0 failed" would have read as a
+        pass — the vacuity this project keeps being caught by. The check below
+        therefore requires the count to be non-zero as well as clean.
+      */
+      await page.evaluate(
+        `(() => { const b = document.querySelector('[data-testid="lab-open"]'); if (b !== null) b.click(); return true; })()`,
+      );
+      await sleep(500);
+      await page.evaluate(
+        `(() => { const b = document.querySelector('[data-testid="lab-tab-pose"]'); if (b !== null) b.click(); return true; })()`,
+      );
+      await sleep(800);
+      const sliders = await page.evaluate(`(() => {
+        const out = [];
+        for (const el of document.querySelectorAll('input[type="range"]')) {
+          const cs = getComputedStyle(el);
+          if (cs.display === 'none' || cs.visibility === 'hidden') continue;
+          out.push({ id: el.getAttribute('data-testid') ?? el.id ?? '', value: el.value, tabIndex: el.tabIndex });
+        }
+        return out;
+      })()`);
+      check(
+        sliders.length > 0,
+        'phase 13 found no range input in the Lab. Every slider in this app is supposed to be one, ' +
+          'and a scan that finds none is not evidence that they are all keyboard-operable.',
+      );
+      // Drive the first slider with a real arrow key and read the value back.
+      const driven = sliders.length === 0 ? { before: null, after: null } : await (async () => {
+        await page.evaluate(
+          `(() => { const el = document.querySelector('input[type="range"]'); el.focus(); return el.value; })()`,
+        );
+        const before = await page.evaluate(`document.querySelector('input[type="range"]').value`);
+        for (let i = 0; i < 3; i += 1) {
+          for (const type of ['rawKeyDown', 'keyUp']) {
+            await page.cdp('Input.dispatchKeyEvent', {
+              type,
+              windowsVirtualKeyCode: 39,
+              nativeVirtualKeyCode: 39,
+              key: 'ArrowRight',
+              code: 'ArrowRight',
+            });
+          }
+          await sleep(60);
+        }
+        const after = await page.evaluate(`document.querySelector('input[type="range"]').value`);
+        return { before, after };
+      })();
+      check(
+        driven.before !== driven.after,
+        `the first Lab slider did not respond to three ArrowRight presses (${driven.before} -> ` +
+          `${driven.after}). WCAG 2.5.7 asks for a single-pointer or keyboard alternative wherever ` +
+          `dragging is not essential, and a native range input is the alternative this app relies on.`,
+      );
+      // React Flow's own zoom controls: the non-drag path to pan and zoom.
+      await page.evaluate('window.__sesame.setModule("modules")');
+      await sleep(900);
+      const flowControls = await page.evaluate(`(() => {
+        const surface = document.querySelector('[data-testid="arch-surface"]');
+        return {
+          mode: surface === null ? null : surface.getAttribute('data-arch-mode'),
+          zoomIn: document.querySelector('.react-flow__controls-zoomin') !== null,
+          zoomOut: document.querySelector('.react-flow__controls-zoomout') !== null,
+          fitView: document.querySelector('.react-flow__controls-fitview') !== null,
+          focusableNodes: document.querySelectorAll('.react-flow__node[tabindex]').length,
+        };
+      })()`);
+      a11y.dragAlternatives = {
+        rangeInputs: sliders.length,
+        arrowKeyDrivenValue: driven,
+        reactFlow: flowControls,
+        pixelEditor: 'W5: focusable canvas, arrow-key caret, Space/Enter to toggle, live region — asserted in phase 11',
+        dockResizeHandle:
+          'none exists. W3 put the docks back in flow at fixed widths and W7 removed the last ' +
+          'draggable divider, so there is no resize drag left to provide an alternative to.',
+        cameraOrbit:
+          'pointer-only, and documented as such: orbiting a 3D view IS the dragging, so 2.5.7 ' +
+          'does not ask for an alternative to it. See W6 findings §6.',
+      };
+    } finally {
+      page.close();
+    }
+  }
+
+  phases.accessibilityInvariants = {
+    ok: problems.length === before13,
+    source:
+      'docs/research/Sesame Lab_ responsive UI_UX research brief.md, "The machine-checkable ' +
+      'contract should be strict" and "Quality gates for cluttered and clumsy"',
+    ...a11y,
+    shots: a11yShots.map((s) => s.name),
+    knownLimitation:
+      'The WebGL canvas is not keyboard-navigable. Joint SELECTION has a full non-pointer ' +
+      'equivalent (the Inspector list, keyboard-operable as of W6); camera ORBIT does not, and ' +
+      'that is recorded as a limitation rather than papered over.',
+  };
+
+  console.log(
+    `[web] a11y: contrast ${JSON.stringify(a11y.contrast.byWindow)}; targets ` +
+      `${JSON.stringify(a11y.targets.byWindow)}; keyboard ${JSON.stringify(a11y.keyboard)}`,
+  );
+  console.log(
+    `[web] reduced motion: graph reframe ${motionOn.distinct} distinct transforms allowed vs ` +
+      `${motionReduced.distinct} reduced; camera glide ` +
+      `${(motionOn.glideMm ?? 0).toFixed(3)} mm allowed vs ${(motionReduced.glideMm ?? 0).toFixed(3)} mm reduced`,
+  );
+  console.log(
+    `[web] gates: 200% zoom scanned ${a11y.zoom200.correctnessSurfacesScanned} correctness ` +
+      `surfaces with ${a11y.zoom200.truncated} truncated; text spacing scanned ` +
+      `${a11y.textSpacing.correctnessSurfacesScanned} with ${a11y.textSpacing.truncated} truncated`,
+  );
 }
 
 // ---------------------------------------------------------------- summary

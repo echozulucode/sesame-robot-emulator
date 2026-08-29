@@ -82,7 +82,7 @@ import {
   type ReactNode,
 } from 'react';
 
-import type { BackendId, BackendStatus } from '../backends/types.js';
+import type { BackendId, BackendStatus, ConnectionState } from '../backends/types.js';
 import type { Provenance, TelemetryOrigin } from '@sesame-lab/sesame-protocol';
 import { OriginTag, ProvenanceTag } from './ProvenanceTag.js';
 import {
@@ -317,6 +317,23 @@ const BACKEND_RAIL: readonly { id: BackendId; short: string; title: string }[] =
   { id: 'qemu', short: 'QEM', title: 'QEMU firmware — real firmware, commandable' },
 ];
 
+/**
+ * The connection lamp's shape, so the state is not carried by hue alone —
+ * Phase 4 W6.
+ *
+ * Filled, hollow, and a cross: three shapes for three answers, in the rail
+ * where there is no room for the word. The word itself is on the status line
+ * under the robot, which is where a reader who needs it should find it; this is
+ * the glance.
+ */
+const CONNECTION_GLYPH: Readonly<Record<ConnectionState, string>> = {
+  connected: '●',
+  connecting: '◌',
+  idle: '○',
+  closed: '○',
+  error: '✕',
+};
+
 const MODULE_GLYPH: Readonly<Record<ModuleId, string>> = {
   modules: '⌗',
   signal: '∿',
@@ -349,8 +366,32 @@ export function Rail(props: RailProps): ReactElement {
     totalEvents,
     moduleBadges,
   } = props;
+  /*
+    INERT while a Compact sheet covers it — Phase 4 W6.
+
+    At Compact the module and the side panel are sheets over the stage, and the
+    scrim that closes them is `position: absolute; inset: 0; z-index: 4` — so it
+    covers the 64 px rail as well. That is the intent: while a sheet is open the
+    rail is not available, and clicking where it used to be closes the sheet.
+
+    What it was not doing was saying so to a keyboard. The Tab walk found all
+    five module buttons, the three backend buttons and the panel toggle
+    focusable and **entirely hidden behind the scrim** — WCAG 2.4.11, and the
+    plainest possible version of it: a reader tabs onto a control they cannot
+    see, in a shell whose whole Compact rule is one thing at a time.
+
+    `inert` is the correct expression of a state the layout already had. The
+    way out of a sheet stays keyboard-reachable either way: the module's own
+    close button, and the scrim itself, are inside the sheet's own subtree.
+  */
+  const coveredBySheet = shell.sheets && (shell.activeModule !== null || shell.panelVisible);
   return (
-    <nav className="rail" data-testid="rail" aria-label="modules, backend and provenance">
+    <nav
+      className="rail"
+      data-testid="rail"
+      aria-label="modules, backend and provenance"
+      {...(coveredBySheet ? { inert: true } : {})}
+    >
       <div className="rail-group" role="radiogroup" aria-label="active module" data-testid="rail-modules">
         {MODULE_IDS.map((id) => {
           const active = shell.isActive(id);
@@ -438,13 +479,28 @@ export function Rail(props: RailProps): ReactElement {
         disagree.
       */}
       <div className="rail-status" data-testid="rail-status">
+        {/*
+          The lamp carries a SHAPE as well as a colour — Phase 4 W6.
+
+          It was `●` in three different colours, and the green is `--observed`:
+          the same hue the app uses for the provenance category whose whole
+          problem is being over-read. The brief warns about exactly this pairing
+          in the other direction — *"do not encode 'physical' as an inactive
+          green/red lamp that a child might interpret as a connection
+          indicator"* — and a connection lamp painted in the observed green is
+          the same collision from the other side.
+
+          The status line under the robot spells the state out in a word
+          (`.status-word`), so the page is not relying on this at all; what
+          changes here is that the rail's own glyph stops depending on hue.
+        */}
         <span
           className={`rail-conn conn-${status.connection}`}
           data-testid="rail-conn"
           data-connection={status.connection}
           title={`${status.connection} — ${status.detail}`}
         >
-          ●
+          {CONNECTION_GLYPH[status.connection] ?? '●'}
         </span>
         <div className="rail-prov" data-testid="rail-provenance" data-provenance={drivingProvenance ?? 'none'}>
           {drivingProvenance === null ? (

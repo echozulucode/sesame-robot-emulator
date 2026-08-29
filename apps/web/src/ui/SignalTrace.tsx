@@ -287,6 +287,33 @@ export function SignalTrace(props: SignalTraceProps): ReactElement {
                           data-match={row.match}
                           data-physically-observed={String(row.physicallyObserved)}
                           onClick={() => onSelectRow(row)}
+                          /*
+                            THE KEYBOARD PATH TO A TRACE ROW — Phase 4 W6.
+
+                            The other of the two pointer-only families the
+                            `cursor: pointer` scan found. Clicking a lane is how
+                            the ladder drives the other three panes — it is the
+                            cross-linking that phase 8 calls the point of the
+                            feature — and until now 36 of them were reachable
+                            only with a mouse.
+
+                            `role="button"` on the `<li>` rather than a nested
+                            `<button>`: `.trace-row` IS the three-track grid
+                            W5 built, and wrapping its six lane children in a
+                            button would have replaced that grid with a button's
+                            own box. The `<li>` keeps every data attribute the
+                            harness reads.
+                          */
+                          role="button"
+                          tabIndex={0}
+                          aria-pressed={hit}
+                          onKeyDown={(event) => {
+                            if (event.key !== 'Enter' && event.key !== ' ') return;
+                            // Space scrolls the pane otherwise, which moves the
+                            // row out from under the reader who just chose it.
+                            event.preventDefault();
+                            onSelectRow(row);
+                          }}
                           title={LAYER_MEANING[row.layer]}
                         >
                           <span className="trace-label" data-field="event">

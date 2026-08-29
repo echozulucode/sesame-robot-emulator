@@ -193,7 +193,39 @@ export function JointInspector(props: JointInspectorProps): ReactElement {
                   {index}
                 </JointCell>
                 <JointCell column="joint" className="joint-name">
-                  {joint}
+                  {/*
+                    THE KEYBOARD PATH TO A JOINT — Phase 4 W6.
+
+                    Selecting a joint had exactly two affordances and both were
+                    pointer-only: clicking the mesh in the WebGL canvas (which
+                    has no tabindex and cannot have a useful one — see the
+                    findings) and clicking this row, which was a bare
+                    `<tr onClick>` with no tabindex and no key handler. A scan
+                    for `cursor: pointer` on elements that are neither
+                    focusable nor contain something focusable found exactly two
+                    families in the whole app, and this was one of them: eight
+                    joints, unreachable from the keyboard, in the pane whose
+                    whole job is to be the readable alternative to the 3D view.
+
+                    A `<button>` inside the identity cell rather than
+                    `tabIndex` on the row, because the row is `role="row"` in a
+                    `role="table"`: making a row focusable would have been an
+                    ARIA grid, and this is a table with a control in it. The
+                    row's own `onClick` stays for the pointer, so the button
+                    stops its click from reaching it twice.
+                  */}
+                  <button
+                    type="button"
+                    className="joint-pick"
+                    data-joint-pick={joint}
+                    aria-pressed={joint === selected}
+                    onClick={(event) => {
+                      event.stopPropagation();
+                      onSelect(joint === selected ? null : joint);
+                    }}
+                  >
+                    {joint}
+                  </button>
                 </JointCell>
                 <JointCell column="commanded" className="num">
                   {view.commandedDeg === null ? <span className="muted">never</span> : `${fmt(view.commandedDeg, 0)}°`}
