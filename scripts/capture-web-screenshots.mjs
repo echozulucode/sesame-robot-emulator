@@ -1026,6 +1026,44 @@ const focusSection = async (evaluate, id) => {
   await sleep(250);
 };
 
+/**
+ * Wait for the architecture graph's viewport to stop moving — Phase 4 W6.
+ *
+ * ## What this is for, and what it deliberately is NOT
+ *
+ * React Flow answers a resize with a refit, and a refit computed against a
+ * container width it measured a frame too early lands the subsystem view just
+ * under its zoom floor. Phase 12's type scan then reads a 14.4 px authored
+ * label at 13.38 px ON SCREEN and fails W1's floor — for a graph that is back
+ * at zoom 1.000 half a second later.
+ *
+ * It is a real race and it is **not** W6's: driving the eleven container widths
+ * and restoring them reproduces it on this workstream's build at zoom 0.9946
+ * and on W5's, unchanged, at 0.9969 — same point, same rate. The only line W6
+ * changed in that path is `duration: 200` becoming `motionDurationMs(200)`,
+ * which evaluates to 200 whenever reduced motion is off, as it is in every leg
+ * of this run but one.
+ *
+ * So this is measurement hygiene, not a fix and not an exemption. It is bounded
+ * at 3 s and then measures anyway: a graph that is PERSISTENTLY below its floor
+ * still fails, which is the property that separates settling from suppressing.
+ * The transient itself stays on the record — see the W6 findings, §12.
+ */
+const settleGraph = async (evaluate, tries = 20) => {
+  let previous = null;
+  for (let i = 0; i < tries; i += 1) {
+    const now = await evaluate(
+      `(() => { const v = document.querySelector('.react-flow__viewport'); return v === null ? 'none' : getComputedStyle(v).transform; })()`,
+    );
+    // No graph on this pane: nothing to settle, and no reason to spend 3 s.
+    if (now === 'none') return { settled: true, samples: i + 1 };
+    if (previous === now) return { settled: true, samples: i + 1 };
+    previous = now;
+    await sleep(150);
+  }
+  return { settled: false, samples: tries };
+};
+
 const openSection = async (evaluate, id) => {
   await evaluate(
     isModulePane(id)
@@ -7736,6 +7774,7 @@ if (SKIP_QEMU) {
             `path representation is flow text and mounts no canvas at all`,
         );
       }
+      await settleGraph(shellPage.evaluate);
       const archText = await typeScan(shellPage.evaluate);
       const archWorst = archText.zoomed
         .filter((r) => r.surface === 'architecture')
@@ -7761,6 +7800,13 @@ if (SKIP_QEMU) {
         const roles = {};
         for (const section of ['commands', 'modules', 'signal', 'source', 'learn', 'lab']) {
           await focusSection(shellPage.evaluate, section);
+          const graph = await settleGraph(shellPage.evaluate);
+          check(
+            graph.settled,
+            `at ${where} the architecture graph's viewport never stopped moving in 3 s while the ` +
+              `${section} section was up. The type scan below measures what is ON SCREEN, so a ` +
+              `viewport still in flight makes every reading from it meaningless.`,
+          );
           const scan = await typeScan(shellPage.evaluate);
           for (const row of scan.below)
             seen.set(`${row.name}|${row.text}`, {
@@ -8492,8 +8538,44 @@ if (SKIP_QEMU) {
             scrollers: [pane, ...pane.querySelectorAll('*')].filter(isScroller).map(describe),
           };
         }
+        /*
+          Put the pane back, and then WAIT FOR IT — Phase 4 W6.
+
+          200 ms was not enough, and the thing it was not enough for is the
+          architecture graph. Restoring the inline width is a resize, React Flow
+          answers a resize with a refit, and a refit computed against a width it
+          measured a frame too early lands the subsystem view just under its
+          zoom floor. Phase 12's type scan then reads 14.4 px of authored label
+          at 13.38 px on screen and fails W1's floor — for a graph that is back
+          at zoom 1.000 half a second later.
+
+          Measured on BOTH trees before this was written: driving these eleven
+          widths and restoring them puts the subsystem view at 0.9946 on this
+          workstream's build and 0.9969 on W5's, at the same point, at the same
+          rate. It is not a W6 regression and it is not a product defect the
+          scan is entitled to report — it is the harness measuring during its
+          own transient, which is the one thing a measurement must never do.
+
+          So the sweep waits for the viewport transform to stop moving before it
+          hands the pane back. Bounded at 3 s, because a wait that cannot time
+          out is a hang — and bounded rather than silent-forever is the whole
+          difference: a graph that never settles costs the run three seconds and
+          is then measured anyway, so a REAL zoom failure still fails.
+        */
         pane.style.width = '';
-        await sleep(200);
+        {
+          const readTransform = () => {
+            const vp = document.querySelector('.react-flow__viewport');
+            return vp === null ? 'none' : getComputedStyle(vp).transform;
+          };
+          let previous = null;
+          for (let i = 0; i < 20; i += 1) {
+            await new Promise((r) => setTimeout(r, 150));
+            const now = readTransform();
+            if (previous === now) break;
+            previous = now;
+          }
+        }
         return readings;
       })()`);
 
@@ -10146,9 +10228,11 @@ if (SKIP_QEMU) {
       };
       return { w: reach(-1, 0) + reach(1, 0), h: reach(0, -1) + reach(0, 1) };
     };
-    const out = { checked: 0, underFloor: [], underWcag: [], unhittable: [] };
+    const out = { checked: 0, underFloor: [], underWcag: [], unhittable: [], inert: 0 };
     for (const el of document.querySelectorAll(SEL)) {
       if (!visible(el)) continue;
+      // Inert: behind a Compact sheet's scrim, and not a target of anything.
+      if (el.closest('[inert]') !== null) { out.inert += 1; continue; }
       const r = el.getBoundingClientRect();
       const hb = hitBox(el);
       if (hb === null) {
@@ -10444,6 +10528,17 @@ if (SKIP_QEMU) {
     for (const el of document.querySelectorAll(${JSON.stringify(FOCUSABLE_SEL)})) {
       const cs = getComputedStyle(el);
       if (cs.display === 'none' || cs.visibility === 'hidden') continue;
+      /*
+        An INERT subtree is not focusable, not a pointer target, and not
+        clickable — Phase 4 W6.
+
+        The rail is inert while a Compact sheet covers it, which is what stops a
+        reader tabbing onto a control hidden behind the scrim. Counting those
+        buttons as "visible focusables the walk must reach" turns the fix into a
+        failure: the run reported nine unreachable rail buttons that the browser
+        was correctly refusing to focus.
+      */
+      if (el.closest('[inert]') !== null) continue;
       const r = el.getBoundingClientRect();
       if (r.width <= 0 || r.height <= 0) continue;
       const id = String(out.length) + '|' + el.tagName + '|' + (typeof el.className === 'string' ? el.className.trim().split(/s+/).join('.') : '') + '|' + (el.textContent || '').trim().slice(0, 20);
@@ -10469,6 +10564,7 @@ if (SKIP_QEMU) {
       const cs = getComputedStyle(el);
       if (cs.display === 'none' || cs.visibility === 'hidden') continue;
       if (cs.cursor !== 'pointer') continue;
+      if (el.closest('[inert]') !== null) continue;
       const r = el.getBoundingClientRect();
       if (r.width <= 0 || r.height <= 0) continue;
       if (el.matches(F) || el.querySelector(F) !== null || el.closest(F) !== null) continue;
@@ -10589,7 +10685,7 @@ if (SKIP_QEMU) {
     const page = await bootA11y(window);
     try {
       const contrast = { failures: [], measured: 0, uiFailures: [], uiChecked: 0, boundaryNotRequired: 0, backdrops: 0, overImage: 0, exemptInactive: 0, worst: null };
-      const targets = { checked: 0, underFloor: [], underWcag: [], unhittable: [] };
+      const targets = { checked: 0, underFloor: [], underWcag: [], unhittable: [], inert: 0 };
       const overflow = [];
       const pointerOnly = [];
 
@@ -10612,6 +10708,7 @@ if (SKIP_QEMU) {
 
         const t = await page.evaluate(TARGETS_JS(TARGET_FINE_PX));
         targets.checked += t.checked;
+        targets.inert += t.inert;
         for (const row of t.underFloor) targets.underFloor.push({ ...row, module: moduleId });
         for (const row of t.underWcag) targets.underWcag.push({ ...row, module: moduleId });
         for (const row of t.unhittable) targets.unhittable.push({ ...row, module: moduleId });
@@ -10729,6 +10826,9 @@ if (SKIP_QEMU) {
         underFine: targets.underFloor.length,
         underWcagFloor: targets.underWcag.length,
         unhittable: targets.unhittable.length,
+        // Skipped because they are behind a Compact sheet's scrim and inert.
+        // Reported, so the exemption is a number rather than a silence.
+        inertBehindASheet: targets.inert,
       };
       a11y.pageOverflow[where] = { undeclaredHorizontalScrollers: overflow };
 

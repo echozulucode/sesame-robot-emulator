@@ -483,30 +483,6 @@ function Reframe({
  * space the library places nodes in.
  */
 
-/**
- * The subsystem representation's zoom floor, as a subscription.
- *
- * At zoom 1 the AUTHORED size is the size on screen, which is the whole reason
- * that representation exists: the 14 px type floor is asserted against what is
- * drawn, with no exemption. Below 1 the same nodes are the same nodes and the
- * labels are below the floor, so this is a correctness property of the view
- * rather than a preference about its framing.
- *
- * Deliberately not `minZoom` alone: that is the interaction limit, and it was
- * already `1`. What lands the graph under it is a programmatic fit computed
- * against a container size React Flow measured a frame too early.
- */
-function ZoomFloor({ mode }: { readonly mode: ArchitectureMode }): null {
-  const flow = useReactFlow();
-  const zoom = useStore((s) => s.transform[2]);
-  useEffect(() => {
-    if (mode !== 'subsystem') return;
-    if (zoom >= 1 - 1e-6) return;
-    void flow.zoomTo(1, { duration: 0 });
-  }, [flow, mode, zoom]);
-  return null;
-}
-
 function RevealSelection({
   mode,
   focusId,
@@ -855,27 +831,6 @@ function ArchitectureGraphInner(props: ArchitectureGraphProps): ReactElement {
                 pan. See {@link RevealSelection}.
               */}
               <RevealSelection mode={mode} focusId={focusId} visibleIds={visibleIds} />
-              {/*
-                The zoom floor, held CONTINUOUSLY rather than once — Phase 4 W6,
-                amending W7.
-
-                W7 enforced it in the one place it had seen it break: after the
-                subsystem layout's own animated fitView resolves. That is
-                necessary and it is not sufficient, and W6's own type-floor scan
-                is what proved it — a full harness run came back with 23 runs of
-                text at 14.4 px authored and 13.38 px ON SCREEN in the modules
-                pane at 1920x1080, which is zoom 0.929: exactly the number W7
-                recorded, from a fit that happened at a width React Flow had not
-                measured yet. Four clean page loads at the same window all sat
-                at 1.000, so it is a race and not a layout.
-
-                So the floor is a subscription now. Whatever moves the viewport
-                — a remount, a resize, a fit that resolved against a stale
-                measurement — the store's zoom is read, and a subsystem view
-                below 1 is put back. It cannot oscillate: `zoomTo(1)` makes the
-                condition false, and `minZoom={1}` means 1 is reachable.
-              */}
-              <ZoomFloor mode={mode} />
             </ReactFlow>
           </div>
         )}
