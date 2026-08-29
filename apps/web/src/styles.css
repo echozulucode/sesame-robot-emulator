@@ -897,6 +897,12 @@
      * those are correctness surfaces that W1's own rule forbids truncating. A
      * second line is the honest answer; `min-width: 0` on the summary is not,
      * because shrinking is what produced the overlap.
+     *
+     * W5 keeps the wrap and removes the thing that made it MOVE. A wrapping row
+     * is fine; a wrapping row whose content length is live telemetry is the
+     * "bouncing up and down" the user reported. Everything variable is out of
+     * the summary now (the face name went into the card's body) and the one
+     * remaining variable-length element — the provenance word — is pinned below.
      */
     flex-wrap: wrap;
     gap: var(--space-1);
@@ -948,62 +954,110 @@
     color: var(--warn);
   }
 
-  .panel-card.is-folded {
-    flex: 0 0 auto;
-  }
-
-  /* ================================ THE ELASTIC CARD — Phase 4 W8
+  /*
+   * THE ONE REMAINING VARIABLE LENGTH ON A CARD HEADER — Phase 4 W5.
    *
-   * > *"Maximize the height of the commands pane if it fits."*
-   *
-   * `1 0 auto`, and the `0` is the whole safety argument: this card may GROW
-   * into space nothing else wanted and may never SHRINK. W7's Face card was
-   * `0 1 auto`, was crushed to 10 px on a short window, and the crushing did
-   * not register at all — a `container-type: inline-size` box does not
-   * contribute its overflow to an ancestor's scrollable overflow, so the
-   * panel's own "did it overflow" reading stayed at 0 while the card was
-   * invisible. Growth has no equivalent failure: there is nothing to hide.
-   *
-   * The cap is what stops "maximise" becoming "a 600 px card holding six
-   * buttons". At 2560x1440 the panel has about 600 px of slack; 24rem of
-   * Commands uses the part of it that makes the buttons better and leaves the
-   * rest as the panel's own tail, exactly as today.
+   * `inferred` and `observed` are eight characters and `simulated` is nine, so
+   * a genuine change of provenance can still be the character that re-wraps a
+   * 262 px row. A constant width removes the last way a live value can move a
+   * card, and it costs nothing: `ch` is the advance of "0" in the badge's own
+   * resolved font, so this is a reservation rather than a chosen pixel count,
+   * and it is not a `font-size` — W1's floor is untouched.
    */
-  .panel-card[data-elastic='true']:not(.is-folded) {
-    flex: 1 0 auto;
-    max-block-size: 24rem;
+  .panel-card-summary .prov {
+    min-inline-size: 11ch;
+    text-align: center;
   }
 
   /*
-   * ...and held still while the panel measures itself.
+   * The face name, in the card's BODY, one line tall whatever it says.
    *
-   * `SidePanel`'s layout effect sets `data-measuring` for the duration of one
-   * synchronous read. Without this rule the elastic card would have already
-   * absorbed the slack the measurement is trying to find, and the answer would
-   * be 0 every time — a measurement taken in the presence of the thing being
-   * measured. It is never on across a paint.
+   * It was on the header. Measured at 1440x900 on the shipped build:
+   * `setFace("happy")` -> a 213 px Face card, `setFace("sleepy")` -> 241 px,
+   * and the Commands card below it 292 -> 264 with its buttons 80 px -> 65 —
+   * from one extra character, several times a second, because the firmware's
+   * idle-blink animation changes the name continuously.
+   *
+   * `nowrap` plus a one-line minimum makes this row's height independent of the
+   * name. The name is not a correctness surface; the badge that says where its
+   * pixels came from is, and that stayed on the header where it has always
+   * been.
    */
-  .side-panel-inner[data-measuring] .panel-card[data-elastic='true'] {
-    flex-grow: 0;
+  .panel-face-name {
+    flex: 0 0 auto;
+    margin: 0;
+    min-block-size: 1lh;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    font-size: var(--font-badge);
+    color: var(--dim);
   }
 
-  /* The buttons take the height the card was given, rather than the card
-     holding a stack of 36 px controls above 200 px of nothing. */
+  /* ============ WHO TAKES THE PANEL'S HEIGHT, AND WHO GIVES IT BACK — W5
+   *
+   * > *"We want to see all the commands where possible and fit the available
+   * > space with commands. All other sections should be large enough that they
+   * > don't need to change size. Use scrollbars in command and selected joint
+   * > only if there isn't enough space to show all content."*
+   *
+   * Three rules, and between them they replace a `useLayoutEffect`, a piece of
+   * fold state, a `ResizeObserver` and two measurements that could not come out
+   * positive:
+   *
+   *   Commands       `1 1 auto`  takes the spare height; scrolls when its own
+   *                              content exceeds what it was given
+   *   Selected joint `0 1 auto`  never grows, gives height back BEFORE Commands
+   *                              is asked to; scrolls on the same terms
+   *   everything else `0 0 auto` (the default on `.panel-card` above) — its own
+   *                              content's height, at every panel height
+   *
+   * The ordering of who shrinks first is `flex-shrink` doing exactly what it is
+   * for, rather than a priority list this file would have to keep in step with
+   * `SidePanel`'s.
+   *
+   * There is no `max-block-size` cap any more. W8 capped the elastic card at
+   * 24rem so "maximise" did not become "a 600 px card holding six buttons"; the
+   * card holds all nineteen commands now, so the cap would only ever be a
+   * scrollbar the panel did not need.
+   */
+  .panel-card[data-scrollable='true'] {
+    min-block-size: 0;
+  }
+
+  .panel-card[data-elastic='true'] {
+    flex: 1 1 auto;
+    /* Enough for the header and two rows of buttons. Below this the card stops
+       shrinking and scrolls, which is the point at which the reader is better
+       served by a scrollbar than by four commands. */
+    min-block-size: 7rem;
+  }
+
+  .panel-card[data-panel-card='inspector'] {
+    flex: 0 1 auto;
+  }
+
+  /*
+   * ...and the scroll is on the BODY, not on the card.
+   *
+   * The card owns the header, and a header that scrolls away takes the badge
+   * with it — which is §11.4's rule about a correctness surface, expressed as a
+   * box. `overscroll-behavior: contain` keeps a wheel gesture that reaches the
+   * end of this list from continuing into whatever is behind the panel.
+   */
+  .panel-card[data-scrollable='true'] > .panel-card-body {
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    scrollbar-gutter: stable;
+  }
+
+  /* The command grid fills the card's body and wraps; it does not stretch its
+     buttons to fill it. See `.cmd` for the size question. */
   .panel-card[data-elastic='true'] .command-bar-panel {
     flex: 1 1 auto;
     min-height: 0;
   }
 
-  .panel-card[data-elastic='true'] .command-bar-panel .cmd-grid {
-    flex: 1 1 auto;
-    align-content: stretch;
-    grid-auto-rows: minmax(36px, 1fr);
-    max-block-size: 12rem;
-  }
-
-  .panel-card-body[hidden] {
-    display: none;
-  }
 
   /*
    * "More info" — a button, at the brief's 36 px minimum target, on the card it
@@ -1223,7 +1277,17 @@
   }
 
   .command-bar-panel .cmd-grid {
+    /* Nineteen commands in a 238 px card: the gap is where the density comes
+       from, and it is 4 px rather than 5. */
     gap: var(--space-1);
+    align-content: flex-start;
+  }
+
+  .command-bar-panel .cmd {
+    /* Minimal, and the horizontal padding is the half that can go: a command
+       word is 3-9 characters and it does not need 9 px of air on each side in a
+       238 px column. The vertical padding and the 36 px target floor stay. */
+    padding-inline: var(--space-2);
   }
 
   .command-bar-panel .cmd-grid.faces {
@@ -1248,17 +1312,43 @@
    * card can shrink it below 2x on a short window, which is a legibility trade
    * the 4x "more info" screen exists to answer.
    */
-  .oled-panel-compact .oled-canvas {
-    width: 256px;
-    max-width: 100%;
-    height: auto;
-    /* The safety valve for a short window: the glass gives up height before
-       the panel gives up a word. `object-fit` rather than a smaller integer
-       zoom, because a non-integer zoom is the thing W2 recorded as putting the
-       SSD1306's page-grid lines between device pixels. */
-    max-height: 100%;
-    object-fit: contain;
-    align-self: center;
+  /*
+    W5: nothing here sets a WIDTH any more.
+    
+    It was `width: 256px; max-width: 100%; max-height: 100%; object-fit:
+    contain` — three declarations, of which the last two are the fractional zoom
+    the policy exists to remove. `max-width: 100%` in a card narrower than
+    256 px, and `object-fit: contain` on a short window, both hand the reader a
+    grid whose pixels are not all the same size. The size comes from
+    `integerOledZoom()` as an inline width/height now, and the only thing left
+    for CSS to say is where it sits.
+  */
+  .oled-panel-compact .oled-slot {
+    display: flex;
+    justify-content: center;
+    min-inline-size: 0;
+
+    /*
+      THE GLASS BLEEDS TO THE CARD'S EDGE, and this is what buys 2x.
+      
+      Measured: a 280 px side panel gives this slot 227 px once the aside's
+      border, the inner's 8 px, the pane's border, the pane content's 16 px and
+      the panel's 24 px have been taken out of it. 2x needs 256, so the honest
+      answer at 227 px is 1x — a 128 px face in a 262 px card.
+      
+      W7's `width: 256px; max-width: 100%` did not get 2x either. It got 227 px
+      of a 256 px canvas, which is **1.77x**, on an element whose
+      `data-oled-zoom` attribute said `2`. That attribute is measured now (see
+      `oled/zoom.ts`), which is how the discrepancy surfaced at all.
+      
+      So the 44 px is given back rather than the zoom given up: the glass is the
+      one thing in this card that is a picture rather than a paragraph, and a
+      picture may touch the card's edge. The sum is the four paddings and two
+      borders between here and `.pane__content`'s border box, written out so a
+      change to any of them shows up as a glass that no longer fits — which the
+      side panel's zero-overflow invariant fails on.
+    */
+    margin-inline: calc(-1 * (var(--space-3) + var(--space-2) + 2px));
   }
 
   .oled-panel-compact {
@@ -1354,10 +1444,13 @@
     overflow-y: auto;
   }
 
-  .oled-canvas[data-oled-zoom='4'] {
-    width: 512px;
-    max-width: 100%;
-    height: auto;
+  /* The "more info" screen's glass: the slot is what the dialog sizes, and the
+     canvas takes the largest rung of the ladder that fits it. At every window
+     phase 12 visits that is 6x, which is the brief's own 800-1049 px row. */
+  .oled-slot {
+    display: flex;
+    justify-content: center;
+    min-inline-size: 0;
   }
 
   /* ======================================================= THE PANE CONTRACT
@@ -1839,8 +1932,26 @@
     margin-top: 8px;
   }
 
+  /*
+   * MINIMAL — Phase 4 W5.
+   *
+   * > *"The command buttons should be minimal size like they used to be."*
+   *
+   * They used to be exactly this rule. What made them 56x80 px blocks was the
+   * elastic card's `grid-auto-rows: minmax(36px, 1fr)` with `align-content:
+   * stretch`, which handed four buttons a whole card to divide between them;
+   * that is gone with the card that owned it, and nineteen commands would not
+   * have fitted in it anyway.
+   *
+   * `min-block-size: 36px` is the brief's fine-pointer target minimum, and it
+   * is the floor rather than the size: a button is its own text plus 5 px of
+   * padding, and 36 px is what that comes to. **Nothing here is a font-size.**
+   * The type stays at `--font-ui`; W1's 14 px floor is not a thing to spend on
+   * density, and cutting padding is the only compaction available.
+   */
   .cmd {
     padding: 5px 9px;
+    min-block-size: 36px;
     border-radius: 5px;
     border: 1px solid var(--line);
     background: var(--panel-2);
@@ -2017,8 +2128,8 @@
   /* ------------------------------------------------------------------- OLED */
 
   .oled-canvas {
-    width: 100%;
-    height: auto;
+    /* No width. See `oled/zoom.ts`: it is an inline style computed from the
+       measured slot, because a stylesheet cannot round to a ladder. */
     display: block;
     image-rendering: pixelated;
     border: 1px solid var(--line);
@@ -2086,8 +2197,23 @@
    *    inside it says ARCHITECTURE again at 18 px. The pane contract's `<h2>`
    *    is the one `aria-labelledby` points at, so it is the one that stays; the
    *    panel's own subtitle beside it repeats nothing and stays with it.
+   *
+   *    **W5 re-points this at a class, and that is the fix rather than a
+   *    tidy-up.** The selector was structural —
+   *    `.module-content > .panel > .panel-header > h2` — so it caught the three
+   *    panes whose panel happens to be a direct child of the module content and
+   *    missed **Learn** and **Lab**, whose headers sit one level deeper. Both
+   *    were still printing their own name under the column's, measured in the
+   *    browser rather than read off the file.
+   *
+   *    Widening the selector to any depth is not available: `LessonRunner`'s
+   *    second `.panel-header > h2` is the LESSON TITLE, and a rule that hid the
+   *    module's name would hide that with it. So the echo says it is an echo.
+   *    A component that is the module's own root names itself for the reader
+   *    who opens it outside the column; inside the column the column has
+   *    already said it.
    */
-  .module-content > .panel > .panel-header > h2 {
+  .module-content .panel-title-echo {
     display: none;
   }
 
@@ -2746,6 +2872,36 @@
     margin-bottom: 8px;
   }
 
+  /* ==================================================== THE LADDER — W5
+   *
+   * > *"Signal should become a sequence, not a collection of unrelated cards.
+   * > Do not immediately turn every trace row into a generic card. The ordering
+   * > and common fields are part of the trace's meaning."*
+   *
+   * Measured before this change, at a 534 px pane at 1440x900: **36 rows,
+   * 10,285 px of scroll**, of which four layers repeated a byte-identical
+   * witness eight times each. What a reader saw was 36 boxes; what the data is
+   * is an eight-rung ladder. The DOM says so now — one `.trace-step` per layer,
+   * numbered, with the joints as `.trace-row` lanes inside it — and the CSS's
+   * only job is to keep the rungs looking like rungs rather than like cards.
+   *
+   * The spine is a background gradient rather than a border or a pseudo-element
+   * so that consecutive steps paint one continuous rule: each step fills its
+   * own full height, so there is no seam at the join and no last-child
+   * exception to get wrong.
+   */
+  /*
+    The gutter and the lane track list live on the PANEL rather than on the
+    list, because `.trace-columns` is the list's SIBLING: a custom property
+    declared on `.trace-rows` does not reach the header that has to line up with
+    it, and `grid-template-columns: var(--undefined)` is invalid rather than
+    loud, so the header would silently have collapsed to one track.
+  */
+  .trace-panel {
+    --trace-step-gutter: 2.5rem;
+    --trace-lane-cols: minmax(0, 1fr);
+  }
+
   .trace-rows {
     list-style: none;
     margin: 0;
@@ -2756,16 +2912,133 @@
     overflow-y: auto;
     display: flex;
     flex-direction: column;
-    gap: 5px;
   }
 
+  .trace-step {
+    display: grid;
+    grid-template-columns: var(--trace-step-gutter) minmax(0, 1fr);
+    grid-template-areas:
+      'no   head'
+      'rail witness'
+      'rail lanes';
+    column-gap: var(--space-2);
+    row-gap: var(--space-1);
+    padding-block: var(--space-2);
+
+    background-image: linear-gradient(var(--line), var(--line));
+    background-size: 2px 100%;
+    background-position: calc(var(--trace-step-gutter) / 2 - 1px) 0;
+    background-repeat: no-repeat;
+  }
+
+  .trace-step.hit .trace-step-no {
+    border-color: var(--accent);
+    color: #cfe0fb;
+  }
+
+  .trace-step-no {
+    grid-area: no;
+    justify-self: center;
+    align-self: start;
+    font-family: var(--font-mono);
+    font-size: var(--font-badge);
+    color: var(--muted);
+    background: var(--panel-2, #10151c);
+    border: 1px solid var(--line);
+    border-radius: 999px;
+    padding: 1px var(--space-2);
+  }
+
+  .trace-step-head {
+    grid-area: head;
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    gap: var(--space-1) var(--space-2);
+  }
+
+  .trace-layer {
+    color: var(--text);
+    font-size: var(--font-ui);
+    font-weight: 600;
+    flex: 0 0 auto;
+    min-inline-size: 0;
+  }
+
+  /* LAYER_MEANING, which was a `title` attribute and a line in a closed
+     `<details>`. A rung that does not say what it is is a piece of jargon. */
+  .trace-step-meaning {
+    flex: 1 1 12rem;
+    min-inline-size: 0;
+    font-size: var(--font-ui);
+    color: var(--dim);
+    overflow-wrap: anywhere;
+  }
+
+  .trace-step-count {
+    flex: 0 0 auto;
+    font-size: var(--font-badge);
+    color: var(--muted);
+  }
+
+  .trace-badge {
+    flex: 0 0 auto;
+    font-size: var(--font-badge);
+    letter-spacing: 0.05em;
+    white-space: nowrap;
+  }
+
+  .trace-step > .trace-row-witness {
+    grid-area: witness;
+  }
+
+  .trace-lanes {
+    grid-area: lanes;
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-1);
+  }
+
+  /*
+   * The lane. Below 32.5rem it is the brief's "trace-step record" — visually
+   * card-like, and the sequence survives because the record sits inside a
+   * numbered rung rather than beside 35 siblings.
+   */
   .trace-row {
+    display: grid;
+    grid-template-columns: var(--trace-lane-cols);
+    grid-template-areas:
+      'event'
+      'says'
+      'value'
+      'witness'
+      'aside';
+    gap: 2px;
     border: 1px solid var(--line);
     border-left: 3px solid var(--line);
     border-radius: 5px;
-    padding: 6px 8px;
+    padding: var(--space-1) var(--space-2);
     cursor: pointer;
     background: #11151c;
+  }
+
+  .trace-row > [data-field='event'] {
+    grid-area: event;
+  }
+  .trace-row > [data-field='value'] {
+    grid-area: value;
+  }
+  .trace-row > [data-field='says'] {
+    grid-area: says;
+  }
+  .trace-row > [data-field='witness'] {
+    grid-area: witness;
+  }
+  .trace-row > [data-field='aside'] {
+    grid-area: aside;
   }
 
   .trace-tone-observed {
@@ -2783,33 +3056,7 @@
     border-color: var(--accent);
   }
 
-  /*
-   * W1: this row wraps now.
-   *
-   * It was `layer | label | badge` on one unwrappable line with a 108 px
-   * minimum on the layer column, which fitted while the three were 10.5, 12.5
-   * and 9 px. At 14, 16 and 14 the head overflowed its row by up to 145 px —
-   * and every row here carries `data-origin-kind`, so what was overflowing was
-   * a correctness surface. The fix is wrapping and `min-inline-size: 0`, never
-   * the type: the column alignment the minimum bought is worth less than a
-   * provenance badge a reader can finish reading.
-   */
-  .trace-row-head {
-    display: flex;
-    flex-wrap: wrap;
-    align-items: baseline;
-    gap: var(--space-1) var(--space-2);
-  }
-
-  .trace-layer {
-    color: var(--muted);
-    font-size: var(--font-badge);
-    flex: 0 0 auto;
-    min-inline-size: 0;
-  }
-
   .trace-label {
-    flex: 1 1 auto;
     min-inline-size: 0;
     overflow-wrap: anywhere;
     font-size: var(--font-ui);
@@ -2817,18 +3064,22 @@
     font-family: var(--font-mono);
   }
 
-  .trace-badge {
-    flex: 0 0 auto;
-    font-size: var(--font-badge);
-    letter-spacing: 0.05em;
-    white-space: nowrap;
-  }
-
   .trace-row-detail {
-    margin-top: 3px;
     font-size: var(--font-ui);
     color: var(--dim);
     overflow-wrap: anywhere;
+  }
+
+  /* Provenance and origin, together, in one place at every width. They are the
+     two correctness surfaces on a lane and they are never separated: a badge
+     that says OBSERVED means one thing beside `emulator` and another beside
+     `physical-robot`, so they read as one phrase. */
+  .trace-row-says {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    gap: var(--space-1) var(--space-2);
+    min-inline-size: 0;
   }
 
   /*
@@ -2841,12 +3092,12 @@
    * raising the type is what made the harness able to see it.
    */
   .trace-row-witness {
-    margin-top: 4px;
     font-size: var(--font-code);
     color: var(--muted);
-    border-top: 1px dotted var(--line);
-    padding-top: 4px;
+    border-inline-start: 2px dotted var(--line);
+    padding-inline-start: var(--space-2);
     overflow-wrap: anywhere;
+    min-inline-size: 0;
   }
 
   .trace-witness-key {
@@ -2857,12 +3108,12 @@
   }
 
   .trace-row-meta {
-    margin-top: 4px;
     display: flex;
     flex-wrap: wrap;
     gap: 6px;
     align-items: center;
     font-size: var(--font-badge);
+    min-inline-size: 0;
   }
 
   .trace-match {
@@ -2884,6 +3135,24 @@
 
   .trace-source {
     font-size: var(--font-badge);
+  }
+
+  /*
+   * The column head. Hidden until the lane actually HAS columns — naming three
+   * tracks over a stacked record would be a label for a thing that is not
+   * there. It shares `--trace-lane-cols` with the lanes and carries the same
+   * gutter indent, which is what makes "the words sit over the fields they
+   * name" a measurement rather than a hope.
+   */
+  .trace-columns {
+    display: none;
+    margin-inline-start: calc(var(--trace-step-gutter) + var(--space-2));
+    padding-inline: var(--space-2);
+    column-gap: var(--space-3);
+    font-size: var(--font-badge);
+    letter-spacing: 0.07em;
+    text-transform: uppercase;
+    color: var(--muted);
   }
 
   .trace-legend {
@@ -4058,14 +4327,57 @@
     width: 40px;
   }
 
+  /*
+    The Lab's editor glass. `max-width: 100%` is GONE for the reason in
+    `oled/zoom.ts`: in a 429 px column it made a 512 px canvas 3.35 device
+    pixels per bitmap pixel, so some pixels painted four wide and some three in
+    the one surface whose entire job is that a pixel is a pixel.
+  */
+  .pixel-slot {
+    display: flex;
+    justify-content: flex-start;
+    min-inline-size: 0;
+    /*
+      The editor holds 4x and PANS. `overflow-y` is `hidden` rather than left to
+      compute from `visible`+`auto`, so this box can never become a second
+      vertical scroller in a pane that is allowed exactly one.
+    */
+    overflow-x: auto;
+    overflow-y: hidden;
+    /* Room for the canvas's focus ring, which is 2 px offset by 2 px and would
+       otherwise be the first thing the overflow clipped. */
+    padding: 4px;
+    /*
+      And the same 12 px each side the Face card gives back, for the same
+      reason: measured, the editor column is 506 px at 1440x900 and 4x is 512.
+      Six pixels decided between a 512 px editor and a panned one, and the six
+      pixels were this component's own padding.
+    */
+    margin-inline: calc(-1 * var(--space-3));
+  }
+
+  .oled-slot {
+    overflow-x: auto;
+    overflow-y: hidden;
+  }
+
   .pixel-canvas {
     background: #0b0f14;
     border: 1px solid var(--line);
     border-radius: 4px;
     cursor: crosshair;
     image-rendering: pixelated;
-    max-width: 100%;
     touch-action: none;
+  }
+
+  .pixel-canvas:focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: 2px;
+  }
+
+  .pixel-caret {
+    margin: var(--space-1) 0 0;
+    min-block-size: 1.5em;
   }
 
   .pwm-readout {
@@ -4293,9 +4605,51 @@
     color: inherit;
   }
 
+  /*
+   * `minmax(0, 1fr)`, not the implicit `auto` — Phase 4 W5, and it was a defect
+   * rather than a preference.
+   *
+   * An `auto` grid track sizes to its item's MAX-CONTENT, and the Pose tab's
+   * item is a nine-column table of arithmetic. Measured at 1440x900: the Lab
+   * pane's own `scrollWidth` ran **320 px** past its `clientWidth` with the
+   * Pose tab open, so `.pose-table`'s `overflow-x: auto` never engaged — the
+   * table pushed the whole module column sideways instead of scrolling inside
+   * it, which turned the editor's declared 2D surface into a horizontal
+   * scrollbar under the entire pane.
+   */
   .lab-body {
     display: grid;
+    grid-template-columns: minmax(0, 1fr);
     gap: 10px;
+  }
+
+  /*
+   * The Lab's two wide tables pan, with their identity columns pinned.
+   *
+   * A panned table whose row identity scrolls off the left is a grid of numbers
+   * belonging to nothing — and in this pane the identity is the servo channel
+   * and the firmware's own joint name, which is the one thing every other pane
+   * cross-references.
+   */
+  .sequence-table {
+    display: block;
+    overflow-x: auto;
+    overflow-y: hidden;
+  }
+
+  .pose-table th:nth-child(-n + 2),
+  .pose-table td:nth-child(-n + 2),
+  .sequence-table th:first-child,
+  .sequence-table td:first-child {
+    position: sticky;
+    inset-inline-start: 0;
+    z-index: 1;
+    background: var(--panel, #151a22);
+  }
+
+  .pose-table th:nth-child(2),
+  .pose-table td:nth-child(2) {
+    inset-inline-start: 2.25rem;
   }
 
   .lab-details > summary {
@@ -4455,6 +4809,35 @@
   [data-2d-surface] {
     /* Marked, not styled. Each surface's own rule sizes it. */
     max-inline-size: 100%;
+  }
+
+  /*
+   * ...except the two things a 2D surface exists to CONTAIN — Phase 4 W5.
+   *
+   * `max-inline-size: 100%` is right for the box a reader pans; it is exactly
+   * wrong for the content inside it, whose whole job is to be bigger than the
+   * box. It is also how a fractional OLED zoom comes back: a 512 px canvas
+   * capped at 100% of a 405 px slot is 3.16 device pixels per bitmap pixel, and
+   * `integerOledZoom()` would go on reporting `4` while the browser painted
+   * something else. Measured on the way past — 397 px on a canvas whose
+   * `data-oled-zoom` said 4 — which is the same class of hollow claim as the
+   * attribute this policy replaced.
+   *
+   * The `.pixel-slot` exemption is its bleed: the slot is the surface, and a
+   * surface that gives its own padding back must be allowed to be wider than
+   * the box it took the padding from.
+   */
+  .oled-canvas,
+  .pixel-canvas {
+    max-inline-size: none;
+    /* And it does not shrink. The slot is a flex container, and a flex item
+       whose `flex-shrink` is the default 1 is a canvas that quietly re-derives
+       its own zoom from the space available. */
+    flex: 0 0 auto;
+  }
+
+  .pixel-slot[data-2d-surface] {
+    max-inline-size: none;
   }
 
   /* ================================================= ONE PANE OWNS THE DOCK
@@ -4644,7 +5027,7 @@
 
   /* ------------------------------------------------------------- SIGNAL
    *
-   * "Does Signal have enough width for a five-column row?"
+   * "Does Signal have enough width for an aligned row?"
    *
    * W1 had to give up the trace row's column alignment: `layer | label | badge`
    * sat on one unwrappable line with a 108 px minimum on the layer column, and
@@ -4654,55 +5037,112 @@
    * precisely the distinction a viewport query cannot draw, because both of
    * those panes exist in a 1440 px window.
    *
-   * So the alignment comes back when the pane can pay for it, and at the wide
-   * band the row splits into two columns: what happened on the left, who says
-   * so and when on the right.
+   * W5 re-points the same two thresholds at the LANE, because the row is now a
+   * lane inside a numbered step (see `.trace-step`). The brief's three shapes,
+   * in its own words:
+   *
+   *   < 32.5rem   a "trace-step record" - card-like, every field on its own
+   *               line, and the sequence carried by the rung it sits in
+   *   32.5-45rem  a two-line row: event and who-says-so on the first line,
+   *               the value on the second
+   *   >= 45rem    aligned columns, `event | value | provenance-origin`, with
+   *               the witness beneath spanning all three and never truncated
+   *
+   * The witness is the field that decides the shape. It is a complete sentence
+   * and up to 640 characters of one; the brief is explicit that it may never be
+   * truncated to retain table geometry, so it gets its own full-width row in
+   * every band rather than a fourth column that would have to clip.
    */
   @container pane (width >= 32.5rem) {
-    [data-pane='signal'] .trace-row-head {
-      flex-wrap: nowrap;
-    }
-
-    [data-pane='signal'] .trace-layer {
-      min-inline-size: 7.5rem;
+    [data-pane='signal'] .trace-row {
+      /*
+        `max-content` on the event track, not `auto` on the says track. The
+        first cut sized the badges (`auto`) and let the event take what was
+        left, which put `INFERRED FOR EXPLANATION` plus an origin tag first in
+        the queue and broke `POST /api/command` across three lines at a 534 px
+        pane. The event name is the shorter and more load-bearing of the two, so
+        it is sized to its content and the badges wrap into the remainder.
+      */
+      --trace-lane-cols: minmax(0, max-content) minmax(0, 1fr);
+      grid-template-areas:
+        'event says'
+        'value value'
+        'witness witness'
+        'aside aside';
+      column-gap: var(--space-3);
+      align-items: baseline;
+      /* Not a card any more: a lane on a rung. The tone rule stays because it
+         is the provenance colour, which is a correctness surface. */
+      border: 0;
+      border-left: 3px solid var(--line);
+      border-radius: 0;
+      background: transparent;
+      padding-block: 2px;
     }
 
     [data-pane='signal'] .trace-label {
       min-inline-size: 0;
     }
+
+    [data-pane='signal'] .trace-row-says {
+      justify-content: flex-end;
+    }
+
+    /* A one-lane step: the lane IS the rung, so it does not get a rule of its
+       own beside the rung's spine. Two vertical rules 12 px apart around one
+       row of text is chrome pretending to be structure. */
+    [data-pane='signal'] .trace-step[data-lanes='1'] .trace-row {
+      border-left: 0;
+      padding-inline-start: 0;
+    }
   }
 
   @container pane (width >= 45rem) {
+    /*
+      Three tracks, and the column head is laid out over them. The head shares
+      `--trace-lane-cols` and carries the same gutter indent as `.trace-lanes`,
+      which is what turns "the words sit over the fields they name" into
+      something the harness measures rather than something a screenshot
+      suggests.
+    */
+    /*
+      Set on `.trace-rows` AND on `.trace-row`, and the second one is not
+      redundant: the 32.5rem block above sets `--trace-lane-cols` on the lane
+      itself, and a custom property declared on an element beats one inherited
+      from its ancestor whatever the media/container nesting. The first version
+      of this block declared it only on the list, both blocks applied at 900 px,
+      and the lane kept the two-track `auto` list — which the harness caught as
+      three different left edges for a column that is supposed to have one.
+    */
+    [data-pane='signal'] .trace-panel,
     [data-pane='signal'] .trace-row {
+      --trace-lane-cols: minmax(0, 11rem) minmax(0, 1fr) minmax(0, 13rem);
+    }
+
+    [data-pane='signal'] .trace-columns {
       display: grid;
-      grid-template-columns: minmax(0, 3fr) minmax(0, 2fr);
+      grid-template-columns: var(--trace-lane-cols);
+    }
+
+    /* The head names three tracks; the witness is the row beneath them. */
+    [data-pane='signal'] .trace-columns [data-col='witness'] {
+      display: none;
+    }
+
+    [data-pane='signal'] .trace-row {
       grid-template-areas:
-        'head meta'
-        'detail witness';
-      column-gap: var(--space-4);
-      align-items: start;
+        'event value says'
+        'witness witness witness'
+        'aside aside aside';
+      column-gap: var(--space-3);
+      align-items: baseline;
     }
 
-    [data-pane='signal'] .trace-row-head {
-      grid-area: head;
-    }
-
-    [data-pane='signal'] .trace-row-detail {
-      grid-area: detail;
-    }
-
-    [data-pane='signal'] .trace-row-witness {
-      grid-area: witness;
-      border-top: 0;
-      border-inline-start: 1px dotted var(--line);
-      padding-inline-start: var(--space-2);
-      padding-top: 0;
-      margin-top: 0;
+    [data-pane='signal'] .trace-row-says {
+      justify-content: flex-end;
     }
 
     [data-pane='signal'] .trace-row-meta {
-      grid-area: meta;
-      margin-top: 0;
       justify-content: flex-end;
     }
   }
@@ -4714,15 +5154,50 @@
    * Seven columns - ch, joint, commanded, simulated, measured, prov, origin -
    * and two of them are correctness surfaces. In a 245 px pane at the 15 px
    * code size that is about 35 px a column, which is where a provenance badge
-   * starts being cut, and W5's rule for this pane is "change grouping before
-   * dropping columns". So nothing is dropped: below 520 px each row becomes a
-   * record with its own labels, and every column is still there.
+   * starts being cut, and the plan's rule for this pane is "change grouping
+   * before dropping columns". So nothing is dropped: below 520 px each row
+   * becomes a record with its own labels, and every column is still there.
    *
    * The labels are real DOM text rendered from the same `JOINT_COLUMNS` array
    * as the `<th>`s, not `content: attr()`, so there is no second copy of the
    * words to drift and the accessibility tree has exactly one label per cell in
    * both bands: the header row in the table band, the in-cell label in the
    * record band.
+   *
+   * ==========================================================================
+   * W5 SETTLES THE TRADE W2 FLAGGED AND DID NOT DECIDE
+   * ==========================================================================
+   *
+   * W2's record was **one cell per line**: seven labelled lines a joint, so
+   * eight joints in a 400 px pane came to 56 lines and 1,344 px, and the eye
+   * could no longer run down a column of angles because there were no columns
+   * left. Keeping every field and losing the glance is only half of "change
+   * grouping before dropping columns" — the half that is easy.
+   *
+   * The decision: **group, and keep the alignment.** A joint is a THREE-LINE
+   * record, not a seven-line stack —
+   *
+   *     joint                                            ch
+   *     R1                                                0
+   *     commanded        simulated              measured
+   *     100°             99.4°                  null
+   *                                             no sensor exists
+   *     prov  of commanded                      origin  of commanded
+   *     SIMULATED                               HOST MODEL
+   *
+   * — with the three numbers in three equal `1fr` tracks, so `commanded` sits
+   * under `commanded` on every joint and the column scan the table gave is
+   * still there. The only thing the record band gives up against the table is
+   * that a joint takes three rows instead of one, which is the price of a pane
+   * that is 245 px wide and is not negotiable.
+   *
+   * `ch` rides on the identity line rather than taking one of its own: it is
+   * two characters and it is the joint's other name.
+   *
+   * Every one of the seven columns is still laid out, still labelled from
+   * `JOINT_COLUMNS`, and the two correctness columns now carry `of commanded`
+   * beside them (see the array's own comment) — which in this band means
+   * literally beside the value, as the brief asks.
    */
   @container pane (width < 32.5rem) {
     [data-pane='joints'] table.joints,
@@ -4735,20 +5210,53 @@
     }
 
     [data-pane='joints'] table.joints tbody tr {
-      display: block;
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      grid-template-areas:
+        'joint     joint     ch'
+        'commanded simulated measured'
+        'prov      prov      prov'
+        'origin    origin    origin';
+      gap: var(--space-1) var(--space-2);
+      align-items: start;
       border: 1px solid var(--line);
       border-radius: 6px;
       padding: var(--space-2);
       margin-bottom: var(--space-2);
     }
 
+    /* The label sits above its value here, not beside it: at a third of a
+       245 px pane there is not room for both on one line, and the alignment
+       across joints is the thing being bought. */
     [data-pane='joints'] table.joints tbody td {
-      display: grid;
-      grid-template-columns: fit-content(40%) minmax(0, 1fr);
-      gap: var(--space-2);
+      display: block;
       border-bottom: 0;
-      padding: 1px 0;
+      padding: 0;
       text-align: start;
+      min-inline-size: 0;
+    }
+
+    [data-pane='joints'] table.joints tbody td[data-column='ch'] {
+      grid-area: ch;
+      text-align: end;
+    }
+    [data-pane='joints'] table.joints tbody td[data-column='joint'] {
+      grid-area: joint;
+    }
+    [data-pane='joints'] table.joints tbody td[data-column='commanded'] {
+      grid-area: commanded;
+    }
+    [data-pane='joints'] table.joints tbody td[data-column='simulated'] {
+      grid-area: simulated;
+    }
+    [data-pane='joints'] table.joints tbody td[data-column='measured'] {
+      grid-area: measured;
+    }
+    [data-pane='joints'] table.joints tbody td[data-column='prov'] {
+      grid-area: prov;
+    }
+    [data-pane='joints'] table.joints tbody td[data-column='origin'] {
+      grid-area: origin;
     }
 
     /* The label is a label, whatever the cell it sits in is styled as: the
@@ -4765,6 +5273,28 @@
   /* The table band, and the default: the label belongs to the header row. */
   .cell-label {
     display: none;
+  }
+
+  /*
+   * What a column's provenance is ABOUT — see `JOINT_COLUMNS`. It is a second
+   * line under the column name in the table band and a second clause beside the
+   * value in the record band, and it never shrinks below the type floor: this
+   * is the sentence that stops a reader reading the `prov` badge as a claim
+   * about the `measured` column two cells to its left.
+   */
+  .col-scope {
+    display: block;
+    font-size: var(--font-badge);
+    font-weight: 400;
+    font-style: normal;
+    color: var(--muted);
+    text-transform: none;
+    letter-spacing: 0;
+    white-space: normal;
+  }
+
+  .cell-label .col-scope {
+    display: inline;
   }
 
   /* -------------------------------------------------------------- LEARN

@@ -18,8 +18,41 @@
  * own arithmetic — so the learner sees the number *and* sees that nothing
  * measured it. That is the line between "the code said 135°" and "a servo would
  * have gone there".
+ *
+ * ===========================================================================
+ * A SEQUENCE, NOT A COLLECTION OF CARDS — Phase 4 W5
+ * ===========================================================================
+ *
+ * > *"Do not immediately turn every trace row into a generic card. The ordering
+ * > and common fields are part of the trace's meaning."*
+ *
+ * The brief describes this pane as "eight layered rows". **Measured, one wave
+ * renders 36 rows and 10,285 px of scroll** — because four of the eight layers
+ * (`servo.target`, `pwm.output`, `joint.target`, `visual.joint`) emit one row
+ * per joint, and three of those four repeat a *byte-identical* witness eight
+ * times. The `pwm.output` witness alone is 640 characters, drawn eight times,
+ * 439 px a copy. Nothing on screen said those eight boxes were one rung of a
+ * ladder, so the ladder was the one thing the ladder did not show.
+ *
+ * So the list is **grouped by layer into numbered STEPS**, and the step is the
+ * unit the eye lands on:
+ *
+ *   - one `<li class="trace-step">` per layer, in causal order, carrying the
+ *     step number, the layer name, {@link LAYER_MEANING} (which until now
+ *     existed only as a `title` attribute and inside a closed `<details>`), and
+ *     the layer's badge when every lane in it agrees;
+ *   - the witness is **hoisted to the step when every lane's witness is the
+ *     same string**, and stays on the lane when they differ — a data question,
+ *     answered from the data, not a rule about which layers are allowed one;
+ *   - each original row is still a `<li class="trace-row" data-trace-row>`
+ *     lane inside its step, carrying every attribute it carried before.
+ *
+ * **Nothing is dropped.** The brief's list of fields that must survive at every
+ * width — step/layer, event name, primary value, provenance, origin, complete
+ * witness sentence — is exactly what {@link REQUIRED_FIELDS} names in the
+ * harness, and all six are laid out in all three bands.
  */
-import type { ReactElement } from 'react';
+import type { ReactElement, ReactNode } from 'react';
 
 import {
   LAYER_MEANING,
@@ -49,15 +82,86 @@ const MATCH_NOTE: Readonly<Record<TraceRow['match'], string>> = {
     'across UART0. This is correlation, not causation.',
 };
 
+/**
+ * One rung of the ladder: every consecutive row that shares a layer.
+ *
+ * Built by a linear scan rather than a `Map`, because `trace.rows` is already
+ * sorted into causal order by `LAYER_RANK` and re-grouping it through a map
+ * would throw that order away and then have to reconstruct it — which is the
+ * shape of bug this pane exists to make visible.
+ */
+interface TraceStep {
+  readonly layer: TraceRow['layer'];
+  readonly rank: number;
+  /** 1-based position in the ladder, which is what the reader is shown. */
+  readonly step: number;
+  readonly rows: readonly TraceRow[];
+  /** The badge every lane agrees on, or `null` when they do not. */
+  readonly badge: { readonly text: string; readonly tone: string } | null;
+  /** The witness every lane repeats verbatim, or `null` when they differ. */
+  readonly sharedWitness: string | null;
+}
+
+export function buildSteps(rows: readonly TraceRow[]): readonly TraceStep[] {
+  const steps: TraceStep[] = [];
+  let current: TraceRow[] = [];
+  const flush = (): void => {
+    const first = current[0];
+    if (first === undefined) return;
+    const lanes = current;
+    const badges = lanes.map((r) => traceBadge(r));
+    const firstBadge = badges[0];
+    const unanimous =
+      firstBadge !== undefined && badges.every((b) => b.text === firstBadge.text)
+        ? { text: firstBadge.text, tone: firstBadge.tone }
+        : null;
+    const witness = lanes.every((r) => r.witness === first.witness) ? first.witness : null;
+    steps.push({
+      layer: first.layer,
+      rank: first.rank,
+      step: steps.length + 1,
+      rows: lanes,
+      badge: unanimous,
+      sharedWitness: witness,
+    });
+    current = [];
+  };
+  for (const row of rows) {
+    const open = current[0];
+    if (open !== undefined && open.layer !== row.layer) flush();
+    current.push(row);
+  }
+  flush();
+  return steps;
+}
+
+/** `01`, `02`, … — the step, which is not a channel and is not a count. */
+const stepNumber = (n: number): string => String(n).padStart(2, '0');
+
+function Witness(props: { readonly children: ReactNode; readonly shared: boolean }): ReactElement {
+  return (
+    <div
+      className="trace-row-witness"
+      data-field="witness"
+      data-witness-scope={props.shared ? 'step' : 'lane'}
+    >
+      <span className="trace-witness-key">who says so</span> {props.children}
+    </div>
+  );
+}
+
 export function SignalTrace(props: SignalTraceProps): ReactElement {
   const { trace, traces, selection, onSelectRow, onSelectTrace } = props;
+  const steps = trace === null ? [] : buildSteps(trace.rows);
 
   return (
     <section className="panel trace-panel" data-testid="signal-trace">
       <header className="panel-header">
-        <h2>See the Signal</h2>
+        <h2 className="panel-title-echo">See the Signal</h2>
         <span className="panel-sub">
-          {trace === null ? 'run a command' : `${trace.rows.length} rows · ${trace.id}`}
+          {trace === null
+            ? 'run a command'
+            : `${steps.length} steps · ${trace.rows.length} rows · ${trace.id}`}
         </span>
       </header>
 
@@ -101,49 +205,133 @@ export function SignalTrace(props: SignalTraceProps): ReactElement {
             )}
           </div>
 
+          {/*
+            The column head. It is `aria-hidden` and only laid out at the wide
+            band: below it, the lane is two lines rather than four columns and a
+            header would name tracks that are not there. The lanes and this row
+            share one track list (`--trace-lane-cols`), which is what the
+            harness measures when it asserts that the words sit over the fields
+            they name.
+          */}
+          <div className="trace-columns" data-testid="trace-columns" aria-hidden="true">
+            <span data-col="event">event</span>
+            <span data-col="value">value</span>
+            <span data-col="says">provenance · origin</span>
+            <span data-col="witness">witness</span>
+          </div>
+
           <ol className="trace-rows" data-testid="trace-rows">
-            {trace.rows.map((row) => {
-              const badge = traceBadge(row);
-              const hit = rowMatchesSelection(row, selection);
+            {steps.map((step) => {
+              const stepHit = step.rows.some((row) => rowMatchesSelection(row, selection));
               return (
                 <li
-                  key={row.id}
-                  className={`trace-row trace-tone-${badge.tone}${hit ? ' hit' : ''}`}
-                  data-trace-row={row.id}
-                  data-layer={row.layer}
-                  data-rank={row.rank}
-                  data-joint={row.joint ?? ''}
-                  data-provenance={row.provenance}
-                  data-origin-kind={row.origin?.kind ?? ''}
-                  data-badge={badge.text}
-                  data-match={row.match}
-                  data-physically-observed={String(row.physicallyObserved)}
-                  onClick={() => onSelectRow(row)}
-                  title={LAYER_MEANING[row.layer]}
+                  key={step.layer}
+                  className={`trace-step${stepHit ? ' hit' : ''}`}
+                  data-trace-step={step.layer}
+                  data-step={step.step}
+                  data-rank={step.rank}
+                  data-lanes={step.rows.length}
+                  data-badge={step.badge?.text ?? ''}
+                  data-witness-shared={String(step.sharedWitness !== null)}
                 >
-                  <div className="trace-row-head">
-                    <code className="trace-layer">{row.layer}</code>
-                    <span className="trace-label">{row.label}</span>
-                    <span className={`prov prov-${badge.tone} trace-badge`}>{badge.text}</span>
-                  </div>
-                  <div className="trace-row-detail">{row.detail}</div>
-                  <div className="trace-row-witness">
-                    <span className="trace-witness-key">who says so</span> {row.witness}
-                  </div>
-                  <div className="trace-row-meta">
-                    <OriginTag origin={row.origin} />
-                    <span className={`trace-match trace-match-${row.match}`} title={MATCH_NOTE[row.match]}>
-                      {row.match}
+                  <div className="trace-step-head">
+                    <span className="trace-step-no" aria-label={`step ${String(step.step)} of ${String(steps.length)}`}>
+                      {stepNumber(step.step)}
                     </span>
-                    <span className="dim">+{row.tMs.toFixed(0)} ms</span>
-                    {row.seq !== null && <span className="dim">seq {row.seq}</span>}
-                    {row.updates > 1 && <span className="dim">×{row.updates}</span>}
-                    {row.sourceRef !== null && (
-                      <code className="dim trace-source">
-                        {row.sourceRef.file}:{row.sourceRef.line}
-                      </code>
+                    <code className="trace-layer">{step.layer}</code>
+                    {/*
+                      LAYER_MEANING was a `title` and a line inside a closed
+                      `<details>`. A ladder whose rungs do not say what they are
+                      is a list of jargon, so it is rendered.
+                    */}
+                    <span className="trace-step-meaning">{LAYER_MEANING[step.layer]}</span>
+                    {/*
+                      The step's badge is drawn only when the step has more than
+                      one lane. On a one-lane step the lane IS the step, and the
+                      badge beside the layer name and the badge on the lane six
+                      pixels below it are the same claim printed twice — which
+                      is the density the brief is complaining about, not a
+                      second correctness surface. The lane's badge is the one
+                      that stays, because it is the one attached to a value.
+                    */}
+                    {step.badge !== null && step.rows.length > 1 && (
+                      <span className={`prov prov-${step.badge.tone} trace-badge`} data-badge-scope="step">
+                        {step.badge.text}
+                      </span>
+                    )}
+                    {step.rows.length > 1 && (
+                      <span className="trace-step-count">
+                        {step.rows.length} rows, one per joint
+                      </span>
                     )}
                   </div>
+
+                  {step.sharedWitness !== null && <Witness shared>{step.sharedWitness}</Witness>}
+
+                  <ol className="trace-lanes">
+                    {step.rows.map((row) => {
+                      const badge = traceBadge(row);
+                      const hit = rowMatchesSelection(row, selection);
+                      return (
+                        <li
+                          key={row.id}
+                          className={`trace-row trace-tone-${badge.tone}${hit ? ' hit' : ''}`}
+                          data-trace-row={row.id}
+                          data-layer={row.layer}
+                          data-rank={row.rank}
+                          data-step={step.step}
+                          data-joint={row.joint ?? ''}
+                          data-provenance={row.provenance}
+                          data-origin-kind={row.origin?.kind ?? ''}
+                          data-badge={badge.text}
+                          data-match={row.match}
+                          data-physically-observed={String(row.physicallyObserved)}
+                          onClick={() => onSelectRow(row)}
+                          title={LAYER_MEANING[row.layer]}
+                        >
+                          <span className="trace-label" data-field="event">
+                            {row.label}
+                          </span>
+                          <span className="trace-row-detail" data-field="value">
+                            {row.detail}
+                          </span>
+                          <span className="trace-row-says" data-field="says">
+                            {/*
+                              The lane keeps its OWN badge even when the step
+                              agrees on one. A badge is a correctness surface and
+                              the step head is a summary of it, not a substitute:
+                              a reader looking at `R3 128 ticks` must be able to
+                              read what claims that number without moving their
+                              eye to a heading.
+                            */}
+                            <span className={`prov prov-${badge.tone} trace-badge`} data-badge-scope="lane">
+                              {badge.text}
+                            </span>
+                            <OriginTag origin={row.origin} />
+                          </span>
+                          {step.sharedWitness === null && (
+                            <Witness shared={false}>{row.witness}</Witness>
+                          )}
+                          <span className="trace-row-meta" data-field="aside">
+                            <span
+                              className={`trace-match trace-match-${row.match}`}
+                              title={MATCH_NOTE[row.match]}
+                            >
+                              {row.match}
+                            </span>
+                            <span className="dim">+{row.tMs.toFixed(0)} ms</span>
+                            {row.seq !== null && <span className="dim">seq {row.seq}</span>}
+                            {row.updates > 1 && <span className="dim">×{row.updates}</span>}
+                            {row.sourceRef !== null && (
+                              <code className="dim trace-source">
+                                {row.sourceRef.file}:{row.sourceRef.line}
+                              </code>
+                            )}
+                          </span>
+                        </li>
+                      );
+                    })}
+                  </ol>
                 </li>
               );
             })}

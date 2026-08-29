@@ -867,6 +867,27 @@ export function App(): ReactElement {
   */
   const oledOrigin = pixelOrigin(emulatorFacts, store.oledSource);
 
+  /*
+    ...and the store is told the same thing, because it has to decide something
+    BEFORE this function runs — Phase 4 W5.
+
+    'pixelOrigin' describes what already happened; 'declareOledFramebuffer'
+    decides whether a host-side render happens at all. Under the default
+    'cli-oled' image a 'face.expression' and an 'oled.frame' arrive for the same
+    face change, so without this the app drew the bitmap host-side and labelled
+    it 'inferred' for the 120-220 ms until the guest's own buffer landed and
+    relabelled it 'observed' — which on an animated face is a badge alternating
+    several times a second. See TelemetryStore's own comment.
+
+    Keyed on the VALUE rather than on the facts object, so a backend that
+    re-reports the same capability does not re-notify, and a switch to the
+    simulator (facts null -> false) does.
+  */
+  const oledFramebufferDeclared = emulatorFacts?.oledFramebuffer === true;
+  useEffect(() => {
+    store.declareOledFramebuffer(oledFramebufferDeclared);
+  }, [store, oledFramebufferDeclared]);
+
   const traces = traceStore.traces;
   const shownTrace = traces.find((t) => t.id === shownTraceId) ?? traces[0] ?? null;
 
@@ -1096,13 +1117,29 @@ export function App(): ReactElement {
         behind the `ⓘ` beside it — hover, focus or click — which is Phase 4 W8
         and the user's own request.
       */
+      /*
+        THE FACE NAME IS NOT HERE ANY MORE — Phase 4 W5.
+
+        > *"When it does that, its html container resizes causing everything
+        > else to shift position, bouncing up and down."*
+
+        The header is a wrapping flex row 262 px wide, and the face name is the
+        one thing in it whose LENGTH is live telemetry: measured at 1440x900,
+        `happy` left the card 213 px tall and `sleepy` left it 241, because six
+        characters instead of five wrapped the row to a second line and every
+        card below moved with it. The firmware's idle-blink animation changes
+        that name several times a second.
+
+        So the name moved into the card's BODY, on a row whose height is one
+        line whatever it holds (`.panel-face-name`). What stays on the header is
+        the badge, the info icon and the zero-frame mark — a fixed set of
+        elements whose vocabulary is fixed, and whose one remaining variation
+        (`inferred` / `observed` / `simulated`) is pinned to a constant width by
+        `.panel-card-summary .prov`. The header cannot change height, so the
+        cards below it cannot move.
+      */
       summary: (
         <>
-          {store.face === null ? (
-            <span className="muted">none yet</span>
-          ) : (
-            <code>{store.face.name}</code>
-          )}{' '}
           {store.oledSource.pixelProvenance === null ? (
             <span className="muted">no pixels</span>
           ) : (
@@ -1243,10 +1280,18 @@ export function App(): ReactElement {
     {
       id: 'signal',
       label: MODULE_LABEL.signal,
+      /*
+        W5: the ladder is a SEQUENCE of steps, and the title says so. The count
+        of steps is derived from the rows the pane will actually group rather
+        than from `TRACE_LAYERS.length`, because a trace that never reached
+        `visual.joint` has seven rungs and a title claiming eight would be the
+        chrome contradicting the pane under it.
+      */
       note:
         hitRowCount > 0
           ? `${String(hitRowCount)} rows`
-          : `${String(shownTrace?.rows.length ?? 0)} rows · ${String(store.totalEvents)} events`,
+          : `${String(new Set((shownTrace?.rows ?? EMPTY_ROWS).map((r) => r.layer)).size)} steps · ` +
+            `${String(shownTrace?.rows.length ?? 0)} rows`,
       noteIsSelection: hitRowCount > 0,
       body: (
         <SignalTrace

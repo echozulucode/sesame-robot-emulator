@@ -355,7 +355,7 @@ function LessonList(props: {
   return (
     <>
       <div className="panel-header">
-        <h2>Learn</h2>
+        <h2 className="panel-title-echo">Learn</h2>
         <span className="panel-sub">
           {LESSONS.length} modules &middot; {LESSONS.filter((l) => l.status === 'polished').length}{' '}
           playable &middot; every step ends on a checkable observable, never a Next button

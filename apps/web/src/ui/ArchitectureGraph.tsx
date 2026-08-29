@@ -687,7 +687,7 @@ function ArchitectureGraphInner(props: ArchitectureGraphProps): ReactElement {
   return (
     <section className="panel arch-panel" data-testid="architecture-graph" data-arch-mode={mode}>
       <header className="panel-header">
-        <h2>Architecture</h2>
+        <h2 className="panel-title-echo">Architecture</h2>
         <span className="panel-sub" data-testid="arch-mode-note">
           {mode === 'path'
             ? `${path.steps.length} steps · ${MODE_NOTE.path}`

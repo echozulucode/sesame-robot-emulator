@@ -128,8 +128,10 @@
  *
  *      Also asserted: ONE active module at every width (the count of laid-out
  *      module panes, for every module in turn) and zero accordion toggles
- *      anywhere; the side panel's **zero scrollers AND zero overflow** at every
- *      width, and the named correctness surfaces present on it with every
+ *      anywhere; the side panel's scroll rule — **no scroller outside the two
+ *      cards allowed one, and those two only when their own content does not
+ *      fit** (Phase 4 W5, replacing W7's "zero scrollers" when the user
+ *      overrode it) — and the named correctness surfaces present on it with every
  *      "more info" screen shut; the architecture's own box against W4's
  *      720/960 bands in the ORDINARY layout; the environment line
  *      `SYSTEM: ... · PHYSICAL HARDWARE: NONE`, visible and whole; `wave`
@@ -4025,6 +4027,101 @@ await waitFor(
     return { ok: true };
   })()`);
   await waitCheck('passed', 'a 3x3 shape drawn into the 128x64 frame', 15000);
+
+  // ============ W5: THE SAME EDITOR, WITHOUT A POINTER THAT CAN DRAG ========
+  //
+  // > *"WCAG 2.2 requires a non-dragging alternative for drag operations unless
+  // > dragging is essential."* — the brief, on the Lab's editors
+  //
+  // Until W5 the only way into this 8,192-pixel bitmap was `pointerdown` +
+  // `pointermove`: there was no `keydown` handler at all and the canvas was not
+  // focusable, so this block could not have passed against the previous build.
+  // It drives the real keys and reads the caret's own read-out, which is the
+  // live region a reader who cannot see the two-pixel outline depends on.
+  //
+  // The pixel is toggled ON and then OFF again, so the frame this leaves behind
+  // is byte-identical to the one the pointer drew and the lesson step above
+  // stays passed on its own evidence rather than on this one's leftovers.
+  {
+    const key = (name) =>
+      page.evaluate(`(() => {
+        const canvas = document.querySelector('[data-testid="pixel-canvas"]');
+        if (canvas === null) return null;
+        canvas.focus();
+        canvas.dispatchEvent(
+          new KeyboardEvent('keydown', { key: ${JSON.stringify(name)}, bubbles: true }),
+        );
+        return document.activeElement === canvas;
+      })()`);
+
+    const caret = () =>
+      page.evaluate(
+        `(document.querySelector('[data-testid="pixel-caret"]')?.innerText ?? '').replace(/\\s+/g, ' ').trim()`,
+      );
+
+    /*
+      RELATIVE, not absolute, and the first version of this check was not.
+
+      It asserted the caret landed on (3, 0) after three ArrowRights, and failed
+      with "(25, 22)" — because the pointer drag above ended at (22, 22) and the
+      caret carries over from it, which is the correct behaviour and is the
+      whole point of having one cursor rather than two. The fix is to read where
+      the caret is and assert the MOVEMENT, which is a stronger claim anyway:
+      "three ArrowRights move exactly three pixels right and none down" cannot
+      be satisfied by a caret that ignores the keys.
+    */
+    const coords = (text) => {
+      const m = /\((\d+), (\d+)\)/.exec(text);
+      return m === null ? null : { x: Number(m[1]), y: Number(m[2]) };
+    };
+
+    const focused = await key('ArrowRight');
+    check(
+      focused === true,
+      'the 128x64 pixel editor did not take keyboard focus. WCAG 2.2 asks for a single-pointer ' +
+        'alternative to a drag, and a canvas nothing can focus has none.',
+    );
+    const afterOne = coords(await caret());
+    await key('ArrowRight');
+    await key('ArrowRight');
+    const afterThree = coords(await caret());
+    check(
+      afterOne !== null &&
+        afterThree !== null &&
+        afterThree.x === afterOne.x + 2 &&
+        afterThree.y === afterOne.y,
+      `two more ArrowRights moved the pixel caret from ${JSON.stringify(afterOne)} to ` +
+        `${JSON.stringify(afterThree)}. Arrow keys move it one bitmap pixel, on the axis pressed ` +
+        'and no other.',
+    );
+
+    await key(' ');
+    await sleep(200);
+    const litReadout = await caret();
+    const litAt = coords(litReadout);
+    const expectedByte =
+      litAt === null ? null : litAt.x + (litAt.y >> 3) * 128;
+    check(
+      litAt !== null &&
+        litAt.x === afterThree?.x &&
+        litAt.y === afterThree?.y &&
+        litReadout.includes(`byte ${String(expectedByte)}`) &&
+        litReadout.includes('1'),
+      `Space at ${JSON.stringify(afterThree)} left the pixel editor reading ` +
+        `${JSON.stringify(litReadout)}. It should name the pixel under the caret, its GDDRAM byte ` +
+        `(x + (y >> 3) * 128 = ${String(expectedByte)}), and that it is now lit — the keyboard ` +
+        'path and its live read-out are one feature.',
+    );
+
+    await key(' ');
+    await sleep(200);
+    const darkReadout = await caret();
+    check(
+      darkReadout.includes('dark') && coords(darkReadout)?.x === afterThree?.x,
+      `toggling the same pixel back off left the read-out at ${JSON.stringify(darkReadout)}; ` +
+        'Space is a toggle, so the frame the lesson step was checked against is restored.',
+    );
+  }
   await clickOn('[data-testid="pixel-push"]');
   await sleep(400);
   const pushed = await page.evaluate('window.__sesame.oled()');
@@ -6972,16 +7069,31 @@ if (SKIP_QEMU) {
           `the brief asked us to stop using and the shape a two-open state would come back in.`,
       );
 
-      // ======================= THE SIDE PANEL: ZERO SCROLLERS, ZERO OVERFLOW
+      // ============== THE SIDE PANEL'S SCROLL RULE, NARROWED — Phase 4 W5
       //
-      // §11.4: *"Never its own scrollbar — neither Commands nor Face. If
-      // content does not fit, that is a content problem to solve by disclosure,
-      // not by adding a scroller."*
+      // §11.4 said *"never its own scrollbar — neither Commands nor Face"*, and
+      // W7 delivered it with a fold: cards disappeared in priority order until
+      // the content fitted. The user has overridden that:
       //
-      // Both halves are asserted, and the second is the one that makes the
-      // first honest: the panel is `overflow: hidden`, so a scroller count
-      // alone would read zero while a provenance badge sat below the fold.
-      // `overflowPx` is `scrollHeight - clientHeight` on the panel itself.
+      // > *"We want to see all the commands where possible and fit the
+      // > available space with commands. All other sections should be large
+      // > enough that they don't need to change size. Use scrollbars in command
+      // > and selected joint only if there isn't enough space to show all
+      // > content."*
+      //
+      // **The old assertion is DELETED rather than relaxed**, because it would
+      // otherwise keep passing against a design that no longer holds it — which
+      // is the failure mode §7 of the plan names. What replaces it is narrower
+      // and is still three claims:
+      //
+      //   1. no scroller ANYWHERE on the panel outside the two cards that
+      //      declare themselves scrollable in the markup;
+      //   2. those two scroll only when their own content genuinely exceeds the
+      //      box flex gave them — a card that scrolls with room to spare is as
+      //      wrong as one that clips;
+      //   3. the panel's own box still never overflows. `overflow: hidden` is
+      //      still on it, so a positive number here is still content a reader
+      //      can neither see nor scroll to.
       await shellPage.evaluate('window.__sesame.setModule("modules")');
       await sleep(400);
       for (const id of ['modules', 'lab', 'source']) {
@@ -6990,17 +7102,27 @@ if (SKIP_QEMU) {
         const reading = await shellPage.evaluate('window.__sesame.shell()');
         if (!reading.panel.visible) continue;
         check(
-          reading.panel.scrollers.length === 0,
-          `at ${where} with "${id}" up the side panel has ${reading.panel.scrollers.length} ` +
-            `scrollable box(es): ${JSON.stringify(reading.panel.scrollers)}. §11.4 says never, at ` +
-            `any width, and means it for Commands and Face by name.`,
+          reading.panel.illegalScrollers.length === 0,
+          `at ${where} with "${id}" up the side panel has ` +
+            `${reading.panel.illegalScrollers.length} scrollable box(es) OUTSIDE the two cards ` +
+            `allowed one: ${JSON.stringify(reading.panel.illegalScrollers)}. Commands and Selected ` +
+            `joint may scroll when their own content does not fit; the Face and the trust card are ` +
+            `sized to their content and never do.`,
         );
+        for (const card of reading.panel.scrollableCards) {
+          check(
+            card.scrolls === card.contentPx > card.boxPx + 1,
+            `at ${where} the "${card.id}" card ${card.scrolls ? 'scrolls' : 'does not scroll'} ` +
+              `around ${card.contentPx} px of content in a ${card.boxPx} px box. It scrolls when, ` +
+              `and only when, the content does not fit.`,
+          );
+        }
         check(
           reading.panel.overflowPx <= 1,
           `at ${where} with "${id}" up the side panel's content overflows its box by ` +
             `${reading.panel.overflowPx.toFixed(0)} px. It is \`overflow: hidden\`, so this is ` +
             `content a reader cannot reach and cannot scroll to — which is the same lie as a ` +
-            `scrollbar, just quieter. The fix is disclosure: fold a card, do not clip one.`,
+            `scrollbar, just quieter. Two cards may scroll; the panel itself may not clip.`,
         );
         check(
           Math.abs(reading.panel.rectWidthPx - PANEL_W_PX) <= 1,
@@ -7049,27 +7171,45 @@ if (SKIP_QEMU) {
             `${JSON.stringify(reading.panel.correctness.find((c) => c.what === 'PHYSICAL HARDWARE')?.text)}`,
         );
         /*
-          Commands NEVER folds — see `FOLD_ORDER` in `ui/Shell.tsx`. The side
-          panel exists to hold it, and `[data-command="wave"]` is the button
-          four phases of this harness press: a vocabulary that disappears on a
-          short window is a vocabulary that is sometimes not there.
+          ================= EVERY COMMAND, AT A MINIMAL SIZE — Phase 4 W5
+
+          > *"We want to see all the commands where possible and fit the
+          > available space with commands. […] The command buttons should be
+          > minimal size like they used to be."*
+
+          Three readings, because the request has three parts and any one of
+          them could be the one that regressed. The vocabulary count comes from
+          `COMMAND_VOCABULARY` through the DOM rather than from a number here:
+          W7's shortlist was four of nineteen, and a check against `>= 5` would
+          have passed on a shortlist of five.
         */
         const commandsCard = await shellPage.evaluate(`(() => {
           const card = document.querySelector('[data-panel-card="commands"]');
           const wave = document.querySelector('[data-panel-card="commands"] [data-command="wave"]');
           const rect = wave === null ? null : wave.getBoundingClientRect();
+          const panelButtons = document.querySelectorAll('[data-panel-card="commands"] [data-command]');
+          const screenButtons = document.querySelectorAll('[data-testid="command-bar-full"] [data-command]');
           return {
-            folded: card === null ? null : card.getAttribute('data-folded'),
+            onPanel: panelButtons.length,
+            inVocabulary: screenButtons.length,
             wavePx: rect === null ? null : [Math.round(rect.width), Math.round(rect.height)],
+            waveFontPx: wave === null ? null : parseFloat(getComputedStyle(wave).fontSize),
           };
         })()`);
         check(
-          commandsCard.folded === 'false' &&
-            commandsCard.wavePx !== null &&
+          commandsCard.wavePx !== null &&
             commandsCard.wavePx[0] > 0 &&
-            commandsCard.wavePx[1] >= 36,
-          `at ${where} the Commands card reads ${JSON.stringify(commandsCard)}. It is excluded ` +
-            `from the fold order at every height, and its wave button is a 36 px target.`,
+            commandsCard.wavePx[1] >= 36 &&
+            commandsCard.wavePx[1] <= 44,
+          `at ${where} the panel's wave button is ${JSON.stringify(commandsCard.wavePx)}. Minimal ` +
+            `means the brief's 36 px fine-pointer target and not much more — it was 56x80 when the ` +
+            `elastic card stretched four buttons across a whole panel.`,
+        );
+        check(
+          commandsCard.waveFontPx !== null && commandsCard.waveFontPx >= TEXT_FLOOR_PX,
+          `at ${where} the panel's command buttons are set at ${commandsCard.waveFontPx}px. ` +
+            `"Minimal" is padding and gap; W1's ${TEXT_FLOOR_PX}px floor is not a thing to spend ` +
+            `on density.`,
         );
         /*
           ============ W8: THE FACE AT THE TOP, AND COMMANDS TAKING THE SLACK
@@ -7099,8 +7239,69 @@ if (SKIP_QEMU) {
         check(
           elasticCards.length === 1 && elasticCards[0].id === 'commands',
           `at ${where} ${elasticCards.length} card(s) declare themselves elastic: ` +
-            `${JSON.stringify(elasticCards.map((c) => c.id))}. Exactly one may, and it is the one ` +
-            `that can never fold.`,
+            `${JSON.stringify(elasticCards.map((c) => c.id))}. Exactly one takes the panel's spare ` +
+            `height, and it is Commands.`,
+        );
+        /*
+          ============ THE CARD DOES NOT RESIZE WHEN ITS CONTENT CHANGES — W5
+
+          > *"When it does that, its html container resizes causing everything
+          > else to shift position, bouncing up and down."*
+
+          The user reported this alongside the inferred/observed flicker, and
+          the two are separate bugs: fixing the flicker removes most occurrences
+          and the shift would still happen on a genuine backend switch, or —
+          measured here — on the firmware's idle-blink animation, which changes
+          the face NAME several times a second.
+
+          **This assertion failed on the build it was written against**, and by
+          a lot: at 1440x900 `setFace("happy")` left the Face card 213 px tall
+          and `setFace("sleepy")` left it 241, because one extra character
+          wrapped a 262 px flex row. The Commands card below went 292 -> 264 and
+          its buttons 80 px -> 65. Four names, one of which is the firmware's
+          default idle face, and the panel had four different layouts.
+
+          Driven through `setFace` rather than waited for, so it is a
+          measurement of the mechanism rather than of whether an animation
+          happened to tick during the run — and the names are chosen for LENGTH
+          (5, 6 and 9 characters), which is the variable that decides.
+        */
+        const faceHeights = [];
+        for (const faceName of ['happy', 'sleepy', 'surprised', 'idle']) {
+          await shellPage.evaluate(`window.__sesame.setFace(${JSON.stringify(faceName)})`);
+          await sleep(320);
+          faceHeights.push(
+            await shellPage.evaluate(`(() => {
+              const card = document.querySelector('[data-panel-card="face"]');
+              const head = card === null ? null : card.querySelector('.pane__header');
+              const commands = document.querySelector('[data-panel-card="commands"]');
+              return {
+                face: ${JSON.stringify(faceName)},
+                cardPx: card === null ? 0 : Math.round(card.getBoundingClientRect().height),
+                headPx: head === null ? 0 : Math.round(head.getBoundingClientRect().height),
+                commandsTopPx:
+                  commands === null ? 0 : Math.round(commands.getBoundingClientRect().top),
+              };
+            })()`),
+          );
+        }
+        const distinctCard = new Set(faceHeights.map((f) => f.cardPx));
+        const distinctTop = new Set(faceHeights.map((f) => f.commandsTopPx));
+        check(
+          distinctCard.size === 1 && distinctTop.size === 1,
+          `at ${where} the Face card took ${distinctCard.size} different height(s) across four ` +
+            `face names and the card below it started at ${distinctTop.size} different ` +
+            `position(s): ${JSON.stringify(faceHeights)}. A card whose height is a function of ` +
+            `live telemetry moves every card under it, several times a second on an animated ` +
+            `face — which is the bouncing the user reported.`,
+        );
+
+                const scrollableIds = reading.panel.cards.filter((c) => c.scrollable).map((c) => c.id);
+        check(
+          JSON.stringify(scrollableIds) === JSON.stringify(['commands', 'inspector']),
+          `at ${where} the cards that may scroll are ${JSON.stringify(scrollableIds)}. The user ` +
+            `named two — "use scrollbars in command and selected joint only" — and the Face and ` +
+            `the trust card are not among them at any height.`,
         );
         /*
           The measurement itself: how much of the panel is still unused once
@@ -7109,6 +7310,17 @@ if (SKIP_QEMU) {
           have eaten into it rather than leaving the panel with a long empty
           tail. `24rem` caps the growth on purpose, so a very tall panel keeps a
           tail and that is reported rather than asserted away.
+        */
+        /*
+          The tail, and it is a REPORT rather than an assertion now.
+
+          W8 asserted `commandsPx >= commandsContentPx` — "the elastic card may
+          only ever grow" — which was the right rule for a card that was
+          forbidden a scrollbar and is a false one for a card that has been
+          given one. A Commands card 197 px tall around 571 px of content is
+          correct behaviour at 2560x900 and would have failed that check. What
+          is asserted instead is the conditional above: it scrolls when, and
+          only when, it does not fit.
         */
         const panelTail = await shellPage.evaluate(`(() => {
           const inner = document.querySelector('[data-testid="side-panel-inner"]');
@@ -7131,20 +7343,16 @@ if (SKIP_QEMU) {
           panelTail !== null && panelTail.tailPx >= -1,
           `at ${where} the side panel's last card runs ${JSON.stringify(panelTail)} past the box`,
         );
-        check(
-          panelTail !== null && panelTail.commandsPx >= panelTail.commandsContentPx,
-          `at ${where} the Commands card is ${panelTail?.commandsPx} px tall around ` +
-            `${panelTail?.commandsContentPx} px of content — the elastic card may only ever GROW, ` +
-            `and a card shorter than its own content is the crushing W7 could not see.`,
-        );
         panelFolds[window.label] = {
           panelHeightPx: Math.round(reading.panel.rectHeightPx),
           order: cardOrder,
           cards: reading.panel.cards.map((c) => ({ id: c.id, heightPx: Math.round(c.heightPx) })),
-          folded: reading.panel.cards.filter((c) => c.folded).map((c) => c.id),
+          scrollable: reading.panel.scrollableCards,
+          illegalScrollers: reading.panel.illegalScrollers,
           overflowPx: reading.panel.overflowPx,
-          scrollers: reading.panel.scrollers.length,
-          // W8: what "maximise the commands pane if it fits" came out as.
+          commandsOnPanel: commandsCard.onPanel,
+          commandsInVocabulary: commandsCard.inVocabulary,
+          commandButtonPx: commandsCard.wavePx,
           commandsPx: panelTail?.commandsPx ?? null,
           unusedTailPx: panelTail?.tailPx ?? null,
         };
@@ -7668,8 +7876,8 @@ if (SKIP_QEMU) {
             `${(shotReading.moduleColumn.surfaceWidthPx ?? 0).toFixed(0)} px of surface and drew ` +
             `its "${arch.mode}" representation; the side panel is ` +
             `${shotReading.panel.rectWidthPx.toFixed(0)} px with ` +
-            `${shotReading.panel.scrollers.length} scrollers and ` +
-            `${shotReading.panel.overflowPx.toFixed(0)} px of overflow.` +
+            `${shotReading.panel.illegalScrollers.length} scroller(s) outside the two cards ` +
+            `allowed one and ${shotReading.panel.overflowPx.toFixed(0)} px of overflow.` +
             (window.breakpoint === 'compact'
               ? ' At Compact the module and the panel are sheets and the robot keeps the shell.'
               : ''),
@@ -7997,12 +8205,158 @@ if (SKIP_QEMU) {
             signature.jointLabelDisplay = label === null ? null : getComputedStyle(label).display;
             const head = table.querySelector('thead');
             signature.jointHeadDisplay = head === null ? null : getComputedStyle(head).display;
+            /*
+              W5 SETTLES THE TRADE W2 RECORDED AND DID NOT DECIDE, and these
+              four readings are what settles it rather than a screenshot.
+
+              W2 built the record band and noted, without deciding, that it had
+              bought "every column kept" with "no column left to scan". The
+              record is a GROUPED three-line row now, so:
+
+                jointRowDisplay    what the record actually is - 'grid' below the
+                                   threshold, 'table-row' above it
+                jointCellsLaidOut  how many of the seven columns have a box. It
+                                   is 7 in BOTH bands or the pane dropped one,
+                                   which is the rule this pane is named after
+                jointColumnLefts   the number of distinct left edges among the
+                                   eight 'commanded' cells. One, or joints cannot
+                                   be compared down a column, which is the half
+                                   of the trade W2 gave up
+                jointScopesLaidOut the column-scope notes ('inferred',
+                                   'no sensor', 'of commanded' twice) that say
+                                   what each correctness column is ABOUT. Four in
+                                   the table band, four per joint in the record
+                                   band, and never zero.
+            */
+            const tr = table.querySelector('tbody tr');
+            signature.jointRowDisplay = tr === null ? null : getComputedStyle(tr).display;
+            signature.jointCellsLaidOut =
+              tr === null
+                ? null
+                : [...tr.querySelectorAll('td')].filter((td) => {
+                    const b = td.getBoundingClientRect();
+                    return b.width > 0 && b.height > 0;
+                  }).length;
+            signature.jointColumnLefts = new Set(
+              [...table.querySelectorAll('tbody td[data-column="commanded"]')].map((td) =>
+                Math.round(td.getBoundingClientRect().left),
+              ),
+            ).size;
+            signature.jointScopesLaidOut = [...table.querySelectorAll('.col-scope')].filter((el) => {
+              const b = el.getBoundingClientRect();
+              return b.width > 0 && b.height > 0;
+            }).length;
           }
-          const row = pane.querySelector('.trace-row');
-          if (row !== null) {
-            signature.traceRowDisplay = getComputedStyle(row).display;
-            const head = row.querySelector('.trace-row-head');
-            signature.traceHeadWrap = head === null ? null : getComputedStyle(head).flexWrap;
+
+          /*
+            SIGNAL - Phase 4 W5. "A sequence, not a collection of cards."
+
+            The row is a LANE inside a numbered step now, so the two readings W2
+            took ('.trace-row''s 'display', and '.trace-row-head''s 'flex-wrap')
+            are gone: one named an element that no longer exists, and the other
+            would have gone on passing while reading 'grid' in all three bands.
+            Both are replaced by a reading of the thing that actually changes
+            with width - how many tracks a lane has - plus the four properties
+            the brief states as requirements rather than as preferences.
+          */
+          const laneRow = pane.querySelector('.trace-row');
+          if (laneRow !== null) {
+            const lanes = [...pane.querySelectorAll('.trace-row')];
+            const steps = [...pane.querySelectorAll('.trace-step')];
+            const columns = pane.querySelector('.trace-columns');
+
+            // The brief's three shapes, as the one number that separates them:
+            // a record (1 track), a two-line row (2), aligned columns (3).
+            signature.traceLaneTracks =
+              getComputedStyle(laneRow).gridTemplateColumns.split(/\\s+/).length;
+            signature.traceColumnsDisplay =
+              columns === null ? null : getComputedStyle(columns).display;
+
+            // The ladder itself: steps numbered 1..N with no gaps, in
+            // non-decreasing causal rank.
+            const stepNos = steps.map((el) => Number(el.getAttribute('data-step')));
+            const stepRanks = steps.map((el) => Number(el.getAttribute('data-rank')));
+            /*
+              The COUNTS go in 'measured', not in 'signature'. Signature is
+              compared byte-for-byte between a 1280 window and a 2560 one, and
+              how many events a replay has delivered by the time a pane is read
+              is a property of the run rather than of the pane. What belongs in
+              the identity comparison is the SHAPE, and that is everything else
+              here.
+            */
+            measured.traceSteps = steps.length;
+            measured.traceLanes = lanes.length;
+            signature.traceStepsNumbered = stepNos.every((n, i) => n === i + 1);
+            signature.traceStepsOrdered = stepRanks.every(
+              (r, i) => i === 0 || stepRanks[i - 1] <= r,
+            );
+            /* Every lane belongs to a step, and no lane is orphaned. */
+            signature.traceLanesInSteps = lanes.every((el) => el.closest('.trace-step') !== null);
+
+            /*
+              THE SIX FIELDS THE BRIEF SAYS MUST SURVIVE AT EVERY WIDTH:
+              step/layer, event name, primary value, provenance, origin and the
+              COMPLETE witness sentence. Counted as lanes that are missing one,
+              so the reading is 0 or it says how many are broken.
+            */
+            signature.traceLanesMissingAField = lanes.filter((el) => {
+              const boxed = (node) => {
+                if (node === null || node === undefined) return false;
+                const b = node.getBoundingClientRect();
+                return b.width > 0 && b.height > 0;
+              };
+              const step = el.closest('.trace-step');
+              const witness =
+                el.querySelector('.trace-row-witness') ??
+                (step === null ? null : step.querySelector(':scope > .trace-row-witness'));
+              return !(
+                boxed(step === null ? null : step.querySelector('.trace-step-no')) &&
+                boxed(step === null ? null : step.querySelector('.trace-layer')) &&
+                boxed(el.querySelector('[data-field="event"]')) &&
+                boxed(el.querySelector('[data-field="value"]')) &&
+                boxed(el.querySelector('.trace-badge')) &&
+                boxed(el.querySelector('[data-origin-kind]')) &&
+                boxed(witness)
+              );
+            }).length;
+
+            /*
+              ...and the witness is never truncated to keep the geometry, which
+              the brief calls out by name. Measured as a box that cannot show its
+              own content, not as a CSS property: '-webkit-line-clamp' and a
+              fixed height both truncate without 'text-overflow' ever being set.
+            */
+            signature.traceWitnessesClipped = [
+              ...pane.querySelectorAll('.trace-row-witness'),
+            ].filter(
+              (el) => el.scrollHeight > el.clientHeight + 1 || el.scrollWidth > el.clientWidth + 1,
+            ).length;
+
+            /*
+              The hoist: a witness repeated verbatim across a step's lanes is
+              drawn once. Reported as the count of witness elements against the
+              count of lanes - 15 against 36 for a wave - so the two being equal
+              would mean the grouping had quietly stopped working.
+            */
+            measured.traceWitnessElements = pane.querySelectorAll('.trace-row-witness').length;
+
+            /*
+              And the column head sits over the fields it names. Distinct left
+              edges of every lane's 'says' field plus the head's, which is 1 or
+              the header is naming a track it does not actually share.
+            */
+            if (columns !== null && getComputedStyle(columns).display !== 'none') {
+              const headCell = columns.querySelector('[data-col="says"]');
+              const lefts = new Set(
+                [...pane.querySelectorAll('[data-field="says"]')].map((el) =>
+                  Math.round(el.getBoundingClientRect().left),
+                ),
+              );
+              if (headCell !== null) lefts.add(Math.round(headCell.getBoundingClientRect().left));
+              signature.traceSaysLefts = lefts.size;
+            } else {
+              signature.traceSaysLefts = null;
+            }
           }
           const step = pane.querySelector('.lesson-step');
           if (step !== null) signature.lessonStepDisplay = getComputedStyle(step).display;
@@ -8027,6 +8381,22 @@ if (SKIP_QEMU) {
             signature.sourceCodeOverflowY =
               codeBox === null ? null : getComputedStyle(codeBox).overflowY;
             signature.sourceCodeIs2d = codeBox !== null && codeBox.hasAttribute('data-2d-surface');
+            /*
+              W5's Source item, which is a VERIFICATION rather than a change.
+
+              > *"Keep code unwrapped by default and allow horizontal scrolling.
+              > Do not solve the problem with a narrower or smaller font."*
+
+              The whole of C10 reduces to one computed value on the painted
+              line, and it is the one a future "responsive fix" would reach for
+              first: 'pre-wrap' at a narrow container would reflow 96-column C++
+              into prose and change what the line numbers mean. Read at every
+              swept width so the claim is that it holds at all of them, not that
+              it holds at the one the screenshot was taken at.
+            */
+            const srcLine = pane.querySelector('.src-line');
+            signature.sourceLineWhiteSpace =
+              srcLine === null ? null : getComputedStyle(srcLine).whiteSpace;
             const outlineBox = pane.querySelector('.source-outline');
             signature.sourceOutlineColumns =
               outlineBox === null
@@ -8151,13 +8521,15 @@ if (SKIP_QEMU) {
           const narrow = px < NARROW_PX;
           const wide = px >= WIDE_PX;
           const s = reading.signature;
+          /* The counts, which are deliberately outside the identity comparison. */
+          const m = reading.measured;
 
           if (s.jointsDisplay !== undefined) {
             check(
               s.jointsDisplay === (narrow ? 'block' : 'table'),
               `${where}: the joint inspector renders as "${s.jointsDisplay}". Below ${NARROW_PX} px ` +
-                `of pane it is stacked records and above it is a table — seven columns, two of them ` +
-                `correctness surfaces, do not fit in 35 px each.`,
+                `of pane it is grouped joint records and above it is a table — seven columns, two ` +
+                `of them correctness surfaces, do not fit in 35 px each.`,
             );
             check(
               s.jointLabelDisplay === (narrow ? 'block' : 'none') &&
@@ -8166,18 +8538,105 @@ if (SKIP_QEMU) {
                 `${JSON.stringify([s.jointLabelDisplay, s.jointHeadDisplay])}. Exactly one of the two ` +
                 `carries the column names in each band; both or neither is an accessibility defect.`,
             );
+
+            // =============== W5: GROUPING, AND THE ALIGNMENT IT PAID FOR
+            check(
+              s.jointRowDisplay === (narrow ? 'grid' : 'table-row'),
+              `${where}: a joint record renders as "${s.jointRowDisplay}". Below the threshold it ` +
+                `is a three-line GRID - identity, the three numbers, then the two badges - and not ` +
+                `the seven-line stack W2 left here, which kept every field and lost every column.`,
+            );
+            check(
+              s.jointCellsLaidOut === 7,
+              `${where}: ${s.jointCellsLaidOut} of the seven joint columns have a box. "Change ` +
+                `grouping before you drop columns" is the rule for this pane, and this is the half ` +
+                `of it that can be counted.`,
+            );
+            check(
+              s.jointColumnLefts === 1,
+              `${where}: the eight joints' \`commanded\` cells start at ${s.jointColumnLefts} ` +
+                `different left edges. One, or a reader cannot run their eye down a column - which ` +
+                `is the thing the record band gave up before W5 and the reason it is grouped.`,
+            );
+            check(
+              s.jointScopesLaidOut >= 4,
+              `${where}: ${s.jointScopesLaidOut} column-scope note(s) are on screen. Every one of ` +
+                `\`simulated\`, \`measured\`, \`prov\` and \`origin\` says what it is about - ` +
+                `"the learner should never have to infer whether provenance belongs to the joint, ` +
+                `the row, or one numerical datum".`,
+            );
           }
-          if (s.traceRowDisplay !== undefined) {
+          if (s.traceLaneTracks !== undefined) {
+            // ==================================== W5: SIGNAL IS A SEQUENCE
+            //
+            // > *"Signal should become a sequence, not a collection of
+            // > unrelated cards. The ordering and common fields are part of the
+            // > trace's meaning."*
+            //
+            // The brief's three shapes at the two thresholds this stylesheet is
+            // allowed, as the one number that separates them.
+            const expectedTracks = wide ? 3 : narrow ? 1 : 2;
             check(
-              s.traceRowDisplay === (wide ? 'grid' : 'list-item'),
-              `${where}: a Signal row renders as "${s.traceRowDisplay}"; at ${WIDE_PX} px and above ` +
-                `it is the two-column row (what happened | who says so)`,
+              s.traceLaneTracks === expectedTracks,
+              `${where}: a Signal lane has ${s.traceLaneTracks} column track(s); the brief's shapes ` +
+                `are a trace-step RECORD below ${NARROW_PX} px (1), a two-line row to ${WIDE_PX} ` +
+                `(2), and aligned columns above it (3).`,
             );
             check(
-              s.traceHeadWrap === (narrow ? 'wrap' : 'nowrap'),
-              `${where}: the trace row head wraps "${s.traceHeadWrap}". The column alignment W1 had ` +
-                `to give up at 14/16/14 px comes back when the pane can pay for it, and not before.`,
+              s.traceColumnsDisplay === (wide ? 'grid' : 'none'),
+              `${where}: the column head is "${s.traceColumnsDisplay}". It names three tracks, so ` +
+                `it is laid out exactly where the lane has three - naming a column over a stacked ` +
+                `record is a label for something that is not there.`,
             );
+
+            // THE LADDER. Numbered 1..N with no gaps and in non-decreasing
+            // causal rank, which is the whole claim the numbers make.
+            check(
+              s.traceStepsNumbered === true && s.traceStepsOrdered === true,
+              `${where}: the ${m.traceSteps} steps are numbered ` +
+                `${s.traceStepsNumbered ? 'consecutively' : 'WITH A GAP'} and ordered ` +
+                `${s.traceStepsOrdered ? 'causally' : 'OUT OF CAUSAL RANK'}. A number a reader can ` +
+                `count on is the difference between a sequence and a pile.`,
+            );
+            check(
+              s.traceLanesInSteps === true && m.traceLanes >= m.traceSteps,
+              `${where}: ${m.traceLanes} lane(s) across ${m.traceSteps} step(s), and ` +
+                `${s.traceLanesInSteps ? 'all' : 'NOT all'} of them are inside a step. A lane with ` +
+                `no rung is the card this workstream removed.`,
+            );
+
+            // NOTHING WAS DROPPED TO ACHIEVE IT. The brief's own list of fields
+            // that must survive at every width, at every width.
+            check(
+              s.traceLanesMissingAField === 0,
+              `${where}: ${s.traceLanesMissingAField} of ${m.traceLanes} lanes are missing one of ` +
+                `the six fields the brief requires at EVERY width - step/layer, event, value, ` +
+                `provenance, origin, and a complete witness.`,
+            );
+            check(
+              s.traceWitnessesClipped === 0,
+              `${where}: ${s.traceWitnessesClipped} witness sentence(s) cannot show their own ` +
+                `content. "Never truncate witness text just to retain table geometry" is the one ` +
+                `thing the brief says about this pane in bold.`,
+            );
+
+            // ...and the grouping is doing the work it was added for. A wave
+            // renders 36 lanes and 15 witnesses; 36 witnesses would mean the
+            // hoist had stopped.
+            check(
+              m.traceWitnessElements <= m.traceLanes,
+              `${where}: ${m.traceWitnessElements} witness element(s) for ${m.traceLanes} lane(s). ` +
+                `A witness repeated verbatim across a step is drawn once.`,
+            );
+
+            if (wide) {
+              check(
+                s.traceSaysLefts === 1,
+                `${where}: the provenance column has ${s.traceSaysLefts} distinct left edge(s) ` +
+                  `across the lanes and the column head. "Preserve row alignment" is a measurement, ` +
+                  `and a head that does not share the lanes' track list is a caption, not a column.`,
+              );
+            }
           }
           if (s.lessonStepDisplay !== undefined) {
             check(
@@ -8219,6 +8678,15 @@ if (SKIP_QEMU) {
               s.sourceCodeIs2d === true,
               `${where}: the code region stopped declaring data-2d-surface, which is the only ` +
                 `reason a pane is allowed a second vertical scroller`,
+            );
+            // W5, verified rather than changed: real code, never reflowed prose.
+            check(
+              s.sourceLineWhiteSpace === 'pre',
+              `${where}: a source line computes white-space "${s.sourceLineWhiteSpace}". ` +
+                `The brief's rule for this pane is "keep code unwrapped by default and allow ` +
+                `horizontal scrolling; do not solve the problem with a narrower or smaller font" — ` +
+                `and a wrapped line silently renumbers the file a reader is comparing against ` +
+                `hardware/source-annotations.json.`,
             );
             /*
               THE MINIFIED OUTLINE, and the expectation is arithmetic rather
@@ -8350,7 +8818,6 @@ if (SKIP_QEMU) {
             }
             if (expectedMode === 'full') archFullZoomDebt.push({ where, ...archText });
           }
-          const m = reading.measured;
           if (m.proseCh !== undefined) {
             // 45ch is a geometric claim about the box, so it is checked as one.
             // Where the pane cannot hold it, that is recorded with the number
@@ -8471,6 +8938,192 @@ if (SKIP_QEMU) {
     console.log(
       `[web] container sweep: ${PANES.length} panes x ${CONTAINER_WIDTHS.length} widths x 2 windows, ` +
         `${divergences} viewport-dependent difference(s)`,
+    );
+  }
+
+  // ======================================================================
+  // W5: THE INTEGER-PIXEL ZOOM, THE ECHOED PANE TITLES, AND THE LAB EDITORS
+  // ======================================================================
+  //
+  // Three claims that are about the whole shell rather than about one pane's
+  // container width, so they are measured per WINDOW rather than in the sweep.
+  //
+  //   1. **Every 128x64 surface renders at a whole number of screen pixels per
+  //      bitmap pixel.** This is the claim W2 handed on as an open policy
+  //      decision and it is the one that had already been quietly lost: W7
+  //      published `data-oled-zoom={compact ? '2' : '4'}` — an attribute that
+  //      STATES the answer — on a canvas whose `max-width: 100%` clamped it to
+  //      227 px in a 262 px card, which is **1.77x**. An assertion against that
+  //      attribute could not have failed. This one reads the box.
+  //
+  //   2. **No pane prints its own name under the column's.** W3 handed this
+  //      over and W7 fixed three of the five with a structural selector; Learn
+  //      and Lab, whose headers sit one level deeper, went on echoing. Measured
+  //      by comparing rendered text, so it cannot be fixed by moving a rule.
+  //
+  //   3. **The Lab's editors pan; they do not push the pane sideways.**
+  //      `.lab-body` was an implicit `auto` grid track, which sizes to its
+  //      item's MAX-CONTENT: the Pose tab's nine-column table ran the module
+  //      column 320 px past its own width, so the table's own `overflow-x` never
+  //      engaged and the whole pane scrolled instead.
+  {
+    const OLED_ZOOM_LADDER = [8, 6, 4, 2, 1];
+    const zoomReadings = [];
+    const titleEchoes = [];
+    const labOverflow = [];
+
+    /** Every surface that claims a zoom, and the box it actually got. */
+    const readZooms = (evaluate, where) =>
+      evaluate(
+        '[...document.querySelectorAll("[data-oled-zoom]")].map((el) => {' +
+          'const b = el.getBoundingClientRect();' +
+          'return { id: el.id || el.getAttribute("data-testid") || el.className,' +
+          ' claimed: Number(el.getAttribute("data-oled-zoom")),' +
+          ' widthPx: Math.round(b.width), heightPx: Math.round(b.height),' +
+          ' laidOut: b.width > 0 && b.height > 0 };' +
+          '})',
+      ).then((rows) => rows.map((r) => ({ ...r, where })));
+
+    /*
+      An h1/h2/h3 inside a pane whose OWN text equals the pane chrome's title.
+      Rendered text on both sides, and only the element's own text nodes, so a
+      wrapper that merely contains the title does not count as an echo.
+    */
+    const readTitleEchoes = (evaluate, where) =>
+      evaluate(
+        '(() => {' +
+          'const norm = (t) => (t || "").replace(/\\s+/g, " ").trim().toLowerCase();' +
+          'const boxed = (e) => { const r = e.getBoundingClientRect(); return r.width > 0 && r.height > 0; };' +
+          'const out = [];' +
+          'for (const holder of document.querySelectorAll("[data-pane]")) {' +
+          '  if (!boxed(holder)) continue;' +
+          '  const chrome = holder.querySelector(":scope > .pane__header .dock-section-label");' +
+          '  if (chrome === null || !boxed(chrome)) continue;' +
+          '  const title = norm(chrome.textContent);' +
+          '  for (const h of holder.querySelectorAll("h1,h2,h3")) {' +
+          '    if (h === chrome || h.contains(chrome) || !boxed(h)) continue;' +
+          '    let own = ""; for (const n of h.childNodes) if (n.nodeType === 3) own += n.nodeValue;' +
+          '    if (norm(own) === title) out.push({ pane: holder.getAttribute("data-pane"), title });' +
+          '  }' +
+          '}' +
+          'return out;' +
+          '})()',
+      ).then((rows) => rows.map((r) => ({ ...r, where })));
+
+    for (const window12 of RESPONSIVE_WINDOWS) {
+      const label = `${window12.width}x${window12.height}`;
+      const w5Page = await bootPage({ width: window12.width, height: window12.height });
+      try {
+        // --------------------------------------------- 1. the integer zoom
+        // The glance card first, with nothing else open.
+        zoomReadings.push(...(await readZooms(w5Page.evaluate, `${label} panel`)));
+
+        // The Face "more info" screen, which is where a pixel is hoverable.
+        await w5Page.evaluate(
+          'document.querySelector(\'[data-panel-more="face"]\')?.click()',
+        );
+        await sleep(600);
+        zoomReadings.push(...(await readZooms(w5Page.evaluate, `${label} face screen`)));
+        await w5Page.evaluate('document.querySelectorAll("dialog[open]").forEach((d) => d.close())');
+        await sleep(300);
+
+        // --------------------------------- 2. the titles, in every module
+        for (const moduleId of ['modules', 'signal', 'source', 'learn', 'lab']) {
+          await w5Page.evaluate(`window.__sesame.setModule(${JSON.stringify(moduleId)})`);
+          await sleep(moduleId === 'modules' ? 900 : 600);
+          titleEchoes.push(...(await readTitleEchoes(w5Page.evaluate, `${label} ${moduleId}`)));
+        }
+
+        // ----------------------- 3. the Lab's five editors, one tab at a time
+        await w5Page.evaluate(
+          '[...document.querySelectorAll(\'[data-pane="lab"] button\')]' +
+            '.find((b) => /open the lab/i.test(b.textContent))?.click()',
+        );
+        await sleep(700);
+        const tabIds = await w5Page.evaluate(
+          '[...document.querySelectorAll(\'[data-pane="lab"] .lab-tab\')]' +
+            '.map((b) => b.getAttribute("data-testid"))',
+        );
+        for (const tabId of tabIds) {
+          await w5Page.evaluate(
+            `document.querySelector(${JSON.stringify(`[data-testid="${tabId}"]`)}).click()`,
+          );
+          await sleep(500);
+          const reading = await w5Page.evaluate(
+            '(() => {' +
+              'const pane = document.querySelector(\'[data-pane="lab"]\');' +
+              'const FORM = new Set(["TEXTAREA", "INPUT", "SELECT"]);' +
+              'const undeclared = [...pane.querySelectorAll("*")].filter((e) => {' +
+              '  if (FORM.has(e.tagName)) return false;' +
+              '  if (e.scrollWidth <= e.clientWidth + 1) return false;' +
+              '  const o = getComputedStyle(e).overflowX;' +
+              '  if (o !== "auto" && o !== "scroll") return false;' +
+              '  return !e.hasAttribute("data-2d-surface");' +
+              '}).map((e) => e.getAttribute("data-testid") || String(e.className).split(" ")[0]);' +
+              'return { paneOverflowPx: Math.round(pane.scrollWidth - pane.clientWidth), undeclared };' +
+              '})()',
+          );
+          labOverflow.push({ where: label, tab: tabId, ...reading });
+          zoomReadings.push(...(await readZooms(w5Page.evaluate, `${label} ${tabId}`)));
+        }
+        reportPageErrors(`phase 12 W5 at ${label}`);
+      } finally {
+        w5Page.close();
+        await sleep(400);
+      }
+    }
+
+    for (const reading of zoomReadings) {
+      if (!reading.laidOut) continue;
+      check(
+        OLED_ZOOM_LADDER.includes(reading.claimed),
+        `${reading.where}: ${reading.id} claims a zoom of ${reading.claimed}, which is not a rung ` +
+          `of the ladder ${JSON.stringify(OLED_ZOOM_LADDER)}.`,
+      );
+      check(
+        reading.widthPx === 128 * reading.claimed && reading.heightPx === 64 * reading.claimed,
+        `${reading.where}: ${reading.id} says data-oled-zoom="${reading.claimed}" and renders ` +
+          `${reading.widthPx}x${reading.heightPx}, which is ` +
+          `${(reading.widthPx / 128).toFixed(2)}x. A 128x64 grid at a fractional zoom paints some ` +
+          `bitmap pixels wider than others and puts the SSD1306's page-grid lines between device ` +
+          `pixels — see apps/web/src/oled/zoom.ts.`,
+      );
+    }
+
+    check(
+      titleEchoes.length === 0,
+      `${titleEchoes.length} pane(s) print their own name under the column's: ` +
+        `${JSON.stringify(titleEchoes.slice(0, 4))}. W3 handed this over; the structural selector ` +
+        `that replaced it caught three of five.`,
+    );
+
+    for (const lab of labOverflow) {
+      check(
+        lab.paneOverflowPx === 0,
+        `${lab.where} ${lab.tab}: the Lab pane's own content is ${lab.paneOverflowPx} px wider ` +
+          `than the pane. An editor that is too wide must PAN inside its own declared surface; a ` +
+          `pane that scrolls sideways has taken the module column with it.`,
+      );
+      check(
+        lab.undeclared.length === 0,
+        `${lab.where} ${lab.tab}: ${JSON.stringify(lab.undeclared)} scroll(s) horizontally without ` +
+          `declaring data-2d-surface. Horizontal overflow is legitimate for a derivation table, a ` +
+          `timeline and a pixel grid, and it says so or it is a leak.`,
+      );
+    }
+
+    phases.integerPixelZoom = {
+      ok: true,
+      ladder: OLED_ZOOM_LADDER,
+      surfaces: zoomReadings.filter((r) => r.laidOut),
+      titleEchoes,
+      lab: labOverflow,
+    };
+    const zoomsSeen = [...new Set(zoomReadings.filter((r) => r.laidOut).map((r) => r.claimed))];
+    console.log(
+      `[web] W5: ${zoomReadings.filter((r) => r.laidOut).length} OLED surface(s) at integer zooms ` +
+        `${JSON.stringify(zoomsSeen.sort((a, b) => b - a))}, ${titleEchoes.length} echoed pane ` +
+        `title(s), ${labOverflow.length} Lab editor tab(s) with 0 px of pane overflow`,
     );
   }
 
@@ -8993,14 +9646,17 @@ if (SKIP_QEMU) {
       // the DOM in `folds[].order` at every window as well, so this line cannot
       // drift away from what the panel does.
       cards: ['face', 'trust (Driving)', 'commands', 'inspector'],
-      scrollers: 0,
-      rule: 'zero scrollers AND zero overflow at every width; disclosure, never a scroller',
-      disclosure:
-        'cards FOLD in priority order (inspector, face) when the panel runs out of height, ' +
-        'measured rather than keyed to a breakpoint; a folded card keeps its header, its ' +
-        '"more info" button and a summary carrying its correctness mark. Commands and the trust ' +
-        'card never fold, and Commands GROWS into whatever slack is left, capped at 24rem',
-      folds: panelFolds,
+      scrollableCards: ['commands', 'inspector'],
+      rule:
+        'Phase 4 W5: no scroller outside Commands and Selected joint; those two scroll when, ' +
+        'and only when, their own content exceeds the box flex gave them; the panel itself ' +
+        'never overflows. This REPLACES W7\'s "zero scrollers at every width", which the user ' +
+        'overrode — see docs/findings/W5-hard-panes.md',
+      sizing:
+        'Face and the trust card are `flex: 0 0 auto` — their own content\'s height at every ' +
+        'panel height. Commands is `1 1 auto` and takes the spare; Selected joint is `0 1 auto` ' +
+        'and gives height back first. No fold, no layout effect, no measurement after a commit.',
+      windows: panelFolds,
       moreInfo: {
         trust: 'the backend switch, PROVENANCE_MEANING, the emulator qualifiers and the counts',
         commands: 'the whole 20-command vocabulary and the face shortlist',
@@ -9134,7 +9790,8 @@ console.log(
     `regimes §11.2 named, both asserted, with the shell publishing which was in force — and at ` +
     `least 45% of its height and 480 px of width everywhere; ONE module was active at every ` +
     `width, with zero accordion toggles anywhere; the side panel held Commands, the face and the ` +
-    `selected joint in 280 px with ZERO scrollers and ZERO overflow at every window, and carried ` +
+    `selected joint in 280 px, showing the WHOLE command vocabulary, with no scroller outside ` +
+    `Commands and Selected joint at any window and no overflow anywhere, and carried ` +
     `the provenance, the origin, the measurement verdict and PHYSICAL HARDWARE: NONE on itself ` +
     `rather than behind a "more info" screen; the environment line stated SYSTEM and PHYSICAL ` +
     `HARDWARE: NONE whole at every width; and wave stayed reachable from the status line with no ` +

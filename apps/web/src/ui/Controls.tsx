@@ -107,14 +107,28 @@ const BACKEND_CHOICES: readonly { id: BackendId; label: string; sub: string }[] 
 const FACE_SHORTLIST = ['happy', 'sad', 'angry', 'surprised', 'love', 'sleepy', 'confused', 'idle'];
 
 /**
- * The five commands the side panel shows — Phase 4 W7.
+ * ===========================================================================
+ * THE PANEL SHOWS EVERY COMMAND — Phase 4 W5, correcting W7
+ * ===========================================================================
  *
- * `wave` is first and is not negotiable: it is the button four harness phases
- * click, and it is the one movement every lesson and every capture reaches for.
- * The other four are the poses a reader tries next. The remaining fifteen are
- * in the "All commands" screen, which is a click and not a scroll.
+ * > *"We want to see all the commands where possible and fit the available
+ * > space with commands. […] Use scrollbars in command and selected joint only
+ * > if there isn't enough space to show all content. The command buttons should
+ * > be minimal size like they used to be."*
+ *
+ * W7 showed four of the nineteen and put the rest behind an "All 20" screen,
+ * because the side panel was forbidden a scrollbar at any width and a full
+ * vocabulary would not fit. That constraint has been lifted for this card by
+ * name (see `SCROLLABLE_CARDS` in `ui/Shell.tsx`), so the shortlist has nothing
+ * left to buy: the card takes the panel's spare height, lays the buttons out at
+ * their own minimal size, and scrolls only when the vocabulary genuinely
+ * exceeds the space.
+ *
+ * The screen stays. It is not a duplicate list — it carries the faces, the
+ * two ⚠ zero-frame faces, the receive-only warning and the sentence about where
+ * the vocabulary comes from, none of which fit on a 262 px card.
  */
-const PANEL_COMMANDS: readonly string[] = ['wave', 'stand', 'rest', 'dance'];
+const PANEL_COMMANDS: readonly string[] | null = null;
 
 /** Two that work, and the two that draw nothing — see {@link FaceBar}. */
 const PANEL_FACES: readonly string[] = ['happy', 'sad'];
@@ -411,7 +425,10 @@ export function CommandBar(props: CommandBarProps): ReactElement {
   const panel = variant === 'panel';
 
   const all = COMMAND_VOCABULARY.filter((c) => c.command !== '' && c.command !== 'stop');
-  const commands = panel ? all.filter((c) => PANEL_COMMANDS.includes(c.command)) : all;
+  const commands =
+    panel && PANEL_COMMANDS !== null
+      ? all.filter((c) => PANEL_COMMANDS.includes(c.command))
+      : all;
   /*
     The two ⚠ faces are in BOTH lists on purpose. `setFace("stand")` and
     `setFace("default")` draw nothing at all — the bitmap is weak-undefined,
@@ -519,7 +536,9 @@ export function CommandBar(props: CommandBarProps): ReactElement {
 
       {panel ? (
         <p className="note muted">
-          {commands.length} of {all.length} commands
+          {commands.length === all.length
+            ? `all ${String(all.length)} commands, from hardware-map.json`
+            : `${String(commands.length)} of ${String(all.length)} commands`}
         </p>
       ) : (
         <p className="note muted">

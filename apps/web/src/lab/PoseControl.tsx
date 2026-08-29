@@ -73,7 +73,20 @@ export function PoseControl(props: PoseControlProps): ReactElement {
         <code>positionFeedbackNote</code>). Every number below is what the code <i>asks</i> for.
       </p>
 
-      <table className="pose-table" data-testid="pose-table">
+      {/*
+        A DECLARED TWO-DIMENSIONAL SURFACE — Phase 4 W5.
+
+        > *"'responsive pane' should mean responsive to the DATA MODEL of that
+        > pane, not merely different CSS grid columns."*
+
+        Eight columns of arithmetic that are only worth reading side by side:
+        `commanded + subtrim -> constrain -> LEDC tick -> pulse` is one sentence
+        read left to right, and stacking it into records would be reflowing a
+        derivation into a list. So it pans, and it says so. `ch` and `joint` are
+        sticky, because a panned table whose row identity scrolls off the left
+        is a grid of numbers belonging to nothing.
+      */}
+      <table className="pose-table" data-testid="pose-table" data-2d-surface="table">
         <thead>
           <tr>
             <th>ch</th>

@@ -403,8 +403,35 @@ export interface PanelReading {
   readonly visible: boolean;
   readonly rectWidthPx: number;
   readonly rectHeightPx: number;
-  /** Every scrollable box inside the panel, outermost first. Must be EMPTY. */
+  /**
+   * Every scrollable box inside the panel, outermost first.
+   *
+   * It used to have to be EMPTY. Phase 4 W5 narrows that on the user's own
+   * instruction: two cards are allowed to scroll when their own content does
+   * not fit, and nothing else is. {@link PanelReading.illegalScrollers} is the
+   * one that must be empty, and it is what the harness asserts.
+   */
   readonly scrollers: readonly string[];
+  /**
+   * Scrollers on the panel that are NOT inside a card that declares itself
+   * scrollable — `[data-scrollable="true"]`, which is Commands and Selected
+   * joint. **This is the rule that replaced "zero scrollers".**
+   */
+  readonly illegalScrollers: readonly string[];
+  /**
+   * Per scrollable card: does its body actually scroll, and by how much.
+   *
+   * *"Use scrollbars in command and selected joint only if there isn't enough
+   * space to show all content"* is a conditional, so the reading has to carry
+   * both halves — a card that scrolls with room to spare is as wrong as one
+   * that clips.
+   */
+  readonly scrollableCards: readonly {
+    readonly id: string;
+    readonly contentPx: number;
+    readonly boxPx: number;
+    readonly scrolls: boolean;
+  }[];
   /** `scrollHeight - clientHeight` on the panel. Must be <= 1. */
   readonly overflowPx: number;
   /** The cards on it, and whether each has a box a reader can see. */
@@ -420,8 +447,16 @@ export interface PanelReading {
     readonly id: string;
     readonly visible: boolean;
     readonly heightPx: number;
-    readonly folded: boolean;
-    /** The one card allowed to take measured slack — W8's `ELASTIC_CARD`. */
+    /**
+     * Was: whether the panel had folded this card away.
+     *
+     * Nothing folds any more — Phase 4 W5 replaced the fold with a flex rule —
+     * and rather than leave a field reporting a constant `false` about a
+     * mechanism that no longer exists, it says what the card is now allowed to
+     * do with the panel's height.
+     */
+    readonly scrollable: boolean;
+    /** The card that takes the panel's spare height — `ELASTIC_CARD`. */
     readonly elastic: boolean;
   }[];
   /**
@@ -1430,6 +1465,38 @@ export function installDebugHook(wiring: DebugHookWiring): () => void {
         rectWidthPx: panelRoot?.getBoundingClientRect().width ?? 0,
         rectHeightPx: panelRoot?.getBoundingClientRect().height ?? 0,
         scrollers: panelRoot === null ? [] : scrollersIn(panelRoot).scrollers,
+        /*
+          The narrowed rule — Phase 4 W5. A scroller is legal exactly when it is
+          inside a card that has declared itself scrollable in the markup, which
+          is `SCROLLABLE_CARDS` in `ui/Shell.tsx` and nowhere else. Computed
+          from the DOM rather than from a list of names here, so adding a third
+          scrollable card is a change to one file.
+        */
+        illegalScrollers:
+          panelRoot === null
+            ? []
+            : [panelRoot, ...panelRoot.querySelectorAll('*')]
+                .filter((el) => {
+                  if (['TEXTAREA', 'INPUT', 'SELECT'].includes(el.tagName)) return false;
+                  if (el.scrollHeight <= el.clientHeight + 1) return false;
+                  const overflow = getComputedStyle(el).overflowY;
+                  if (overflow !== 'auto' && overflow !== 'scroll') return false;
+                  return el.closest('[data-scrollable="true"]') === null;
+                })
+                .map((el) => {
+                  const testid = el.getAttribute('data-testid');
+                  const cls = (el.getAttribute('class') ?? '').split(/\s+/)[0];
+                  return testid !== null ? `[${testid}]` : `.${cls ?? el.tagName}`;
+                }),
+        scrollableCards: [...document.querySelectorAll('[data-scrollable="true"]')].map((card) => {
+          const body = card.querySelector('.panel-card-body');
+          return {
+            id: card.getAttribute('data-panel-card') ?? '',
+            contentPx: body === null ? 0 : body.scrollHeight,
+            boxPx: body === null ? 0 : body.clientHeight,
+            scrolls: body !== null && body.scrollHeight > body.clientHeight + 1,
+          };
+        }),
         overflowPx:
           panelInner === null
             ? 0
@@ -1441,7 +1508,7 @@ export function installDebugHook(wiring: DebugHookWiring): () => void {
           id: el.getAttribute('data-panel-card') ?? '',
           visible: laidOut(el),
           heightPx: el.getBoundingClientRect().height,
-          folded: el.getAttribute('data-folded') === 'true',
+          scrollable: el.getAttribute('data-scrollable') === 'true',
           elastic: el.getAttribute('data-elastic') === 'true',
         })),
         correctness: PANEL_CORRECTNESS.map(({ what, selector }) => {

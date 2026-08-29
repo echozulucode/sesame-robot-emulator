@@ -75,7 +75,6 @@ import {
   Fragment,
   useCallback,
   useEffect,
-  useLayoutEffect,
   useMemo,
   useRef,
   useState,
@@ -600,27 +599,22 @@ export interface PanelCardSpec {
   readonly more: { readonly label: string; readonly onOpen: () => void } | null;
   readonly body: ReactNode;
   /**
-   * What the card's header still says when the panel had to fold it away.
+   * The card's glance line, beside its name.
    *
-   * A folded card is a disclosure, and §11.4 forbids a disclosure from being
-   * where a correctness surface first appears — so whatever mark the card
-   * carries has to survive the fold. The Face's summary is its pixel
-   * provenance; Commands' is the count of zero-frame faces; the joint glance's
-   * is the selected joint and the provenance of its reading.
+   * It existed so that a mark would survive a fold. Nothing folds any more
+   * (see {@link SCROLLABLE_CARDS}), and it stays for the reason it was worth
+   * having anyway: the Face's summary is its pixel provenance, Commands' is
+   * whether this backend can command at all, and the joint glance's is the
+   * selected joint and the provenance of its reading — each one better read
+   * beside a card's name than three lines into its body.
+   *
+   * **It must not carry text whose LENGTH varies with live telemetry.** The
+   * header is a wrapping flex row 262 px wide, so a value one character longer
+   * re-wraps it and moves every card below — which is the bug the fold was
+   * blamed for. Anything variable goes in the card's body, on a row of its own
+   * with a fixed line count. See `.panel-card-title` in the stylesheet.
    */
   readonly summary: ReactNode;
-  /**
-   * Deliberately absent: there is no "elastic" card.
-   *
-   * The first version made the Face card `flex: 0 1 auto` on the theory that a
-   * 128x64 panel is the one surface that can give up height without hiding a
-   * word. On screen it was crushed to **10 px** — and, worse, the crushing did
-   * not register: a `container-type: inline-size` box does not contribute its
-   * overflow to an ancestor's scrollable overflow, so `overflowPx` went on
-   * reading 0 while the whole card was invisible. A safety valve the assertion
-   * cannot see is worse than none, so folding — which is visible in the DOM, in
-   * `data-folded`, and in the card's own summary — is the only mechanism.
-   */
 }
 
 export interface SidePanelProps {
@@ -631,42 +625,57 @@ export interface SidePanelProps {
 }
 
 /**
- * Which card folds when the panel runs out of height, and in what order.
+ * ===========================================================================
+ * THE FOLD IS GONE — Phase 4 W5, on the user's own correction of W7
+ * ===========================================================================
  *
- * The reader's own priority, from §11.4: *"the key information and face that
- * you'd want to look at while executing commands"*. The joint glance folds
- * first — it has an "All 8" screen and a line on the status strip. The face
- * folds second, keeping its name and its pixel provenance on the header.
+ * > *"the commands pane is not how I described it. We want to see all the
+ * > commands where possible and fit the available space with commands. All
+ * > other sections should be large enough that they don't need to change size.
+ * > Use scrollbars in command and selected joint only if there isn't enough
+ * > space to show all content."*
  *
- * **Commands is not in this list, and neither is the trust card.** They cannot
- * fold at any height. Commands because it is the surface the whole side panel
- * exists to hold and because `[data-command="wave"]` is the button four harness
- * phases press — a vocabulary that disappears on a short window is a vocabulary
- * that is sometimes not there. The trust card because §11.4 forbids a
- * correctness surface from living behind a disclosure.
+ * W7 answered *"never its own scrollbar"* with a measurement: cards folded away
+ * in a priority order until the content fitted, and one elastic card grew into
+ * whatever was left. It was correct about the constraint it was given, and it
+ * is the wrong shape for this panel for a reason the measurement itself makes
+ * obvious — **every card's height became a function of every other card's
+ * content**. Measured on the shipped build at 1440x900: `setFace("happy")`
+ * gives the Face card 213 px and `setFace("sleepy")` gives it 241, because one
+ * more character wrapped a header; the Commands card below it went 292 -> 264
+ * and its buttons 80 px -> 65. That is the bouncing, and no amount of tuning
+ * the fold order removes it, because the fold order is not what causes it.
  *
- * If those two alone do not fit, the panel OVERFLOWS and the harness fails on
- * it. That is the intended failure: it is a content problem, and the answer is
- * to make the content shorter rather than to let a scroller or a clip hide it.
+ * The replacement has no measurement in it at all:
+ *
+ * | card | flex | scrolls |
+ * |---|---|---|
+ * | Face, Driving | `0 0 auto` — its own content's height, always | never |
+ * | **Commands** | `1 1 auto` — takes the height nothing else needs | when its own content does not fit |
+ * | **Selected joint** | `0 1 auto` — gives height back before Commands does | when its own content does not fit |
+ *
+ * so a card's height is a function of its own content and of the panel's
+ * height, and of nothing else. Nothing folds, nothing is measured after a
+ * commit, and there is no state a re-render can change.
+ *
+ * **This relaxes W7's "the side panel has zero scrollers" invariant, on purpose
+ * and on instruction.** The rule is narrower now and it is still a rule: zero
+ * scrollers OUTSIDE the two cards named here, and those two scroll only when
+ * their own content genuinely exceeds the space they were given. The harness
+ * asserts the narrower rule rather than leaving the old one passing against a
+ * design that no longer holds it.
  */
-const FOLD_ORDER: readonly PanelId[] = ['inspector', 'face'];
+const SCROLLABLE_CARDS: readonly PanelId[] = ['commands', 'inspector'];
 
 /**
- * The card that takes whatever height is left — Phase 4 W8.
+ * The card that fills the panel — the user's model, restated.
  *
- * > *"Maximize the height of the commands pane if it fits."*
+ * > *"Commands fills the available space and shows as many commands as fit."*
  *
- * It is `Commands` for the same reason `Commands` can never fold: it is the
- * surface the panel exists to hold. **It grows and it never shrinks** —
- * `flex: 1 0 auto` in the stylesheet, not `0 1 auto` — and that distinction is
- * W7's own scar tissue: the elastic Face card was `0 1 auto`, was crushed to
- * 10 px on a short window, and the crushing did not register because a
- * `container-type: inline-size` box does not contribute its overflow to an
- * ancestor. A card that can only grow cannot be crushed, and a card that can
- * only grow into MEASURED slack cannot push anything else out.
- *
- * The measurement is in the layout effect below, and it has to hold this card
- * still while it takes it — see `data-measuring`.
+ * `flex: 1 1 auto` in the stylesheet. It takes the height nothing else needs,
+ * shows **every** command in the vocabulary rather than a shortlist of four,
+ * and scrolls when they do not fit — which is what this panel is now allowed to
+ * do, in this card and one other, and nowhere else.
  */
 const ELASTIC_CARD: PanelId = 'commands';
 
@@ -679,9 +688,8 @@ const ELASTIC_CARD: PanelId = 'commands';
  * is not one. §11.4 says a correctness surface may not be demoted into a
  * popover — it must be ON the panel, not behind a disclosure — and says nothing
  * whatever about which card is at the top. The trust card is still on the
- * panel, still unfoldable, still carrying all four of its named surfaces, and
- * the harness still reads every one of them with every screen shut. Only the
- * order moved.
+ * panel, still carrying all four of its named surfaces, and the harness still
+ * reads every one of them with every screen shut. Only the order moved.
  *
  * `null` would put it first again, and the constant is named so that a future
  * reader can see this was a decision rather than a rendering accident.
@@ -689,172 +697,26 @@ const ELASTIC_CARD: PanelId = 'commands';
 const TRUST_BELOW: PanelId | null = 'face';
 
 /**
- * The right-most side panel — §11.4.
+ * The right-most side panel — §11.4, as corrected by W5.
  *
- * 280 px, always visible above Compact, and **zero scrollers at every width**.
- * Three mechanisms, in the order they take effect:
+ * 280 px, always visible above Compact. Its own box never scrolls
+ * (`overflow: hidden` on `.side-panel-inner`); two of its cards may, and only
+ * when their own content does not fit the height flex gave them.
  *
- *  1. `overflow: hidden` on `.side-panel-inner`, so a scrollbar cannot appear
- *     however tall the content gets;
- *  2. cards **fold** in {@link FOLD_ORDER} until the content fits, each keeping
- *     its header, its "more info" button and its `summary`;
- *  3. and where there is slack rather than a shortfall, {@link ELASTIC_CARD}
- *     takes it — Phase 4 W8. It grows and never shrinks, so it can only ever
- *     consume space nothing else wanted.
- *
- * (3) is the plan's own instruction taken literally: *"If content does not fit,
- * that is a content problem to solve by disclosure, not by adding a scroller."*
- * It is measured rather than guessed — no height breakpoint, no `@container`
- * threshold, no viewport query — because the thing that decides is whether this
- * particular content fits this particular panel, and only a measurement knows.
- *
- * ## Why it cannot oscillate
- *
- * Folding is monotone within a render pass: the layout effect folds AT MOST ONE
- * card per commit and never unfolds. Unfolding happens only when the panel's
- * own box changes size, which is a window resize or a breakpoint change —
- * observed on `.side-panel` rather than on its content, so a fold cannot be the
- * event that triggers the next unfold. Converges in at most three commits.
+ * There is no layout effect here any more, and that is the change. Everything
+ * this component used to compute — which card folds, what a card costs while it
+ * is open, how much slack is left — is now a flex rule in the stylesheet, which
+ * means it is decided during layout instead of one commit behind it. Two of
+ * this project's three "assertions that could not fail" lived in the code this
+ * replaces (`clientHeight - scrollHeight`, then `contentBottom - lastBottom`),
+ * and both were arithmetic that could not come out positive; the third would
+ * have been the next one written here.
  */
 export function SidePanel(props: SidePanelProps): ReactElement {
   const { shell, trust, cards } = props;
   const visible = shell.panelVisible;
   const panelRef = useRef<HTMLElement>(null);
   const innerRef = useRef<HTMLDivElement>(null);
-  const [folded, setFolded] = useState<readonly PanelId[]>([]);
-  /**
-   * What each card costs while it is open, measured rather than assumed.
-   *
-   * This is what makes the fold REVERSIBLE. Without it the panel could only
-   * ever fold further, so one transient measurement during mount — when the
-   * inner box has no height yet and every card "overflows" — would leave the
-   * panel permanently folded on a screen with room for all four. That is
-   * exactly what the first version did.
-   */
-  const naturalPx = useRef<Partial<Record<PanelId, number>>>({});
-
-  /*
-   * The fit, measured after every commit.
-   *
-   * One step per commit and never more, in both directions: fold the next card
-   * in {@link FOLD_ORDER} when the content overflows, unfold the last one when
-   * there is provably room for it — provably, meaning the slack exceeds what
-   * that card measured while it was open. It converges because the cost is
-   * re-measured from the card itself: if unfolding turns out to cost more than
-   * the last measurement said, the next commit folds it again with the true
-   * number and the comparison stops being true.
-   */
-  useLayoutEffect(() => {
-    const inner = innerRef.current;
-    if (inner === null) return;
-    // Not laid out yet — at Compact with the sheet shut this is 0, and folding
-    // on a zero-height box would fold everything for no reason.
-    if (inner.clientHeight < 80) return;
-    /*
-     * THE SLACK, measured with the elastic card held still — Phase 4 W8.
-     *
-     * W7 measured `inner.clientHeight - inner.scrollHeight` and called the
-     * positive case "there is room". **It is never positive.** `scrollHeight`
-     * is defined as at least `clientHeight`, so on a panel with space to spare
-     * that expression is exactly 0 and W7's unfold branch — the one its own
-     * findings call the fix that made folding reversible — could not fire even
-     * once. Reversibility was coming entirely from the `ResizeObserver` reset
-     * below, which is why nobody noticed. Measured on the shipped build: 1408 px
-     * of panel holding 801 px of cards, `scrollHeight` 1408, slack 0.
-     *
-     * So the slack is measured from the boxes instead: the bottom of the last
-     * card against the bottom of the inner box's content area. That is a real
-     * number in both directions — negative when the content overflows, and
-     * genuinely positive when it does not.
-     *
-     * `data-measuring` is on for the duration, and CSS turns off the Commands
-     * card's `flex-grow` while it is. Without that the answer would always be 0
-     * again, for the new reason that the elastic card had eaten the slack: a
-     * measurement taken in the presence of the thing being measured.
-     */
-    inner.setAttribute('data-measuring', 'true');
-    const innerStyle = getComputedStyle(inner);
-    const contentBottom =
-      inner.getBoundingClientRect().bottom -
-      parseFloat(innerStyle.paddingBottom || '0') -
-      parseFloat(innerStyle.borderBottomWidth || '0');
-    /*
-      `-Infinity`, and the first version had `contentBottom` here.
-
-      `lastBottom = Math.max(contentBottom, ...cards)` can only ever be >=
-      `contentBottom`, so `slack = contentBottom - lastBottom` was <= 0 by
-      construction — the same shape as the defect this measurement replaced,
-      where `clientHeight - scrollHeight` was <= 0 for the same reason. Measured
-      with it: a 775 px panel holding 546 px of cards reported slack 0 and left
-      the Face card folded with 229 px to spare. A quantity that cannot come out
-      positive is not a measurement of slack.
-    */
-    let lastBottom = Number.NEGATIVE_INFINITY;
-    for (const el of inner.querySelectorAll('[data-panel-card], [data-testid="panel-trust"]')) {
-      const box = el.getBoundingClientRect();
-      if (box.bottom > lastBottom) lastBottom = box.bottom;
-      const id = el.getAttribute('data-panel-card');
-      if (id !== null && el.getAttribute('data-folded') === 'false' && isPanelId(id)) {
-        naturalPx.current[id] = box.height;
-      }
-    }
-    inner.removeAttribute('data-measuring');
-    if (!Number.isFinite(lastBottom)) return;
-
-    const slack = contentBottom - lastBottom;
-    /*
-      PUBLISHED, because a fold that cannot be explained cannot be debugged.
-
-      `data-slack-px` is the natural slack this pass measured and each card's
-      `data-natural-px` is what it cost while it was open — the two numbers the
-      fold and the unfold are decided from. They are on the DOM rather than in a
-      closure so the harness can assert the DECISION rather than only its
-      outcome, and so that "why is the Face card folded on a screen with 229 px
-      to spare" is a question a screenshot can answer.
-    */
-    inner.setAttribute('data-slack-px', String(Math.round(slack)));
-    for (const el of inner.querySelectorAll('[data-panel-card]')) {
-      const id = el.getAttribute('data-panel-card');
-      const natural = id !== null && isPanelId(id) ? naturalPx.current[id] : undefined;
-      el.setAttribute('data-natural-px', natural === undefined ? '' : String(Math.round(natural)));
-    }
-    if (slack < -1) {
-      setFolded((previous) => {
-        const next = FOLD_ORDER.find((id) => !previous.includes(id));
-        return next === undefined ? previous : [...previous, next];
-      });
-      return;
-    }
-    /*
-      Bring one back, most-recently-folded first — which is highest priority
-      first, because folding runs down {@link FOLD_ORDER}. If the top one still
-      does not fit, a LOWER-priority card that does is unfolded instead: an
-      empty gap on the panel teaches nobody anything, and the card that fits is
-      strictly more information than the space it would otherwise leave.
-    */
-    setFolded((previous) => {
-      for (let i = previous.length - 1; i >= 0; i -= 1) {
-        const id = previous[i];
-        if (id === undefined) continue;
-        const card = inner.querySelector(`[data-panel-card="${id}"]`);
-        const foldedPx = card === null ? 0 : card.getBoundingClientRect().height;
-        const cost = (naturalPx.current[id] ?? Number.POSITIVE_INFINITY) - foldedPx;
-        if (slack > cost + 8) return previous.filter((other) => other !== id);
-      }
-      return previous;
-    });
-  });
-
-  // The panel's own box changed — a window resize, or the Compact sheet
-  // opening. Observed on the panel rather than on its content, so a fold can
-  // never be the event that triggers the next unfold.
-  useEffect(() => {
-    const panel = panelRef.current;
-    if (panel === null || typeof ResizeObserver === 'undefined') return;
-    const observer = new ResizeObserver(() => setFolded([]));
-    observer.observe(panel);
-    return () => observer.disconnect();
-  }, []);
 
   return (
     <>
@@ -874,7 +736,7 @@ export function SidePanel(props: SidePanelProps): ReactElement {
         data-open={String(visible)}
         data-overlay={String(shell.sheets)}
         data-breakpoint={shell.breakpoint}
-        data-folded={folded.join(',')}
+        data-scrollable-cards={SCROLLABLE_CARDS.join(',')}
         aria-label="commands, face and the selected joint"
       >
         <div
@@ -885,18 +747,24 @@ export function SidePanel(props: SidePanelProps): ReactElement {
         >
           {TRUST_BELOW === null && trust}
           {cards.map((card) => {
-            const isFolded = folded.includes(card.id);
+            const scrollable = SCROLLABLE_CARDS.includes(card.id);
             return (
               <Fragment key={`slot-${card.id}`}>
               <section
-                className={`pane panel-card${isFolded ? ' is-folded' : ''}`}
+                className="pane panel-card"
                 data-pane={card.id}
                 data-panel-card={card.id}
                 data-dock-section={card.id}
                 data-dock={dockForSection(card.id)}
-                data-open={String(!isFolded)}
-                data-folded={String(isFolded)}
-                /* The one card allowed to take measured slack. See ELASTIC_CARD. */
+                data-open="true"
+                /*
+                  `data-folded` is gone with the fold — W5. It was read by the
+                  harness and by three CSS rules, and leaving it at a constant
+                  "false" would have kept a check passing about a mechanism that
+                  no longer exists. What replaces it is the honest statement of
+                  what this card is allowed to do with the panel's height.
+                */
+                data-scrollable={String(scrollable)}
                 data-elastic={String(card.id === ELASTIC_CARD)}
                 aria-labelledby={`pane-${card.id}-title`}
               >
@@ -905,9 +773,10 @@ export function SidePanel(props: SidePanelProps): ReactElement {
                     {card.label}
                   </span>
                   {/*
-                    The summary rides on the header whether the card is folded
-                    or not, so the mark it carries is in the same place either
-                    way and the harness reads one selector rather than two.
+                    The summary rides on the header. It was there so a mark
+                    would survive a fold; nothing folds now, and it stays
+                    because a badge beside a card's name is a better glance than
+                    the same badge three lines into its body.
                   */}
                   <span className="panel-card-summary" data-panel-summary={card.id}>
                     {card.summary}
@@ -928,7 +797,6 @@ export function SidePanel(props: SidePanelProps): ReactElement {
                   className="pane__content panel-card-body"
                   data-pane-content={card.id}
                   data-scroll-owner="pane"
-                  hidden={isFolded}
                 >
                   {card.body}
                 </div>

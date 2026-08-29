@@ -51,20 +51,56 @@ const fmt = (value: number | null, digits = 1): string =>
  * none` in the table band, `thead` is `display: none` in the record band), so
  * every cell has one accessible name in both.
  */
+/*
+ * ================================= WHAT EACH COLUMN'S PROVENANCE BELONGS TO
+ *
+ * > *"If individual values have different provenance, place the badge adjacent
+ * > to the relevant value rather than applying one badge to the entire joint
+ * > card. The learner should never have to infer whether provenance belongs to
+ * > the joint, the row, or one numerical datum."* — the brief, on this pane
+ *
+ * This row has three numbers with three different epistemic statuses and,
+ * until W5, one unscoped `prov` column at the end of them. `JointView` is
+ * explicit about what that column actually describes — *"provenance of the
+ * event that last set `commandedDeg`"* — and a reader had no way to know that:
+ * read left to right, the badge sat closest to `measured`, which is the one
+ * value it says nothing about at all.
+ *
+ * `scope` is that sentence, one clause long, in the ONE place the column name
+ * is written. It renders inside the `<th>` in the table band and inside the
+ * in-cell `.cell-label` in the record band, so in the record band it is
+ * literally adjacent to the value the way the brief asks — and it cannot drift,
+ * because there is still exactly one copy of the words.
+ *
+ * Twenty-four badges would have been the other reading of "adjacent". At eight
+ * joints that is 24 more coloured marks in a pane whose complaint is density,
+ * and the three statuses are properties of the COLUMN, not of the cell: every
+ * `simulated` figure on every joint is a slew-model inference, and every
+ * `measured` figure on every joint is null for the same reason. A per-cell
+ * badge would repeat one fact eight times, which is the mistake Signal was
+ * just corrected for.
+ */
 const JOINT_COLUMNS = [
-  { id: 'ch', label: 'ch' },
-  { id: 'joint', label: 'joint' },
-  { id: 'commanded', label: 'commanded' },
-  { id: 'simulated', label: 'simulated' },
-  { id: 'measured', label: 'measured' },
-  { id: 'prov', label: 'prov' },
-  { id: 'origin', label: 'origin' },
+  { id: 'ch', label: 'ch', scope: null },
+  { id: 'joint', label: 'joint', scope: null },
+  { id: 'commanded', label: 'commanded', scope: null },
+  { id: 'simulated', label: 'simulated', scope: 'inferred' },
+  { id: 'measured', label: 'measured', scope: 'no sensor' },
+  { id: 'prov', label: 'prov', scope: 'of commanded' },
+  { id: 'origin', label: 'origin', scope: 'of commanded' },
 ] as const;
 
 type JointColumnId = (typeof JOINT_COLUMNS)[number]['id'];
 
 const COLUMN_LABEL: Readonly<Record<JointColumnId, string>> = Object.freeze(
   Object.fromEntries(JOINT_COLUMNS.map((c) => [c.id, c.label])) as Record<JointColumnId, string>,
+);
+
+const COLUMN_SCOPE: Readonly<Record<JointColumnId, string | null>> = Object.freeze(
+  Object.fromEntries(JOINT_COLUMNS.map((c) => [c.id, c.scope])) as Record<
+    JointColumnId,
+    string | null
+  >,
 );
 
 /**
@@ -93,7 +129,12 @@ function JointCell(props: {
         ? {}
         : { 'data-physically-observed': String(physicallyObserved) })}
     >
-      <span className="cell-label">{COLUMN_LABEL[column]}</span>
+      <span className="cell-label">
+        {COLUMN_LABEL[column]}
+        {COLUMN_SCOPE[column] !== null && (
+          <span className="col-scope"> {COLUMN_SCOPE[column]}</span>
+        )}
+      </span>
       <span className="cell-value">{children}</span>
     </td>
   );
@@ -131,6 +172,7 @@ export function JointInspector(props: JointInspectorProps): ReactElement {
             {JOINT_COLUMNS.map((column) => (
               <th key={column.id} role="columnheader" scope="col" data-column={column.id}>
                 {column.label}
+                {column.scope !== null && <span className="col-scope">{column.scope}</span>}
               </th>
             ))}
           </tr>

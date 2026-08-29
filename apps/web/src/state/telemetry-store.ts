@@ -167,6 +167,49 @@ export class TelemetryStore {
    * claiming it the moment the robot repaints.
    */
   #panelAuthored = false;
+  /**
+   * Does the connected backend say it emits the guest's own framebuffer?
+   *
+   * ===========================================================================
+   * THE FLICKER, AND WHY THIS FLAG EXISTS — Phase 4 W5
+   * ===========================================================================
+   *
+   * > *"The face is occasionally flickering between inferred and observed."*
+   *
+   * Two independent event paths write {@link oledSource}, and under the default
+   * `cli-oled` QEMU image **both fire for the same face change**:
+   *
+   * | order | event | what it does | pixelProvenance |
+   * |---|---|---|---|
+   * | 1st | `face.expression` | the app renders the bitmap host-side | `inferred` |
+   * | 2nd | `oled.frame` | the guest's own 1024 bytes arrive | `observed` |
+   *
+   * On an animated face the firmware's idle-blink state machine repeats that
+   * pair every 120-220 ms, which is exactly the rate the flicker was seen at.
+   * The label was not unstable; it was **correct twice a frame about two
+   * different sets of pixels**, because two different sets of pixels really
+   * were being drawn.
+   *
+   * So the fix is to stop drawing the second set. When the backend declares
+   * `oledFramebuffer`, a face NAME is no longer a reason to render anything:
+   * the authoritative buffer is already on its way, and rendering a host-side
+   * approximation of it in the meantime is the substitution this project
+   * refuses everywhere else. Nothing is smoothed, debounced or transitioned — a
+   * provenance label that lags reality is worse than one that flickers.
+   *
+   * **It is a capability, not a backend and not a history.** The alternative
+   * considered was latching to `wire` after the first frame ever seen, and it
+   * was rejected for being an inference from behaviour: a backend that sends
+   * one frame and then only names would go on claiming `observed` about pixels
+   * nothing transmitted, which is the exact failure {@link pixelOrigin} exists
+   * to prevent. `false` — the simulator, the bridge, and the older `cli` image
+   * whose `oledFramebuffer` really is false — keeps the host render and the
+   * honest `inferred`, unchanged.
+   *
+   * Owned by whoever holds the backend connection: this store must not import a
+   * backend to ask.
+   */
+  #framebufferDeclared = false;
   #panel = new VirtualOledPanel();
   #oledSource: OledSource = {
     kind: 'power-on',
@@ -216,6 +259,11 @@ export class TelemetryStore {
   /** Are the pixels on the panel ones Sesame Lab drew, rather than the robot's? */
   get panelIsAuthored(): boolean {
     return this.#panelAuthored;
+  }
+
+  /** See {@link TelemetryStore.declareOledFramebuffer}. Published for the harness. */
+  get oledFramebufferDeclared(): boolean {
+    return this.#framebufferDeclared;
   }
 
   get provenanceCounts(): Readonly<Record<Provenance, number>> {
@@ -314,6 +362,20 @@ export class TelemetryStore {
     this.#lastProvenance = null;
     this.#totalEvents = 0;
     this.#poseVersion += 1;
+    this.#bump();
+  }
+
+  /**
+   * Tell the store what the connected backend's capability document says.
+   *
+   * Called from the one place that knows — the component that owns the backend
+   * — and re-called whenever the answer changes, including on a switch back to
+   * a backend that has no framebuffer. See {@link TelemetryStore} for why this
+   * is a capability rather than something inferred from the events themselves.
+   */
+  declareOledFramebuffer(declared: boolean): void {
+    if (this.#framebufferDeclared === declared) return;
+    this.#framebufferDeclared = declared;
     this.#bump();
   }
 
@@ -522,6 +584,25 @@ export class TelemetryStore {
     }
 
     this.#emptyFace = null;
+
+    /*
+      THE RACE, ENDED AT ITS SOURCE — Phase 4 W5.
+
+      `renderFace` above still runs, and it has to: its `null` answer is
+      ISSUE-20260823-004 (`epd_bitmap_stand` and `epd_bitmap_defualt` are
+      weak-undefined, so `updateFaceBitmap()` is never reached and the firmware
+      draws nothing at all). That fact is true on every backend and is the one
+      thing this handler must never stop reporting.
+
+      What stops is the WRITE. When the backend declares a framebuffer, the
+      guest's own `oled.frame` is the authority for these pixels and it is
+      already in flight; drawing a host-side approximation first — and labelling
+      it `inferred` for the 120-220 ms until the real one lands — is what made
+      the badge alternate. The panel keeps whatever it holds until the real
+      bytes arrive, which is also what the glass does.
+    */
+    if (this.#framebufferDeclared) return;
+
     this.#panelAuthored = false;
     this.#panel.write(rendered.gddram);
     this.#oledSource = {

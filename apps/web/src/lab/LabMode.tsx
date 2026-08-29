@@ -340,7 +340,7 @@ export function LabMode(props: { readonly wiring: LabWiring }): ReactElement {
     return (
       <section className="lab-panel" data-testid="lab-panel" data-open="false">
         <div className="panel-header">
-          <h2>Lab</h2>
+          <h2 className="panel-title-echo">Lab</h2>
           <span className="panel-sub">
             No steps, no checks, nothing to complete &mdash; the robot, the eight channels, the
             panel and the routes, to do what you like with.
@@ -361,7 +361,7 @@ export function LabMode(props: { readonly wiring: LabWiring }): ReactElement {
   return (
     <section className="lab-panel is-open" data-testid="lab-panel" data-open="true" data-tab={tab}>
       <div className="panel-header">
-        <h2>Lab</h2>
+        <h2 className="panel-title-echo">Lab</h2>
         <input
           className="lab-name"
           type="text"

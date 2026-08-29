@@ -74,7 +74,14 @@ export function SequenceEditor(props: SequenceEditorProps): ReactElement {
         </button>
       </div>
 
-      <table className="sequence-table" data-testid="sequence-frames">
+      {/*
+        The timeline, and it is intrinsically spatial — Phase 4 W5. Eleven
+        columns (a frame index, eight joints in firmware enum order, a wait and
+        a remove) whose whole meaning is that a row is one pose; compressing the
+        frame targets below a usable size is what the brief says not to do. It
+        pans, with the frame number pinned.
+      */}
+      <table className="sequence-table" data-testid="sequence-frames" data-2d-surface="table">
         <thead>
           <tr>
             <th>#</th>

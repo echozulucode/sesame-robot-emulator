@@ -294,7 +294,7 @@ export function SourceExplorer(props: SourceExplorerProps): ReactElement {
   return (
     <section className="panel source-panel" data-testid="source-explorer">
       <header className="panel-header">
-        <h2>Source</h2>
+        <h2 className="panel-title-echo">Source</h2>
         <span className="panel-sub">
           upstream <code>{ANNOTATIONS_UPSTREAM_COMMIT.slice(0, 7)}</code> · line numbers are the
           pinned tree&rsquo;s

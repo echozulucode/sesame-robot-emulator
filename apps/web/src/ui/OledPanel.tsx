@@ -16,9 +16,17 @@ import { useEffect, useRef, useState, type ReactElement } from 'react';
 import type { EmptyFaceEvent, FaceView, OledSource } from '../state/telemetry-store.js';
 import { FACE_PIXEL_SOURCE, type VirtualOledPanel } from '../oled/framebuffer.js';
 import type { PixelOrigin } from '../oled/pixel-provenance.js';
+import { EDITOR_MIN_ZOOM, integerOledZoom } from '../oled/zoom.js';
 import { OriginTag, ProvenanceTag } from './ProvenanceTag.js';
+import { useContainerWidth } from './use-container-width.js';
 
-/** Logical pixel -> screen pixel. 8 keeps 1024x512, which is still a sane texture. */
+/**
+ * Logical pixel -> BACKING-STORE pixel. 8 keeps 1024x512, which is still a sane
+ * texture, and it is deliberately the top of the zoom ladder: the CSS size is
+ * chosen by {@link integerOledZoom} at or below this, so a canvas is never
+ * upsampled and `image-rendering: pixelated` is only ever downsampling by an
+ * exact integer.
+ */
 export const OLED_SCALE = 8;
 
 const LIT = '#c8f0ff';
@@ -84,6 +92,29 @@ export function OledPanel(props: OledPanelProps): ReactElement {
   } = props;
   const compact = variant === 'panel';
   const canvasRef = useRef<HTMLCanvasElement>(null);
+  /*
+    THE INTEGER ZOOM — Phase 4 W5, and see `oled/zoom.ts` for the policy.
+
+    Measured on the SLOT rather than on the canvas, which is the whole trick: a
+    box sized by its content cannot be asked how wide it would be if its content
+    were narrower. `.oled-slot` is an ordinary block that fills the card, so its
+    width is decided by the card and the canvas's CSS width is then derived from
+    it, never the other way round.
+
+    `data-oled-zoom` is published from THIS number rather than from the variant.
+    It was `compact ? '2' : '4'` — an attribute that asserted the answer, on a
+    canvas whose `max-width: 100%` could and did make the answer something else.
+  */
+  const slot = useContainerWidth();
+  /*
+    The card is a GLANCE (no floor: 2x is what a 271 px slot holds, and the
+    policy says so out loud rather than faking a larger number). The "more
+    info" screen is where a pixel is hovered for its GDDRAM byte and bit, so it
+    holds the editor floor and pans if it has to.
+  */
+  const zoom = integerOledZoom(slot.widthPx ?? 0, {
+    minZoom: compact ? 1 : EDITOR_MIN_ZOOM,
+  });
   const [hover, setHover] = useState<{ x: number; y: number; on: boolean } | null>(null);
 
   useEffect(() => {
@@ -168,13 +199,15 @@ export function OledPanel(props: OledPanelProps): ReactElement {
         </header>
       )}
 
+      <div className="oled-slot" ref={slot.ref} data-testid={compact ? 'oled-slot' : 'oled-slot-large'}>
       <canvas
         ref={canvasRef}
         width={OLED_WIDTH * OLED_SCALE}
         height={OLED_HEIGHT * OLED_SCALE}
         className="oled-canvas"
         id={compact ? 'oled-canvas' : 'oled-canvas-large'}
-        data-oled-zoom={compact ? '2' : '4'}
+        data-oled-zoom={zoom}
+        style={{ width: `${String(OLED_WIDTH * zoom)}px`, height: `${String(OLED_HEIGHT * zoom)}px` }}
         /*
           The third declared two-dimensional surface — Phase 4 W2. It never
           scrolls; it is marked because 128x64 logical pixels are a spatial
@@ -186,6 +219,7 @@ export function OledPanel(props: OledPanelProps): ReactElement {
         onMouseMove={onMove}
         onMouseLeave={() => setHover(null)}
       />
+      </div>
 
       {/*
         The GDDRAM read-out is a teaching affordance rather than a glance value:
@@ -293,6 +327,27 @@ export function OledPanel(props: OledPanelProps): ReactElement {
             </p>
           ))}
         </div>
+      )}
+
+      {/*
+        WHICH FACE, on a row that is one line tall whatever it says — W5.
+
+        It was on the card's header, where its length re-wrapped a flex row and
+        moved every card under it several times a second. `white-space: nowrap`
+        with a one-line minimum means this row is the same height for `idle` and
+        for `surprised`, and the name is not a correctness surface — the badge
+        beside it on the header is, and that did not move.
+      */}
+      {compact && (
+        <p className="panel-face-name" data-testid="panel-face-name">
+          {face === null ? (
+            <span className="muted">no face yet</span>
+          ) : (
+            <>
+              <code>{face.name}</code> <span className="muted">frame {face.frame}</span>
+            </>
+          )}
+        </p>
       )}
 
       {emptyFace !== null && compact && (
