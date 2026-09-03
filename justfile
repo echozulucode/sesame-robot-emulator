@@ -146,6 +146,16 @@ tauri-dev:
 tauri-build:
     pnpm exec tauri build
 
+# Ask the BUILT exe where its bundled resources are; fail if any is missing or
+# the wrong size. This is T2's acceptance test in the form you can re-run:
+# `app.path()` resolves against the directory the executable is IN, so pointing
+# it at an installed copy checks the installed copy. The exe is a GUI-subsystem
+# binary with no stdout, so the report is a file and this prints it.
+#   just tauri-resources                     # src-tauri/target/release
+#   just tauri-resources debug               # after a plain `cargo build`
+tauri-resources profile='release':
+    & {$o="src-tauri/target/{{profile}}/resource-report.json"; & "src-tauri/target/{{profile}}/sesame-lab-desktop.exe" --resource-report $o; $rc=$LASTEXITCODE; Get-Content $o; exit $rc}
+
 # ────────────────────────────────────────────────────── firmware and assets
 
 # The source explorer refuses to render without it.

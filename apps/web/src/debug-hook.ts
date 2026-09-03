@@ -27,6 +27,7 @@ import { LESSONS, POLISHED_LESSON_IDS } from './generated/lessons.js';
 import { IMPLEMENTED_CHECKS, IMPLEMENTED_CONTROLS, UNIMPLEMENTED_CONTROLS } from './lessons/registry.js';
 import type { LessonRuntime } from './lessons/runtime.js';
 import type { SelectionState } from './state/selection.js';
+import { fetchResourceReport, type ResourceReport } from './desktop/resource-report.js';
 import type { Breakpoint, DockId, ModuleId, SectionId, StageRule } from './ui/shell-state.js';
 import type { TelemetryStore } from './state/telemetry-store.js';
 import { traceBadge, type TraceStore } from './state/trace-store.js';
@@ -697,6 +698,16 @@ export interface SesameDebugApi {
   setSection(id: SectionId, open: boolean): void;
   /** `analysis` shows the architecture module; `control` clears it. */
   setDockOpen(dock: DockId, open: boolean): void;
+  /**
+   * What the Tauri desktop shell bundled, and where `app.path()` resolved it —
+   * Phase 5 T2. `null` in a browser, which has no bundled resources.
+   *
+   * Async and therefore NOT part of {@link snapshot}, which is a single
+   * synchronous round trip by design. It is the machine-readable half of the
+   * same document `[data-testid="desktop-resources"]` renders, and it is what
+   * T3 and T6 check the packaged artefact against rather than trusting it.
+   */
+  resourceReport(): Promise<ResourceReport | null>;
   /** Everything at once, for a single CDP round trip. */
   snapshot(): Record<string, unknown>;
 }
@@ -756,6 +767,7 @@ export function installDebugHook(wiring: DebugHookWiring): () => void {
     setJoint: (joint, deg) => wiring.setJoint(joint, deg),
     stop: () => wiring.stop(),
     reset: () => wiring.reset(),
+    resourceReport: () => fetchResourceReport(),
 
     sceneJoints(): SceneJointReading[] {
       const rig = wiring.rig();

@@ -26,11 +26,25 @@ crate-type = ["staticlib", "cdylib", "rlib"]
 
 [build-dependencies]
 tauri-build = { version = "2.6.3", features = [] }
+# T2: build.rs reads `bundle.resources` out of tauri.conf.json and generates the
+# runtime manifest from it, so the report can never describe a file the bundler
+# was not asked to ship. Already a runtime dependency below; this is the same
+# crate, compiled for the host.
+serde_json = "1.0"
 
 # `tauri init` also seeded `log` + `tauri-plugin-log`. Both were removed: T1
 # does not log anything, and a plugin is a permission surface. Capabilities
 # start at `core:default` and grow only when something actually needs them.
 [dependencies]
 tauri = { version = "2.11.3", features = [] }
+# T2: `app.path().resolve(.., Resource)` hands back an extended-length Windows
+# path — the "verbatim" form that begins with a backslash-backslash-question
+# -mark. It is a correct path and Rust opens it happily, but T3 has to put one
+# of these inside `-drive file=<image>` on a QEMU command line and the other
+# into `Command::new`, and the prefix is a red herring in every diagnostic
+# downstream. `simplified()` strips it only when the result is
+# provably equivalent. Already in Cargo.lock as a transitive dependency of
+# tauri, so this costs nothing to compile.
+dunce = "1.0"
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"

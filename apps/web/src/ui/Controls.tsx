@@ -46,6 +46,7 @@ import {
 import type { ReactElement } from 'react';
 
 import type { BackendId, BackendStatus, TelemetryBackend } from '../backends/types.js';
+import { DesktopResources } from '../desktop/DesktopResources.js';
 import {
   measurementHeadline,
   measurementVerdict,
@@ -242,6 +243,18 @@ export function BackendPanel(props: ControlsProps): ReactElement {
       <p className="note muted" id="conn-detail">
         {status.detail}
       </p>
+
+      {/*
+        Phase 5 T2 — what the packaged app bundled and where it resolved to.
+
+        Renders nothing outside the Tauri desktop shell, so the browser build is
+        unchanged. It is here rather than on the trust panel on purpose: whether
+        `qemu-system-xtensa.exe` is next to the executable is a PACKAGING fact,
+        not evidence about what drove the scene, and §11.4's rule protects
+        correctness surfaces from being diluted with plumbing — it does not
+        require plumbing to be promoted to one.
+      */}
+      <DesktopResources />
 
       {/*
         The BANNER moved to the side panel — Phase 4 W7.

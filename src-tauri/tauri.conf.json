@@ -31,6 +31,21 @@
   "bundle": {
     "active": true,
     "targets": "all",
+    "resources": {
+      "../tools/qemu/qemu/bin/qemu-system-xtensa.exe": "qemu/bin/qemu-system-xtensa.exe",
+      "../tools/qemu/qemu/share/qemu/esp32-v3-rom.bin": "qemu/share/qemu/esp32-v3-rom.bin",
+      "../tools/qemu/qemu/share/qemu/esp32-v3-rom-app.bin": "qemu/share/qemu/esp32-v3-rom-app.bin",
+      "../tools/qemu/qemu/share/qemu/esp32c3-rom.bin": "qemu/share/qemu/esp32c3-rom.bin",
+      "../tools/qemu/qemu/share/qemu/esp32s3_rev0_rom.bin": "qemu/share/qemu/esp32s3_rev0_rom.bin",
+      "../emulator/qemu/images/distro-v1-esp32-cli-oled.flash.bin": "images/distro-v1-esp32-cli-oled.flash.bin",
+      "../hardware/hardware-map.json": "hardware/hardware-map.json",
+      "../hardware/source-annotations.json": "hardware/source-annotations.json",
+      "../hardware/lessons.json": "hardware/lessons.json",
+      "../hardware/joint-map.json": "hardware/joint-map.json",
+      "../hardware/calibration.json": "hardware/calibration.json",
+      "../hardware/assembly-map.json": "hardware/assembly-map.json",
+      "../hardware/assets-inventory.json": "hardware/assets-inventory.json"
+    },
     "icon": [
       "icons/32x32.png",
       "icons/128x128.png",
