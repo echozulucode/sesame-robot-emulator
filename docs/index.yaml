@@ -192,6 +192,13 @@ docs:
     type: findings
     status: complete
 
+  - file: docs/plans/phase-5-tauri-desktop-app.md
+    type: plan
+    status: proposed
+  - file: docs/findings/W6-accessibility-invariants.md
+    type: findings
+    status: complete
+
   # Interface specification
   - file: docs/protocol/sesame-telemetry-v1.md
     type: specification
