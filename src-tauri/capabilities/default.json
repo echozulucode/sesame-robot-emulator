@@ -1,0 +1,7 @@
+{
+  "$schema": "../gen/schemas/desktop-schema.json",
+  "identifier": "default",
+  "description": "Tauri v2 denies by default. T1 needs nothing beyond the core event/window/webview plumbing the webview itself uses, so this is `core:default` and nothing else. Permissions are added when a workstream actually needs one — T3's emulator supervisor will be Tauri commands, which need no extra permission, and anything that does will be added here with the reason next to it.",
+  "windows": ["main"],
+  "permissions": ["core:default"]
+}

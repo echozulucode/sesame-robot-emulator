@@ -1255,6 +1255,13 @@
     margin: 0;
   }
 
+  /* Phase 5 T1: the desktop shell naming the behavioural simulator. Same box as
+     `.panel-no-lab-host` because it is the same kind of claim — the app saying
+     what is actually behind the scene — and the two are mutually exclusive. */
+  .panel-desktop-simulator {
+    margin: 0;
+  }
+
   /* The observed-framebuffer counterpart of `.warn`, in the 4x screen: the same
      block, in the colour of a fact rather than of a caveat. */
   .note-block {

@@ -47,6 +47,7 @@
     "measure:qemu-flake": "node emulator/qemu/run-flake-trial.mjs --runs 20 --tag baseline"
   },
   "devDependencies": {
+    "@tauri-apps/cli": "^2.11.4",
     "ajv": "^8.17.1",
     "ajv-formats": "^3.0.1",
     "typescript": "^5.9.3"

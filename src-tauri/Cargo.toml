@@ -1,0 +1,36 @@
+# The desktop shell — Phase 5 T1.
+#
+# The only Rust in this repository, and deliberately the smallest thing that can
+# host the existing web app in a native window. Everything the app already does
+# — the `@SESAME` parser, the behavioural simulator, the 3D scene, the lessons —
+# is browser code and stays browser code (see `docs/plans/phase-5-tauri-desktop-app.md` §4,
+# option C). Rust's job, when T3 lands, is the two things a webview cannot do:
+# spawn `qemu-system-xtensa.exe` and hold a TCP socket to UART0. T1 does neither.
+
+[package]
+name = "sesame-lab-desktop"
+version = "0.1.0"
+description = "Sesame Lab — the emulator, the virtual robot and the lessons, in a native window"
+authors = ["Sesame Lab"]
+license = "Apache-2.0"
+edition = "2021"
+rust-version = "1.77.2"
+
+# `staticlib` and `cdylib` are what a mobile entry point links against, and
+# `rlib` is what `main.rs` links against. We ship desktop only — the plan says
+# so explicitly (§8) — but the split costs nothing and is the difference between
+# "mobile was never wanted" and "mobile is now a rewrite".
+[lib]
+name = "sesame_lab_desktop_lib"
+crate-type = ["staticlib", "cdylib", "rlib"]
+
+[build-dependencies]
+tauri-build = { version = "2.6.3", features = [] }
+
+# `tauri init` also seeded `log` + `tauri-plugin-log`. Both were removed: T1
+# does not log anything, and a plugin is a permission surface. Capabilities
+# start at `core:default` and grow only when something actually needs them.
+[dependencies]
+tauri = { version = "2.11.3", features = [] }
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"

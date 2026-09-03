@@ -25,6 +25,8 @@ default:
     @echo "  just dev-sim    the behavioural simulator + the web UI (boots in ms)"
     @echo "  just run        one origin, no hot reload - closest to production"
     @echo ""
+    @echo "  just tauri-dev  the desktop app (simulator only until Phase 5 T4)"
+    @echo ""
     @echo "  just doctor     check prerequisites"
     @echo "  just check      build + typecheck + 934 tests + 11 validators"
     @echo ""
@@ -126,6 +128,23 @@ validate:
 # Drive a real headless browser: 32 captures with assertions. Slow (minutes), boots QEMU.
 capture:
     pnpm capture:web
+
+# ──────────────────────────────────────────────────────────── desktop app
+#
+# Phase 5. The desktop shell is `src-tauri/` at the repo root; `just dev` and
+# everything above it are unchanged and remain the development path.
+#
+# T1 ships the window and nothing behind it: there is no lab host inside the
+# app, so it opens on the BEHAVIOURAL SIMULATOR and says so on the panel. Real
+# firmware under QEMU is `just dev`, and stays `just dev` until T3/T4 land.
+
+# Vite + the Tauri window. Simulator only until T4 - no QEMU, no lab host.
+tauri-dev:
+    pnpm exec tauri dev
+
+# Build apps/web/dist, then the Windows installer. Slow on a cold cargo cache.
+tauri-build:
+    pnpm exec tauri build
 
 # ────────────────────────────────────────────────────── firmware and assets
 

@@ -303,6 +303,19 @@ export interface TrustCardProps {
    * moves off it.
    */
   readonly noLabHost: boolean;
+  /**
+   * True when the Tauri desktop shell selected the behavioural simulator
+   * because it has no emulator backend yet — Phase 5 T1.
+   *
+   * The selection itself is defensible: there is no lab host inside a packaged
+   * `.exe` and there never will be one, so {@link noLabHost}'s "start one"
+   * guidance would be advice the reader cannot act on. What is NOT defensible
+   * is making that selection silently, which is the substitution this project
+   * refuses everywhere else. So the desktop app says, on the panel, at every
+   * width, that what is driving the scene is a host model. It disappears on its
+   * own when T4's `TauriSesameRobot` makes the sentence untrue.
+   */
+  readonly desktopSimulator: boolean;
   readonly onMore: () => void;
 }
 
@@ -334,7 +347,14 @@ export interface TrustCardProps {
  * flex item is blockified and a block box drops its trailing whitespace.
  */
 export function TrustCard(props: TrustCardProps): ReactElement {
-  const { drivingProvenance, drivingOrigin, physicallyObservedEvents, noLabHost, onMore } = props;
+  const {
+    drivingProvenance,
+    drivingOrigin,
+    physicallyObservedEvents,
+    noLabHost,
+    desktopSimulator,
+    onMore,
+  } = props;
   return (
     <section
       className={`pane panel-card panel-trust prov-banner prov-${drivingProvenance ?? 'none'}`}
@@ -405,6 +425,23 @@ export function TrustCard(props: TrustCardProps): ReactElement {
             <button type="button" className="panel-inline-more" onClick={onMore}>
               how to start one
             </button>
+          </p>
+        )}
+        {desktopSimulator && (
+          /*
+            The desktop app's own line. Not a duplicate of the origin badge
+            above it — that badge says `host-model` once telemetry arrives, and
+            this says WHY, before anything has arrived, in the one arrangement
+            where the reader has no address bar and no terminal to infer it
+            from. It is the counterweight to selecting the simulator on the
+            reader's behalf.
+          */
+          <p
+            className="warn-inline panel-desktop-simulator"
+            data-testid="panel-desktop-simulator"
+          >
+            This desktop build has no emulator yet, so the scene is driven by the{' '}
+            <b>behavioural simulator</b> — a host model, not the emulator and not hardware.
           </p>
         )}
       </div>

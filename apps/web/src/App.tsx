@@ -63,7 +63,14 @@ import { COMMAND_VOCABULARY, OLED_HEIGHT, OLED_WIDTH } from '@sesame-lab/sesame-
 import { Suspense, useCallback, useEffect, useMemo, useRef, useState, type ReactElement } from 'react';
 
 import { BridgeBackend, sameOriginBridgeUrl } from './backends/bridge-backend.js';
-import { DEFAULT_BACKEND, probeLabHost, type LabHostProbe } from './backends/default-backend.js';
+import {
+  DEFAULT_BACKEND,
+  desktopSimulatorProbe,
+  detectDesktopShell,
+  initialBackend,
+  probeLabHost,
+  type LabHostProbe,
+} from './backends/default-backend.js';
 import { defaultLabBaseUrl, QemuBackend } from './backends/qemu-backend.js';
 import { SimBackend } from './backends/sim-backend.js';
 import type { BackendId, BackendStatus, TelemetryBackend } from './backends/types.js';
@@ -183,10 +190,22 @@ export function App(): ReactElement {
    * corrects it to `sim` where the lab host says it is running the simulator —
    * see `backends/default-backend.ts` for why the no-host case does NOT fall
    * back to `sim`.
+   *
+   * **Phase 5 T1 adds one more arrangement, and does not touch the rule above.**
+   * Inside the Tauri desktop shell there is no origin to probe and no lab host
+   * to start, so the app opens on the behavioural simulator *and announces it*
+   * — `initialBackend` decides that synchronously, on the first paint, for the
+   * same reason W8 wanted the constant there: the frame before a correction is
+   * a claim, and this one would be the wrong claim in the other direction.
+   * When T4 lands `TauriSesameRobot` the constant behind `detectDesktopShell`
+   * changes and this line follows it with no edit here.
    */
-  const [backendId, setBackendId] = useState<BackendId>(DEFAULT_BACKEND);
+  const desktop = useMemo(() => detectDesktopShell(), []);
+  const [backendId, setBackendId] = useState<BackendId>(() => initialBackend(desktop));
   /** What `/lab/session` said, or `null` until it has answered. */
-  const [labProbe, setLabProbe] = useState<LabHostProbe | null>(null);
+  const [labProbe, setLabProbe] = useState<LabHostProbe | null>(() =>
+    desktop.selectsSimulator ? desktopSimulatorProbe() : null,
+  );
   const backendPicked = useRef(false);
   const [bridgeUrl, setBridgeUrl] = useState(sameOriginBridgeUrl());
   const [labUrl, setLabUrl] = useState(defaultLabBaseUrl());
@@ -355,6 +374,11 @@ export function App(): ReactElement {
    * unexplained error.
    */
   useEffect(() => {
+    // The desktop shell has no origin to probe. Firing the request anyway would
+    // 404 against the `tauri://` asset protocol and land on `labHost: 'absent'`,
+    // which is the state that renders "start a lab host" — advice a reader of a
+    // packaged .exe cannot act on. The announcement is already in state.
+    if (desktop.selectsSimulator) return;
     let disposed = false;
     void probeLabHost(labUrl).then((probe) => {
       if (disposed) return;
@@ -365,7 +389,7 @@ export function App(): ReactElement {
     return () => {
       disposed = true;
     };
-  }, [labUrl]);
+  }, [labUrl, desktop]);
 
   /** A backend the READER chose. Pins it against the probe landing late. */
   const chooseBackend = useCallback((id: BackendId) => {
@@ -1474,6 +1498,14 @@ export function App(): ReactElement {
               deliberately on the bridge or the simulator.
             */
             noLabHost={backendId === 'qemu' && labProbe?.labHost === 'absent'}
+            /*
+              Phase 5 T1. The desktop shell picked the behavioural simulator
+              because it has no emulator backend yet, and it may not do that
+              quietly — see `backends/default-backend.ts`. Read off the probe
+              rather than off `detectDesktopShell()` so a reader who switches
+              backend by hand stops seeing a line about a choice they replaced.
+            */
+            desktopSimulator={backendId === 'sim' && labProbe?.labHost === 'desktop'}
             onMore={() => setPopover('trust')}
           />
         }
