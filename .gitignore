@@ -58,3 +58,14 @@ emulator/renode/tests/logs/*.trace
 # id/secret. Removed from tracking 2026-09-02; the glob stops it recurring.
 Projects*sesame-robot-emulator*
 **/inventory.yaml
+
+# Upstream firmware source, wherever a build output puts it. `**/dist/` already
+# covers today's copy in apps/web/dist/upstream/, but the audit noted that a
+# build landing outside that rule would publish upstream source by accident.
+# Redistributing it is permitted (Apache-2.0, attributed in NOTICE) - the point
+# is that this repo deliberately does not commit it, and the ignore set should
+# make that true by construction rather than by where a tool happens to write.
+**/sesame-firmware-main.ino
+**/face-bitmaps.h
+**/movement-sequences.h
+**/captive-portal.h

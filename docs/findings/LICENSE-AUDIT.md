@@ -534,7 +534,7 @@ regenerate it, which costs nothing. I would do that. **Reported, not acted on**
 lines 4–5 of each. Verbatim from `r4-asm.log:5`:
 
 ```
-[INFO] Including script(s): <local-path>\AppData\Local\Temp\claude\C--Projects-sesame-robot-emulator\<session>\scratchpad\asm.resc
+[INFO] Including script(s): <local-path>
 ```
 
 This discloses the Windows account name `<user>`, the `%LOCALAPPDATA%\Temp`
@@ -579,7 +579,7 @@ serial.** Harmless as-is.
 building an app for **"the user's nephew"**. That is a family-relationship
 disclosure about a minor, in a repository you are about to make public. Nothing
 identifies the child — no name, no location, no photo — and
-`T2-tauri-resources.md:260` uses `C:\Users\nephew\…` only as a hand-written
+`T2-tauri-resources.md:260` uses `<local-path>` only as a hand-written
 illustrative path.
 
 **Recommendation:** it is harmless and it is also the most human thing in the

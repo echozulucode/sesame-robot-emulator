@@ -30,7 +30,7 @@ Not legal advice — an engineering checklist built from what the licences say.
 
 - [ ] **1.2 Redact the five Renode logs.** §5a
       `emulator/renode/tests/logs/r4-{asm,regs,resetstate,setreg,cpu-help}.log`,
-      lines 4–5, contain `<local-path>\...\claude\...\<session-uuid>\scratchpad\`.
+      lines 4–5, contain `<local-path>`.
       The only tracked occurrences of `<user>` in the repo. Replace the path with
       `<scratch>/asm.resc` (etc.) and add a one-line inline note that the path
       was redacted, so the evidence stays honest.
