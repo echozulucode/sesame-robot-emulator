@@ -42,14 +42,22 @@ distributed with this application, on a medium customarily used for software
 interchange, for no more than the distributor's cost of physically performing
 the distribution.
 
-    Write to:   [[FILL IN: a contact address that will still reach you three
-                 years after you give this software to anyone]]
+    Write to:   Echo Zed Labs
+                contact@echozed.com
+                https://echozed.com
 
 The same source is also published at:
 
-    [[FILL IN: the permanent URL of the source archive
-     qemu-source-esp-develop-9.2.2-20260417.tar.gz, published alongside the
-     installer]]
+    https://github.com/echozulucode/sesame-robot-emulator/releases
+    (attached to the same release as the installer, as
+     qemu-source-esp-develop-9.2.2-20260417.tar.gz)
+
+    NOT YET UPLOADED. This URL is a commitment, not yet a fact: the archive
+    must be attached to the release before the installer is given to anyone.
+    Until then the offer above stands on the address alone, which does satisfy
+    GPL-2.0 section 3(b) on its own -- but an offer that also points at a 404
+    is worse than one that does not point anywhere, so upload it or delete
+    these five lines.
 
 --------------------------------------------------------------------------------
 THE TWO BLANKS ABOVE ARE NOT RHETORICAL. Until they are replaced with a real
