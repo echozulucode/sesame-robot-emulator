@@ -1,5 +1,5 @@
 {
-  "capturedAt": "2026-09-05T20:23:26.771Z",
+  "capturedAt": "2026-09-05T21:22:53.405Z",
   "report": {
     "ran": true,
     "reason": null,
@@ -16,12 +16,12 @@
       "ok": true,
       "total": 22,
       "present": 22,
-      "bytes": 79189944
+      "bytes": 79188664
     },
     "measuredEngine": "QEMU emulator version 9.2.2 (esp_develop_9.2.2_20260417)",
     "bundledQemu": "src-tauri/target/release/qemu/bin/qemu-system-xtensa.exe",
     "derivedEngine": "qemu-system-xtensa/9.2.2-esp_develop_9.2.2_20260417",
-    "pid": 20992,
+    "pid": 800,
     "cdpTarget": "http://tauri.localhost/",
     "shell": {
       "tauri": true,
@@ -39,8 +39,8 @@
       ]
     },
     "boot": {
-      "attempts": 1,
-      "elapsedMs": 2548
+      "attempts": 2,
+      "elapsedMs": 7678
     },
     "environmentLine": "SYSTEM: QEMU EMULATOR · PHYSICAL HARDWARE: NONE",
     "origin": {
@@ -108,11 +108,11 @@
     ],
     "sceneQuaternionDelta": 0.7071067811865475,
     "origins": {
-      "totalEvents": 37,
+      "totalEvents": 39,
       "physicallyObservedEvents": 0,
       "counts": {
         "physical-robot": 0,
-        "emulator": 37,
+        "emulator": 39,
         "host-model": 0,
         "replay": 0,
         "unknown": 0
