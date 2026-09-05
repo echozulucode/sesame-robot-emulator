@@ -1,0 +1,378 @@
+{
+  "capturedAt": "2026-09-05T20:23:26.771Z",
+  "report": {
+    "ran": true,
+    "reason": null,
+    "bundleDirs": [
+      "nsis"
+    ],
+    "selfTest": {
+      "originGuardCases": 11,
+      "originGuardProblems": 0,
+      "verdictProblems": 0
+    },
+    "devServerOn5173": false,
+    "resourceReport": {
+      "ok": true,
+      "total": 22,
+      "present": 22,
+      "bytes": 79189944
+    },
+    "measuredEngine": "QEMU emulator version 9.2.2 (esp_develop_9.2.2_20260417)",
+    "bundledQemu": "src-tauri/target/release/qemu/bin/qemu-system-xtensa.exe",
+    "derivedEngine": "qemu-system-xtensa/9.2.2-esp_develop_9.2.2_20260417",
+    "pid": 20992,
+    "cdpTarget": "http://tauri.localhost/",
+    "shell": {
+      "tauri": true,
+      "internals": true,
+      "href": "http://tauri.localhost/"
+    },
+    "servedAssets": {
+      "checked": 3,
+      "matchesDist": true,
+      "indexMatchedAfterNormalisation": true,
+      "files": [
+        "/index.html",
+        "/assets/index-D1-6qfWQ.js",
+        "/assets/index-DmCj8ILI.css"
+      ]
+    },
+    "boot": {
+      "attempts": 1,
+      "elapsedMs": 2548
+    },
+    "environmentLine": "SYSTEM: QEMU EMULATOR · PHYSICAL HARDWARE: NONE",
+    "origin": {
+      "kind": "emulator",
+      "engine": "QEMU emulator version 9.2.2 (esp_develop_9.2.2_20260417)",
+      "board": "distro-v1-esp32",
+      "elided": [
+        "wifi-mac",
+        "wifi-phy",
+        "http-server",
+        "captive-portal",
+        "mdns",
+        "ssd1306-glass",
+        "servo-load",
+        "ledc-waveform",
+        "usb-cdc"
+      ],
+      "oledFramebuffer": true
+    },
+    "boardText": "EMULATOR not hardware, and not a model either Real firmware. Emulated silicon. No robot. Every event on this stream is tagged provenance: observed — correctly: bytes really crossed a UART and the firmware’s own hook real",
+    "desktopSimulatorLine": {
+      "presentInDom": false,
+      "inBundle": {
+        "bundles": 1,
+        "testid": 1,
+        "sentence": 1
+      }
+    },
+    "negativeControls": [
+      {
+        "what": "the environment line, truncated",
+        "mutated": true,
+        "fired": true
+      },
+      {
+        "what": "the environment line, claiming hardware",
+        "mutated": true,
+        "fired": true
+      },
+      {
+        "what": "the desktop-simulator line, present",
+        "mutated": true,
+        "fired": true
+      },
+      {
+        "what": "a provenance badge at 1:1 contrast",
+        "mutated": true,
+        "fired": true
+      },
+      {
+        "what": "a control shrunk below the WCAG floor",
+        "mutated": true,
+        "fired": true
+      },
+      {
+        "what": "text below the 14 px floor",
+        "mutated": true,
+        "fired": true
+      },
+      {
+        "what": "a focused control with its ring removed",
+        "mutated": true,
+        "fired": true
+      }
+    ],
+    "sceneQuaternionDelta": 0.7071067811865475,
+    "origins": {
+      "totalEvents": 37,
+      "physicallyObservedEvents": 0,
+      "counts": {
+        "physical-robot": 0,
+        "emulator": 37,
+        "host-model": 0,
+        "replay": 0,
+        "unknown": 0
+      },
+      "drivingBoard": "distro-v1-esp32"
+    },
+    "oled": {
+      "state": "observed",
+      "fromEmulator": true,
+      "litPixels": 571,
+      "pixelProvenance": "observed",
+      "qualifierRendered": true
+    },
+    "trace": [
+      {
+        "layer": "ui.command",
+        "provenance": "observed",
+        "badge": "OBSERVED IN THIS APP"
+      },
+      {
+        "layer": "http.request",
+        "provenance": "observed",
+        "badge": "OBSERVED IN THIS APP"
+      },
+      {
+        "layer": "firmware.command",
+        "provenance": "inferred",
+        "badge": "INFERRED FOR EXPLANATION"
+      },
+      {
+        "layer": "movement.enter",
+        "provenance": "observed",
+        "badge": "OBSERVED FROM EMULATOR"
+      },
+      {
+        "layer": "servo.target",
+        "provenance": "observed",
+        "badge": "OBSERVED FROM EMULATOR"
+      },
+      {
+        "layer": "servo.target",
+        "provenance": "observed",
+        "badge": "OBSERVED FROM EMULATOR"
+      },
+      {
+        "layer": "servo.target",
+        "provenance": "observed",
+        "badge": "OBSERVED FROM EMULATOR"
+      },
+      {
+        "layer": "servo.target",
+        "provenance": "observed",
+        "badge": "OBSERVED FROM EMULATOR"
+      },
+      {
+        "layer": "servo.target",
+        "provenance": "observed",
+        "badge": "OBSERVED FROM EMULATOR"
+      },
+      {
+        "layer": "servo.target",
+        "provenance": "observed",
+        "badge": "OBSERVED FROM EMULATOR"
+      },
+      {
+        "layer": "servo.target",
+        "provenance": "observed",
+        "badge": "OBSERVED FROM EMULATOR"
+      },
+      {
+        "layer": "servo.target",
+        "provenance": "observed",
+        "badge": "OBSERVED FROM EMULATOR"
+      },
+      {
+        "layer": "pwm.output",
+        "provenance": "inferred",
+        "badge": "INFERRED FOR EXPLANATION"
+      },
+      {
+        "layer": "pwm.output",
+        "provenance": "inferred",
+        "badge": "INFERRED FOR EXPLANATION"
+      },
+      {
+        "layer": "pwm.output",
+        "provenance": "inferred",
+        "badge": "INFERRED FOR EXPLANATION"
+      },
+      {
+        "layer": "pwm.output",
+        "provenance": "inferred",
+        "badge": "INFERRED FOR EXPLANATION"
+      },
+      {
+        "layer": "pwm.output",
+        "provenance": "inferred",
+        "badge": "INFERRED FOR EXPLANATION"
+      },
+      {
+        "layer": "pwm.output",
+        "provenance": "inferred",
+        "badge": "INFERRED FOR EXPLANATION"
+      },
+      {
+        "layer": "pwm.output",
+        "provenance": "inferred",
+        "badge": "INFERRED FOR EXPLANATION"
+      },
+      {
+        "layer": "pwm.output",
+        "provenance": "inferred",
+        "badge": "INFERRED FOR EXPLANATION"
+      },
+      {
+        "layer": "joint.target",
+        "provenance": "inferred",
+        "badge": "INFERRED FOR EXPLANATION"
+      },
+      {
+        "layer": "joint.target",
+        "provenance": "inferred",
+        "badge": "INFERRED FOR EXPLANATION"
+      },
+      {
+        "layer": "joint.target",
+        "provenance": "inferred",
+        "badge": "INFERRED FOR EXPLANATION"
+      },
+      {
+        "layer": "joint.target",
+        "provenance": "inferred",
+        "badge": "INFERRED FOR EXPLANATION"
+      },
+      {
+        "layer": "joint.target",
+        "provenance": "inferred",
+        "badge": "INFERRED FOR EXPLANATION"
+      },
+      {
+        "layer": "joint.target",
+        "provenance": "inferred",
+        "badge": "INFERRED FOR EXPLANATION"
+      },
+      {
+        "layer": "joint.target",
+        "provenance": "inferred",
+        "badge": "INFERRED FOR EXPLANATION"
+      },
+      {
+        "layer": "joint.target",
+        "provenance": "inferred",
+        "badge": "INFERRED FOR EXPLANATION"
+      },
+      {
+        "layer": "visual.joint",
+        "provenance": "inferred",
+        "badge": "INFERRED FOR EXPLANATION"
+      },
+      {
+        "layer": "visual.joint",
+        "provenance": "inferred",
+        "badge": "INFERRED FOR EXPLANATION"
+      },
+      {
+        "layer": "visual.joint",
+        "provenance": "inferred",
+        "badge": "INFERRED FOR EXPLANATION"
+      },
+      {
+        "layer": "visual.joint",
+        "provenance": "inferred",
+        "badge": "INFERRED FOR EXPLANATION"
+      },
+      {
+        "layer": "visual.joint",
+        "provenance": "inferred",
+        "badge": "INFERRED FOR EXPLANATION"
+      },
+      {
+        "layer": "visual.joint",
+        "provenance": "inferred",
+        "badge": "INFERRED FOR EXPLANATION"
+      },
+      {
+        "layer": "visual.joint",
+        "provenance": "inferred",
+        "badge": "INFERRED FOR EXPLANATION"
+      },
+      {
+        "layer": "visual.joint",
+        "provenance": "inferred",
+        "badge": "INFERRED FOR EXPLANATION"
+      }
+    ],
+    "badges": {
+      "conceptual": 14,
+      "conceptualText": "13Inside the brainconceptualoutline0/2locked — read it, but finish read-the-firmware, how-pwm-asks first to play it (eve",
+      "notBuiltBadges": 3,
+      "notBuiltPanels": 0,
+      "notBuiltText": "not built"
+    },
+    "a11y": {
+      "the shell, no module": {
+        "textNodesScanned": 73,
+        "belowFloor": 0,
+        "contrastMeasured": 73,
+        "contrastFailures": 0,
+        "uiContrastFailures": 0,
+        "targetsChecked": 18,
+        "targetsUnderWcag": 0,
+        "targetsUnderTier": 0,
+        "correctnessSurfaces": 13,
+        "correctnessTruncated": 0,
+        "provenanceBadges": 6,
+        "originTagsRendered": 55,
+        "pointerOnlyFamilies": 0,
+        "focusablesWalked": 39,
+        "ringless": 0
+      },
+      "the signal module": {
+        "textNodesScanned": 452,
+        "belowFloor": 0,
+        "contrastMeasured": 452,
+        "contrastFailures": 0,
+        "uiContrastFailures": 0,
+        "targetsChecked": 25,
+        "targetsUnderWcag": 0,
+        "targetsUnderTier": 0,
+        "correctnessSurfaces": 191,
+        "correctnessTruncated": 0,
+        "provenanceBadges": 42,
+        "originTagsRendered": 55,
+        "pointerOnlyFamilies": 0,
+        "focusablesWalked": 40,
+        "ringless": 0
+      }
+    },
+    "simulator": {
+      "environmentLine": "SYSTEM: HOST MODEL · PHYSICAL HARDWARE: NONE",
+      "desktopSimulatorLinePresent": true,
+      "desktopSimulatorLineText": "This desktop window is being driven by the behavioural simulator — a host model, not the emulator and not hardware. No firmware is executing. change what drives this",
+      "counts": {
+        "physical-robot": 0,
+        "emulator": 0,
+        "host-model": 37,
+        "replay": 0,
+        "unknown": 0
+      },
+      "physicallyObservedEvents": 0
+    },
+    "pageErrors": 0,
+    "survivorsAfterClose": {
+      "qemu": 0,
+      "desktop": 0
+    },
+    "ok": true,
+    "stderr": ""
+  },
+  "notes": [],
+  "problems": [],
+  "ok": true
+}

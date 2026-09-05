@@ -1,0 +1,492 @@
+{
+  "issue": "ISSUE-20260823-023",
+  "what": "apps/web GroundPlane repositioned itself every frame to the pose-dependent computeGroundPlaneMm(rig), so the grid — the scene's only spatial reference — slid vertically under a robot root pinned at the canonical origin.",
+  "method": "scripts/capture-web-screenshots.mjs phase 1. window.__sesame.worldFrame() is polled off matrixWorld across runWavePose, starting BEFORE anything is commanded. Every field except footContactMm must be still.",
+  "before": {
+    "capturedAt": "2026-08-24T02:18:13.071Z",
+    "ok": false,
+    "problems": [
+      "the ground plane / grid moved 37.535 mm in world space between \"rest, nothing commanded\" and \"runWavePose, L3 at 100 deg\". Nothing in this scene may translate while a movement plays: the robot root is pinned at the canonical origin, so anything else that moves makes the whole world appear to jump (ISSUE-20260823-023).",
+      "the grid sits at -31.115119027235032 mm; the asset records the reference pose's ground plane at -68.650046 mm"
+    ],
+    "worldFrame": {
+      "toleranceMm": 0.000001,
+      "worstDriftMm": {
+        "groundWorldMm": 37.53492608666419,
+        "robotRootWorldMm": 0,
+        "cameraTargetMm": 0,
+        "cameraPositionMm": 0
+      },
+      "footContactSpreadMm": 37.53492608666419,
+      "samples": [
+        {
+          "label": "rest, nothing commanded",
+          "groundWorldMm": [
+            0,
+            -31.115119027235032,
+            0
+          ],
+          "robotRootWorldMm": [
+            0,
+            0,
+            0
+          ],
+          "cameraTargetMm": [
+            0,
+            -12,
+            -8
+          ],
+          "cameraPositionMm": [
+            155,
+            85,
+            -255
+          ],
+          "groundReferenceMm": -68.650046,
+          "footContactMm": -31.115119027235032
+        },
+        {
+          "label": "runWavePose, L3 at 100 deg",
+          "groundWorldMm": [
+            0,
+            -68.65004511389922,
+            0
+          ],
+          "robotRootWorldMm": [
+            0,
+            0,
+            0
+          ],
+          "cameraTargetMm": [
+            0,
+            -12,
+            -8
+          ],
+          "cameraPositionMm": [
+            155,
+            85,
+            -255
+          ],
+          "groundReferenceMm": -68.650046,
+          "footContactMm": -68.65004511389922
+        },
+        {
+          "label": "runWavePose, L3 at 180 deg",
+          "groundWorldMm": [
+            0,
+            -68.65004511389922,
+            0
+          ],
+          "robotRootWorldMm": [
+            0,
+            0,
+            0
+          ],
+          "cameraTargetMm": [
+            0,
+            -12,
+            -8
+          ],
+          "cameraPositionMm": [
+            155,
+            85,
+            -255
+          ],
+          "groundReferenceMm": -68.650046,
+          "footContactMm": -68.65004511389922
+        },
+        {
+          "label": "runWavePose, sample 1",
+          "groundWorldMm": [
+            0,
+            -68.65004511389922,
+            0
+          ],
+          "robotRootWorldMm": [
+            0,
+            0,
+            0
+          ],
+          "cameraTargetMm": [
+            0,
+            -12,
+            -8
+          ],
+          "cameraPositionMm": [
+            155,
+            85,
+            -255
+          ],
+          "groundReferenceMm": -68.650046,
+          "footContactMm": -68.65004511389922
+        },
+        {
+          "label": "runWavePose, sample 2",
+          "groundWorldMm": [
+            0,
+            -68.65004511389922,
+            0
+          ],
+          "robotRootWorldMm": [
+            0,
+            0,
+            0
+          ],
+          "cameraTargetMm": [
+            0,
+            -12,
+            -8
+          ],
+          "cameraPositionMm": [
+            155,
+            85,
+            -255
+          ],
+          "groundReferenceMm": -68.650046,
+          "footContactMm": -68.65004511389922
+        },
+        {
+          "label": "runWavePose, sample 3",
+          "groundWorldMm": [
+            0,
+            -68.65004511389922,
+            0
+          ],
+          "robotRootWorldMm": [
+            0,
+            0,
+            0
+          ],
+          "cameraTargetMm": [
+            0,
+            -12,
+            -8
+          ],
+          "cameraPositionMm": [
+            155,
+            85,
+            -255
+          ],
+          "groundReferenceMm": -68.650046,
+          "footContactMm": -68.65004511389922
+        },
+        {
+          "label": "runWavePose, sample 4",
+          "groundWorldMm": [
+            0,
+            -68.65004511389922,
+            0
+          ],
+          "robotRootWorldMm": [
+            0,
+            0,
+            0
+          ],
+          "cameraTargetMm": [
+            0,
+            -12,
+            -8
+          ],
+          "cameraPositionMm": [
+            155,
+            85,
+            -255
+          ],
+          "groundReferenceMm": -68.650046,
+          "footContactMm": -68.65004511389922
+        },
+        {
+          "label": "runWavePose, sample 5",
+          "groundWorldMm": [
+            0,
+            -68.65004511389922,
+            0
+          ],
+          "robotRootWorldMm": [
+            0,
+            0,
+            0
+          ],
+          "cameraTargetMm": [
+            0,
+            -12,
+            -8
+          ],
+          "cameraPositionMm": [
+            155,
+            85,
+            -255
+          ],
+          "groundReferenceMm": -68.650046,
+          "footContactMm": -68.65004511389922
+        },
+        {
+          "label": "runWavePose, sample 6",
+          "groundWorldMm": [
+            0,
+            -68.65004511389922,
+            0
+          ],
+          "robotRootWorldMm": [
+            0,
+            0,
+            0
+          ],
+          "cameraTargetMm": [
+            0,
+            -12,
+            -8
+          ],
+          "cameraPositionMm": [
+            155,
+            85,
+            -255
+          ],
+          "groundReferenceMm": -68.650046,
+          "footContactMm": -68.65004511389922
+        }
+      ]
+    }
+  },
+  "after": {
+    "capturedAt": "2026-08-24T02:18:46.598Z",
+    "ok": true,
+    "problems": [],
+    "worldFrame": {
+      "toleranceMm": 0.000001,
+      "worstDriftMm": {
+        "groundWorldMm": 0,
+        "robotRootWorldMm": 0,
+        "cameraTargetMm": 0,
+        "cameraPositionMm": 0
+      },
+      "footContactSpreadMm": 37.53492608666419,
+      "samples": [
+        {
+          "label": "rest, nothing commanded",
+          "groundWorldMm": [
+            0,
+            -68.650046,
+            0
+          ],
+          "robotRootWorldMm": [
+            0,
+            0,
+            0
+          ],
+          "cameraTargetMm": [
+            0,
+            -12,
+            -8
+          ],
+          "cameraPositionMm": [
+            155,
+            85,
+            -255
+          ],
+          "groundReferenceMm": -68.650046,
+          "footContactMm": -31.115119027235032
+        },
+        {
+          "label": "runWavePose, L3 at 100 deg",
+          "groundWorldMm": [
+            0,
+            -68.650046,
+            0
+          ],
+          "robotRootWorldMm": [
+            0,
+            0,
+            0
+          ],
+          "cameraTargetMm": [
+            0,
+            -12,
+            -8
+          ],
+          "cameraPositionMm": [
+            155,
+            85,
+            -255
+          ],
+          "groundReferenceMm": -68.650046,
+          "footContactMm": -68.65004511389922
+        },
+        {
+          "label": "runWavePose, L3 at 180 deg",
+          "groundWorldMm": [
+            0,
+            -68.650046,
+            0
+          ],
+          "robotRootWorldMm": [
+            0,
+            0,
+            0
+          ],
+          "cameraTargetMm": [
+            0,
+            -12,
+            -8
+          ],
+          "cameraPositionMm": [
+            155,
+            85,
+            -255
+          ],
+          "groundReferenceMm": -68.650046,
+          "footContactMm": -68.65004511389922
+        },
+        {
+          "label": "runWavePose, sample 1",
+          "groundWorldMm": [
+            0,
+            -68.650046,
+            0
+          ],
+          "robotRootWorldMm": [
+            0,
+            0,
+            0
+          ],
+          "cameraTargetMm": [
+            0,
+            -12,
+            -8
+          ],
+          "cameraPositionMm": [
+            155,
+            85,
+            -255
+          ],
+          "groundReferenceMm": -68.650046,
+          "footContactMm": -68.65004511389922
+        },
+        {
+          "label": "runWavePose, sample 2",
+          "groundWorldMm": [
+            0,
+            -68.650046,
+            0
+          ],
+          "robotRootWorldMm": [
+            0,
+            0,
+            0
+          ],
+          "cameraTargetMm": [
+            0,
+            -12,
+            -8
+          ],
+          "cameraPositionMm": [
+            155,
+            85,
+            -255
+          ],
+          "groundReferenceMm": -68.650046,
+          "footContactMm": -68.65004511389922
+        },
+        {
+          "label": "runWavePose, sample 3",
+          "groundWorldMm": [
+            0,
+            -68.650046,
+            0
+          ],
+          "robotRootWorldMm": [
+            0,
+            0,
+            0
+          ],
+          "cameraTargetMm": [
+            0,
+            -12,
+            -8
+          ],
+          "cameraPositionMm": [
+            155,
+            85,
+            -255
+          ],
+          "groundReferenceMm": -68.650046,
+          "footContactMm": -68.65004511389922
+        },
+        {
+          "label": "runWavePose, sample 4",
+          "groundWorldMm": [
+            0,
+            -68.650046,
+            0
+          ],
+          "robotRootWorldMm": [
+            0,
+            0,
+            0
+          ],
+          "cameraTargetMm": [
+            0,
+            -12,
+            -8
+          ],
+          "cameraPositionMm": [
+            155,
+            85,
+            -255
+          ],
+          "groundReferenceMm": -68.650046,
+          "footContactMm": -68.65004511389922
+        },
+        {
+          "label": "runWavePose, sample 5",
+          "groundWorldMm": [
+            0,
+            -68.650046,
+            0
+          ],
+          "robotRootWorldMm": [
+            0,
+            0,
+            0
+          ],
+          "cameraTargetMm": [
+            0,
+            -12,
+            -8
+          ],
+          "cameraPositionMm": [
+            155,
+            85,
+            -255
+          ],
+          "groundReferenceMm": -68.650046,
+          "footContactMm": -68.65004511389922
+        },
+        {
+          "label": "runWavePose, sample 6",
+          "groundWorldMm": [
+            0,
+            -68.650046,
+            0
+          ],
+          "robotRootWorldMm": [
+            0,
+            0,
+            0
+          ],
+          "cameraTargetMm": [
+            0,
+            -12,
+            -8
+          ],
+          "cameraPositionMm": [
+            155,
+            85,
+            -255
+          ],
+          "groundReferenceMm": -68.650046,
+          "footContactMm": -68.65004511389922
+        }
+      ]
+    }
+  }
+}

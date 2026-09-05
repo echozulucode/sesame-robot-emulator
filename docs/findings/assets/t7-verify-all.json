@@ -1,0 +1,59 @@
+{
+  "verdict": "OK",
+  "exit": 0,
+  "webCaptureDir": "node_modules/.cache/verify-all/web",
+  "ranAt": "2026-09-05T20:23:37.267Z",
+  "seconds": 769,
+  "targets": [
+    {
+      "id": "web",
+      "name": "web target",
+      "status": "passed",
+      "exit": 0,
+      "detail": "41 captures",
+      "steps": null,
+      "problems": [],
+      "seconds": 732
+    },
+    {
+      "id": "packaged",
+      "name": "packaged target",
+      "status": "passed",
+      "exit": 0,
+      "detail": "3/3 sub-checks passed",
+      "steps": [
+        {
+          "name": "resources",
+          "status": 0,
+          "error": null,
+          "seconds": 0
+        },
+        {
+          "name": "emulator",
+          "status": 0,
+          "error": null,
+          "seconds": 6
+        },
+        {
+          "name": "honesty",
+          "status": 0,
+          "error": null,
+          "seconds": 21
+        }
+      ],
+      "problems": null,
+      "seconds": 27
+    },
+    {
+      "id": "installer",
+      "name": "installer target",
+      "status": "passed",
+      "exit": 0,
+      "detail": "installed into a fresh directory, checked with a QEMU boot, uninstalled",
+      "steps": null,
+      "problems": null,
+      "seconds": 10
+    }
+  ],
+  "notRequested": []
+}

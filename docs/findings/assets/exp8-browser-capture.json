@@ -1,0 +1,63 @@
+{
+  "capturedAt": "2026-08-23T18:04:13.747Z",
+  "browser": {
+    "path": "C:/Program Files (x86)/Microsoft/Edge/Application/msedge.exe",
+    "headless": "new"
+  },
+  "viewerUrl": "http://127.0.0.1:54487/",
+  "fixture": "emulator/bridge/fixtures/wave-pose.replay.jsonl (runWavePose)",
+  "jointOrderAssertedInBrowser": [
+    "R1",
+    "R2",
+    "L1",
+    "L2",
+    "R4",
+    "R3",
+    "L3",
+    "L4"
+  ],
+  "method": "joint angles derived from the rendered canvas pixel widths over CDP Runtime.evaluate; images via Page.captureScreenshot",
+  "shots": [
+    {
+      "file": "docs/findings/assets/exp8-browser-l3-100.png",
+      "caption": "L3 down (100 deg)",
+      "bytes": 56623,
+      "sha256": "ae4d23459b93ffe6c3b759a0731df33dc3b14f9f004dfde750341584314b8f6d",
+      "renderedAngles": {
+        "R1": 100,
+        "R2": 45,
+        "L1": 45,
+        "L2": 90,
+        "R4": 80,
+        "R3": 180,
+        "L3": 100,
+        "L4": 180
+      },
+      "connection": "connected — ws://127.0.0.1:54487/telemetry",
+      "counts": "28 events",
+      "provenance": "simulated",
+      "face": "wave · frame 0"
+    },
+    {
+      "file": "docs/findings/assets/exp8-browser-l3-180.png",
+      "caption": "L3 up (180 deg)",
+      "bytes": 56607,
+      "sha256": "63daf21e17cadbee9b6b545cfe57456099bfe8611b0cf9afbfba40b9ee4b8719",
+      "renderedAngles": {
+        "R1": 100,
+        "R2": 45,
+        "L1": 45,
+        "L2": 90,
+        "R4": 80,
+        "R3": 180,
+        "L3": 180,
+        "L4": 180
+      },
+      "connection": "connected — ws://127.0.0.1:54487/telemetry",
+      "counts": "29 events",
+      "provenance": "simulated",
+      "face": "wave · frame 0"
+    }
+  ],
+  "ok": true
+}

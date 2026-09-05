@@ -1,0 +1,6147 @@
+{
+  "capturedAt": "2026-09-05T16:33:59.734Z",
+  "browser": {
+    "path": "C:/Program Files (x86)/Microsoft/Edge/Application/msedge.exe",
+    "headless": "new",
+    "gl": "swiftshader"
+  },
+  "app": "apps/web/dist",
+  "servedBy": "emulator/bridge (unmodified) --serve-viewer --viewer-dir apps/web/dist",
+  "method": "joint angles read from THREE.Object3D.quaternion in the live scene graph over CDP Runtime.evaluate; ground plane recomputed in-browser from the posed foot mesh vertices; images via Page.captureScreenshot",
+  "jointOrderAssertedInBrowser": [
+    "R1",
+    "R2",
+    "L1",
+    "L2",
+    "R4",
+    "R3",
+    "L3",
+    "L4"
+  ],
+  "honesty": "Emulated is never presented as physical. The app branches on isPhysicallyObserved(), not on provenance === \"observed\", and renders describeOrigin() beside every provenance badge.",
+  "phases": {
+    "typeScale": {
+      "ok": true,
+      "source": "docs/research/Sesame Lab_ responsive UI_UX research brief.md, \"The typography problem is real and severe\"",
+      "layers": "reset, tokens, base, shell, components, panes, utilities, overrides",
+      "tokens": {
+        "--font-badge": {
+          "floorPx": 14,
+          "role": "badges, chips, line numbers, counters — the absolute floor"
+        },
+        "--font-code": {
+          "floorPx": 15,
+          "role": "monospace, telemetry values, table cells"
+        },
+        "--font-ui": {
+          "floorPx": 16,
+          "role": "the default: body, labels, buttons, inputs"
+        },
+        "--font-prose": {
+          "floorPx": 17,
+          "role": "lesson and explanation prose"
+        },
+        "--font-heading": {
+          "floorPx": 18,
+          "role": "section headings inside a pane"
+        },
+        "--font-title": {
+          "floorPx": 20,
+          "role": "pane titles"
+        },
+        "--font-workspace": {
+          "floorPx": 24,
+          "role": "mode and workspace titles"
+        },
+        "--font-display": {
+          "floorPx": 28,
+          "role": "milestones"
+        }
+      },
+      "fontSizeDeclarations": 171,
+      "arbitraryLiterals": 0,
+      "fontSizesInsideMediaQueries": 0,
+      "was": "144 declarations, 128 of them <= 12px, 18 at 10px, 13 at 9px, on a 13px base"
+    },
+    "containerQueries": {
+      "ok": true,
+      "source": "docs/research/Sesame Lab_ responsive UI_UX research brief.md, \"Container queries should become the pane-level responsive mechanism\"",
+      "contract": "<section class=\"pane\" data-pane> · .pane__header h2 · .pane__content{min-inline-size:0}",
+      "container": "container: pane / inline-size",
+      "thresholdsRem": [
+        32.5,
+        45
+      ],
+      "queries": 10,
+      "unnamedQueries": 0,
+      "fontSizesInsideContainerQueries": 0,
+      "split": {
+        "viewport": "rail vs bottom nav, docks overlay vs in flow, dock widths, the stage margin",
+        "shellState": "data-sections — whether one pane owns the dock's height or several share it",
+        "container": "Signal's row, Inspector's table vs records, Learn's measure and its control column",
+        "react": "the artifact itself — useContainerWidth() + paneWidthBand(), W4's three graphs"
+      }
+    },
+    "defaultBackend": {
+      "servedBy": "bridge (no lab host)",
+      "opened": "qemu",
+      "guidanceOnPanel": true,
+      "guidanceInsidePopover": false
+    },
+    "simWave": {
+      "ok": true,
+      "maxQuaternionDelta": 0.6199510384388893,
+      "worldFrame": {
+        "toleranceMm": 0.000001,
+        "worstDriftMm": {
+          "groundWorldMm": 0,
+          "robotRootWorldMm": 0,
+          "cameraTargetMm": 0,
+          "cameraPositionMm": 0
+        },
+        "footContactSpreadMm": 37.53492608666419,
+        "samples": [
+          {
+            "label": "rest, nothing commanded",
+            "groundWorldMm": [
+              0,
+              -68.650046,
+              0
+            ],
+            "robotRootWorldMm": [
+              0,
+              0,
+              0
+            ],
+            "cameraTargetMm": [
+              0,
+              -12,
+              -8
+            ],
+            "cameraPositionMm": [
+              155,
+              85,
+              -255
+            ],
+            "groundReferenceMm": -68.650046,
+            "footContactMm": -31.115119027235032
+          },
+          {
+            "label": "runWavePose, L3 at 100 deg",
+            "groundWorldMm": [
+              0,
+              -68.650046,
+              0
+            ],
+            "robotRootWorldMm": [
+              0,
+              0,
+              0
+            ],
+            "cameraTargetMm": [
+              0,
+              -12,
+              -8
+            ],
+            "cameraPositionMm": [
+              155,
+              85,
+              -255
+            ],
+            "groundReferenceMm": -68.650046,
+            "footContactMm": -68.65004511389922
+          },
+          {
+            "label": "runWavePose, L3 at 180 deg",
+            "groundWorldMm": [
+              0,
+              -68.650046,
+              0
+            ],
+            "robotRootWorldMm": [
+              0,
+              0,
+              0
+            ],
+            "cameraTargetMm": [
+              0,
+              -12,
+              -8
+            ],
+            "cameraPositionMm": [
+              155,
+              85,
+              -255
+            ],
+            "groundReferenceMm": -68.650046,
+            "footContactMm": -68.65004511389922
+          },
+          {
+            "label": "runWavePose, sample 1",
+            "groundWorldMm": [
+              0,
+              -68.650046,
+              0
+            ],
+            "robotRootWorldMm": [
+              0,
+              0,
+              0
+            ],
+            "cameraTargetMm": [
+              0,
+              -12,
+              -8
+            ],
+            "cameraPositionMm": [
+              155,
+              85,
+              -255
+            ],
+            "groundReferenceMm": -68.650046,
+            "footContactMm": -68.65004511389922
+          },
+          {
+            "label": "runWavePose, sample 2",
+            "groundWorldMm": [
+              0,
+              -68.650046,
+              0
+            ],
+            "robotRootWorldMm": [
+              0,
+              0,
+              0
+            ],
+            "cameraTargetMm": [
+              0,
+              -12,
+              -8
+            ],
+            "cameraPositionMm": [
+              155,
+              85,
+              -255
+            ],
+            "groundReferenceMm": -68.650046,
+            "footContactMm": -68.65004511389922
+          },
+          {
+            "label": "runWavePose, sample 3",
+            "groundWorldMm": [
+              0,
+              -68.650046,
+              0
+            ],
+            "robotRootWorldMm": [
+              0,
+              0,
+              0
+            ],
+            "cameraTargetMm": [
+              0,
+              -12,
+              -8
+            ],
+            "cameraPositionMm": [
+              155,
+              85,
+              -255
+            ],
+            "groundReferenceMm": -68.650046,
+            "footContactMm": -68.65004511389922
+          },
+          {
+            "label": "runWavePose, sample 4",
+            "groundWorldMm": [
+              0,
+              -68.650046,
+              0
+            ],
+            "robotRootWorldMm": [
+              0,
+              0,
+              0
+            ],
+            "cameraTargetMm": [
+              0,
+              -12,
+              -8
+            ],
+            "cameraPositionMm": [
+              155,
+              85,
+              -255
+            ],
+            "groundReferenceMm": -68.650046,
+            "footContactMm": -68.65004511389922
+          },
+          {
+            "label": "runWavePose, sample 5",
+            "groundWorldMm": [
+              0,
+              -68.650046,
+              0
+            ],
+            "robotRootWorldMm": [
+              0,
+              0,
+              0
+            ],
+            "cameraTargetMm": [
+              0,
+              -12,
+              -8
+            ],
+            "cameraPositionMm": [
+              155,
+              85,
+              -255
+            ],
+            "groundReferenceMm": -68.650046,
+            "footContactMm": -68.65004511389922
+          },
+          {
+            "label": "runWavePose, sample 6",
+            "groundWorldMm": [
+              0,
+              -68.650046,
+              0
+            ],
+            "robotRootWorldMm": [
+              0,
+              0,
+              0
+            ],
+            "cameraTargetMm": [
+              0,
+              -12,
+              -8
+            ],
+            "cameraPositionMm": [
+              155,
+              85,
+              -255
+            ],
+            "groundReferenceMm": -68.650046,
+            "footContactMm": -68.65004511389922
+          }
+        ]
+      },
+      "canvasPixels": 31480,
+      "l3Down": {
+        "joint": "L3",
+        "firmwareIndex": 6,
+        "quaternion": [
+          0.08715574274765817,
+          0,
+          0,
+          0.9961946980917455
+        ],
+        "sceneCommandedDeg": 100,
+        "storeCommandedDeg": 100,
+        "storeProvenance": "simulated",
+        "storeOriginKind": "host-model",
+        "storePhysicallyObserved": false,
+        "pivotWorldMm": [
+          -59.30358499980018,
+          -21.402327,
+          -42.381951999806155
+        ]
+      },
+      "l3Up": {
+        "joint": "L3",
+        "firmwareIndex": 6,
+        "quaternion": [
+          0.7071067811865475,
+          0,
+          0,
+          0.7071067811865476
+        ],
+        "sceneCommandedDeg": 180,
+        "storeCommandedDeg": 180,
+        "storeProvenance": "simulated",
+        "storeOriginKind": "host-model",
+        "storePhysicallyObserved": false,
+        "pivotWorldMm": [
+          -59.30358499980018,
+          -21.402327,
+          -42.381951999806155
+        ]
+      },
+      "provenance": {
+        "driving": "simulated",
+        "counts": {
+          "observed": 0,
+          "simulated": 37,
+          "inferred": 0
+        },
+        "totalEvents": 37
+      }
+    },
+    "standPose": {
+      "ok": true,
+      "referencePose": "runStandPose",
+      "maxJointAngleErrorDeg": 0,
+      "perJoint": [
+        {
+          "joint": "R1",
+          "expectedDeg": 135,
+          "storeCommandedDeg": 135,
+          "sceneCommandedDeg": 135,
+          "quaternionErrorDeg": 0
+        },
+        {
+          "joint": "R2",
+          "expectedDeg": 45,
+          "storeCommandedDeg": 45,
+          "sceneCommandedDeg": 44.99999999999999,
+          "quaternionErrorDeg": 0
+        },
+        {
+          "joint": "L1",
+          "expectedDeg": 45,
+          "storeCommandedDeg": 45,
+          "sceneCommandedDeg": 44.99999999999999,
+          "quaternionErrorDeg": 0
+        },
+        {
+          "joint": "L2",
+          "expectedDeg": 135,
+          "storeCommandedDeg": 135,
+          "sceneCommandedDeg": 135,
+          "quaternionErrorDeg": 0
+        },
+        {
+          "joint": "R4",
+          "expectedDeg": 0,
+          "storeCommandedDeg": 0,
+          "sceneCommandedDeg": 0,
+          "quaternionErrorDeg": 0
+        },
+        {
+          "joint": "R3",
+          "expectedDeg": 180,
+          "storeCommandedDeg": 180,
+          "sceneCommandedDeg": 180,
+          "quaternionErrorDeg": 0
+        },
+        {
+          "joint": "L3",
+          "expectedDeg": 0,
+          "storeCommandedDeg": 0,
+          "sceneCommandedDeg": 0,
+          "quaternionErrorDeg": 0
+        },
+        {
+          "joint": "L4",
+          "expectedDeg": 180,
+          "storeCommandedDeg": 180,
+          "sceneCommandedDeg": 180,
+          "quaternionErrorDeg": 0
+        }
+      ],
+      "groundPlaneMm": -68.65004511389922,
+      "v2GroundPlaneMm": -68.650046,
+      "groundPlaneResidualMm": 8.86100778529908e-7,
+      "problems": []
+    },
+    "oled": {
+      "happy": {
+        "litPixels": 528,
+        "payloadChars": 1368
+      },
+      "projectedIn3d": true,
+      "textureFlipY": false,
+      "pixelProvenance": "inferred",
+      "triggerProvenance": "simulated",
+      "emptyFaceBlank": true,
+      "emptyFaceExplained": "setFace(\"stand\") found zero frames, so the firmware drew nothing AND reported nothing — no face.expression event was emitted at all. epd_bitmap_stand and epd_bitmap_defualt are declared __attribute__((weak)) in firmware/face-bitmaps.h and never defined, so countFrames() returns 0, the fallback table face_defualt_frames is empty too, updateFaceBitmap() is never called, and currentFaceName is quietly rewritten to \"default\". ISSUE-20260823-004. This note is inferred host-side from the firmware’s own bitmap table; nothing observed it, because there was nothing to observe.",
+      "emptyFaceRetainsPreviousFrame": true
+    },
+    "bridgeReplay": {
+      "ok": true,
+      "totalEvents": 121,
+      "provenance": {
+        "driving": "simulated",
+        "counts": {
+          "observed": 0,
+          "simulated": 121,
+          "inferred": 0
+        },
+        "totalEvents": 121
+      },
+      "maxQuaternionDelta": 0.6199510384388893,
+      "servedBy": "emulator/bridge --serve-viewer --viewer-dir apps/web/dist (no bridge changes)"
+    },
+    "architectureAndTrace": {
+      "ok": true,
+      "backend": "sim",
+      "zoomOnSelection": [
+        {
+          "representation": "subsystem",
+          "node": "servo.setServoAngle",
+          "before": 1,
+          "after": 1
+        },
+        {
+          "representation": "full",
+          "node": "movement",
+          "fitted": 0.348054,
+          "before": 0.501198,
+          "after": 0.501198
+        }
+      ],
+      "graph": {
+        "upstreamCommit": "401730514cefed738710d22303e84b0dcd6b76d0",
+        "totalNodes": 63,
+        "collapsedNodeIds": [
+          "movement",
+          "servos",
+          "face",
+          "oled",
+          "network",
+          "http-api",
+          "serial",
+          "developer",
+          "esp32"
+        ],
+        "expandedByClick": "servos",
+        "revealedChain": [
+          "servo.setServoAngle",
+          "servo.esp32servo",
+          "servo.ledc",
+          "servo.gpio",
+          "servo.mg90s"
+        ],
+        "handAuthored": [
+          "node movement",
+          "node face",
+          "node network",
+          "node serial",
+          "edge servo.mg90s->joint.R1"
+        ],
+        "unresolvedNodeIds": [
+          "servo.mg90s"
+        ]
+      },
+      "trace": {
+        "id": "wave-0003",
+        "command": "wave",
+        "carriedTraceId": true,
+        "windowAdopted": 0,
+        "ladder": [
+          {
+            "layer": "ui.command",
+            "label": "wave",
+            "provenance": "observed",
+            "originKind": null,
+            "badge": "OBSERVED IN THIS APP",
+            "match": "app-local",
+            "joint": null
+          },
+          {
+            "layer": "http.request",
+            "label": "POST /api/command",
+            "provenance": "inferred",
+            "originKind": null,
+            "badge": "INFERRED FOR EXPLANATION",
+            "match": "app-local",
+            "joint": null
+          },
+          {
+            "layer": "firmware.command",
+            "label": "wave → runWavePose()",
+            "provenance": "inferred",
+            "originKind": null,
+            "badge": "INFERRED FOR EXPLANATION",
+            "match": "app-local",
+            "joint": null
+          },
+          {
+            "layer": "movement.enter",
+            "label": "runWavePose()",
+            "provenance": "simulated",
+            "originKind": "host-model",
+            "badge": "SIMULATED",
+            "match": "trace-id",
+            "joint": null
+          },
+          {
+            "layer": "servo.target",
+            "label": "R1=135",
+            "provenance": "simulated",
+            "originKind": "host-model",
+            "badge": "SIMULATED",
+            "match": "trace-id",
+            "joint": "R1"
+          },
+          {
+            "layer": "servo.target",
+            "label": "R2=45",
+            "provenance": "simulated",
+            "originKind": "host-model",
+            "badge": "SIMULATED",
+            "match": "trace-id",
+            "joint": "R2"
+          },
+          {
+            "layer": "servo.target",
+            "label": "L1=45",
+            "provenance": "simulated",
+            "originKind": "host-model",
+            "badge": "SIMULATED",
+            "match": "trace-id",
+            "joint": "L1"
+          },
+          {
+            "layer": "servo.target",
+            "label": "L2=135",
+            "provenance": "simulated",
+            "originKind": "host-model",
+            "badge": "SIMULATED",
+            "match": "trace-id",
+            "joint": "L2"
+          },
+          {
+            "layer": "servo.target",
+            "label": "R4=0",
+            "provenance": "simulated",
+            "originKind": "host-model",
+            "badge": "SIMULATED",
+            "match": "trace-id",
+            "joint": "R4"
+          },
+          {
+            "layer": "servo.target",
+            "label": "R3=180",
+            "provenance": "simulated",
+            "originKind": "host-model",
+            "badge": "SIMULATED",
+            "match": "trace-id",
+            "joint": "R3"
+          },
+          {
+            "layer": "servo.target",
+            "label": "L3=0",
+            "provenance": "simulated",
+            "originKind": "host-model",
+            "badge": "SIMULATED",
+            "match": "trace-id",
+            "joint": "L3"
+          },
+          {
+            "layer": "servo.target",
+            "label": "L4=180",
+            "provenance": "simulated",
+            "originKind": "host-model",
+            "badge": "SIMULATED",
+            "match": "trace-id",
+            "joint": "L4"
+          },
+          {
+            "layer": "pwm.output",
+            "label": "R1 105 ticks · 2050.78 µs",
+            "provenance": "inferred",
+            "originKind": null,
+            "badge": "INFERRED FOR EXPLANATION",
+            "match": "trace-id",
+            "joint": "R1"
+          },
+          {
+            "layer": "pwm.output",
+            "label": "R2 60 ticks · 1171.88 µs",
+            "provenance": "inferred",
+            "originKind": null,
+            "badge": "INFERRED FOR EXPLANATION",
+            "match": "trace-id",
+            "joint": "R2"
+          },
+          {
+            "layer": "pwm.output",
+            "label": "L1 60 ticks · 1171.88 µs",
+            "provenance": "inferred",
+            "originKind": null,
+            "badge": "INFERRED FOR EXPLANATION",
+            "match": "trace-id",
+            "joint": "L1"
+          },
+          {
+            "layer": "pwm.output",
+            "label": "L2 105 ticks · 2050.78 µs",
+            "provenance": "inferred",
+            "originKind": null,
+            "badge": "INFERRED FOR EXPLANATION",
+            "match": "trace-id",
+            "joint": "L2"
+          },
+          {
+            "layer": "pwm.output",
+            "label": "R4 37 ticks · 722.66 µs",
+            "provenance": "inferred",
+            "originKind": null,
+            "badge": "INFERRED FOR EXPLANATION",
+            "match": "trace-id",
+            "joint": "R4"
+          },
+          {
+            "layer": "pwm.output",
+            "label": "R3 128 ticks · 2500.00 µs",
+            "provenance": "inferred",
+            "originKind": null,
+            "badge": "INFERRED FOR EXPLANATION",
+            "match": "trace-id",
+            "joint": "R3"
+          },
+          {
+            "layer": "pwm.output",
+            "label": "L3 37 ticks · 722.66 µs",
+            "provenance": "inferred",
+            "originKind": null,
+            "badge": "INFERRED FOR EXPLANATION",
+            "match": "trace-id",
+            "joint": "L3"
+          },
+          {
+            "layer": "pwm.output",
+            "label": "L4 128 ticks · 2500.00 µs",
+            "provenance": "inferred",
+            "originKind": null,
+            "badge": "INFERRED FOR EXPLANATION",
+            "match": "trace-id",
+            "joint": "L4"
+          },
+          {
+            "layer": "joint.target",
+            "label": "R1=135",
+            "provenance": "inferred",
+            "originKind": null,
+            "badge": "INFERRED FOR EXPLANATION",
+            "match": "app-local",
+            "joint": "R1"
+          },
+          {
+            "layer": "joint.target",
+            "label": "R2=45",
+            "provenance": "inferred",
+            "originKind": null,
+            "badge": "INFERRED FOR EXPLANATION",
+            "match": "app-local",
+            "joint": "R2"
+          },
+          {
+            "layer": "joint.target",
+            "label": "L1=45",
+            "provenance": "inferred",
+            "originKind": null,
+            "badge": "INFERRED FOR EXPLANATION",
+            "match": "app-local",
+            "joint": "L1"
+          },
+          {
+            "layer": "joint.target",
+            "label": "L2=135",
+            "provenance": "inferred",
+            "originKind": null,
+            "badge": "INFERRED FOR EXPLANATION",
+            "match": "app-local",
+            "joint": "L2"
+          },
+          {
+            "layer": "joint.target",
+            "label": "R4=0",
+            "provenance": "inferred",
+            "originKind": null,
+            "badge": "INFERRED FOR EXPLANATION",
+            "match": "app-local",
+            "joint": "R4"
+          },
+          {
+            "layer": "joint.target",
+            "label": "R3=180",
+            "provenance": "inferred",
+            "originKind": null,
+            "badge": "INFERRED FOR EXPLANATION",
+            "match": "app-local",
+            "joint": "R3"
+          },
+          {
+            "layer": "joint.target",
+            "label": "L3=0",
+            "provenance": "inferred",
+            "originKind": null,
+            "badge": "INFERRED FOR EXPLANATION",
+            "match": "app-local",
+            "joint": "L3"
+          },
+          {
+            "layer": "joint.target",
+            "label": "L4=180",
+            "provenance": "inferred",
+            "originKind": null,
+            "badge": "INFERRED FOR EXPLANATION",
+            "match": "app-local",
+            "joint": "L4"
+          },
+          {
+            "layer": "visual.joint",
+            "label": "R1=135.00",
+            "provenance": "inferred",
+            "originKind": null,
+            "badge": "INFERRED FOR EXPLANATION",
+            "match": "app-local",
+            "joint": "R1"
+          },
+          {
+            "layer": "visual.joint",
+            "label": "R2=45.00",
+            "provenance": "inferred",
+            "originKind": null,
+            "badge": "INFERRED FOR EXPLANATION",
+            "match": "app-local",
+            "joint": "R2"
+          },
+          {
+            "layer": "visual.joint",
+            "label": "L1=45.00",
+            "provenance": "inferred",
+            "originKind": null,
+            "badge": "INFERRED FOR EXPLANATION",
+            "match": "app-local",
+            "joint": "L1"
+          },
+          {
+            "layer": "visual.joint",
+            "label": "L2=135.00",
+            "provenance": "inferred",
+            "originKind": null,
+            "badge": "INFERRED FOR EXPLANATION",
+            "match": "app-local",
+            "joint": "L2"
+          },
+          {
+            "layer": "visual.joint",
+            "label": "R4=0.00",
+            "provenance": "inferred",
+            "originKind": null,
+            "badge": "INFERRED FOR EXPLANATION",
+            "match": "app-local",
+            "joint": "R4"
+          },
+          {
+            "layer": "visual.joint",
+            "label": "R3=180.00",
+            "provenance": "inferred",
+            "originKind": null,
+            "badge": "INFERRED FOR EXPLANATION",
+            "match": "app-local",
+            "joint": "R3"
+          },
+          {
+            "layer": "visual.joint",
+            "label": "L3=0.00",
+            "provenance": "inferred",
+            "originKind": null,
+            "badge": "INFERRED FOR EXPLANATION",
+            "match": "app-local",
+            "joint": "L3"
+          },
+          {
+            "layer": "visual.joint",
+            "label": "L4=180.00",
+            "provenance": "inferred",
+            "originKind": null,
+            "badge": "INFERRED FOR EXPLANATION",
+            "match": "app-local",
+            "joint": "L4"
+          }
+        ],
+        "physicallyObservedRows": 0
+      },
+      "crossLink": {
+        "graphClickToScene": {
+          "clicked": "joint.R4",
+          "litJoints": [
+            "R4"
+          ]
+        },
+        "sceneSelectToGraph": "joint.L3",
+        "sceneSelectToTrace": [
+          {
+            "layer": "servo.target",
+            "joint": "L3"
+          },
+          {
+            "layer": "pwm.output",
+            "joint": "L3"
+          },
+          {
+            "layer": "joint.target",
+            "joint": "L3"
+          },
+          {
+            "layer": "visual.joint",
+            "joint": "L3"
+          }
+        ],
+        "autoExpanded": true,
+        "pathSelectToScene": {
+          "clicked": "joint.L4",
+          "litJoints": [
+            "L4"
+          ]
+        },
+        "pathSelectIsStageNotLimb": {
+          "clicked": "servo.ledc",
+          "litJoints": [
+            "R1",
+            "R2",
+            "L1",
+            "L2",
+            "R4",
+            "R3",
+            "L3",
+            "L4"
+          ]
+        }
+      },
+      "representations": {
+        "thresholdsPx": {
+          "subsystem": 720,
+          "full": 960
+        },
+        "ordinary": {
+          "mode": "path",
+          "surfaceWidthPx": 670,
+          "reactFlowMounted": 0,
+          "zoomSurfaces": 0,
+          "steps": [
+            "esp32",
+            "movement",
+            "servos",
+            "servo.setServoAngle",
+            "servo.esp32servo",
+            "servo.ledc",
+            "servo.gpio",
+            "servo.mg90s"
+          ],
+          "worstOnScreenPx": 14.26,
+          "textRuns": 70
+        },
+        "subsystem": {
+          "drivenContainerPx": 900,
+          "mode": "subsystem",
+          "surfaceWidthPx": 876,
+          "subsystem": "movement",
+          "nodes": 16,
+          "zoom": 1
+        },
+        "workspace": {
+          "surfaceWidthPx": 1053,
+          "mode": "full",
+          "stageRule": "focus-exempt",
+          "stageAreaSharePct": 17.257144481503943,
+          "canvasPx": [
+            312.109375,
+            837
+          ],
+          "robotPixelSharePct": 75.07852564102564
+        },
+        "stageRuleAfterClose": "content-50",
+        "stageAreaAfterClosePct": 38.42792423215496
+      },
+      "worldFrame": {
+        "toleranceMm": 0.000001,
+        "worstDriftMm": {
+          "groundWorldMm": 0,
+          "robotRootWorldMm": 0,
+          "cameraTargetMm": 0,
+          "cameraPositionMm": 0
+        },
+        "footContactSpreadMm": 37.53492608666419,
+        "samples": 10
+      },
+      "shots": [
+        "w4-architecture-causal-path.png",
+        "v8-architecture-collapsed.png",
+        "v8-architecture-servos-expanded.png",
+        "v8-see-the-signal.png",
+        "v8-see-the-signal-pwm.png"
+      ]
+    },
+    "sourceExplorer": {
+      "ok": true,
+      "backend": "sim",
+      "upstreamCommit": "401730514cefed738710d22303e84b0dcd6b76d0",
+      "integrity": {
+        "movementSequences": "ok",
+        "faceBitmaps": "ok"
+      },
+      "lineNumbers": {
+        "symbol": "runWavePose",
+        "startLine": 91,
+        "endLine": 107,
+        "renderedStartLineText": "inline void runWavePose() {",
+        "annotatedStartLineText": "inline void runWavePose() {",
+        "window": [
+          83,
+          115
+        ],
+        "citedLines": [
+          91,
+          106,
+          107
+        ]
+      },
+      "crossLink": {
+        "symbolToNode": "movement.runWavePose",
+        "symbolToJoints": [
+          "R1",
+          "L2",
+          "R4",
+          "L3"
+        ],
+        "symbolToTraceLayers": [
+          "firmware.command",
+          "movement.enter"
+        ],
+        "jointToSymbol": "ServoName",
+        "jointToSymbolRobotParts": [
+          "R1",
+          "R2",
+          "L1",
+          "L2",
+          "R4",
+          "R3",
+          "L3",
+          "L4"
+        ],
+        "scrolledIntoView": true
+      },
+      "registers": {
+        "description": {
+          "color": "rgb(223, 229, 238)",
+          "background": "rgba(0, 0, 0, 0)",
+          "borderLeft": "rgb(223, 229, 238)",
+          "borderStyle": "none",
+          "fontStyle": "normal"
+        },
+        "commentary": {
+          "color": "rgb(232, 220, 196)",
+          "background": "rgba(0, 0, 0, 0)",
+          "borderLeft": "rgb(232, 220, 196)",
+          "borderStyle": "none",
+          "fontStyle": "italic"
+        },
+        "libraryEvidence": {
+          "color": "rgb(223, 229, 238)",
+          "background": "rgb(30, 24, 48)",
+          "borderLeft": "rgb(192, 141, 224)",
+          "borderStyle": "dashed",
+          "fontStyle": "normal"
+        }
+      },
+      "concepts": {
+        "levelsOnScreenAtOnce": 1,
+        "switchedTo": "beginner12",
+        "denseConcept": "face",
+        "density": 38,
+        "symbolChipsShown": 6
+      },
+      "curriculum": {
+        "conceptualTotal": 7,
+        "badged": {
+          "grounding": "conceptual",
+          "text": "Build a leg poseconceptual",
+          "title": "CONCEPTUAL — The firmware has no notion of a hip or a leg. It has eight indices and a name per index; which index is a hip, which limb a pair belongs to, and even left versus right are all semantic readings carried in hardware/joint-map.json with verified: false, and per docs/plan.md they can never be settled. Pose vectors are factual; the anatomy they are described with is not."
+        }
+      },
+      "worldFrame": {
+        "toleranceMm": 0.000001,
+        "worstDriftMm": {
+          "groundWorldMm": 0,
+          "robotRootWorldMm": 0,
+          "cameraTargetMm": 0,
+          "cameraPositionMm": 0
+        },
+        "footContactSpreadMm": 37.53492608666419,
+        "samples": 7
+      },
+      "shots": [
+        "l4-source-explorer-wave.png",
+        "l4-source-teaching-notes.png"
+      ]
+    },
+    "lessonRunner": {
+      "ok": true,
+      "backend": "sim",
+      "modules": 19,
+      "playable": [
+        "meet-sesame",
+        "command-one-joint",
+        "how-pwm-asks",
+        "four-legs-cooperate",
+        "sesames-face",
+        "read-the-firmware"
+      ],
+      "implementedControls": [
+        "robot-explode",
+        "board-selector",
+        "graph-node-picker",
+        "pose-runner",
+        "command-button",
+        "joint-slider",
+        "channel-number",
+        "subtrim-control",
+        "pwm-inspector",
+        "trace-inspector",
+        "source-selector",
+        "sequence-editor",
+        "face-picker",
+        "pixel-editor",
+        "fault-injector",
+        "http-console"
+      ],
+      "unimplementedControls": [
+        "joint-picker",
+        "serial-console",
+        "boot-stepper",
+        "backend-switch",
+        "emulator-controls",
+        "none"
+      ],
+      "implementedChecks": [
+        "joints-identified",
+        "board-switched",
+        "source-span-selected",
+        "pose-vector",
+        "servo-target",
+        "telemetry-absent",
+        "commanded-angle-collision",
+        "quantisation-collision",
+        "pwm-value-matched",
+        "quantisation-survey",
+        "trace-badge-identified",
+        "trace-field-absent",
+        "trace-complete",
+        "movement-joints-identified",
+        "sequence-variation",
+        "sequence-authored",
+        "face-selected",
+        "face-fallback",
+        "face-reselect",
+        "face-after-movement",
+        "face-mode-identified",
+        "pixel-edit",
+        "http-request",
+        "http-json-field",
+        "subtrim-set",
+        "boot-halt"
+      ],
+      "lessonOne": [
+        {
+          "id": "eight-channels",
+          "outcome": "passed"
+        },
+        {
+          "id": "one-pin-each",
+          "outcome": "passed"
+        },
+        {
+          "id": "the-face-is-separate",
+          "outcome": "passed"
+        },
+        {
+          "id": "run-one-real-movement",
+          "outcome": "passed"
+        },
+        {
+          "id": "what-you-did-not-see",
+          "outcome": "passed"
+        }
+      ],
+      "lessonTwo": [
+        {
+          "id": "one-function",
+          "outcome": "passed"
+        },
+        {
+          "id": "channel-eight",
+          "outcome": "passed"
+        },
+        {
+          "id": "subtrim-before-clamp",
+          "outcome": "passed"
+        },
+        {
+          "id": "angles-that-alias",
+          "outcome": "passed"
+        },
+        {
+          "id": "follow-the-whole-ladder",
+          "outcome": "passed"
+        },
+        {
+          "id": "the-delay-that-is-not-a-delay",
+          "outcome": "passed"
+        }
+      ],
+      "lessonFour": [
+        {
+          "id": "a-movement-is-a-list",
+          "outcome": "passed"
+        },
+        {
+          "id": "which-joints-does-wave-move",
+          "outcome": "passed"
+        },
+        {
+          "id": "timing-is-in-the-list-too",
+          "outcome": "passed"
+        },
+        {
+          "id": "stand-is-an-exit",
+          "outcome": "passed"
+        },
+        {
+          "id": "cancelling-is-not-free",
+          "outcome": "passed"
+        },
+        {
+          "id": "write-your-own-sequence",
+          "outcome": "passed"
+        },
+        {
+          "id": "where-kinematics-would-go",
+          "outcome": "passed"
+        }
+      ],
+      "lessonFive": [
+        {
+          "id": "one-list-three-expansions",
+          "outcome": "passed"
+        },
+        {
+          "id": "pick-a-face",
+          "outcome": "passed"
+        },
+        {
+          "id": "the-face-that-draws-nothing",
+          "outcome": "passed"
+        },
+        {
+          "id": "asking-twice-does-nothing",
+          "outcome": "passed"
+        },
+        {
+          "id": "playback-mode-is-global",
+          "outcome": "passed"
+        },
+        {
+          "id": "draw-your-own-frame",
+          "outcome": "passed"
+        }
+      ],
+      "lessonSix": [
+        {
+          "id": "setup-once-loop-forever",
+          "outcome": "passed"
+        },
+        {
+          "id": "the-dispatch-chain",
+          "outcome": "passed"
+        },
+        {
+          "id": "a-delay-that-is-not-a-delay",
+          "outcome": "skipped"
+        },
+        {
+          "id": "the-only-hard-stop",
+          "outcome": "passed"
+        },
+        {
+          "id": "the-command-that-never-clears",
+          "outcome": "skipped"
+        },
+        {
+          "id": "which-line-moved-this-joint",
+          "outcome": "passed"
+        }
+      ],
+      "lessonSixNote": "two steps drive the firmware’s HTTP routes, which only exist in front of apps/web/server/lab-host.mjs. Served by the bridge, the console reports the real failure and the steps are recorded as SKIPPED, which leaves the lesson incomplete.",
+      "lessonTwoChallenges": [
+        {
+          "id": "ch-three-angles",
+          "unlocked": true,
+          "status": "passed"
+        },
+        {
+          "id": "ch-fix-a-crooked-joint",
+          "unlocked": true,
+          "status": "pending"
+        }
+      ],
+      "falsifications": [
+        "named R1 as L4 → failed",
+        "commanded R1 to 90 when the step asks 135 → failed",
+        "wrote channel 3, which the guard lets through → failed (a servo.target arrived)",
+        "called the pwm.output row simulated → failed",
+        "booted with no fault injected → failed (boot completed)",
+        "opened delayWithFace without coming from setServoAngle → stayed pending"
+      ],
+      "explanationLevels": {
+        "onScreenAtOnce": 1,
+        "defaultLevel": "beginner12",
+        "afterSwitch": "architecture",
+        "goDeeperOpenByDefault": false
+      },
+      "conceptual": {
+        "badged": [
+          "inside-the-brain",
+          "build-a-leg-pose",
+          "build-a-movement",
+          "what-an-emulator-is",
+          "real-versus-virtual",
+          "inside-qemu",
+          "build-your-own-experiment"
+        ],
+        "withSymbols": [
+          "build-a-leg-pose",
+          "build-a-movement",
+          "inside-the-brain"
+        ]
+      },
+      "boundaryNote": {
+        "domain": [
+          "emulator"
+        ],
+        "observability": "observability: inert-in-emulator",
+        "registers": {
+          "boundaryBorderStyle": "dashed",
+          "boundaryBackground": "rgb(18, 27, 33)",
+          "proseBorderStyle": "none",
+          "proseBackground": "rgba(0, 0, 0, 0)"
+        }
+      },
+      "faults": [
+        {
+          "id": "oled-init-fail",
+          "injected": true
+        }
+      ],
+      "bootHalt": "halted at 4: SSD1306 allocation failed. / while (1);  — nothing after this point executes",
+      "worldFrame": {
+        "toleranceMm": 0.000001,
+        "worstDriftMm": {
+          "groundWorldMm": 0,
+          "robotRootWorldMm": 0,
+          "cameraTargetMm": 0,
+          "cameraPositionMm": 0
+        },
+        "footContactSpreadMm": 37.53492608666419,
+        "samples": 12
+      },
+      "shots": [
+        "l6-lesson-conceptual-badge.png",
+        "l6-lesson-two-complete.png",
+        "l6-lesson-fault-injector.png"
+      ]
+    },
+    "sourceIntegrityRefusal": {
+      "ok": true,
+      "tamperedBytes": 1,
+      "file": "firmware/movement-sequences.h",
+      "expectedSha256": "f77d713703e361dff2458f4fd02356ed397b8f47d83bd7a87587e8f6e899d2f1",
+      "servedSha256": "5a6382ad43c78d0f56cbf48e4c38fdac66b4429ef04274673f17001b61ff399d",
+      "integrity": "mismatch",
+      "renderedLines": 0,
+      "domCodeLines": 0,
+      "untamperedFileStillReads": "ok",
+      "absentFileReports": "missing",
+      "shots": [
+        "l4-source-integrity-refusal.png"
+      ]
+    },
+    "bridgeQemu": {
+      "ran": true,
+      "ok": true,
+      "provenance": {
+        "driving": "observed",
+        "counts": {
+          "observed": 154,
+          "simulated": 0,
+          "inferred": 0
+        },
+        "totalEvents": 154
+      },
+      "origin": {
+        "driving": {
+          "kind": "unknown"
+        },
+        "counts": {
+          "physical-robot": 0,
+          "emulator": 0,
+          "host-model": 0,
+          "replay": 0,
+          "unknown": 154
+        },
+        "physicallyObservedEvents": 0
+      },
+      "jointsDriven": [
+        {
+          "joint": "R1",
+          "deg": 135
+        },
+        {
+          "joint": "R2",
+          "deg": 45
+        }
+      ],
+      "canvasPixels": 28236,
+      "note": "Telemetry here is `observed`: the bytes came out of firmware that really executed. The bridge was not modified for it — a live --uart-port socket is what it was built for. It is receive-only, and it stamps no TelemetryOrigin, so the app reports origin `unknown` and refuses to treat that as physical. Phase 6 is the commandable, origin-carrying path."
+    },
+    "qemuTrace": {
+      "ok": true,
+      "id": "wave-0001",
+      "carriedTraceId": false,
+      "windowAdopted": 21,
+      "ladder": [
+        {
+          "layer": "ui.command",
+          "provenance": "observed",
+          "originKind": null,
+          "badge": "OBSERVED IN THIS APP",
+          "match": "app-local"
+        },
+        {
+          "layer": "http.request",
+          "provenance": "observed",
+          "originKind": null,
+          "badge": "OBSERVED IN THIS APP",
+          "match": "app-local"
+        },
+        {
+          "layer": "firmware.command",
+          "provenance": "inferred",
+          "originKind": null,
+          "badge": "INFERRED FOR EXPLANATION",
+          "match": "app-local"
+        },
+        {
+          "layer": "movement.enter",
+          "provenance": "observed",
+          "originKind": "emulator",
+          "badge": "OBSERVED FROM EMULATOR",
+          "match": "time-window"
+        },
+        {
+          "layer": "servo.target",
+          "provenance": "observed",
+          "originKind": "emulator",
+          "badge": "OBSERVED FROM EMULATOR",
+          "match": "time-window"
+        },
+        {
+          "layer": "servo.target",
+          "provenance": "observed",
+          "originKind": "emulator",
+          "badge": "OBSERVED FROM EMULATOR",
+          "match": "time-window"
+        },
+        {
+          "layer": "servo.target",
+          "provenance": "observed",
+          "originKind": "emulator",
+          "badge": "OBSERVED FROM EMULATOR",
+          "match": "time-window"
+        },
+        {
+          "layer": "servo.target",
+          "provenance": "observed",
+          "originKind": "emulator",
+          "badge": "OBSERVED FROM EMULATOR",
+          "match": "time-window"
+        },
+        {
+          "layer": "servo.target",
+          "provenance": "observed",
+          "originKind": "emulator",
+          "badge": "OBSERVED FROM EMULATOR",
+          "match": "time-window"
+        },
+        {
+          "layer": "servo.target",
+          "provenance": "observed",
+          "originKind": "emulator",
+          "badge": "OBSERVED FROM EMULATOR",
+          "match": "time-window"
+        },
+        {
+          "layer": "servo.target",
+          "provenance": "observed",
+          "originKind": "emulator",
+          "badge": "OBSERVED FROM EMULATOR",
+          "match": "time-window"
+        },
+        {
+          "layer": "servo.target",
+          "provenance": "observed",
+          "originKind": "emulator",
+          "badge": "OBSERVED FROM EMULATOR",
+          "match": "time-window"
+        },
+        {
+          "layer": "pwm.output",
+          "provenance": "inferred",
+          "originKind": null,
+          "badge": "INFERRED FOR EXPLANATION",
+          "match": "time-window"
+        },
+        {
+          "layer": "pwm.output",
+          "provenance": "inferred",
+          "originKind": null,
+          "badge": "INFERRED FOR EXPLANATION",
+          "match": "time-window"
+        },
+        {
+          "layer": "pwm.output",
+          "provenance": "inferred",
+          "originKind": null,
+          "badge": "INFERRED FOR EXPLANATION",
+          "match": "time-window"
+        },
+        {
+          "layer": "pwm.output",
+          "provenance": "inferred",
+          "originKind": null,
+          "badge": "INFERRED FOR EXPLANATION",
+          "match": "time-window"
+        },
+        {
+          "layer": "pwm.output",
+          "provenance": "inferred",
+          "originKind": null,
+          "badge": "INFERRED FOR EXPLANATION",
+          "match": "time-window"
+        },
+        {
+          "layer": "pwm.output",
+          "provenance": "inferred",
+          "originKind": null,
+          "badge": "INFERRED FOR EXPLANATION",
+          "match": "time-window"
+        },
+        {
+          "layer": "pwm.output",
+          "provenance": "inferred",
+          "originKind": null,
+          "badge": "INFERRED FOR EXPLANATION",
+          "match": "time-window"
+        },
+        {
+          "layer": "pwm.output",
+          "provenance": "inferred",
+          "originKind": null,
+          "badge": "INFERRED FOR EXPLANATION",
+          "match": "time-window"
+        },
+        {
+          "layer": "joint.target",
+          "provenance": "inferred",
+          "originKind": null,
+          "badge": "INFERRED FOR EXPLANATION",
+          "match": "app-local"
+        },
+        {
+          "layer": "joint.target",
+          "provenance": "inferred",
+          "originKind": null,
+          "badge": "INFERRED FOR EXPLANATION",
+          "match": "app-local"
+        },
+        {
+          "layer": "joint.target",
+          "provenance": "inferred",
+          "originKind": null,
+          "badge": "INFERRED FOR EXPLANATION",
+          "match": "app-local"
+        },
+        {
+          "layer": "joint.target",
+          "provenance": "inferred",
+          "originKind": null,
+          "badge": "INFERRED FOR EXPLANATION",
+          "match": "app-local"
+        },
+        {
+          "layer": "joint.target",
+          "provenance": "inferred",
+          "originKind": null,
+          "badge": "INFERRED FOR EXPLANATION",
+          "match": "app-local"
+        },
+        {
+          "layer": "joint.target",
+          "provenance": "inferred",
+          "originKind": null,
+          "badge": "INFERRED FOR EXPLANATION",
+          "match": "app-local"
+        },
+        {
+          "layer": "joint.target",
+          "provenance": "inferred",
+          "originKind": null,
+          "badge": "INFERRED FOR EXPLANATION",
+          "match": "app-local"
+        },
+        {
+          "layer": "joint.target",
+          "provenance": "inferred",
+          "originKind": null,
+          "badge": "INFERRED FOR EXPLANATION",
+          "match": "app-local"
+        },
+        {
+          "layer": "visual.joint",
+          "provenance": "inferred",
+          "originKind": null,
+          "badge": "INFERRED FOR EXPLANATION",
+          "match": "app-local"
+        },
+        {
+          "layer": "visual.joint",
+          "provenance": "inferred",
+          "originKind": null,
+          "badge": "INFERRED FOR EXPLANATION",
+          "match": "app-local"
+        },
+        {
+          "layer": "visual.joint",
+          "provenance": "inferred",
+          "originKind": null,
+          "badge": "INFERRED FOR EXPLANATION",
+          "match": "app-local"
+        },
+        {
+          "layer": "visual.joint",
+          "provenance": "inferred",
+          "originKind": null,
+          "badge": "INFERRED FOR EXPLANATION",
+          "match": "app-local"
+        },
+        {
+          "layer": "visual.joint",
+          "provenance": "inferred",
+          "originKind": null,
+          "badge": "INFERRED FOR EXPLANATION",
+          "match": "app-local"
+        },
+        {
+          "layer": "visual.joint",
+          "provenance": "inferred",
+          "originKind": null,
+          "badge": "INFERRED FOR EXPLANATION",
+          "match": "app-local"
+        },
+        {
+          "layer": "visual.joint",
+          "provenance": "inferred",
+          "originKind": null,
+          "badge": "INFERRED FOR EXPLANATION",
+          "match": "app-local"
+        },
+        {
+          "layer": "visual.joint",
+          "provenance": "inferred",
+          "originKind": null,
+          "badge": "INFERRED FOR EXPLANATION",
+          "match": "app-local"
+        }
+      ]
+    },
+    "qemuCommanded": {
+      "environmentLine": {
+        "text": "SYSTEM: QEMU EMULATOR · PHYSICAL HARDWARE: NONE",
+        "system": "QEMU EMULATOR",
+        "physicallyObserved": 0,
+        "cut": false
+      },
+      "ran": true,
+      "ok": true,
+      "transport": "apps/web/server/lab-host.mjs — @sesame-lab/sesame-api SesameApiAdapter (unmodified) over QemuSesameRobot, plus /lab/stream (SSE) for telemetry the firmware’s HTTP contract has no way to express",
+      "clickedSelector": "[data-command=\"wave\"]",
+      "boot": {
+        "attempts": 1,
+        "elapsedMs": 3401,
+        "progressShotCaptured": true
+      },
+      "emulatorFacts": {
+        "origin": {
+          "kind": "emulator",
+          "engine": "qemu-system-xtensa/9.2.2-esp_develop_9.2.2_20260417",
+          "board": "distro-v1-esp32",
+          "elided": [
+            "wifi-mac",
+            "wifi-phy",
+            "http-server",
+            "captive-portal",
+            "mdns",
+            "ssd1306-glass",
+            "servo-load",
+            "ledc-waveform",
+            "usb-cdc"
+          ],
+          "firmwareDeviations": [
+            "FlashMode=dio bootloader substituted for qio (QEMU models no flash Quad-Enable bit); 67 metadata bytes differ, no instruction bytes",
+            "Wi-Fi bring-up, SoftAP, mDNS, DNS server and server.begin() commented out (QEMU models no ESP32 radio at all)",
+            "R6 telemetry instrumentation applied (firmware/patches/telemetry-instrumentation.patch)",
+            "Compiled with -DSESAME_TELEMETRY_OLED=1 and -DSESAME_TELEMETRY_OLED_MIN_MS=0, which the patch's own #ifndef leaves overridable without changing its in-source defaults (0 and 500). This enables the framebuffer hook in updateFaceBitmap() and removes its rate limit; measured cost under QEMU is +14-15 ms per frame and +1.0%..+2.5% on a full `rn wv`. See docs/findings/EXP6-QEMU-oled.md."
+          ]
+        },
+        "board": "distro-v1-esp32",
+        "unsupportedBoards": {
+          "distro-v3-s3": "QEMU has an esp32s3 machine and the image boots ROM + bootloader, but execution never reaches setup(): the PC pins inside the mask-ROM routine rom_pkdet_vol_start. This is the CURRENT Distro board (Q1 §9).",
+          "s2mini": "QEMU has no esp32s2 machine at all, and Espressif has shown no sign of adding one. This is the board the research report RECOMMENDS for DIY builds (Q1 §12)."
+        },
+        "commandChannel": "serial-cli/upstream-1.0",
+        "elided": [
+          "wifi-mac",
+          "wifi-phy",
+          "http-server",
+          "captive-portal",
+          "mdns",
+          "ssd1306-glass",
+          "servo-load",
+          "ledc-waveform",
+          "usb-cdc"
+        ],
+        "firmwareDeviations": [
+          "FlashMode=dio bootloader substituted for qio (QEMU models no flash Quad-Enable bit); 67 metadata bytes differ, no instruction bytes",
+          "Wi-Fi bring-up, SoftAP, mDNS, DNS server and server.begin() commented out (QEMU models no ESP32 radio at all)",
+          "R6 telemetry instrumentation applied (firmware/patches/telemetry-instrumentation.patch)",
+          "Compiled with -DSESAME_TELEMETRY_OLED=1 and -DSESAME_TELEMETRY_OLED_MIN_MS=0, which the patch's own #ifndef leaves overridable without changing its in-source defaults (0 and 500). This enables the framebuffer hook in updateFaceBitmap() and removes its rate limit; measured cost under QEMU is +14-15 ms per frame and +1.0%..+2.5% on a full `rn wv`. See docs/findings/EXP6-QEMU-oled.md."
+        ],
+        "knownFlakiness": "ISSUE-20260823-022: 30 of 107 measured cold boots (28%, and bursty) panic with \"Cache disabled but cached memory region accessed\" inside the dual-core cache/flash dance in nvs_flash_init (esp_flash_read -> spi_flash_restore_cache -> cache_hal_resume). A QEMU modelling bug, not fixable from outside it: snapshot=on does not change the rate, and both knobs that would serialise the cores (-accel tcg,thread=single, -icount) stop the machine booting at all. connect() detects it in ~2 s and relaunches: 0 failures in 25 connects, worst case 7 attempts. See docs/findings/Q2-qemu-backend.md.",
+        "oledFramebuffer": true,
+        "mode": "qemu",
+        "everObserved": {
+          "R1": false,
+          "R2": false,
+          "L1": false,
+          "L2": false,
+          "R4": false,
+          "R3": false,
+          "L3": false,
+          "L4": false
+        },
+        "lastCommandLine": null,
+        "panic": null
+      },
+      "renderedBanner": "EMULATED (QEMU-SYSTEM-XTENSA/9.2.2-ESP_DEVELOP_9.2.2_20260417, DISTRO-V1-ESP32)",
+      "renderedVerdict": "Not a measurement.",
+      "jointsBeforeClick": 0,
+      "jointsDriven": [
+        {
+          "joint": "R1",
+          "deg": 100,
+          "provenance": "observed",
+          "originKind": "emulator",
+          "physicallyObserved": false
+        },
+        {
+          "joint": "R2",
+          "deg": 45,
+          "provenance": "observed",
+          "originKind": "emulator",
+          "physicallyObserved": false
+        },
+        {
+          "joint": "L1",
+          "deg": 45,
+          "provenance": "observed",
+          "originKind": "emulator",
+          "physicallyObserved": false
+        },
+        {
+          "joint": "L2",
+          "deg": 90,
+          "provenance": "observed",
+          "originKind": "emulator",
+          "physicallyObserved": false
+        },
+        {
+          "joint": "R4",
+          "deg": 80,
+          "provenance": "observed",
+          "originKind": "emulator",
+          "physicallyObserved": false
+        },
+        {
+          "joint": "R3",
+          "deg": 180,
+          "provenance": "observed",
+          "originKind": "emulator",
+          "physicallyObserved": false
+        },
+        {
+          "joint": "L3",
+          "deg": 100,
+          "provenance": "observed",
+          "originKind": "emulator",
+          "physicallyObserved": false
+        },
+        {
+          "joint": "L4",
+          "deg": 180,
+          "provenance": "observed",
+          "originKind": "emulator",
+          "physicallyObserved": false
+        }
+      ],
+      "maxQuaternionDelta": 0.7071067811865475,
+      "origin": {
+        "driving": {
+          "kind": "emulator",
+          "engine": "qemu-system-xtensa/9.2.2-esp_develop_9.2.2_20260417",
+          "board": "distro-v1-esp32",
+          "elided": [
+            "wifi-mac",
+            "wifi-phy",
+            "http-server",
+            "captive-portal",
+            "mdns",
+            "ssd1306-glass",
+            "servo-load",
+            "ledc-waveform",
+            "usb-cdc"
+          ],
+          "firmwareDeviations": [
+            "FlashMode=dio bootloader substituted for qio (QEMU models no flash Quad-Enable bit); 67 metadata bytes differ, no instruction bytes",
+            "Wi-Fi bring-up, SoftAP, mDNS, DNS server and server.begin() commented out (QEMU models no ESP32 radio at all)",
+            "R6 telemetry instrumentation applied (firmware/patches/telemetry-instrumentation.patch)",
+            "Compiled with -DSESAME_TELEMETRY_OLED=1 and -DSESAME_TELEMETRY_OLED_MIN_MS=0, which the patch's own #ifndef leaves overridable without changing its in-source defaults (0 and 500). This enables the framebuffer hook in updateFaceBitmap() and removes its rate limit; measured cost under QEMU is +14-15 ms per frame and +1.0%..+2.5% on a full `rn wv`. See docs/findings/EXP6-QEMU-oled.md."
+          ]
+        },
+        "counts": {
+          "physical-robot": 0,
+          "emulator": 64,
+          "host-model": 0,
+          "replay": 0,
+          "unknown": 0
+        },
+        "physicallyObservedEvents": 0
+      },
+      "worldFrame": {
+        "toleranceMm": 0.000001,
+        "worstDriftMm": {
+          "groundWorldMm": 0,
+          "robotRootWorldMm": 0,
+          "cameraTargetMm": 0,
+          "cameraPositionMm": 0
+        },
+        "footContactSpreadMm": 37.53492608666419,
+        "samples": [
+          {
+            "label": "rest, real firmware idle, nothing clicked",
+            "groundWorldMm": [
+              0,
+              -68.650046,
+              0
+            ],
+            "robotRootWorldMm": [
+              0,
+              0,
+              0
+            ],
+            "cameraTargetMm": [
+              0,
+              -12,
+              -8
+            ],
+            "cameraPositionMm": [
+              155,
+              85,
+              -255
+            ],
+            "groundReferenceMm": -68.650046,
+            "footContactMm": -31.115119027235032
+          },
+          {
+            "label": "wave sample 1",
+            "groundWorldMm": [
+              0,
+              -68.650046,
+              0
+            ],
+            "robotRootWorldMm": [
+              0,
+              0,
+              0
+            ],
+            "cameraTargetMm": [
+              0,
+              -12,
+              -8
+            ],
+            "cameraPositionMm": [
+              155,
+              85,
+              -255
+            ],
+            "groundReferenceMm": -68.650046,
+            "footContactMm": -68.65004511389922
+          },
+          {
+            "label": "wave sample 2",
+            "groundWorldMm": [
+              0,
+              -68.650046,
+              0
+            ],
+            "robotRootWorldMm": [
+              0,
+              0,
+              0
+            ],
+            "cameraTargetMm": [
+              0,
+              -12,
+              -8
+            ],
+            "cameraPositionMm": [
+              155,
+              85,
+              -255
+            ],
+            "groundReferenceMm": -68.650046,
+            "footContactMm": -68.65004511389922
+          },
+          {
+            "label": "wave sample 3",
+            "groundWorldMm": [
+              0,
+              -68.650046,
+              0
+            ],
+            "robotRootWorldMm": [
+              0,
+              0,
+              0
+            ],
+            "cameraTargetMm": [
+              0,
+              -12,
+              -8
+            ],
+            "cameraPositionMm": [
+              155,
+              85,
+              -255
+            ],
+            "groundReferenceMm": -68.650046,
+            "footContactMm": -68.65004511389922
+          },
+          {
+            "label": "wave sample 4",
+            "groundWorldMm": [
+              0,
+              -68.650046,
+              0
+            ],
+            "robotRootWorldMm": [
+              0,
+              0,
+              0
+            ],
+            "cameraTargetMm": [
+              0,
+              -12,
+              -8
+            ],
+            "cameraPositionMm": [
+              155,
+              85,
+              -255
+            ],
+            "groundReferenceMm": -68.650046,
+            "footContactMm": -68.65004511389922
+          },
+          {
+            "label": "wave sample 5",
+            "groundWorldMm": [
+              0,
+              -68.650046,
+              0
+            ],
+            "robotRootWorldMm": [
+              0,
+              0,
+              0
+            ],
+            "cameraTargetMm": [
+              0,
+              -12,
+              -8
+            ],
+            "cameraPositionMm": [
+              155,
+              85,
+              -255
+            ],
+            "groundReferenceMm": -68.650046,
+            "footContactMm": -68.65004511389922
+          },
+          {
+            "label": "wave sample 6",
+            "groundWorldMm": [
+              0,
+              -68.650046,
+              0
+            ],
+            "robotRootWorldMm": [
+              0,
+              0,
+              0
+            ],
+            "cameraTargetMm": [
+              0,
+              -12,
+              -8
+            ],
+            "cameraPositionMm": [
+              155,
+              85,
+              -255
+            ],
+            "groundReferenceMm": -68.650046,
+            "footContactMm": -68.65004511389922
+          }
+        ]
+      },
+      "oled": {
+        "pixelProvenance": "observed",
+        "kind": "wire",
+        "litPixels": 528,
+        "oledHookOn": true,
+        "expectedPixelState": "observed",
+        "declaredCapability": {
+          "oledFramebuffer": true,
+          "elided": [
+            "wifi-mac",
+            "wifi-phy",
+            "http-server",
+            "captive-portal",
+            "mdns",
+            "ssd1306-glass",
+            "servo-load",
+            "ledc-waveform",
+            "usb-cdc"
+          ]
+        },
+        "derived": {
+          "state": "observed",
+          "claim": "These pixels came from the emulator — the buffer the firmware drew.",
+          "fromEmulator": true,
+          "paragraphs": 4
+        },
+        "badgeOnPanel": true,
+        "badgeText": "observed",
+        "infoDotOnPanel": true,
+        "paragraphOnPanel": false,
+        "tipOnFocus": true,
+        "screenOpensWithExplanation": true
+      },
+      "canvasPixels": 31754,
+      "shots": [
+        "v3-browser-qemu-idle.png",
+        "v3-browser-qemu-commanded-wave.png"
+      ]
+    },
+    "labMode": {
+      "ok": true,
+      "servedBy": "apps/web/server/lab-host.mjs --backend sim (the firmware’s own routes, no QEMU)",
+      "browserBackend": "lab host",
+      "authoredFrames": [
+        {
+          "R1": 135,
+          "R2": 90,
+          "L1": 90,
+          "L2": 90,
+          "R4": 90,
+          "R3": 90,
+          "L3": 90,
+          "L4": 170
+        },
+        {
+          "R1": 45,
+          "R2": 90,
+          "L1": 90,
+          "L2": 90,
+          "R4": 90,
+          "R3": 90,
+          "L3": 90,
+          "L4": 120
+        }
+      ],
+      "cppRoundTrip": {
+        "assertedBy": "a second setServoAngle() parser written in this harness",
+        "framesParsedBack": 2,
+        "writes": 16,
+        "labOwnVerdict": true,
+        "callShape": "setServoAngle(R1, 135); — firmware/movement-sequences.h:80"
+      },
+      "playback": {
+        "worstAngleErrorDeg": 7.105427357601002e-15,
+        "readFrom": "Object3D.quaternion"
+      },
+      "quantisation": {
+        "at0": 37,
+        "at99": 87,
+        "at100": 87,
+        "at180": 128
+      },
+      "face": {
+        "strokePixels": 9,
+        "panelLitPixels": 9,
+        "panelLayout": "page-ordered GDDRAM, index = x + (y>>3)*128, bit = y&7 from the LSB",
+        "exportLayout": "row-major MSB first, 16 bytes per row — what drawBitmap() reads",
+        "pixelProvenance": "inferred"
+      },
+      "api": {
+        "routeOptions": [
+          "/api/status",
+          "/",
+          "/cmd",
+          "/getSettings",
+          "/setSettings",
+          "/api/command",
+          "/api/wifi/scan",
+          "/api/wifi/connect",
+          "/api/wifi/status"
+        ],
+        "commandStatusLine": "POST /api/command → 200{\"status\":\"ok\",\"message\":\"Command executed\"}",
+        "statusLine": "GET /api/status → 200{\"currentCommand\":\"\",\"currentFace\":\"idle\",\"networkConnected\":false,\"apIP\":\"127.0.0.1\"}",
+        "issue021": {
+          "describedInUi": true,
+          "reproducedByOurAdapter": false,
+          "currentCommandAfterQuote": "x_"
+        }
+      },
+      "persistence": {
+        "key": "sesame-lab.lab.v1",
+        "storedBytes": 1935,
+        "survivedReload": true
+      },
+      "labModifications": {
+        "namedAuthoredPanel": true,
+        "stoppedClaimingAfterRobotRepainted": true,
+        "namedInjectedFault": 1,
+        "namedBothAtOnce": true,
+        "clearedToNull": true
+      },
+      "worldFrame": {
+        "toleranceMm": 0.000001,
+        "worstDriftMm": {
+          "groundWorldMm": 0,
+          "robotRootWorldMm": 0,
+          "cameraTargetMm": 0,
+          "cameraPositionMm": 0
+        },
+        "footContactSpreadMm": 37.53492608666419,
+        "samples": 7
+      },
+      "shots": [
+        "lab-pose-and-quantisation.png",
+        "lab-cpp-export.png",
+        "lab-face-editor.png",
+        "lab-api-console.png"
+      ]
+    },
+    "paneContainers": {
+      "ok": true,
+      "containerWidthsPx": [
+        320,
+        360,
+        480,
+        519,
+        522,
+        719,
+        722,
+        776,
+        960,
+        1016,
+        1200
+      ],
+      "thresholdsPx": {
+        "narrow": 520,
+        "wide": 720
+      },
+      "panes": [
+        "joints",
+        "signal",
+        "learn",
+        "modules",
+        "source"
+      ],
+      "windows": [
+        "1280x800",
+        "2560x1440"
+      ],
+      "divergences": 0,
+      "measureBandCh": [
+        45,
+        75
+      ],
+      "measureShortfalls": [
+        "320 px of pane holds 30.6ch; 45ch needs 437 px",
+        "360 px of pane holds 34.7ch; 45ch needs 437 px"
+      ],
+      "architecture": {
+        "thresholdsPx": {
+          "subsystem": 720,
+          "full": 960
+        },
+        "subsystemMaxNodes": 18,
+        "modesByContainerWidth": {
+          "320": {
+            "surfacePx": 300,
+            "mode": "path",
+            "nodes": 19,
+            "worstOnScreenPx": 14.98,
+            "zoomSurfaces": 0
+          },
+          "360": {
+            "surfacePx": 340,
+            "mode": "path",
+            "nodes": 19,
+            "worstOnScreenPx": 14.98,
+            "zoomSurfaces": 0
+          },
+          "480": {
+            "surfacePx": 460,
+            "mode": "path",
+            "nodes": 19,
+            "worstOnScreenPx": 14.98,
+            "zoomSurfaces": 0
+          },
+          "519": {
+            "surfacePx": 499,
+            "mode": "path",
+            "nodes": 19,
+            "worstOnScreenPx": 14.98,
+            "zoomSurfaces": 0
+          },
+          "522": {
+            "surfacePx": 498,
+            "mode": "path",
+            "nodes": 19,
+            "worstOnScreenPx": 14.98,
+            "zoomSurfaces": 0
+          },
+          "719": {
+            "surfacePx": 695,
+            "mode": "path",
+            "nodes": 19,
+            "worstOnScreenPx": 14.98,
+            "zoomSurfaces": 0
+          },
+          "722": {
+            "surfacePx": 698,
+            "mode": "path",
+            "nodes": 19,
+            "worstOnScreenPx": 14.98,
+            "zoomSurfaces": 0
+          },
+          "776": {
+            "surfacePx": 752,
+            "mode": "subsystem",
+            "nodes": 16,
+            "worstOnScreenPx": 14.98,
+            "zoomSurfaces": 0
+          },
+          "960": {
+            "surfacePx": 936,
+            "mode": "subsystem",
+            "nodes": 16,
+            "worstOnScreenPx": 14.98,
+            "zoomSurfaces": 0
+          },
+          "1016": {
+            "surfacePx": 992,
+            "mode": "full",
+            "nodes": 9,
+            "worstOnScreenPx": 13.65,
+            "zoomSurfaces": 1
+          },
+          "1200": {
+            "surfacePx": 1176,
+            "mode": "full",
+            "nodes": 9,
+            "worstOnScreenPx": 14.98,
+            "zoomSurfaces": 1
+          }
+        },
+        "fullGraphZoomDebt": [
+          {
+            "where": "modules at a 1016 px container (asked for 1016) in a 1280x800 window",
+            "archWorstOnScreenPx": 10.94,
+            "archWorstText": "111 setServoAngle steps"
+          },
+          {
+            "where": "modules at a 1200 px container (asked for 1200) in a 1280x800 window",
+            "archWorstOnScreenPx": 10.94,
+            "archWorstText": "111 setServoAngle steps"
+          },
+          {
+            "where": "modules at a 1016 px container (asked for 1016) in a 2560x1440 window",
+            "archWorstOnScreenPx": 13.65,
+            "archWorstText": "111 setServoAngle steps"
+          },
+          {
+            "where": "modules at a 1200 px container (asked for 1200) in a 2560x1440 window",
+            "archWorstOnScreenPx": 14.98,
+            "archWorstText": "FULL GRAPH"
+          }
+        ]
+      },
+      "readings": {
+        "joints": {
+          "320": {
+            "containerPx": 320,
+            "signature": {
+              "jointsDisplay": "block",
+              "jointLabelDisplay": "block",
+              "jointHeadDisplay": "none",
+              "jointRowDisplay": "grid",
+              "jointCellsLaidOut": 7,
+              "jointColumnLefts": 1,
+              "jointScopesLaidOut": 32
+            },
+            "measured": {},
+            "scrollers": []
+          },
+          "360": {
+            "containerPx": 360,
+            "signature": {
+              "jointsDisplay": "block",
+              "jointLabelDisplay": "block",
+              "jointHeadDisplay": "none",
+              "jointRowDisplay": "grid",
+              "jointCellsLaidOut": 7,
+              "jointColumnLefts": 1,
+              "jointScopesLaidOut": 32
+            },
+            "measured": {},
+            "scrollers": []
+          },
+          "480": {
+            "containerPx": 480,
+            "signature": {
+              "jointsDisplay": "block",
+              "jointLabelDisplay": "block",
+              "jointHeadDisplay": "none",
+              "jointRowDisplay": "grid",
+              "jointCellsLaidOut": 7,
+              "jointColumnLefts": 1,
+              "jointScopesLaidOut": 32
+            },
+            "measured": {},
+            "scrollers": []
+          },
+          "519": {
+            "containerPx": 519,
+            "signature": {
+              "jointsDisplay": "block",
+              "jointLabelDisplay": "block",
+              "jointHeadDisplay": "none",
+              "jointRowDisplay": "grid",
+              "jointCellsLaidOut": 7,
+              "jointColumnLefts": 1,
+              "jointScopesLaidOut": 32
+            },
+            "measured": {},
+            "scrollers": []
+          },
+          "522": {
+            "containerPx": 522,
+            "signature": {
+              "jointsDisplay": "table",
+              "jointLabelDisplay": "none",
+              "jointHeadDisplay": "table-header-group",
+              "jointRowDisplay": "table-row",
+              "jointCellsLaidOut": 7,
+              "jointColumnLefts": 1,
+              "jointScopesLaidOut": 4
+            },
+            "measured": {},
+            "scrollers": []
+          },
+          "719": {
+            "containerPx": 719,
+            "signature": {
+              "jointsDisplay": "table",
+              "jointLabelDisplay": "none",
+              "jointHeadDisplay": "table-header-group",
+              "jointRowDisplay": "table-row",
+              "jointCellsLaidOut": 7,
+              "jointColumnLefts": 1,
+              "jointScopesLaidOut": 4
+            },
+            "measured": {},
+            "scrollers": []
+          },
+          "722": {
+            "containerPx": 722,
+            "signature": {
+              "jointsDisplay": "table",
+              "jointLabelDisplay": "none",
+              "jointHeadDisplay": "table-header-group",
+              "jointRowDisplay": "table-row",
+              "jointCellsLaidOut": 7,
+              "jointColumnLefts": 1,
+              "jointScopesLaidOut": 4
+            },
+            "measured": {},
+            "scrollers": []
+          },
+          "776": {
+            "containerPx": 776,
+            "signature": {
+              "jointsDisplay": "table",
+              "jointLabelDisplay": "none",
+              "jointHeadDisplay": "table-header-group",
+              "jointRowDisplay": "table-row",
+              "jointCellsLaidOut": 7,
+              "jointColumnLefts": 1,
+              "jointScopesLaidOut": 4
+            },
+            "measured": {},
+            "scrollers": []
+          },
+          "960": {
+            "containerPx": 960,
+            "signature": {
+              "jointsDisplay": "table",
+              "jointLabelDisplay": "none",
+              "jointHeadDisplay": "table-header-group",
+              "jointRowDisplay": "table-row",
+              "jointCellsLaidOut": 7,
+              "jointColumnLefts": 1,
+              "jointScopesLaidOut": 4
+            },
+            "measured": {},
+            "scrollers": []
+          },
+          "1016": {
+            "containerPx": 1016,
+            "signature": {
+              "jointsDisplay": "table",
+              "jointLabelDisplay": "none",
+              "jointHeadDisplay": "table-header-group",
+              "jointRowDisplay": "table-row",
+              "jointCellsLaidOut": 7,
+              "jointColumnLefts": 1,
+              "jointScopesLaidOut": 4
+            },
+            "measured": {},
+            "scrollers": []
+          },
+          "1200": {
+            "containerPx": 1200,
+            "signature": {
+              "jointsDisplay": "table",
+              "jointLabelDisplay": "none",
+              "jointHeadDisplay": "table-header-group",
+              "jointRowDisplay": "table-row",
+              "jointCellsLaidOut": 7,
+              "jointColumnLefts": 1,
+              "jointScopesLaidOut": 4
+            },
+            "measured": {},
+            "scrollers": []
+          }
+        },
+        "signal": {
+          "320": {
+            "containerPx": 320,
+            "signature": {
+              "kvTracks": 1,
+              "traceLaneTracks": 1,
+              "traceColumnsDisplay": "none",
+              "traceStepsNumbered": true,
+              "traceStepsOrdered": true,
+              "traceLanesInSteps": true,
+              "traceLanesMissingAField": 0,
+              "traceWitnessesClipped": 0,
+              "traceSaysLefts": null
+            },
+            "measured": {
+              "traceSteps": 8,
+              "traceLanes": 36,
+              "traceWitnessElements": 15
+            },
+            "scrollers": []
+          },
+          "360": {
+            "containerPx": 360,
+            "signature": {
+              "kvTracks": 1,
+              "traceLaneTracks": 1,
+              "traceColumnsDisplay": "none",
+              "traceStepsNumbered": true,
+              "traceStepsOrdered": true,
+              "traceLanesInSteps": true,
+              "traceLanesMissingAField": 0,
+              "traceWitnessesClipped": 0,
+              "traceSaysLefts": null
+            },
+            "measured": {
+              "traceSteps": 8,
+              "traceLanes": 36,
+              "traceWitnessElements": 15
+            },
+            "scrollers": []
+          },
+          "480": {
+            "containerPx": 480,
+            "signature": {
+              "kvTracks": 1,
+              "traceLaneTracks": 1,
+              "traceColumnsDisplay": "none",
+              "traceStepsNumbered": true,
+              "traceStepsOrdered": true,
+              "traceLanesInSteps": true,
+              "traceLanesMissingAField": 0,
+              "traceWitnessesClipped": 0,
+              "traceSaysLefts": null
+            },
+            "measured": {
+              "traceSteps": 8,
+              "traceLanes": 36,
+              "traceWitnessElements": 15
+            },
+            "scrollers": []
+          },
+          "519": {
+            "containerPx": 519,
+            "signature": {
+              "kvTracks": 1,
+              "traceLaneTracks": 1,
+              "traceColumnsDisplay": "none",
+              "traceStepsNumbered": true,
+              "traceStepsOrdered": true,
+              "traceLanesInSteps": true,
+              "traceLanesMissingAField": 0,
+              "traceWitnessesClipped": 0,
+              "traceSaysLefts": null
+            },
+            "measured": {
+              "traceSteps": 8,
+              "traceLanes": 36,
+              "traceWitnessElements": 15
+            },
+            "scrollers": []
+          },
+          "522": {
+            "containerPx": 522,
+            "signature": {
+              "kvTracks": 2,
+              "traceLaneTracks": 2,
+              "traceColumnsDisplay": "none",
+              "traceStepsNumbered": true,
+              "traceStepsOrdered": true,
+              "traceLanesInSteps": true,
+              "traceLanesMissingAField": 0,
+              "traceWitnessesClipped": 0,
+              "traceSaysLefts": null
+            },
+            "measured": {
+              "traceSteps": 8,
+              "traceLanes": 36,
+              "traceWitnessElements": 15
+            },
+            "scrollers": []
+          },
+          "719": {
+            "containerPx": 719,
+            "signature": {
+              "kvTracks": 2,
+              "traceLaneTracks": 2,
+              "traceColumnsDisplay": "none",
+              "traceStepsNumbered": true,
+              "traceStepsOrdered": true,
+              "traceLanesInSteps": true,
+              "traceLanesMissingAField": 0,
+              "traceWitnessesClipped": 0,
+              "traceSaysLefts": null
+            },
+            "measured": {
+              "traceSteps": 8,
+              "traceLanes": 36,
+              "traceWitnessElements": 15
+            },
+            "scrollers": []
+          },
+          "722": {
+            "containerPx": 722,
+            "signature": {
+              "kvTracks": 2,
+              "traceLaneTracks": 3,
+              "traceColumnsDisplay": "grid",
+              "traceStepsNumbered": true,
+              "traceStepsOrdered": true,
+              "traceLanesInSteps": true,
+              "traceLanesMissingAField": 0,
+              "traceWitnessesClipped": 0,
+              "traceSaysLefts": 1
+            },
+            "measured": {
+              "traceSteps": 8,
+              "traceLanes": 36,
+              "traceWitnessElements": 15
+            },
+            "scrollers": []
+          },
+          "776": {
+            "containerPx": 776,
+            "signature": {
+              "kvTracks": 2,
+              "traceLaneTracks": 3,
+              "traceColumnsDisplay": "grid",
+              "traceStepsNumbered": true,
+              "traceStepsOrdered": true,
+              "traceLanesInSteps": true,
+              "traceLanesMissingAField": 0,
+              "traceWitnessesClipped": 0,
+              "traceSaysLefts": 1
+            },
+            "measured": {
+              "traceSteps": 8,
+              "traceLanes": 36,
+              "traceWitnessElements": 15
+            },
+            "scrollers": []
+          },
+          "960": {
+            "containerPx": 960,
+            "signature": {
+              "kvTracks": 2,
+              "traceLaneTracks": 3,
+              "traceColumnsDisplay": "grid",
+              "traceStepsNumbered": true,
+              "traceStepsOrdered": true,
+              "traceLanesInSteps": true,
+              "traceLanesMissingAField": 0,
+              "traceWitnessesClipped": 0,
+              "traceSaysLefts": 1
+            },
+            "measured": {
+              "traceSteps": 8,
+              "traceLanes": 36,
+              "traceWitnessElements": 15
+            },
+            "scrollers": []
+          },
+          "1016": {
+            "containerPx": 1016,
+            "signature": {
+              "kvTracks": 2,
+              "traceLaneTracks": 3,
+              "traceColumnsDisplay": "grid",
+              "traceStepsNumbered": true,
+              "traceStepsOrdered": true,
+              "traceLanesInSteps": true,
+              "traceLanesMissingAField": 0,
+              "traceWitnessesClipped": 0,
+              "traceSaysLefts": 1
+            },
+            "measured": {
+              "traceSteps": 8,
+              "traceLanes": 36,
+              "traceWitnessElements": 15
+            },
+            "scrollers": []
+          },
+          "1200": {
+            "containerPx": 1200,
+            "signature": {
+              "kvTracks": 2,
+              "traceLaneTracks": 3,
+              "traceColumnsDisplay": "grid",
+              "traceStepsNumbered": true,
+              "traceStepsOrdered": true,
+              "traceLanesInSteps": true,
+              "traceLanesMissingAField": 0,
+              "traceWitnessesClipped": 0,
+              "traceSaysLefts": 1
+            },
+            "measured": {
+              "traceSteps": 8,
+              "traceLanes": 36,
+              "traceWitnessElements": 15
+            },
+            "scrollers": []
+          }
+        },
+        "learn": {
+          "320": {
+            "containerPx": 320,
+            "signature": {
+              "lessonStepDisplay": "block"
+            },
+            "measured": {
+              "proseCh": 30.6,
+              "proseChPx": 9.69
+            },
+            "scrollers": []
+          },
+          "360": {
+            "containerPx": 360,
+            "signature": {
+              "lessonStepDisplay": "block"
+            },
+            "measured": {
+              "proseCh": 34.7,
+              "proseChPx": 9.69
+            },
+            "scrollers": []
+          },
+          "480": {
+            "containerPx": 480,
+            "signature": {
+              "lessonStepDisplay": "block"
+            },
+            "measured": {
+              "proseCh": 47.1,
+              "proseChPx": 9.69
+            },
+            "scrollers": []
+          },
+          "519": {
+            "containerPx": 519,
+            "signature": {
+              "lessonStepDisplay": "block"
+            },
+            "measured": {
+              "proseCh": 51.1,
+              "proseChPx": 9.69
+            },
+            "scrollers": []
+          },
+          "522": {
+            "containerPx": 522,
+            "signature": {
+              "lessonStepDisplay": "block"
+            },
+            "measured": {
+              "proseCh": 51,
+              "proseChPx": 9.69
+            },
+            "scrollers": []
+          },
+          "719": {
+            "containerPx": 719,
+            "signature": {
+              "lessonStepDisplay": "block"
+            },
+            "measured": {
+              "proseCh": 68,
+              "proseChPx": 9.69
+            },
+            "scrollers": []
+          },
+          "722": {
+            "containerPx": 722,
+            "signature": {
+              "lessonStepDisplay": "grid"
+            },
+            "measured": {
+              "proseCh": 46.1,
+              "proseChPx": 9.69
+            },
+            "scrollers": []
+          },
+          "776": {
+            "containerPx": 776,
+            "signature": {
+              "lessonStepDisplay": "grid"
+            },
+            "measured": {
+              "proseCh": 49.8,
+              "proseChPx": 9.69
+            },
+            "scrollers": []
+          },
+          "960": {
+            "containerPx": 960,
+            "signature": {
+              "lessonStepDisplay": "grid"
+            },
+            "measured": {
+              "proseCh": 62.5,
+              "proseChPx": 9.69
+            },
+            "scrollers": []
+          },
+          "1016": {
+            "containerPx": 1016,
+            "signature": {
+              "lessonStepDisplay": "grid"
+            },
+            "measured": {
+              "proseCh": 66.3,
+              "proseChPx": 9.69
+            },
+            "scrollers": []
+          },
+          "1200": {
+            "containerPx": 1200,
+            "signature": {
+              "lessonStepDisplay": "grid"
+            },
+            "measured": {
+              "proseCh": 68,
+              "proseChPx": 9.69
+            },
+            "scrollers": []
+          }
+        },
+        "modules": {
+          "320": {
+            "containerPx": 320,
+            "signature": {
+              "archBand": "narrow",
+              "archMode": "path",
+              "archSurfacePx": 300,
+              "archCanvasMounted": 0,
+              "archBackgroundMounted": 0,
+              "archFlowNodes": 19,
+              "archZoomSurfaces": 0
+            },
+            "measured": {
+              "archWorstOnScreenPx": 14.98,
+              "archWorstText": "CAUSAL PATH"
+            },
+            "scrollers": []
+          },
+          "360": {
+            "containerPx": 360,
+            "signature": {
+              "archBand": "narrow",
+              "archMode": "path",
+              "archSurfacePx": 340,
+              "archCanvasMounted": 0,
+              "archBackgroundMounted": 0,
+              "archFlowNodes": 19,
+              "archZoomSurfaces": 0
+            },
+            "measured": {
+              "archWorstOnScreenPx": 14.98,
+              "archWorstText": "CAUSAL PATH"
+            },
+            "scrollers": []
+          },
+          "480": {
+            "containerPx": 480,
+            "signature": {
+              "archBand": "narrow",
+              "archMode": "path",
+              "archSurfacePx": 460,
+              "archCanvasMounted": 0,
+              "archBackgroundMounted": 0,
+              "archFlowNodes": 19,
+              "archZoomSurfaces": 0
+            },
+            "measured": {
+              "archWorstOnScreenPx": 14.98,
+              "archWorstText": "CAUSAL PATH"
+            },
+            "scrollers": []
+          },
+          "519": {
+            "containerPx": 519,
+            "signature": {
+              "archBand": "narrow",
+              "archMode": "path",
+              "archSurfacePx": 499,
+              "archCanvasMounted": 0,
+              "archBackgroundMounted": 0,
+              "archFlowNodes": 19,
+              "archZoomSurfaces": 0
+            },
+            "measured": {
+              "archWorstOnScreenPx": 14.98,
+              "archWorstText": "CAUSAL PATH"
+            },
+            "scrollers": []
+          },
+          "522": {
+            "containerPx": 522,
+            "signature": {
+              "archBand": "narrow",
+              "archMode": "path",
+              "archSurfacePx": 498,
+              "archCanvasMounted": 0,
+              "archBackgroundMounted": 0,
+              "archFlowNodes": 19,
+              "archZoomSurfaces": 0
+            },
+            "measured": {
+              "archWorstOnScreenPx": 14.98,
+              "archWorstText": "CAUSAL PATH"
+            },
+            "scrollers": []
+          },
+          "719": {
+            "containerPx": 719,
+            "signature": {
+              "archBand": "medium",
+              "archMode": "path",
+              "archSurfacePx": 695,
+              "archCanvasMounted": 0,
+              "archBackgroundMounted": 0,
+              "archFlowNodes": 19,
+              "archZoomSurfaces": 0
+            },
+            "measured": {
+              "archWorstOnScreenPx": 14.98,
+              "archWorstText": "CAUSAL PATH"
+            },
+            "scrollers": []
+          },
+          "722": {
+            "containerPx": 722,
+            "signature": {
+              "archBand": "medium",
+              "archMode": "path",
+              "archSurfacePx": 698,
+              "archCanvasMounted": 0,
+              "archBackgroundMounted": 0,
+              "archFlowNodes": 19,
+              "archZoomSurfaces": 0
+            },
+            "measured": {
+              "archWorstOnScreenPx": 14.98,
+              "archWorstText": "CAUSAL PATH"
+            },
+            "scrollers": []
+          },
+          "776": {
+            "containerPx": 776,
+            "signature": {
+              "archBand": "wide",
+              "archMode": "subsystem",
+              "archSurfacePx": 752,
+              "archCanvasMounted": 1,
+              "archBackgroundMounted": 1,
+              "archFlowNodes": 16,
+              "archZoomSurfaces": 0
+            },
+            "measured": {
+              "archWorstOnScreenPx": 14.98,
+              "archWorstText": "SUBSYSTEM"
+            },
+            "scrollers": []
+          },
+          "960": {
+            "containerPx": 960,
+            "signature": {
+              "archBand": "wide",
+              "archMode": "subsystem",
+              "archSurfacePx": 936,
+              "archCanvasMounted": 1,
+              "archBackgroundMounted": 1,
+              "archFlowNodes": 16,
+              "archZoomSurfaces": 0
+            },
+            "measured": {
+              "archWorstOnScreenPx": 14.98,
+              "archWorstText": "SUBSYSTEM"
+            },
+            "scrollers": []
+          },
+          "1016": {
+            "containerPx": 1016,
+            "signature": {
+              "archBand": "wide",
+              "archMode": "full",
+              "archSurfacePx": 992,
+              "archCanvasMounted": 1,
+              "archBackgroundMounted": 1,
+              "archFlowNodes": 9,
+              "archZoomSurfaces": 1
+            },
+            "measured": {
+              "archWorstOnScreenPx": 13.65,
+              "archWorstText": "111 setServoAngle steps"
+            },
+            "scrollers": []
+          },
+          "1200": {
+            "containerPx": 1200,
+            "signature": {
+              "archBand": "wide",
+              "archMode": "full",
+              "archSurfacePx": 1176,
+              "archCanvasMounted": 1,
+              "archBackgroundMounted": 1,
+              "archFlowNodes": 9,
+              "archZoomSurfaces": 1
+            },
+            "measured": {
+              "archWorstOnScreenPx": 14.98,
+              "archWorstText": "FULL GRAPH"
+            },
+            "scrollers": []
+          }
+        },
+        "source": {
+          "320": {
+            "containerPx": 320,
+            "signature": {
+              "sourceBodyColumns": 1,
+              "sourceCodeOverflowY": "hidden",
+              "sourceCodeIs2d": true,
+              "sourceLineWhiteSpace": "pre",
+              "sourceOutlineColumns": 1,
+              "sourceOutlineWidthPx": 300
+            },
+            "measured": {},
+            "scrollers": []
+          },
+          "360": {
+            "containerPx": 360,
+            "signature": {
+              "sourceBodyColumns": 1,
+              "sourceCodeOverflowY": "hidden",
+              "sourceCodeIs2d": true,
+              "sourceLineWhiteSpace": "pre",
+              "sourceOutlineColumns": 1,
+              "sourceOutlineWidthPx": 340
+            },
+            "measured": {},
+            "scrollers": []
+          },
+          "480": {
+            "containerPx": 480,
+            "signature": {
+              "sourceBodyColumns": 1,
+              "sourceCodeOverflowY": "hidden",
+              "sourceCodeIs2d": true,
+              "sourceLineWhiteSpace": "pre",
+              "sourceOutlineColumns": 2,
+              "sourceOutlineWidthPx": 460
+            },
+            "measured": {},
+            "scrollers": []
+          },
+          "519": {
+            "containerPx": 519,
+            "signature": {
+              "sourceBodyColumns": 1,
+              "sourceCodeOverflowY": "hidden",
+              "sourceCodeIs2d": true,
+              "sourceLineWhiteSpace": "pre",
+              "sourceOutlineColumns": 2,
+              "sourceOutlineWidthPx": 499
+            },
+            "measured": {},
+            "scrollers": []
+          },
+          "522": {
+            "containerPx": 522,
+            "signature": {
+              "sourceBodyColumns": 1,
+              "sourceCodeOverflowY": "hidden",
+              "sourceCodeIs2d": true,
+              "sourceLineWhiteSpace": "pre",
+              "sourceOutlineColumns": 2,
+              "sourceOutlineWidthPx": 498
+            },
+            "measured": {},
+            "scrollers": []
+          },
+          "719": {
+            "containerPx": 719,
+            "signature": {
+              "sourceBodyColumns": 1,
+              "sourceCodeOverflowY": "hidden",
+              "sourceCodeIs2d": true,
+              "sourceLineWhiteSpace": "pre",
+              "sourceOutlineColumns": 3,
+              "sourceOutlineWidthPx": 695
+            },
+            "measured": {},
+            "scrollers": []
+          },
+          "722": {
+            "containerPx": 722,
+            "signature": {
+              "sourceBodyColumns": 2,
+              "sourceCodeOverflowY": "auto",
+              "sourceCodeIs2d": true,
+              "sourceLineWhiteSpace": "pre",
+              "sourceOutlineColumns": 1,
+              "sourceOutlineWidthPx": 192
+            },
+            "measured": {},
+            "scrollers": [
+              "[source-code](2d)"
+            ]
+          },
+          "776": {
+            "containerPx": 776,
+            "signature": {
+              "sourceBodyColumns": 2,
+              "sourceCodeOverflowY": "auto",
+              "sourceCodeIs2d": true,
+              "sourceLineWhiteSpace": "pre",
+              "sourceOutlineColumns": 1,
+              "sourceOutlineWidthPx": 192
+            },
+            "measured": {},
+            "scrollers": [
+              "[source-code](2d)"
+            ]
+          },
+          "960": {
+            "containerPx": 960,
+            "signature": {
+              "sourceBodyColumns": 2,
+              "sourceCodeOverflowY": "auto",
+              "sourceCodeIs2d": true,
+              "sourceLineWhiteSpace": "pre",
+              "sourceOutlineColumns": 1,
+              "sourceOutlineWidthPx": 192
+            },
+            "measured": {},
+            "scrollers": [
+              "[source-code](2d)"
+            ]
+          },
+          "1016": {
+            "containerPx": 1016,
+            "signature": {
+              "sourceBodyColumns": 2,
+              "sourceCodeOverflowY": "auto",
+              "sourceCodeIs2d": true,
+              "sourceLineWhiteSpace": "pre",
+              "sourceOutlineColumns": 1,
+              "sourceOutlineWidthPx": 192
+            },
+            "measured": {},
+            "scrollers": [
+              "[source-code](2d)"
+            ]
+          },
+          "1200": {
+            "containerPx": 1200,
+            "signature": {
+              "sourceBodyColumns": 2,
+              "sourceCodeOverflowY": "auto",
+              "sourceCodeIs2d": true,
+              "sourceLineWhiteSpace": "pre",
+              "sourceOutlineColumns": 1,
+              "sourceOutlineWidthPx": 192
+            },
+            "measured": {},
+            "scrollers": [
+              "[source-code](2d)"
+            ]
+          }
+        }
+      }
+    },
+    "integerPixelZoom": {
+      "ok": true,
+      "ladder": [
+        8,
+        6,
+        4,
+        2,
+        1
+      ],
+      "surfaces": [
+        {
+          "id": "oled-canvas-large",
+          "claimed": 4,
+          "widthPx": 512,
+          "heightPx": 256,
+          "laidOut": true,
+          "where": "880x900 face screen"
+        },
+        {
+          "id": "pixel-canvas",
+          "claimed": 4,
+          "widthPx": 512,
+          "heightPx": 256,
+          "laidOut": true,
+          "where": "880x900 lab-tab-face"
+        },
+        {
+          "id": "oled-canvas",
+          "claimed": 2,
+          "widthPx": 256,
+          "heightPx": 128,
+          "laidOut": true,
+          "where": "1280x800 panel"
+        },
+        {
+          "id": "oled-canvas",
+          "claimed": 2,
+          "widthPx": 256,
+          "heightPx": 128,
+          "laidOut": true,
+          "where": "1280x800 face screen"
+        },
+        {
+          "id": "oled-canvas-large",
+          "claimed": 6,
+          "widthPx": 768,
+          "heightPx": 384,
+          "laidOut": true,
+          "where": "1280x800 face screen"
+        },
+        {
+          "id": "oled-canvas",
+          "claimed": 2,
+          "widthPx": 256,
+          "heightPx": 128,
+          "laidOut": true,
+          "where": "1280x800 lab-tab-pose"
+        },
+        {
+          "id": "oled-canvas",
+          "claimed": 2,
+          "widthPx": 256,
+          "heightPx": 128,
+          "laidOut": true,
+          "where": "1280x800 lab-tab-animation"
+        },
+        {
+          "id": "pixel-canvas",
+          "claimed": 4,
+          "widthPx": 512,
+          "heightPx": 256,
+          "laidOut": true,
+          "where": "1280x800 lab-tab-face"
+        },
+        {
+          "id": "oled-canvas",
+          "claimed": 2,
+          "widthPx": 256,
+          "heightPx": 128,
+          "laidOut": true,
+          "where": "1280x800 lab-tab-face"
+        },
+        {
+          "id": "oled-canvas",
+          "claimed": 2,
+          "widthPx": 256,
+          "heightPx": 128,
+          "laidOut": true,
+          "where": "1280x800 lab-tab-api"
+        },
+        {
+          "id": "oled-canvas",
+          "claimed": 2,
+          "widthPx": 256,
+          "heightPx": 128,
+          "laidOut": true,
+          "where": "1280x800 lab-tab-faults"
+        },
+        {
+          "id": "oled-canvas",
+          "claimed": 2,
+          "widthPx": 256,
+          "heightPx": 128,
+          "laidOut": true,
+          "where": "1440x900 panel"
+        },
+        {
+          "id": "oled-canvas",
+          "claimed": 2,
+          "widthPx": 256,
+          "heightPx": 128,
+          "laidOut": true,
+          "where": "1440x900 face screen"
+        },
+        {
+          "id": "oled-canvas-large",
+          "claimed": 6,
+          "widthPx": 768,
+          "heightPx": 384,
+          "laidOut": true,
+          "where": "1440x900 face screen"
+        },
+        {
+          "id": "oled-canvas",
+          "claimed": 2,
+          "widthPx": 256,
+          "heightPx": 128,
+          "laidOut": true,
+          "where": "1440x900 lab-tab-pose"
+        },
+        {
+          "id": "oled-canvas",
+          "claimed": 2,
+          "widthPx": 256,
+          "heightPx": 128,
+          "laidOut": true,
+          "where": "1440x900 lab-tab-animation"
+        },
+        {
+          "id": "pixel-canvas",
+          "claimed": 4,
+          "widthPx": 512,
+          "heightPx": 256,
+          "laidOut": true,
+          "where": "1440x900 lab-tab-face"
+        },
+        {
+          "id": "oled-canvas",
+          "claimed": 2,
+          "widthPx": 256,
+          "heightPx": 128,
+          "laidOut": true,
+          "where": "1440x900 lab-tab-face"
+        },
+        {
+          "id": "oled-canvas",
+          "claimed": 2,
+          "widthPx": 256,
+          "heightPx": 128,
+          "laidOut": true,
+          "where": "1440x900 lab-tab-api"
+        },
+        {
+          "id": "oled-canvas",
+          "claimed": 2,
+          "widthPx": 256,
+          "heightPx": 128,
+          "laidOut": true,
+          "where": "1440x900 lab-tab-faults"
+        },
+        {
+          "id": "oled-canvas",
+          "claimed": 2,
+          "widthPx": 256,
+          "heightPx": 128,
+          "laidOut": true,
+          "where": "1760x1000 panel"
+        },
+        {
+          "id": "oled-canvas",
+          "claimed": 2,
+          "widthPx": 256,
+          "heightPx": 128,
+          "laidOut": true,
+          "where": "1760x1000 face screen"
+        },
+        {
+          "id": "oled-canvas-large",
+          "claimed": 6,
+          "widthPx": 768,
+          "heightPx": 384,
+          "laidOut": true,
+          "where": "1760x1000 face screen"
+        },
+        {
+          "id": "oled-canvas",
+          "claimed": 2,
+          "widthPx": 256,
+          "heightPx": 128,
+          "laidOut": true,
+          "where": "1760x1000 lab-tab-pose"
+        },
+        {
+          "id": "oled-canvas",
+          "claimed": 2,
+          "widthPx": 256,
+          "heightPx": 128,
+          "laidOut": true,
+          "where": "1760x1000 lab-tab-animation"
+        },
+        {
+          "id": "pixel-canvas",
+          "claimed": 4,
+          "widthPx": 512,
+          "heightPx": 256,
+          "laidOut": true,
+          "where": "1760x1000 lab-tab-face"
+        },
+        {
+          "id": "oled-canvas",
+          "claimed": 2,
+          "widthPx": 256,
+          "heightPx": 128,
+          "laidOut": true,
+          "where": "1760x1000 lab-tab-face"
+        },
+        {
+          "id": "oled-canvas",
+          "claimed": 2,
+          "widthPx": 256,
+          "heightPx": 128,
+          "laidOut": true,
+          "where": "1760x1000 lab-tab-api"
+        },
+        {
+          "id": "oled-canvas",
+          "claimed": 2,
+          "widthPx": 256,
+          "heightPx": 128,
+          "laidOut": true,
+          "where": "1760x1000 lab-tab-faults"
+        },
+        {
+          "id": "oled-canvas",
+          "claimed": 2,
+          "widthPx": 256,
+          "heightPx": 128,
+          "laidOut": true,
+          "where": "1920x1080 panel"
+        },
+        {
+          "id": "oled-canvas",
+          "claimed": 2,
+          "widthPx": 256,
+          "heightPx": 128,
+          "laidOut": true,
+          "where": "1920x1080 face screen"
+        },
+        {
+          "id": "oled-canvas-large",
+          "claimed": 6,
+          "widthPx": 768,
+          "heightPx": 384,
+          "laidOut": true,
+          "where": "1920x1080 face screen"
+        },
+        {
+          "id": "oled-canvas",
+          "claimed": 2,
+          "widthPx": 256,
+          "heightPx": 128,
+          "laidOut": true,
+          "where": "1920x1080 lab-tab-pose"
+        },
+        {
+          "id": "oled-canvas",
+          "claimed": 2,
+          "widthPx": 256,
+          "heightPx": 128,
+          "laidOut": true,
+          "where": "1920x1080 lab-tab-animation"
+        },
+        {
+          "id": "pixel-canvas",
+          "claimed": 6,
+          "widthPx": 768,
+          "heightPx": 384,
+          "laidOut": true,
+          "where": "1920x1080 lab-tab-face"
+        },
+        {
+          "id": "oled-canvas",
+          "claimed": 2,
+          "widthPx": 256,
+          "heightPx": 128,
+          "laidOut": true,
+          "where": "1920x1080 lab-tab-face"
+        },
+        {
+          "id": "oled-canvas",
+          "claimed": 2,
+          "widthPx": 256,
+          "heightPx": 128,
+          "laidOut": true,
+          "where": "1920x1080 lab-tab-api"
+        },
+        {
+          "id": "oled-canvas",
+          "claimed": 2,
+          "widthPx": 256,
+          "heightPx": 128,
+          "laidOut": true,
+          "where": "1920x1080 lab-tab-faults"
+        },
+        {
+          "id": "oled-canvas",
+          "claimed": 2,
+          "widthPx": 256,
+          "heightPx": 128,
+          "laidOut": true,
+          "where": "2560x1440 panel"
+        },
+        {
+          "id": "oled-canvas",
+          "claimed": 2,
+          "widthPx": 256,
+          "heightPx": 128,
+          "laidOut": true,
+          "where": "2560x1440 face screen"
+        },
+        {
+          "id": "oled-canvas-large",
+          "claimed": 6,
+          "widthPx": 768,
+          "heightPx": 384,
+          "laidOut": true,
+          "where": "2560x1440 face screen"
+        },
+        {
+          "id": "oled-canvas",
+          "claimed": 2,
+          "widthPx": 256,
+          "heightPx": 128,
+          "laidOut": true,
+          "where": "2560x1440 lab-tab-pose"
+        },
+        {
+          "id": "oled-canvas",
+          "claimed": 2,
+          "widthPx": 256,
+          "heightPx": 128,
+          "laidOut": true,
+          "where": "2560x1440 lab-tab-animation"
+        },
+        {
+          "id": "pixel-canvas",
+          "claimed": 8,
+          "widthPx": 1024,
+          "heightPx": 512,
+          "laidOut": true,
+          "where": "2560x1440 lab-tab-face"
+        },
+        {
+          "id": "oled-canvas",
+          "claimed": 2,
+          "widthPx": 256,
+          "heightPx": 128,
+          "laidOut": true,
+          "where": "2560x1440 lab-tab-face"
+        },
+        {
+          "id": "oled-canvas",
+          "claimed": 2,
+          "widthPx": 256,
+          "heightPx": 128,
+          "laidOut": true,
+          "where": "2560x1440 lab-tab-api"
+        },
+        {
+          "id": "oled-canvas",
+          "claimed": 2,
+          "widthPx": 256,
+          "heightPx": 128,
+          "laidOut": true,
+          "where": "2560x1440 lab-tab-faults"
+        }
+      ],
+      "titleEchoes": [],
+      "lab": [
+        {
+          "where": "880x900",
+          "tab": "lab-tab-pose",
+          "paneOverflowPx": 0,
+          "undeclared": []
+        },
+        {
+          "where": "880x900",
+          "tab": "lab-tab-animation",
+          "paneOverflowPx": 0,
+          "undeclared": []
+        },
+        {
+          "where": "880x900",
+          "tab": "lab-tab-face",
+          "paneOverflowPx": 0,
+          "undeclared": []
+        },
+        {
+          "where": "880x900",
+          "tab": "lab-tab-api",
+          "paneOverflowPx": 0,
+          "undeclared": []
+        },
+        {
+          "where": "880x900",
+          "tab": "lab-tab-faults",
+          "paneOverflowPx": 0,
+          "undeclared": []
+        },
+        {
+          "where": "1280x800",
+          "tab": "lab-tab-pose",
+          "paneOverflowPx": 0,
+          "undeclared": []
+        },
+        {
+          "where": "1280x800",
+          "tab": "lab-tab-animation",
+          "paneOverflowPx": 0,
+          "undeclared": []
+        },
+        {
+          "where": "1280x800",
+          "tab": "lab-tab-face",
+          "paneOverflowPx": 0,
+          "undeclared": []
+        },
+        {
+          "where": "1280x800",
+          "tab": "lab-tab-api",
+          "paneOverflowPx": 0,
+          "undeclared": []
+        },
+        {
+          "where": "1280x800",
+          "tab": "lab-tab-faults",
+          "paneOverflowPx": 0,
+          "undeclared": []
+        },
+        {
+          "where": "1440x900",
+          "tab": "lab-tab-pose",
+          "paneOverflowPx": 0,
+          "undeclared": []
+        },
+        {
+          "where": "1440x900",
+          "tab": "lab-tab-animation",
+          "paneOverflowPx": 0,
+          "undeclared": []
+        },
+        {
+          "where": "1440x900",
+          "tab": "lab-tab-face",
+          "paneOverflowPx": 0,
+          "undeclared": []
+        },
+        {
+          "where": "1440x900",
+          "tab": "lab-tab-api",
+          "paneOverflowPx": 0,
+          "undeclared": []
+        },
+        {
+          "where": "1440x900",
+          "tab": "lab-tab-faults",
+          "paneOverflowPx": 0,
+          "undeclared": []
+        },
+        {
+          "where": "1760x1000",
+          "tab": "lab-tab-pose",
+          "paneOverflowPx": 0,
+          "undeclared": []
+        },
+        {
+          "where": "1760x1000",
+          "tab": "lab-tab-animation",
+          "paneOverflowPx": 0,
+          "undeclared": []
+        },
+        {
+          "where": "1760x1000",
+          "tab": "lab-tab-face",
+          "paneOverflowPx": 0,
+          "undeclared": []
+        },
+        {
+          "where": "1760x1000",
+          "tab": "lab-tab-api",
+          "paneOverflowPx": 0,
+          "undeclared": []
+        },
+        {
+          "where": "1760x1000",
+          "tab": "lab-tab-faults",
+          "paneOverflowPx": 0,
+          "undeclared": []
+        },
+        {
+          "where": "1920x1080",
+          "tab": "lab-tab-pose",
+          "paneOverflowPx": 0,
+          "undeclared": []
+        },
+        {
+          "where": "1920x1080",
+          "tab": "lab-tab-animation",
+          "paneOverflowPx": 0,
+          "undeclared": []
+        },
+        {
+          "where": "1920x1080",
+          "tab": "lab-tab-face",
+          "paneOverflowPx": 0,
+          "undeclared": []
+        },
+        {
+          "where": "1920x1080",
+          "tab": "lab-tab-api",
+          "paneOverflowPx": 0,
+          "undeclared": []
+        },
+        {
+          "where": "1920x1080",
+          "tab": "lab-tab-faults",
+          "paneOverflowPx": 0,
+          "undeclared": []
+        },
+        {
+          "where": "2560x1440",
+          "tab": "lab-tab-pose",
+          "paneOverflowPx": 0,
+          "undeclared": []
+        },
+        {
+          "where": "2560x1440",
+          "tab": "lab-tab-animation",
+          "paneOverflowPx": 0,
+          "undeclared": []
+        },
+        {
+          "where": "2560x1440",
+          "tab": "lab-tab-face",
+          "paneOverflowPx": 0,
+          "undeclared": []
+        },
+        {
+          "where": "2560x1440",
+          "tab": "lab-tab-api",
+          "paneOverflowPx": 0,
+          "undeclared": []
+        },
+        {
+          "where": "2560x1440",
+          "tab": "lab-tab-faults",
+          "paneOverflowPx": 0,
+          "undeclared": []
+        }
+      ]
+    },
+    "architectureSubsystem": {
+      "ok": true,
+      "window": "1440x900",
+      "via": "focus workspace",
+      "surfaceWidthPx": 790,
+      "mode": "subsystem",
+      "subsystem": "movement",
+      "nodes": 16,
+      "zoom": 1,
+      "stageRule": "focus-exempt",
+      "stageAreaSharePct": 17.161412636250688,
+      "canvasPx": [
+        254.515625,
+        737
+      ],
+      "shots": [
+        "w4-architecture-subsystem.png"
+      ]
+    },
+    "responsiveShell": {
+      "ok": true,
+      "shell": "rail 64 | stage | ONE module | side panel 280 | status strip 32 — Phase 4 W7",
+      "modules": {
+        "ids": [
+          "modules",
+          "signal",
+          "source",
+          "learn",
+          "lab"
+        ],
+        "rule": "mutually exclusive: ShellState holds ONE nullable id, so two-open is unrepresentable",
+        "navigation": "the rail's radiogroup; no accordion, no navigator row, no mode switch",
+        "modeLabel": "Control | Analyze, DERIVED from the active module and never stored",
+        "chromePx": 25,
+        "sourceArrangements": {
+          "compact": {
+            "panePx": 640,
+            "columns": 1,
+            "outlineWidthPx": 616,
+            "outlineHeightPx": 342,
+            "codeWidthPx": 616,
+            "codeHeightPx": 728,
+            "codeScrolls": false,
+            "declared2d": "code"
+          },
+          "laptop-small": {
+            "panePx": 429,
+            "columns": 1,
+            "outlineWidthPx": 409,
+            "outlineHeightPx": 482,
+            "codeWidthPx": 409,
+            "codeHeightPx": 728,
+            "codeScrolls": false,
+            "declared2d": "code"
+          },
+          "laptop": {
+            "panePx": 534,
+            "columns": 1,
+            "outlineWidthPx": 510,
+            "outlineHeightPx": 468,
+            "codeWidthPx": 510,
+            "codeHeightPx": 728,
+            "codeScrolls": false,
+            "declared2d": "code"
+          },
+          "desktop-small": {
+            "panePx": 694,
+            "columns": 1,
+            "outlineWidthPx": 670,
+            "outlineHeightPx": 324,
+            "codeWidthPx": 670,
+            "codeHeightPx": 740,
+            "codeScrolls": false,
+            "declared2d": "code"
+          },
+          "desktop": {
+            "panePx": 774,
+            "columns": 2,
+            "outlineWidthPx": 192,
+            "outlineHeightPx": 919,
+            "codeWidthPx": 546,
+            "codeHeightPx": 420,
+            "codeScrolls": true,
+            "declared2d": "code"
+          },
+          "desktop-wide": {
+            "panePx": 1094,
+            "columns": 2,
+            "outlineWidthPx": 192,
+            "outlineHeightPx": 941,
+            "codeWidthPx": 866,
+            "codeHeightPx": 420,
+            "codeScrolls": true,
+            "declared2d": "code"
+          }
+        }
+      },
+      "sidePanel": {
+        "widthPx": 280,
+        "cards": [
+          "face",
+          "trust (Driving)",
+          "commands",
+          "inspector"
+        ],
+        "scrollableCards": [
+          "commands",
+          "inspector"
+        ],
+        "rule": "Phase 4 W5: no scroller outside Commands and Selected joint; those two scroll when, and only when, their own content exceeds the box flex gave them; the panel itself never overflows. This REPLACES W7's \"zero scrollers at every width\", which the user overrode — see docs/findings/W5-hard-panes.md",
+        "sizing": "Face and the trust card are `flex: 0 0 auto` — their own content's height at every panel height. Commands is `1 1 auto` and takes the spare; Selected joint is `0 1 auto` and gives height back first. No fold, no layout effect, no measurement after a commit.",
+        "windows": {
+          "compact": {
+            "panelHeightPx": 771,
+            "order": [
+              "face",
+              "trust",
+              "commands",
+              "inspector"
+            ],
+            "cards": [
+              {
+                "id": "face",
+                "heightPx": 243
+              },
+              {
+                "id": "trust",
+                "heightPx": 154
+              },
+              {
+                "id": "commands",
+                "heightPx": 234
+              },
+              {
+                "id": "inspector",
+                "heightPx": 114
+              }
+            ],
+            "scrollable": [
+              {
+                "id": "commands",
+                "contentPx": 281,
+                "boxPx": 191,
+                "scrolls": true
+              },
+              {
+                "id": "inspector",
+                "contentPx": 127,
+                "boxPx": 71,
+                "scrolls": true
+              }
+            ],
+            "illegalScrollers": [],
+            "overflowPx": 0,
+            "commandsOnPanel": 20,
+            "commandsInVocabulary": 20,
+            "commandButtonPx": [
+              56,
+              36
+            ],
+            "commandsPx": 211,
+            "unusedTailPx": 0
+          },
+          "laptop-small": {
+            "panelHeightPx": 671,
+            "order": [
+              "face",
+              "trust",
+              "commands",
+              "inspector"
+            ],
+            "cards": [
+              {
+                "id": "face",
+                "heightPx": 243
+              },
+              {
+                "id": "trust",
+                "heightPx": 187
+              },
+              {
+                "id": "commands",
+                "heightPx": 149
+              },
+              {
+                "id": "inspector",
+                "heightPx": 67
+              }
+            ],
+            "scrollable": [
+              {
+                "id": "commands",
+                "contentPx": 363,
+                "boxPx": 106,
+                "scrolls": true
+              },
+              {
+                "id": "inspector",
+                "contentPx": 150,
+                "boxPx": 24,
+                "scrolls": true
+              }
+            ],
+            "illegalScrollers": [],
+            "overflowPx": 0,
+            "commandsOnPanel": 20,
+            "commandsInVocabulary": 20,
+            "commandButtonPx": [
+              56,
+              36
+            ],
+            "commandsPx": 125,
+            "unusedTailPx": 0
+          },
+          "laptop": {
+            "panelHeightPx": 771,
+            "order": [
+              "face",
+              "trust",
+              "commands",
+              "inspector"
+            ],
+            "cards": [
+              {
+                "id": "face",
+                "heightPx": 243
+              },
+              {
+                "id": "trust",
+                "heightPx": 187
+              },
+              {
+                "id": "commands",
+                "heightPx": 218
+              },
+              {
+                "id": "inspector",
+                "heightPx": 98
+              }
+            ],
+            "scrollable": [
+              {
+                "id": "commands",
+                "contentPx": 363,
+                "boxPx": 175,
+                "scrolls": true
+              },
+              {
+                "id": "inspector",
+                "contentPx": 150,
+                "boxPx": 55,
+                "scrolls": true
+              }
+            ],
+            "illegalScrollers": [],
+            "overflowPx": 0,
+            "commandsOnPanel": 20,
+            "commandsInVocabulary": 20,
+            "commandButtonPx": [
+              56,
+              36
+            ],
+            "commandsPx": 194,
+            "unusedTailPx": 0
+          },
+          "desktop-small": {
+            "panelHeightPx": 871,
+            "order": [
+              "face",
+              "trust",
+              "commands",
+              "inspector"
+            ],
+            "cards": [
+              {
+                "id": "face",
+                "heightPx": 243
+              },
+              {
+                "id": "trust",
+                "heightPx": 188
+              },
+              {
+                "id": "commands",
+                "heightPx": 285
+              },
+              {
+                "id": "inspector",
+                "heightPx": 128
+              }
+            ],
+            "scrollable": [
+              {
+                "id": "commands",
+                "contentPx": 364,
+                "boxPx": 242,
+                "scrolls": true
+              },
+              {
+                "id": "inspector",
+                "contentPx": 152,
+                "boxPx": 85,
+                "scrolls": true
+              }
+            ],
+            "illegalScrollers": [],
+            "overflowPx": 0,
+            "commandsOnPanel": 20,
+            "commandsInVocabulary": 20,
+            "commandButtonPx": [
+              56,
+              36
+            ],
+            "commandsPx": 262,
+            "unusedTailPx": 0
+          },
+          "desktop": {
+            "panelHeightPx": 951,
+            "order": [
+              "face",
+              "trust",
+              "commands",
+              "inspector"
+            ],
+            "cards": [
+              {
+                "id": "face",
+                "heightPx": 243
+              },
+              {
+                "id": "trust",
+                "heightPx": 188
+              },
+              {
+                "id": "commands",
+                "heightPx": 340
+              },
+              {
+                "id": "inspector",
+                "heightPx": 154
+              }
+            ],
+            "scrollable": [
+              {
+                "id": "commands",
+                "contentPx": 365,
+                "boxPx": 297,
+                "scrolls": true
+              },
+              {
+                "id": "inspector",
+                "contentPx": 153,
+                "boxPx": 111,
+                "scrolls": true
+              }
+            ],
+            "illegalScrollers": [],
+            "overflowPx": 0,
+            "commandsOnPanel": 20,
+            "commandsInVocabulary": 20,
+            "commandButtonPx": [
+              57,
+              36
+            ],
+            "commandsPx": 317,
+            "unusedTailPx": 0
+          },
+          "desktop-wide": {
+            "panelHeightPx": 1277,
+            "order": [
+              "face",
+              "trust",
+              "commands",
+              "inspector"
+            ],
+            "cards": [
+              {
+                "id": "face",
+                "heightPx": 244
+              },
+              {
+                "id": "trust",
+                "heightPx": 192
+              },
+              {
+                "id": "commands",
+                "heightPx": 590
+              },
+              {
+                "id": "inspector",
+                "heightPx": 225
+              }
+            ],
+            "scrollable": [
+              {
+                "id": "commands",
+                "contentPx": 547,
+                "boxPx": 547,
+                "scrolls": false
+              },
+              {
+                "id": "inspector",
+                "contentPx": 182,
+                "boxPx": 182,
+                "scrolls": false
+              }
+            ],
+            "illegalScrollers": [],
+            "overflowPx": 0,
+            "commandsOnPanel": 20,
+            "commandsInVocabulary": 20,
+            "commandButtonPx": [
+              58,
+              37
+            ],
+            "commandsPx": 590,
+            "unusedTailPx": 0
+          }
+        },
+        "moreInfo": {
+          "trust": "the backend switch, PROVENANCE_MEANING, the emulator qualifiers and the counts",
+          "commands": "the whole 20-command vocabulary and the face shortlist",
+          "face": "the OLED at 4x, the payload, and the full pixel-provenance prose",
+          "inspector": "the seven-column joint table, the per-joint slider and the asset facts"
+        },
+        "correctnessOnThePanel": [
+          "the driving provenance badge",
+          "the driving origin in full, with its board",
+          "measurementVerdict()’s claim line",
+          "PHYSICAL HARDWARE: NONE, read off the counter",
+          "the OLED pixel provenance",
+          "the two zero-frame faces, marked",
+          "the selected joint and the provenance of its reading"
+        ]
+      },
+      "breakpoints": {
+        "compact": "< 1200 px — the module and the panel are SHEETS; 64 + 280 + 480 + 376 = 1200",
+        "medium": "1200-2313 px — rail | stage | module | panel, all in flow",
+        "wide": ">= 2314 px — the width at which the ORDINARY layout holds the whole 63-node graph: (innerWidth - 344) / 2 - 25 >= 960. It REPLACES W3’s 1700, which was the two-dock boundary and whose justification W7 deleted."
+      },
+      "stageRules": {
+        "area-50": "no module active — the stage keeps >= 50% of the VIEWPORT area (§7, unchanged)",
+        "content-50": "a module is active — >= 50% of the CONTENT area, the viewport minus the rail, the status strip and the side panel. §11.2’s plain reading of \"with the robot in the other half\".",
+        "focus-exempt": "W4's focus workspace, claimable only while its pane is on screen",
+        "published": "data-stage-rule on .shell, beside data-active-module and data-focus-pane",
+        "alsoAsserted": "activating a module must take more than 300 px from the canvas — W3’s inverse check, adapted rather than deleted: in flow is a claim about the layout, not a comment",
+        "compactBackstop": "min-height: 45vh and min-width: min(480px, 100%), still asserted everywhere"
+      },
+      "architectureSurface": [
+        {
+          "window": "880x900",
+          "breakpoint": "compact",
+          "contentWidthPx": 790,
+          "moduleWidthPx": 640,
+          "surfaceWidthPx": 616,
+          "mode": "path",
+          "worstOnScreenPx": null
+        },
+        {
+          "window": "1280x800",
+          "breakpoint": "medium",
+          "contentWidthPx": 910,
+          "moduleWidthPx": 430,
+          "surfaceWidthPx": 409,
+          "mode": "path",
+          "worstOnScreenPx": null
+        },
+        {
+          "window": "1440x900",
+          "breakpoint": "medium",
+          "contentWidthPx": 1070,
+          "moduleWidthPx": 535,
+          "surfaceWidthPx": 510,
+          "mode": "path",
+          "worstOnScreenPx": null
+        },
+        {
+          "window": "1760x1000",
+          "breakpoint": "medium",
+          "contentWidthPx": 1390,
+          "moduleWidthPx": 695,
+          "surfaceWidthPx": 670,
+          "mode": "path",
+          "worstOnScreenPx": null
+        },
+        {
+          "window": "1920x1080",
+          "breakpoint": "medium",
+          "contentWidthPx": 1550,
+          "moduleWidthPx": 775,
+          "surfaceWidthPx": 750,
+          "mode": "subsystem",
+          "worstOnScreenPx": null
+        },
+        {
+          "window": "2560x1440",
+          "breakpoint": "wide",
+          "contentWidthPx": 2190,
+          "moduleWidthPx": 1095,
+          "surfaceWidthPx": 1070,
+          "mode": "full",
+          "worstOnScreenPx": null
+        }
+      ],
+      "statusLine": {
+        "heightPx": 32,
+        "spans": "the whole shell, under the rail, the content area and the side panel",
+        "environmentLine": "SYSTEM: <system> · PHYSICAL HARDWARE: NONE — a correctness surface, never truncated",
+        "quickCommands": "[data-quick-command] — wave/stand/rest/stop, hit-tested at every breakpoint"
+      },
+      "floors": {
+        "stageAreaSharePct": 50,
+        "stageContentSharePct": 50,
+        "viewportHeightSharePct": 45,
+        "viewportWidthPx": 480
+      },
+      "windows": [
+        {
+          "window": "880x900",
+          "breakpoint": "compact",
+          "u5ViewportHeightSharePct": 82,
+          "noModule": {
+            "stageWidthPx": 790,
+            "canvasWidthPx": 790,
+            "canvasHeightPx": 771,
+            "viewportHeightSharePct": 95.53903345724906,
+            "stageAreaSharePct": 88.37919956818122,
+            "stageRule": "area-50"
+          },
+          "moduleActive": {
+            "stageWidthPx": 790,
+            "canvasWidthPx": 790,
+            "canvasHeightPx": 771,
+            "contentWidthPx": 790,
+            "moduleWidthPx": 640,
+            "surfaceWidthPx": 616,
+            "stageAreaSharePct": 88.37919956818122,
+            "stageContentSharePct": 100,
+            "stageRule": "content-50",
+            "scrollers": [
+              "[module-body]"
+            ]
+          },
+          "sidePanel": {
+            "panelHeightPx": 771,
+            "order": [
+              "face",
+              "trust",
+              "commands",
+              "inspector"
+            ],
+            "cards": [
+              {
+                "id": "face",
+                "heightPx": 243
+              },
+              {
+                "id": "trust",
+                "heightPx": 154
+              },
+              {
+                "id": "commands",
+                "heightPx": 234
+              },
+              {
+                "id": "inspector",
+                "heightPx": 114
+              }
+            ],
+            "scrollable": [
+              {
+                "id": "commands",
+                "contentPx": 281,
+                "boxPx": 191,
+                "scrolls": true
+              },
+              {
+                "id": "inspector",
+                "contentPx": 127,
+                "boxPx": 71,
+                "scrolls": true
+              }
+            ],
+            "illegalScrollers": [],
+            "overflowPx": 0,
+            "commandsOnPanel": 20,
+            "commandsInVocabulary": 20,
+            "commandButtonPx": [
+              56,
+              36
+            ],
+            "commandsPx": 211,
+            "unusedTailPx": 0
+          },
+          "environment": "SYSTEM: HOST MODEL · PHYSICAL HARDWARE: NONE",
+          "statusBarHeightPx": 36,
+          "statusSegments": [
+            "environment",
+            "conn",
+            "provenance",
+            "run"
+          ],
+          "stageGivenToModulePx": 0,
+          "quickCommands": [
+            {
+              "name": "wave",
+              "visible": true,
+              "reachable": true,
+              "enabled": true
+            },
+            {
+              "name": "stop",
+              "visible": true,
+              "reachable": true,
+              "enabled": true
+            }
+          ],
+          "sourceLinesRendered": 33,
+          "fontSizesPx": {
+            "section body": 16,
+            "a line of C++": 15,
+            "an outline row": 16,
+            "a file tab": 16,
+            "the window note": 16
+          },
+          "robotPixels": {
+            "lit": 97801,
+            "sampled": 160000,
+            "sharePct": 61.12562499999999,
+            "bufferW": 790,
+            "bufferH": 737
+          },
+          "worldFrame": {
+            "worst": {
+              "groundWorldMm": 0,
+              "robotRootWorldMm": 0,
+              "cameraTargetMm": 0,
+              "cameraPositionMm": 0
+            },
+            "footContactSpreadMm": 37.53492608666419,
+            "samples": 11
+          },
+          "moduleSwitchWorldFrame": null,
+          "activeModuleSurvivedReload": true
+        },
+        {
+          "window": "1280x800",
+          "breakpoint": "medium",
+          "u5ViewportHeightSharePct": 80,
+          "noModule": {
+            "stageWidthPx": 910,
+            "canvasWidthPx": 910,
+            "canvasHeightPx": 671,
+            "viewportHeightSharePct": 94.90806223479491,
+            "stageAreaSharePct": 68.87267674135835,
+            "stageRule": "area-50"
+          },
+          "moduleActive": {
+            "stageWidthPx": 480,
+            "canvasWidthPx": 480,
+            "canvasHeightPx": 671,
+            "contentWidthPx": 910,
+            "moduleWidthPx": 430,
+            "surfaceWidthPx": 409,
+            "stageAreaSharePct": 36.32844487456264,
+            "stageContentSharePct": 52.74725274725275,
+            "stageRule": "content-50",
+            "scrollers": [
+              "[module-body]"
+            ]
+          },
+          "sidePanel": {
+            "panelHeightPx": 671,
+            "order": [
+              "face",
+              "trust",
+              "commands",
+              "inspector"
+            ],
+            "cards": [
+              {
+                "id": "face",
+                "heightPx": 243
+              },
+              {
+                "id": "trust",
+                "heightPx": 187
+              },
+              {
+                "id": "commands",
+                "heightPx": 149
+              },
+              {
+                "id": "inspector",
+                "heightPx": 67
+              }
+            ],
+            "scrollable": [
+              {
+                "id": "commands",
+                "contentPx": 363,
+                "boxPx": 106,
+                "scrolls": true
+              },
+              {
+                "id": "inspector",
+                "contentPx": 150,
+                "boxPx": 24,
+                "scrolls": true
+              }
+            ],
+            "illegalScrollers": [],
+            "overflowPx": 0,
+            "commandsOnPanel": 20,
+            "commandsInVocabulary": 20,
+            "commandButtonPx": [
+              56,
+              36
+            ],
+            "commandsPx": 125,
+            "unusedTailPx": 0
+          },
+          "environment": "SYSTEM: HOST MODEL · PHYSICAL HARDWARE: NONE",
+          "statusBarHeightPx": 36,
+          "statusSegments": [
+            "environment",
+            "conn",
+            "provenance",
+            "events",
+            "observed",
+            "backend",
+            "run"
+          ],
+          "stageGivenToModulePx": 430,
+          "quickCommands": [
+            {
+              "name": "wave",
+              "visible": true,
+              "reachable": true,
+              "enabled": true
+            },
+            {
+              "name": "stand",
+              "visible": true,
+              "reachable": true,
+              "enabled": true
+            },
+            {
+              "name": "rest",
+              "visible": true,
+              "reachable": true,
+              "enabled": true
+            },
+            {
+              "name": "stop",
+              "visible": true,
+              "reachable": true,
+              "enabled": true
+            }
+          ],
+          "sourceLinesRendered": 33,
+          "fontSizesPx": {
+            "section body": 16,
+            "a line of C++": 15,
+            "an outline row": 16,
+            "a file tab": 16,
+            "the window note": 16
+          },
+          "robotPixels": {
+            "lit": 82149,
+            "sampled": 160000,
+            "sharePct": 51.343125,
+            "bufferW": 480,
+            "bufferH": 637
+          },
+          "worldFrame": {
+            "worst": {
+              "groundWorldMm": 0,
+              "robotRootWorldMm": 0,
+              "cameraTargetMm": 0,
+              "cameraPositionMm": 0
+            },
+            "footContactSpreadMm": 37.53492608666419,
+            "samples": 11
+          },
+          "moduleSwitchWorldFrame": {
+            "worst": {
+              "groundWorldMm": 0,
+              "robotRootWorldMm": 0,
+              "cameraTargetMm": 0,
+              "cameraPositionMm": 0
+            },
+            "footContactSpreadMm": 37.53492608666419,
+            "samples": 11
+          },
+          "activeModuleSurvivedReload": true
+        },
+        {
+          "window": "1440x900",
+          "breakpoint": "medium",
+          "u5ViewportHeightSharePct": 80,
+          "noModule": {
+            "stageWidthPx": 1070,
+            "canvasWidthPx": 1070,
+            "canvasHeightPx": 771,
+            "viewportHeightSharePct": 95.53903345724906,
+            "stageAreaSharePct": 72.2961568594459,
+            "stageRule": "area-50"
+          },
+          "moduleActive": {
+            "stageWidthPx": 535,
+            "canvasWidthPx": 535,
+            "canvasHeightPx": 771,
+            "contentWidthPx": 1070,
+            "moduleWidthPx": 535,
+            "surfaceWidthPx": 510,
+            "stageAreaSharePct": 36.14807842972295,
+            "stageContentSharePct": 50,
+            "stageRule": "content-50",
+            "scrollers": [
+              "[module-body]"
+            ]
+          },
+          "sidePanel": {
+            "panelHeightPx": 771,
+            "order": [
+              "face",
+              "trust",
+              "commands",
+              "inspector"
+            ],
+            "cards": [
+              {
+                "id": "face",
+                "heightPx": 243
+              },
+              {
+                "id": "trust",
+                "heightPx": 187
+              },
+              {
+                "id": "commands",
+                "heightPx": 218
+              },
+              {
+                "id": "inspector",
+                "heightPx": 98
+              }
+            ],
+            "scrollable": [
+              {
+                "id": "commands",
+                "contentPx": 363,
+                "boxPx": 175,
+                "scrolls": true
+              },
+              {
+                "id": "inspector",
+                "contentPx": 150,
+                "boxPx": 55,
+                "scrolls": true
+              }
+            ],
+            "illegalScrollers": [],
+            "overflowPx": 0,
+            "commandsOnPanel": 20,
+            "commandsInVocabulary": 20,
+            "commandButtonPx": [
+              56,
+              36
+            ],
+            "commandsPx": 194,
+            "unusedTailPx": 0
+          },
+          "environment": "SYSTEM: HOST MODEL · PHYSICAL HARDWARE: NONE",
+          "statusBarHeightPx": 36,
+          "statusSegments": [
+            "environment",
+            "conn",
+            "provenance",
+            "events",
+            "observed",
+            "backend",
+            "run"
+          ],
+          "stageGivenToModulePx": 535,
+          "quickCommands": [
+            {
+              "name": "wave",
+              "visible": true,
+              "reachable": true,
+              "enabled": true
+            },
+            {
+              "name": "stand",
+              "visible": true,
+              "reachable": true,
+              "enabled": true
+            },
+            {
+              "name": "rest",
+              "visible": true,
+              "reachable": true,
+              "enabled": true
+            },
+            {
+              "name": "stop",
+              "visible": true,
+              "reachable": true,
+              "enabled": true
+            }
+          ],
+          "sourceLinesRendered": 33,
+          "fontSizesPx": {
+            "section body": 16,
+            "a line of C++": 15,
+            "an outline row": 16,
+            "a file tab": 16,
+            "the window note": 16
+          },
+          "robotPixels": {
+            "lit": 97755,
+            "sampled": 160000,
+            "sharePct": 61.096875,
+            "bufferW": 535,
+            "bufferH": 737
+          },
+          "worldFrame": {
+            "worst": {
+              "groundWorldMm": 0,
+              "robotRootWorldMm": 0,
+              "cameraTargetMm": 0,
+              "cameraPositionMm": 0
+            },
+            "footContactSpreadMm": 37.53492608666419,
+            "samples": 11
+          },
+          "moduleSwitchWorldFrame": {
+            "worst": {
+              "groundWorldMm": 0,
+              "robotRootWorldMm": 0,
+              "cameraTargetMm": 0,
+              "cameraPositionMm": 0
+            },
+            "footContactSpreadMm": 37.53492608666419,
+            "samples": 11
+          },
+          "activeModuleSurvivedReload": true
+        },
+        {
+          "window": "1760x1000",
+          "breakpoint": "medium",
+          "u5ViewportHeightSharePct": 82,
+          "noModule": {
+            "stageWidthPx": 1390,
+            "canvasWidthPx": 1390,
+            "canvasHeightPx": 871,
+            "viewportHeightSharePct": 96.03087100330761,
+            "stageAreaSharePct": 76.97976395305511,
+            "stageRule": "area-50"
+          },
+          "moduleActive": {
+            "stageWidthPx": 695,
+            "canvasWidthPx": 695,
+            "canvasHeightPx": 871,
+            "contentWidthPx": 1390,
+            "moduleWidthPx": 695,
+            "surfaceWidthPx": 670,
+            "stageAreaSharePct": 38.489881976527556,
+            "stageContentSharePct": 50,
+            "stageRule": "content-50",
+            "scrollers": [
+              "[module-body]"
+            ]
+          },
+          "sidePanel": {
+            "panelHeightPx": 871,
+            "order": [
+              "face",
+              "trust",
+              "commands",
+              "inspector"
+            ],
+            "cards": [
+              {
+                "id": "face",
+                "heightPx": 243
+              },
+              {
+                "id": "trust",
+                "heightPx": 188
+              },
+              {
+                "id": "commands",
+                "heightPx": 285
+              },
+              {
+                "id": "inspector",
+                "heightPx": 128
+              }
+            ],
+            "scrollable": [
+              {
+                "id": "commands",
+                "contentPx": 364,
+                "boxPx": 242,
+                "scrolls": true
+              },
+              {
+                "id": "inspector",
+                "contentPx": 152,
+                "boxPx": 85,
+                "scrolls": true
+              }
+            ],
+            "illegalScrollers": [],
+            "overflowPx": 0,
+            "commandsOnPanel": 20,
+            "commandsInVocabulary": 20,
+            "commandButtonPx": [
+              56,
+              36
+            ],
+            "commandsPx": 262,
+            "unusedTailPx": 0
+          },
+          "environment": "SYSTEM: HOST MODEL · PHYSICAL HARDWARE: NONE",
+          "statusBarHeightPx": 36,
+          "statusSegments": [
+            "environment",
+            "conn",
+            "provenance",
+            "events",
+            "observed",
+            "backend",
+            "run"
+          ],
+          "stageGivenToModulePx": 695,
+          "quickCommands": [
+            {
+              "name": "wave",
+              "visible": true,
+              "reachable": true,
+              "enabled": true
+            },
+            {
+              "name": "stand",
+              "visible": true,
+              "reachable": true,
+              "enabled": true
+            },
+            {
+              "name": "rest",
+              "visible": true,
+              "reachable": true,
+              "enabled": true
+            },
+            {
+              "name": "stop",
+              "visible": true,
+              "reachable": true,
+              "enabled": true
+            }
+          ],
+          "sourceLinesRendered": 33,
+          "fontSizesPx": {
+            "section body": 16.2621,
+            "a line of C++": 15.2621,
+            "an outline row": 16.2621,
+            "a file tab": 16.2621,
+            "the window note": 16.2621
+          },
+          "robotPixels": {
+            "lit": 112198,
+            "sampled": 160000,
+            "sharePct": 70.12375,
+            "bufferW": 695,
+            "bufferH": 837
+          },
+          "worldFrame": {
+            "worst": {
+              "groundWorldMm": 0,
+              "robotRootWorldMm": 0,
+              "cameraTargetMm": 0,
+              "cameraPositionMm": 0
+            },
+            "footContactSpreadMm": 37.53492608666419,
+            "samples": 11
+          },
+          "moduleSwitchWorldFrame": {
+            "worst": {
+              "groundWorldMm": 0,
+              "robotRootWorldMm": 0,
+              "cameraTargetMm": 0,
+              "cameraPositionMm": 0
+            },
+            "footContactSpreadMm": 37.53492608666419,
+            "samples": 11
+          },
+          "activeModuleSurvivedReload": true
+        },
+        {
+          "window": "1920x1080",
+          "breakpoint": "medium",
+          "u5ViewportHeightSharePct": 84,
+          "noModule": {
+            "stageWidthPx": 1550,
+            "canvasWidthPx": 1550,
+            "canvasHeightPx": 951,
+            "viewportHeightSharePct": 96.35258358662614,
+            "stageAreaSharePct": 78.85243112949868,
+            "stageRule": "area-50"
+          },
+          "moduleActive": {
+            "stageWidthPx": 775,
+            "canvasWidthPx": 775,
+            "canvasHeightPx": 951,
+            "contentWidthPx": 1550,
+            "moduleWidthPx": 775,
+            "surfaceWidthPx": 750,
+            "stageAreaSharePct": 39.42621556474934,
+            "stageContentSharePct": 50,
+            "stageRule": "content-50",
+            "scrollers": []
+          },
+          "sidePanel": {
+            "panelHeightPx": 951,
+            "order": [
+              "face",
+              "trust",
+              "commands",
+              "inspector"
+            ],
+            "cards": [
+              {
+                "id": "face",
+                "heightPx": 243
+              },
+              {
+                "id": "trust",
+                "heightPx": 188
+              },
+              {
+                "id": "commands",
+                "heightPx": 340
+              },
+              {
+                "id": "inspector",
+                "heightPx": 154
+              }
+            ],
+            "scrollable": [
+              {
+                "id": "commands",
+                "contentPx": 365,
+                "boxPx": 297,
+                "scrolls": true
+              },
+              {
+                "id": "inspector",
+                "contentPx": 153,
+                "boxPx": 111,
+                "scrolls": true
+              }
+            ],
+            "illegalScrollers": [],
+            "overflowPx": 0,
+            "commandsOnPanel": 20,
+            "commandsInVocabulary": 20,
+            "commandButtonPx": [
+              57,
+              36
+            ],
+            "commandsPx": 317,
+            "unusedTailPx": 0
+          },
+          "environment": "SYSTEM: HOST MODEL · PHYSICAL HARDWARE: NONE",
+          "statusBarHeightPx": 36,
+          "statusSegments": [
+            "environment",
+            "conn",
+            "provenance",
+            "events",
+            "observed",
+            "backend",
+            "run"
+          ],
+          "stageGivenToModulePx": 775,
+          "quickCommands": [
+            {
+              "name": "wave",
+              "visible": true,
+              "reachable": true,
+              "enabled": true
+            },
+            {
+              "name": "stand",
+              "visible": true,
+              "reachable": true,
+              "enabled": true
+            },
+            {
+              "name": "rest",
+              "visible": true,
+              "reachable": true,
+              "enabled": true
+            },
+            {
+              "name": "stop",
+              "visible": true,
+              "reachable": true,
+              "enabled": true
+            }
+          ],
+          "sourceLinesRendered": 33,
+          "fontSizesPx": {
+            "section body": 16.4049,
+            "a line of C++": 15.4049,
+            "an outline row": 16.4049,
+            "a file tab": 16.4049,
+            "the window note": 16.4049
+          },
+          "robotPixels": {
+            "lit": 122967,
+            "sampled": 160000,
+            "sharePct": 76.85437499999999,
+            "bufferW": 775,
+            "bufferH": 917
+          },
+          "worldFrame": {
+            "worst": {
+              "groundWorldMm": 0,
+              "robotRootWorldMm": 0,
+              "cameraTargetMm": 0,
+              "cameraPositionMm": 0
+            },
+            "footContactSpreadMm": 37.53492608666419,
+            "samples": 11
+          },
+          "moduleSwitchWorldFrame": {
+            "worst": {
+              "groundWorldMm": 0,
+              "robotRootWorldMm": 0,
+              "cameraTargetMm": 0,
+              "cameraPositionMm": 0
+            },
+            "footContactSpreadMm": 37.53492608666419,
+            "samples": 11
+          },
+          "activeModuleSurvivedReload": true
+        },
+        {
+          "window": "2560x1440",
+          "breakpoint": "wide",
+          "u5ViewportHeightSharePct": 86.9,
+          "noModule": {
+            "stageWidthPx": 2190,
+            "canvasWidthPx": 2190,
+            "canvasHeightPx": 1311,
+            "viewportHeightSharePct": 97.32739420935413,
+            "stageAreaSharePct": 84.11483556372752,
+            "stageRule": "area-50"
+          },
+          "moduleActive": {
+            "stageWidthPx": 1095,
+            "canvasWidthPx": 1095,
+            "canvasHeightPx": 1311,
+            "contentWidthPx": 2190,
+            "moduleWidthPx": 1095,
+            "surfaceWidthPx": 1070,
+            "stageAreaSharePct": 42.05741778186376,
+            "stageContentSharePct": 50,
+            "stageRule": "content-50",
+            "scrollers": []
+          },
+          "sidePanel": {
+            "panelHeightPx": 1277,
+            "order": [
+              "face",
+              "trust",
+              "commands",
+              "inspector"
+            ],
+            "cards": [
+              {
+                "id": "face",
+                "heightPx": 244
+              },
+              {
+                "id": "trust",
+                "heightPx": 192
+              },
+              {
+                "id": "commands",
+                "heightPx": 590
+              },
+              {
+                "id": "inspector",
+                "heightPx": 225
+              }
+            ],
+            "scrollable": [
+              {
+                "id": "commands",
+                "contentPx": 547,
+                "boxPx": 547,
+                "scrolls": false
+              },
+              {
+                "id": "inspector",
+                "contentPx": 182,
+                "boxPx": 182,
+                "scrolls": false
+              }
+            ],
+            "illegalScrollers": [],
+            "overflowPx": 0,
+            "commandsOnPanel": 20,
+            "commandsInVocabulary": 20,
+            "commandButtonPx": [
+              58,
+              37
+            ],
+            "commandsPx": 590,
+            "unusedTailPx": 0
+          },
+          "environment": "SYSTEM: HOST MODEL · PHYSICAL HARDWARE: NONE",
+          "statusBarHeightPx": 36,
+          "statusSegments": [
+            "environment",
+            "conn",
+            "provenance",
+            "events",
+            "observed",
+            "backend",
+            "joints",
+            "ground",
+            "run"
+          ],
+          "stageGivenToModulePx": 1095,
+          "quickCommands": [
+            {
+              "name": "wave",
+              "visible": true,
+              "reachable": true,
+              "enabled": true
+            },
+            {
+              "name": "stand",
+              "visible": true,
+              "reachable": true,
+              "enabled": true
+            },
+            {
+              "name": "rest",
+              "visible": true,
+              "reachable": true,
+              "enabled": true
+            },
+            {
+              "name": "stop",
+              "visible": true,
+              "reachable": true,
+              "enabled": true
+            }
+          ],
+          "sourceLinesRendered": 33,
+          "fontSizesPx": {
+            "section body": 16.9765,
+            "a line of C++": 15.9765,
+            "an outline row": 16.9765,
+            "a file tab": 16.9765,
+            "the window note": 16.9765
+          },
+          "robotPixels": {
+            "lit": 154659,
+            "sampled": 160000,
+            "sharePct": 96.661875,
+            "bufferW": 1095,
+            "bufferH": 1277
+          },
+          "worldFrame": {
+            "worst": {
+              "groundWorldMm": 0,
+              "robotRootWorldMm": 0,
+              "cameraTargetMm": 0,
+              "cameraPositionMm": 0
+            },
+            "footContactSpreadMm": 37.53492608666419,
+            "samples": 11
+          },
+          "moduleSwitchWorldFrame": {
+            "worst": {
+              "groundWorldMm": 0,
+              "robotRootWorldMm": 0,
+              "cameraTargetMm": 0,
+              "cameraPositionMm": 0
+            },
+            "footContactSpreadMm": 37.53492608666419,
+            "samples": 11
+          },
+          "activeModuleSurvivedReload": true
+        }
+      ],
+      "laptopProseMeasure": {
+        "fontSizePx": 17,
+        "proseWidthPx": 506,
+        "paneWidthPx": 534,
+        "moduleColumnPx": 535,
+        "ch": 55.2,
+        "chPx": 9.17
+      },
+      "persistenceKey": "sesame-lab.shell.v3",
+      "fontSizesPx": {
+        "compact": {
+          "section body": 16,
+          "a line of C++": 15,
+          "an outline row": 16,
+          "a file tab": 16,
+          "the window note": 16
+        },
+        "laptop-small": {
+          "section body": 16,
+          "a line of C++": 15,
+          "an outline row": 16,
+          "a file tab": 16,
+          "the window note": 16
+        },
+        "laptop": {
+          "section body": 16,
+          "a line of C++": 15,
+          "an outline row": 16,
+          "a file tab": 16,
+          "the window note": 16
+        },
+        "desktop-small": {
+          "section body": 16.2621,
+          "a line of C++": 15.2621,
+          "an outline row": 16.2621,
+          "a file tab": 16.2621,
+          "the window note": 16.2621
+        },
+        "desktop": {
+          "section body": 16.4049,
+          "a line of C++": 15.4049,
+          "an outline row": 16.4049,
+          "a file tab": 16.4049,
+          "the window note": 16.4049
+        },
+        "desktop-wide": {
+          "section body": 16.9765,
+          "a line of C++": 15.9765,
+          "an outline row": 16.9765,
+          "a file tab": 16.9765,
+          "the window note": 16.9765
+        }
+      },
+      "typeFloorPx": 14,
+      "typeReadings": {
+        "compact": {
+          "roles": {
+            "body": {
+              "px": 16,
+              "sel": "body",
+              "text": "",
+              "section": "commands"
+            },
+            "code": {
+              "px": 16,
+              "sel": ".src-line, .src-text, table.joints td, dl.kv dd, .lab-code, .pose-table td",
+              "text": "R1 L2 R4 L3",
+              "section": "modules"
+            },
+            "prose": {
+              "px": 17,
+              "sel": ".lesson-explanation, .lesson-conceptual, .lesson-goal, .lesson-claim-text, .source-description, .concept-text",
+              "text": "Prints WAVE, selects the \"wave\" face in ",
+              "section": "source"
+            }
+          },
+          "belowFloor": 0,
+          "truncatedCorrectness": 0
+        },
+        "medium": {
+          "roles": {
+            "body": {
+              "px": 16.4049,
+              "sel": "body",
+              "text": "",
+              "section": "commands"
+            },
+            "code": {
+              "px": 16.4049,
+              "sel": ".src-line, .src-text, table.joints td, dl.kv dd, .lab-code, .pose-table td",
+              "text": "R1 L2 R4 L3",
+              "section": "modules"
+            },
+            "prose": {
+              "px": 17.4049,
+              "sel": ".lesson-explanation, .lesson-conceptual, .lesson-goal, .lesson-claim-text, .source-description, .concept-text",
+              "text": "Prints WAVE, selects the \"wave\" face in ",
+              "section": "source"
+            }
+          },
+          "belowFloor": 0,
+          "truncatedCorrectness": 0
+        },
+        "wide": {
+          "roles": {
+            "body": {
+              "px": 16.9765,
+              "sel": "body",
+              "text": "",
+              "section": "commands"
+            },
+            "code": {
+              "px": 16.9765,
+              "sel": ".src-line, .src-text, table.joints td, dl.kv dd, .lab-code, .pose-table td",
+              "text": "R1 L2 R4 L3",
+              "section": "modules"
+            },
+            "prose": {
+              "px": 17.9765,
+              "sel": ".lesson-explanation, .lesson-conceptual, .lesson-goal, .lesson-claim-text, .source-description, .concept-text",
+              "text": "Prints WAVE, selects the \"wave\" face in ",
+              "section": "source"
+            }
+          },
+          "belowFloor": 0,
+          "truncatedCorrectness": 0
+        }
+      },
+      "textBelowFloorInsideZoomSurfaces": 0,
+      "shots": [
+        "u5-shell-compact.png",
+        "u5-shell-laptop-small.png",
+        "u5-shell-laptop.png",
+        "w7-shell-no-module.png",
+        "u5-shell-desktop-small.png",
+        "w8-source-outline-beside-code.png",
+        "u5-shell-desktop.png",
+        "u5-shell-desktop-wide.png",
+        "u5-learn-at-medium.png",
+        "u5-lab-at-compact.png"
+      ]
+    },
+    "accessibilityInvariants": {
+      "ok": true,
+      "source": "docs/research/Sesame Lab_ responsive UI_UX research brief.md, \"The machine-checkable contract should be strict\" and \"Quality gates for cluttered and clumsy\"",
+      "contrast": {
+        "floors": {
+          "text": 4.5,
+          "largeText": 3,
+          "ui": 3
+        },
+        "byWindow": {
+          "1440x900": {
+            "measured": 1695,
+            "failures": 0,
+            "requiredBoundariesChecked": 0,
+            "boundariesIdentifiedByTheirLabel": 305,
+            "backdropsExempted": 0,
+            "uiFailures": 0,
+            "exemptInactive": 0,
+            "overBackgroundImage": 0,
+            "worstMeasured": {
+              "ratio": 4.82,
+              "need": 4.5,
+              "text": "· 429",
+              "module": "source"
+            }
+          },
+          "880x900": {
+            "measured": 1462,
+            "failures": 0,
+            "requiredBoundariesChecked": 0,
+            "boundariesIdentifiedByTheirLabel": 175,
+            "backdropsExempted": 5,
+            "uiFailures": 0,
+            "exemptInactive": 0,
+            "overBackgroundImage": 0,
+            "worstMeasured": {
+              "ratio": 4.82,
+              "need": 4.5,
+              "text": "· 429",
+              "module": "source"
+            }
+          }
+        }
+      },
+      "targets": {
+        "finePx": 36,
+        "coarsePx": 44,
+        "wcagFloorPx": 24,
+        "byWindow": {
+          "1440x900": {
+            "checked": 182,
+            "underFine": 0,
+            "underWcagFloor": 0,
+            "unhittable": 123,
+            "inertBehindASheet": 0
+          },
+          "880x900": {
+            "checked": 63,
+            "underFine": 0,
+            "underWcagFloor": 0,
+            "unhittable": 72,
+            "inertBehindASheet": 45
+          }
+        },
+        "coarse": {
+          "emulated": true,
+          "checked": 75,
+          "under": 0
+        }
+      },
+      "keyboard": {
+        "1440x900": {
+          "focusable": 75,
+          "tabReached": 76,
+          "unreached": 0,
+          "withoutRing": 0,
+          "ringBelow3to1": 0,
+          "obscuredWhileFocused": 0,
+          "pointerOnlyClickables": 0,
+          "keyboardJointPickers": 8
+        },
+        "880x900": {
+          "focusable": 41,
+          "tabReached": 41,
+          "unreached": 0,
+          "withoutRing": 0,
+          "ringBelow3to1": 0,
+          "obscuredWhileFocused": 0,
+          "pointerOnlyClickables": 0,
+          "keyboardJointPickers": 8
+        }
+      },
+      "provenance": {
+        "grayscale": {
+          "badges": 42,
+          "withoutWord": 0,
+          "shot": "w6-grayscale-provenance.png"
+        },
+        "1440x900": {
+          "badges": 42,
+          "withoutWord": 0,
+          "colourOnly": 0,
+          "note": "every [data-provenance] renders its own value as a word; the three hues carry no meaning that the text does not also carry"
+        },
+        "880x900": {
+          "badges": 40,
+          "withoutWord": 0,
+          "colourOnly": 0,
+          "note": "every [data-provenance] renders its own value as a word; the three hues carry no meaning that the text does not also carry"
+        }
+      },
+      "zoom200": {
+        "viewportCssPx": "720x450",
+        "equivalentTo": "1440x900 at 200% page zoom",
+        "correctnessSurfacesScanned": 232,
+        "truncated": 0,
+        "collapsed": 0,
+        "belowTypeFloor": 0,
+        "undeclaredOverflow": 0,
+        "witnessParagraphsWhole": "15/15"
+      },
+      "textSpacing": {
+        "override": "*, *::before, *::after { line-height: 1.5 !important; letter-spacing: 0.12em !important; word-spacing: 0.16em !important; } p, li, dd, dt { margin-block-end: 2em !important; }",
+        "computedOnBody": {
+          "lineHeight": "24px",
+          "fontSize": "16px",
+          "letterSpacing": "1.92px",
+          "wordSpacing": "2.56px"
+        },
+        "correctnessSurfacesScanned": 262,
+        "truncated": 0,
+        "collapsed": 0,
+        "undeclaredOverflow": 0
+      },
+      "reducedMotion": {
+        "graphReframe": {
+          "allowed": {
+            "distinctTransforms": 3,
+            "frames": 13,
+            "moved": true
+          },
+          "reduced": {
+            "distinctTransforms": 2,
+            "frames": 13,
+            "moved": true
+          }
+        },
+        "cameraGlideMmAfterPointerUp": {
+          "allowed": 22.281,
+          "reduced": 0
+        },
+        "what": "React Flow fitView/setCenter durations -> 0, OrbitControls enableDamping -> false, and the CSS backstop in @layer overrides"
+      },
+      "pageOverflow": {
+        "1440x900": {
+          "undeclaredHorizontalScrollers": []
+        },
+        "880x900": {
+          "undeclaredHorizontalScrollers": []
+        }
+      },
+      "dragAlternatives": {
+        "rangeInputs": 17,
+        "arrowKeyDrivenValue": {
+          "before": "90",
+          "after": "93"
+        },
+        "reactFlow": {
+          "mode": "path",
+          "zoomIn": false,
+          "zoomOut": false,
+          "fitView": false,
+          "focusableNodes": 0
+        },
+        "pixelEditor": "W5: focusable canvas, arrow-key caret, Space/Enter to toggle, live region — asserted in phase 11",
+        "dockResizeHandle": "none exists. W3 put the docks back in flow at fixed widths and W7 removed the last draggable divider, so there is no resize drag left to provide an alternative to.",
+        "cameraOrbit": "pointer-only, and documented as such: orbiting a 3D view IS the dragging, so 2.5.7 does not ask for an alternative to it. See W6 findings §6."
+      },
+      "shots": [
+        "w6-grayscale-provenance.png",
+        "w6-zoom-200.png",
+        "w6-text-spacing.png"
+      ],
+      "knownLimitation": "The WebGL canvas is not keyboard-navigable. Joint SELECTION has a full non-pointer equivalent (the Inspector list, keyboard-operable as of W6); camera ORBIT does not, and that is recorded as a limitation rather than papered over."
+    },
+    "packagedHonesty": {
+      "ran": true,
+      "reason": null,
+      "bundleDirs": [
+        "nsis"
+      ],
+      "selfTest": {
+        "originGuardCases": 11,
+        "originGuardProblems": 0,
+        "verdictProblems": 0
+      },
+      "devServerOn5173": false,
+      "resourceReport": {
+        "ok": true,
+        "total": 22,
+        "present": 22,
+        "bytes": 79188591
+      },
+      "measuredEngine": "QEMU emulator version 9.2.2 (esp_develop_9.2.2_20260417)",
+      "bundledQemu": "src-tauri/target/release/qemu/bin/qemu-system-xtensa.exe",
+      "derivedEngine": "qemu-system-xtensa/9.2.2-esp_develop_9.2.2_20260417",
+      "pid": 31748,
+      "cdpTarget": "http://tauri.localhost/",
+      "shell": {
+        "tauri": true,
+        "internals": true,
+        "href": "http://tauri.localhost/"
+      },
+      "servedAssets": {
+        "checked": 3,
+        "matchesDist": true,
+        "indexMatchedAfterNormalisation": true,
+        "files": [
+          "/index.html",
+          "/assets/index-Ohnn2SUG.js",
+          "/assets/index-DmCj8ILI.css"
+        ]
+      },
+      "boot": {
+        "attempts": 1,
+        "elapsedMs": 2355
+      },
+      "environmentLine": "SYSTEM: QEMU EMULATOR · PHYSICAL HARDWARE: NONE",
+      "origin": {
+        "kind": "emulator",
+        "engine": "QEMU emulator version 9.2.2 (esp_develop_9.2.2_20260417)",
+        "board": "distro-v1-esp32",
+        "elided": [
+          "wifi-mac",
+          "wifi-phy",
+          "http-server",
+          "captive-portal",
+          "mdns",
+          "ssd1306-glass",
+          "servo-load",
+          "ledc-waveform",
+          "usb-cdc"
+        ],
+        "oledFramebuffer": true
+      },
+      "boardText": "EMULATOR not hardware, and not a model either Real firmware. Emulated silicon. No robot. Every event on this stream is tagged provenance: observed — correctly: bytes really crossed a UART and the firmware’s own hook real",
+      "desktopSimulatorLine": {
+        "presentInDom": false,
+        "inBundle": {
+          "bundles": 1,
+          "testid": 1,
+          "sentence": 1
+        }
+      },
+      "negativeControls": [
+        {
+          "what": "the environment line, truncated",
+          "mutated": true,
+          "fired": true
+        },
+        {
+          "what": "the environment line, claiming hardware",
+          "mutated": true,
+          "fired": true
+        },
+        {
+          "what": "the desktop-simulator line, present",
+          "mutated": true,
+          "fired": true
+        },
+        {
+          "what": "a provenance badge at 1:1 contrast",
+          "mutated": true,
+          "fired": true
+        },
+        {
+          "what": "a control shrunk below the WCAG floor",
+          "mutated": true,
+          "fired": true
+        },
+        {
+          "what": "text below the 14 px floor",
+          "mutated": true,
+          "fired": true
+        },
+        {
+          "what": "a focused control with its ring removed",
+          "mutated": true,
+          "fired": true
+        }
+      ],
+      "sceneQuaternionDelta": 0.7071067811865475,
+      "origins": {
+        "totalEvents": 37,
+        "physicallyObservedEvents": 0,
+        "counts": {
+          "physical-robot": 0,
+          "emulator": 37,
+          "host-model": 0,
+          "replay": 0,
+          "unknown": 0
+        },
+        "drivingBoard": "distro-v1-esp32"
+      },
+      "oled": {
+        "state": "observed",
+        "fromEmulator": true,
+        "litPixels": 571,
+        "pixelProvenance": "observed",
+        "qualifierRendered": true
+      },
+      "trace": [
+        {
+          "layer": "ui.command",
+          "provenance": "observed",
+          "badge": "OBSERVED IN THIS APP"
+        },
+        {
+          "layer": "http.request",
+          "provenance": "observed",
+          "badge": "OBSERVED IN THIS APP"
+        },
+        {
+          "layer": "firmware.command",
+          "provenance": "inferred",
+          "badge": "INFERRED FOR EXPLANATION"
+        },
+        {
+          "layer": "movement.enter",
+          "provenance": "observed",
+          "badge": "OBSERVED FROM EMULATOR"
+        },
+        {
+          "layer": "servo.target",
+          "provenance": "observed",
+          "badge": "OBSERVED FROM EMULATOR"
+        },
+        {
+          "layer": "servo.target",
+          "provenance": "observed",
+          "badge": "OBSERVED FROM EMULATOR"
+        },
+        {
+          "layer": "servo.target",
+          "provenance": "observed",
+          "badge": "OBSERVED FROM EMULATOR"
+        },
+        {
+          "layer": "servo.target",
+          "provenance": "observed",
+          "badge": "OBSERVED FROM EMULATOR"
+        },
+        {
+          "layer": "servo.target",
+          "provenance": "observed",
+          "badge": "OBSERVED FROM EMULATOR"
+        },
+        {
+          "layer": "servo.target",
+          "provenance": "observed",
+          "badge": "OBSERVED FROM EMULATOR"
+        },
+        {
+          "layer": "servo.target",
+          "provenance": "observed",
+          "badge": "OBSERVED FROM EMULATOR"
+        },
+        {
+          "layer": "servo.target",
+          "provenance": "observed",
+          "badge": "OBSERVED FROM EMULATOR"
+        },
+        {
+          "layer": "pwm.output",
+          "provenance": "inferred",
+          "badge": "INFERRED FOR EXPLANATION"
+        },
+        {
+          "layer": "pwm.output",
+          "provenance": "inferred",
+          "badge": "INFERRED FOR EXPLANATION"
+        },
+        {
+          "layer": "pwm.output",
+          "provenance": "inferred",
+          "badge": "INFERRED FOR EXPLANATION"
+        },
+        {
+          "layer": "pwm.output",
+          "provenance": "inferred",
+          "badge": "INFERRED FOR EXPLANATION"
+        },
+        {
+          "layer": "pwm.output",
+          "provenance": "inferred",
+          "badge": "INFERRED FOR EXPLANATION"
+        },
+        {
+          "layer": "pwm.output",
+          "provenance": "inferred",
+          "badge": "INFERRED FOR EXPLANATION"
+        },
+        {
+          "layer": "pwm.output",
+          "provenance": "inferred",
+          "badge": "INFERRED FOR EXPLANATION"
+        },
+        {
+          "layer": "pwm.output",
+          "provenance": "inferred",
+          "badge": "INFERRED FOR EXPLANATION"
+        },
+        {
+          "layer": "joint.target",
+          "provenance": "inferred",
+          "badge": "INFERRED FOR EXPLANATION"
+        },
+        {
+          "layer": "joint.target",
+          "provenance": "inferred",
+          "badge": "INFERRED FOR EXPLANATION"
+        },
+        {
+          "layer": "joint.target",
+          "provenance": "inferred",
+          "badge": "INFERRED FOR EXPLANATION"
+        },
+        {
+          "layer": "joint.target",
+          "provenance": "inferred",
+          "badge": "INFERRED FOR EXPLANATION"
+        },
+        {
+          "layer": "joint.target",
+          "provenance": "inferred",
+          "badge": "INFERRED FOR EXPLANATION"
+        },
+        {
+          "layer": "joint.target",
+          "provenance": "inferred",
+          "badge": "INFERRED FOR EXPLANATION"
+        },
+        {
+          "layer": "joint.target",
+          "provenance": "inferred",
+          "badge": "INFERRED FOR EXPLANATION"
+        },
+        {
+          "layer": "joint.target",
+          "provenance": "inferred",
+          "badge": "INFERRED FOR EXPLANATION"
+        },
+        {
+          "layer": "visual.joint",
+          "provenance": "inferred",
+          "badge": "INFERRED FOR EXPLANATION"
+        },
+        {
+          "layer": "visual.joint",
+          "provenance": "inferred",
+          "badge": "INFERRED FOR EXPLANATION"
+        },
+        {
+          "layer": "visual.joint",
+          "provenance": "inferred",
+          "badge": "INFERRED FOR EXPLANATION"
+        },
+        {
+          "layer": "visual.joint",
+          "provenance": "inferred",
+          "badge": "INFERRED FOR EXPLANATION"
+        },
+        {
+          "layer": "visual.joint",
+          "provenance": "inferred",
+          "badge": "INFERRED FOR EXPLANATION"
+        },
+        {
+          "layer": "visual.joint",
+          "provenance": "inferred",
+          "badge": "INFERRED FOR EXPLANATION"
+        },
+        {
+          "layer": "visual.joint",
+          "provenance": "inferred",
+          "badge": "INFERRED FOR EXPLANATION"
+        },
+        {
+          "layer": "visual.joint",
+          "provenance": "inferred",
+          "badge": "INFERRED FOR EXPLANATION"
+        }
+      ],
+      "badges": {
+        "conceptual": 14,
+        "conceptualText": "13Inside the brainconceptualoutline0/2locked — read it, but finish read-the-firmware, how-pwm-asks first to play it (eve",
+        "notBuiltBadges": 3,
+        "notBuiltPanels": 0,
+        "notBuiltText": "not built"
+      },
+      "a11y": {
+        "the shell, no module": {
+          "textNodesScanned": 73,
+          "belowFloor": 0,
+          "contrastMeasured": 73,
+          "contrastFailures": 0,
+          "uiContrastFailures": 0,
+          "targetsChecked": 18,
+          "targetsUnderWcag": 0,
+          "targetsUnderTier": 0,
+          "correctnessSurfaces": 13,
+          "correctnessTruncated": 0,
+          "provenanceBadges": 6,
+          "originTagsRendered": 55,
+          "pointerOnlyFamilies": 0,
+          "focusablesWalked": 39,
+          "ringless": 0
+        },
+        "the signal module": {
+          "textNodesScanned": 452,
+          "belowFloor": 0,
+          "contrastMeasured": 452,
+          "contrastFailures": 0,
+          "uiContrastFailures": 0,
+          "targetsChecked": 25,
+          "targetsUnderWcag": 0,
+          "targetsUnderTier": 0,
+          "correctnessSurfaces": 191,
+          "correctnessTruncated": 0,
+          "provenanceBadges": 42,
+          "originTagsRendered": 55,
+          "pointerOnlyFamilies": 0,
+          "focusablesWalked": 40,
+          "ringless": 0
+        }
+      },
+      "simulator": {
+        "environmentLine": "SYSTEM: HOST MODEL · PHYSICAL HARDWARE: NONE",
+        "desktopSimulatorLinePresent": true,
+        "desktopSimulatorLineText": "This desktop window is being driven by the behavioural simulator — a host model, not the emulator and not hardware. No firmware is executing. change what drives this",
+        "counts": {
+          "physical-robot": 0,
+          "emulator": 0,
+          "host-model": 37,
+          "replay": 0,
+          "unknown": 0
+        },
+        "physicallyObservedEvents": 0
+      },
+      "pageErrors": 0,
+      "survivorsAfterClose": {
+        "qemu": 0,
+        "desktop": 0
+      },
+      "ok": true,
+      "stderr": ""
+    }
+  },
+  "shots": [
+    {
+      "file": "docs/findings/assets/v3-world-frame-rest.png",
+      "name": "v3-world-frame-rest.png",
+      "caption": "rest pose, nothing commanded - the fixed floor the wave is judged against",
+      "bytes": 259366,
+      "sha256": "ab7f31d39b653ae80e2ed3e969fa25b75b1ee891b76caa7e515b79067208adb9"
+    },
+    {
+      "file": "docs/findings/assets/v3-browser-wave-l3-100.png",
+      "name": "v3-browser-wave-l3-100.png",
+      "caption": "runWavePose, L3 down (100°) — simulated backend",
+      "bytes": 251750,
+      "sha256": "de94fb7e808e3f59248bc0396a7b737c1e0dd23c396014543926d3e6469a50c6"
+    },
+    {
+      "file": "docs/findings/assets/v3-browser-wave-l3-180.png",
+      "name": "v3-browser-wave-l3-180.png",
+      "caption": "runWavePose, L3 up (180°) — simulated backend",
+      "bytes": 251897,
+      "sha256": "acbf344c59e3bf6ee9aaefa4ccf738b2406035eb54b1e787faf3b5de534b02d6"
+    },
+    {
+      "file": "docs/findings/assets/v4-browser-oled-face.png",
+      "name": "v4-browser-oled-face.png",
+      "caption": "virtual OLED rendering a real face (happy): the 8x logical framebuffer on the right, the same pixels projected onto oled_screen in 3D on the left",
+      "bytes": 218048,
+      "sha256": "08c94d638241e7dac4cd63a4483884bdbf1862df16333f3c7e26436fd3a58b97"
+    },
+    {
+      "file": "docs/findings/assets/v4-browser-oled-empty-face.png",
+      "name": "v4-browser-oled-empty-face.png",
+      "caption": "setFace(\"stand\") drew nothing: an honestly blank 128x64 panel plus the reason, rather than a substituted placeholder face (ISSUE-20260823-004)",
+      "bytes": 220835,
+      "sha256": "f04c17978f98e41a1023e34db628475df049bc1d4be814fb2638ad9503d93286"
+    },
+    {
+      "file": "docs/findings/assets/v3-browser-bridge-backend.png",
+      "name": "v3-browser-bridge-backend.png",
+      "caption": "the same scene driven over the Phase-0 bridge WebSocket (replay fixture), served from the bridge’s own HTTP server",
+      "bytes": 210444,
+      "sha256": "263da7dea06038d6b22a3508f761216c9259532fb3de52bfd4b90daa969a3048"
+    },
+    {
+      "file": "docs/findings/assets/w4-architecture-causal-path.png",
+      "name": "w4-architecture-causal-path.png",
+      "caption": "the causal-path representation in the ordinary layout at 1760x1000, where the module column gives the architecture 670px of surface: ESP32 to MG90S as an indented chain with the derived edge labels between the steps, every run of text at or above the 14px floor - the same information React Flow drew at 8.0px in a 397px dock",
+      "bytes": 242156,
+      "sha256": "5e4efca80aff298ee0afd0d4485eebfc04a5be76ec4ea449e81299bdff363293"
+    },
+    {
+      "file": "docs/findings/assets/v8-see-the-signal.png",
+      "name": "v8-see-the-signal.png",
+      "caption": "the causal trace for one Wave: eight layers, each with its own provenance, origin and a witness clause — and pwm.output marked INFERRED FOR EXPLANATION with the real ESP32Servo-quantised pulse beside it",
+      "bytes": 267066,
+      "sha256": "5bb512333ea764a98fef41496c1100f3b13dda68fa152904c783c513876a4348"
+    },
+    {
+      "file": "docs/findings/assets/v8-see-the-signal-pwm.png",
+      "name": "v8-see-the-signal-pwm.png",
+      "caption": "the pwm.output row: the real ESP32Servo-quantised pulse, marked INFERRED FOR EXPLANATION, with the witness naming Q3’s finding that QEMU’s LEDC produces no waveform and that no physical pin has ever emitted it",
+      "bytes": 270880,
+      "sha256": "09495b4ecfa81af9990634f243cfa26710985e9b62898c8308edee5374e39075"
+    },
+    {
+      "file": "docs/findings/assets/v8-architecture-collapsed.png",
+      "name": "v8-architecture-collapsed.png",
+      "caption": "the FULL 63-node graph, in the focus workspace — the architecture pane holds 1,200px, Sesame stays live as a smaller reference on the left, and the collapsed top level is the report’s nine nodes with every label above the 14px floor",
+      "bytes": 215469,
+      "sha256": "1c593d01cd5131f243f2d88de35e4caf151a34d01df152083cb080f4d2e65f7e"
+    },
+    {
+      "file": "docs/findings/assets/v8-architecture-servos-expanded.png",
+      "name": "v8-architecture-servos-expanded.png",
+      "caption": "Servos expanded inside the focus workspace: movement → setServoAngle → ESP32Servo → LEDC → GPIO → MG90S → eight joints, every node backed by a hardware-map.json path and a firmware file:line",
+      "bytes": 217183,
+      "sha256": "b2f051ce9ecae05cc47430deae0a4ff65f16728b7ea54801e91c8fb7884ff159"
+    },
+    {
+      "file": "docs/findings/assets/l4-source-explorer-wave.png",
+      "name": "l4-source-explorer-wave.png",
+      "caption": "runWavePose selected in the source explorer: real source at the pinned tree’s own line numbers, cited lines marked in the gutter, the architecture node and the four commanded joints lit from the same one selection",
+      "bytes": 277248,
+      "sha256": "820fe7fe1bcd5d931ef44f49c8dce07693e35eaa3bedd357e95fa782a0a68639"
+    },
+    {
+      "file": "docs/findings/assets/l4-source-teaching-notes.png",
+      "name": "l4-source-teaching-notes.png",
+      "caption": "setServoAngle: the description is a fact checkable line by line, the amber aside is a labelled judgement, and the dashed violet block is ESP32Servo 3.0.9 — a different tree that the pinned line checker cannot resolve",
+      "bytes": 258323,
+      "sha256": "9df819a5b63cc4943f3eedf6c7b6807eb264ca99d41180dacfda2488d5da8298"
+    },
+    {
+      "file": "docs/findings/assets/l6-lesson-conceptual-badge.png",
+      "name": "l6-lesson-conceptual-badge.png",
+      "caption": "build-a-leg-pose — a conceptual module that DOES carry firmware symbols, badged from curriculum[].grounding rather than from an empty symbol list, and readable while locked",
+      "bytes": 269301,
+      "sha256": "d256184c3a5d5914ad0c0fac1c6dc9cf3c50a571a245b3056c4c1f5fe43e8180"
+    },
+    {
+      "file": "docs/findings/assets/l6-lesson-two-complete.png",
+      "name": "l6-lesson-two-complete.png",
+      "caption": "command-one-joint played end to end: six checks passed against real telemetry, the source explorer on delayWithFace, and both challenges unlocked by demonstration",
+      "bytes": 269810,
+      "sha256": "06807e3910209798a50c9e640eaa9222402e788f36ac86384c0a0f829f86d2a9"
+    },
+    {
+      "file": "docs/findings/assets/l6-lesson-fault-injector.png",
+      "name": "l6-lesson-fault-injector.png",
+      "caption": "the display-init fault, badged INJECTED and dashed because the while(1) is real firmware but making display.begin() fail on demand is Sesame Lab’s — and the boot it halts at bootOrder 4, printing the line the firmware itself prints",
+      "bytes": 266420,
+      "sha256": "1bca979886293b9b1652f81907c8cc9e78923afdc86fabf5062328aae9435157"
+    },
+    {
+      "file": "docs/findings/assets/l4-source-integrity-refusal.png",
+      "name": "l4-source-integrity-refusal.png",
+      "caption": "one byte changed in the bundled movement-sequences.h: the pane refuses to render any source at all and prints both hashes, rather than showing real C++ under the wrong line numbers",
+      "bytes": 284134,
+      "sha256": "dd85f96c0597f04ffec0f433d73740f375421ac7db8e5ffbaee30193502e9801"
+    },
+    {
+      "file": "docs/findings/assets/v3-browser-qemu-observed.png",
+      "name": "v3-browser-qemu-observed.png",
+      "caption": "real Sesame firmware executing under Espressif QEMU, UART0 -> the unmodified Phase-0 bridge -> this scene (provenance: observed)",
+      "bytes": 246557,
+      "sha256": "091cad753881608049e5780cf0509cc85ab1f7337caa63437ba6335f0f04ac7e"
+    },
+    {
+      "file": "docs/findings/assets/v3-browser-qemu-booting.png",
+      "name": "v3-browser-qemu-booting.png",
+      "caption": "the 2-17 s QEMU boot, surfaced as progress with the attempt count rather than as a frozen page",
+      "bytes": 261683,
+      "sha256": "7924c914d6130b695cbc2d525cf695239badd3ee0b405f426dd6ba2abbec9d95"
+    },
+    {
+      "file": "docs/findings/assets/v3-browser-qemu-idle.png",
+      "name": "v3-browser-qemu-idle.png",
+      "caption": "real firmware booted under QEMU and sitting idle: no joint has been commanded, and the UI says the origin is an emulator on the legacy V1 board",
+      "bytes": 261449,
+      "sha256": "1071b8f5947cc27520bd53aaeb4a96cecba3fb84a976d800675a9aecce3423fb"
+    },
+    {
+      "file": "docs/findings/assets/v8-see-the-signal-qemu.png",
+      "name": "v8-see-the-signal-qemu.png",
+      "caption": "the same causal trace driven by real firmware under QEMU: servo.target is OBSERVED FROM EMULATOR, pwm.output is still INFERRED FOR EXPLANATION, and the rows are matched to the click by arrival time because the firmware has no trace-id field",
+      "bytes": 270195,
+      "sha256": "0e23584fe78188289a10289789e6bc6aead702f3fcfa6157120cf9d56cc356e0"
+    },
+    {
+      "file": "docs/findings/assets/v3-browser-qemu-commanded-wave.png",
+      "name": "v3-browser-qemu-commanded-wave.png",
+      "caption": "a browser button drove real Sesame firmware: POST /api/command -> the firmware’s serial console under QEMU -> 29 @SESAME servo events -> these quaternions. Labelled emulated, on the legacy V1 board, not a measurement.",
+      "bytes": 218878,
+      "sha256": "efce4ed993a7779d56b8f3ea6d02572d5adc1ad51d74fc4e13a840e6f71b722e"
+    },
+    {
+      "file": "docs/findings/assets/v4-browser-qemu-oled.png",
+      "name": "v4-browser-qemu-oled.png",
+      "caption": "the OLED under QEMU on the cli-oled image: the emulator declares oledFramebuffer=true and elides [\"ssd1306-glass\"], the pixels arrived as \"wire\" and are labelled \"observed\", and the pane derives \"observed\" — These pixels came from the emulator — the buffer the firmware drew. The badge is on the side panel; the paragraph is behind the ⓘ beside it. isPhysicallyObserved() is false either way: an emulated framebuffer is not a measurement.",
+      "bytes": 218861,
+      "sha256": "13e2a7ef65be908af8237f7e77466e750f8a56c3564f615134dd74d11e48a9b1"
+    },
+    {
+      "file": "docs/findings/assets/lab-pose-and-quantisation.png",
+      "name": "lab-pose-and-quantisation.png",
+      "caption": "the eight sliders in firmware enum order, each showing constrain(angle + subtrim, 0, 180) and the LEDC tick the adjusted angle actually programs — 99° and 100° share one",
+      "bytes": 279539,
+      "sha256": "bf3ad6e65e9d04d4fb7b93ad7db2e35509ab636d5b0a5a31252086bf224d2c58"
+    },
+    {
+      "file": "docs/findings/assets/lab-cpp-export.png",
+      "name": "lab-cpp-export.png",
+      "caption": "the Sesame-compatible C++ export — the firmware’s own setServoAngle(R1, 135); call shape, the commanded-angles warning inside the generated code, and the read-back verdict",
+      "bytes": 261076,
+      "sha256": "6b57173507aaeb2d615467aaec0b9d2a43bfe38d038419eeaf42681280839b5a"
+    },
+    {
+      "file": "docs/findings/assets/lab-face-editor.png",
+      "name": "lab-face-editor.png",
+      "caption": "a 3x3 square drawn in one drag, pushed to the panel through the same drawBitmap() path a real face takes, and exported as a face-bitmaps.h array",
+      "bytes": 241852,
+      "sha256": "22d548e99a4331b9dc40ccc040e56ba1ca3a6ce6f82a8462ee3cb98971ac25c3"
+    },
+    {
+      "file": "docs/findings/assets/lab-api-console.png",
+      "name": "lab-api-console.png",
+      "caption": "free-form requests against the routes hardware-map.json records, with the HTTP_ANY note and ISSUE-20260823-021 described but not reproduced",
+      "bytes": 285620,
+      "sha256": "dab43896ee76fdd5d8c1867f876aef753e963e17c1cfd4944ca701d001dbce62"
+    },
+    {
+      "file": "docs/findings/assets/u5-shell-compact.png",
+      "name": "u5-shell-compact.png",
+      "caption": "the module-first shell at 880x900 (compact). The 3D canvas is 790x737 — 100.0% of the CONTENT area and 88.2% of the window, under the \"content-50\" rule the shell publishes. The architecture module has 616 px of surface and drew its \"path\" representation; the side panel is 0 px with 0 scroller(s) outside the two cards allowed one and 0 px of overflow. At Compact the module and the panel are sheets and the robot keeps the shell.",
+      "bytes": 98617,
+      "sha256": "bbea07b80ed9044d74583265a5d3897e26d726c310f5d10d65e997d3d4c4491d"
+    },
+    {
+      "file": "docs/findings/assets/u5-shell-laptop-small.png",
+      "name": "u5-shell-laptop-small.png",
+      "caption": "the module-first shell at 1280x800 (medium). The 3D canvas is 480x637 — 52.7% of the CONTENT area and 36.2% of the window, under the \"content-50\" rule the shell publishes. The architecture module has 409 px of surface and drew its \"path\" representation; the side panel is 280 px with 0 scroller(s) outside the two cards allowed one and 1 px of overflow.",
+      "bytes": 181800,
+      "sha256": "9b8ae6acf8792eae1ecdc962af938b7beea9ac4da07b96230f457df7833d05cf"
+    },
+    {
+      "file": "docs/findings/assets/u5-shell-laptop.png",
+      "name": "u5-shell-laptop.png",
+      "caption": "the module-first shell at 1440x900 (medium). The 3D canvas is 535x737 — 50.0% of the CONTENT area and 36.1% of the window, under the \"content-50\" rule the shell publishes. The architecture module has 510 px of surface and drew its \"path\" representation; the side panel is 280 px with 0 scroller(s) outside the two cards allowed one and 0 px of overflow.",
+      "bytes": 215562,
+      "sha256": "5a072c6136783ce048c1cb9b11b70896143761f2329130e6091aa267b5724659"
+    },
+    {
+      "file": "docs/findings/assets/w7-shell-no-module.png",
+      "name": "w7-shell-no-module.png",
+      "caption": "the OTHER stage regime at 1440x900 (medium): with no module active the robot has the whole content area — 1070x737, 72.1% of the WINDOW under the \"area-50\" rule — and the side panel, the rail and the status strip are the only other things on screen. Clicking a module on the rail moves the shell to \"content-50\" and gives it half of what is left.",
+      "bytes": 185212,
+      "sha256": "6b7058c489b4b17a0262bea1470adb87a10ada5af2dd45781cfddd766b83a117"
+    },
+    {
+      "file": "docs/findings/assets/u5-shell-desktop-small.png",
+      "name": "u5-shell-desktop-small.png",
+      "caption": "the module-first shell at 1760x1000 (medium). The 3D canvas is 695x837 — 50.0% of the CONTENT area and 38.4% of the window, under the \"content-50\" rule the shell publishes. The architecture module has 670 px of surface and drew its \"path\" representation; the side panel is 280 px with 0 scroller(s) outside the two cards allowed one and 0 px of overflow.",
+      "bytes": 249222,
+      "sha256": "f361b8fc6526b14d94548066689986e1650865b87385e1ddf71968d45ea066b1"
+    },
+    {
+      "file": "docs/findings/assets/w8-source-outline-beside-code.png",
+      "name": "w8-source-outline-beside-code.png",
+      "caption": "the Source module at 1920x1080 (medium), the first window whose module column reaches 720 px of pane: the symbol outline is a 192 px column on the left and the source fills the 546 px on the right, where both used to be stacked and the outline was a full-width list taller than the code it indexes. Below 720 px of pane they still stack, and the outline is minified into as many columns as it has room for.",
+      "bytes": 350596,
+      "sha256": "e51bc03f8bfd1bc3541f4898a649f7312b1a3e5c10dcdb966eaffde2325f2b04"
+    },
+    {
+      "file": "docs/findings/assets/u5-shell-desktop.png",
+      "name": "u5-shell-desktop.png",
+      "caption": "the module-first shell at 1920x1080 (medium). The 3D canvas is 775x917 — 50.0% of the CONTENT area and 39.4% of the window, under the \"content-50\" rule the shell publishes. The architecture module has 750 px of surface and drew its \"subsystem\" representation; the side panel is 280 px with 0 scroller(s) outside the two cards allowed one and 0 px of overflow.",
+      "bytes": 244407,
+      "sha256": "c6a61a3fd2b23cf75efab8a466fbd8850722256e08aaab2afd254d38768216e9"
+    },
+    {
+      "file": "docs/findings/assets/u5-shell-desktop-wide.png",
+      "name": "u5-shell-desktop-wide.png",
+      "caption": "the module-first shell at 2560x1440 (wide). The 3D canvas is 1095x1277 — 50.0% of the CONTENT area and 42.0% of the window, under the \"content-50\" rule the shell publishes. The architecture module has 1070 px of surface and drew its \"full\" representation; the side panel is 280 px with 0 scroller(s) outside the two cards allowed one and 0 px of overflow.",
+      "bytes": 336177,
+      "sha256": "b6ddef0b69f6f806da83657747093ed0cda3240a4340b664d85932ac0f4ca00e"
+    },
+    {
+      "file": "docs/findings/assets/w4-architecture-subsystem.png",
+      "name": "w4-architecture-subsystem.png",
+      "caption": "the subsystem representation, reached on a 1440x900 laptop by opening the architecture workspace: one Movement neighbourhood of 16 nodes drawn at zoom 1 - every label its authored size on screen - with the other three subsystems one click away, the 21 nodes the 18-node budget could not take counted rather than dropped, and Sesame still live beside it",
+      "bytes": 173457,
+      "sha256": "fa7f53dac85b0614f3686a6f0ec65248cfb9c5015aa88b8a1de4f8d9f1fe63b3"
+    },
+    {
+      "file": "docs/findings/assets/u5-learn-at-medium.png",
+      "name": "u5-learn-at-medium.png",
+      "caption": "lesson 2 played end to end on a 1440x900 laptop: Learn is the one active module, it has half the content area, six checks passed against real telemetry, and the robot held the other half throughout",
+      "bytes": 224203,
+      "sha256": "2336bea90befabc422d403e51a920ed39829d387bd53a8724ca2b70dfdf90fa5"
+    },
+    {
+      "file": "docs/findings/assets/u5-lab-at-compact.png",
+      "name": "u5-lab-at-compact.png",
+      "caption": "the Lab as a full-height sheet on an 880 px window — a Control-mode tab now, beside the OLED it authors: two frames captured from the eight sliders and the exported C++ re-parsed here, byte for byte the same poses",
+      "bytes": 99866,
+      "sha256": "0ff34c15f4c750a467564846d0390f3a20ddef4df17a3127449b5927d7ec664c"
+    },
+    {
+      "file": "docs/findings/assets/w6-grayscale-provenance.png",
+      "name": "w6-grayscale-provenance.png",
+      "caption": "the Signal ladder with every hue in the app collapsed to luminance (filter: grayscale(1)). 42 provenance badges still read OBSERVED IN THIS APP, SIMULATED and INFERRED FOR EXPLANATION in words, each beside its origin; the colour was carrying nothing the text was not. The connection lamp in the rail keeps its state as a glyph rather than a hue for the same reason.",
+      "bytes": 195308,
+      "sha256": "d894ed5d02786d383edb0c121b999e66c46274559bd10deb176ac9b5418646d7"
+    },
+    {
+      "file": "docs/findings/assets/w6-zoom-200.png",
+      "name": "w6-zoom-200.png",
+      "caption": "the app at 720x450 CSS px, which is 1440x900 at 200% page zoom. 232 correctness surfaces were scanned across five modules: 0 truncated, 0 collapsed, 0 below the 14px floor, and 0 undeclared horizontal overflows.",
+      "bytes": 44472,
+      "sha256": "5288ebad00d0202f7b5487444e9b2e4944023869ae73d5ee28138f9b48edfd77"
+    },
+    {
+      "file": "docs/findings/assets/w6-text-spacing.png",
+      "name": "w6-text-spacing.png",
+      "caption": "1440x900 with WCAG 1.4.12's text-spacing overrides forced: line-height 1.5, letter-spacing 0.12em, word-spacing 0.16em, 2em after every paragraph. 262 correctness surfaces scanned, 0 truncated, 0 undeclared horizontal overflows.",
+      "bytes": 161210,
+      "sha256": "8b6c6d8a3e37ab5e0a7c6a7e96f63d494c9758438fd46a8349226f63ff0ed021"
+    },
+    {
+      "file": "docs/findings/assets/t5-packaged-idle.png",
+      "name": "t5-packaged-idle.png",
+      "caption": "the PACKAGED desktop app (http://tauri.localhost/, embedded assets, bundled QEMU) with real firmware booted and idle: SYSTEM: QEMU EMULATOR · PHYSICAL HARDWARE: NONE, the legacy V1 board named as not the S2 Mini, and no desktop-simulator line because the emulator is driving",
+      "bytes": 325108,
+      "sha256": "80912e2b385aabf1f1e8b4a5a2cbe7c9a04477898d73a23fb87e4be75e542579"
+    },
+    {
+      "file": "docs/findings/assets/t5-packaged-not-built.png",
+      "name": "t5-packaged-not-built.png",
+      "caption": "the packaged window on a lesson whose controls the runner does not build: NOT BUILT is rendered rather than implied, and the CONCEPTUAL badges survived the bundle",
+      "bytes": 345022,
+      "sha256": "391e835bf5b920725a07ff4345134ba3f1b04efd5db566e1d32c563884c73f82"
+    },
+    {
+      "file": "docs/findings/assets/t5-packaged-wave.png",
+      "name": "t5-packaged-wave.png",
+      "caption": "the same packaged window after a real runWavePose executed on emulated Xtensa: eight joints observed from the emulator, isPhysicallyObserved() false for every event, pwm.output still INFERRED FOR EXPLANATION",
+      "bytes": 309687,
+      "sha256": "79bc0b3ea1b42e4e5912fe23304fd93f9f9b8bd5950b488cbbba8114320e6958"
+    }
+  ],
+  "notes": [
+    "the FULL 63-node graph still draws text below the 14px floor when it is fitted: 10.94px at its worst (\"111 setServoAngle steps\"), modules at a 1016 px container (asked for 1016) in a 1280x800 window. That is the debt W1 measured at 3.8-8.0px and it is NOT fixed - it is SCOPED. The full graph is now the only representation that renders at all below 960px of surface, it is the only one still carrying [data-zoom-surface], and the two representations a laptop actually gets are asserted against the floor above with no exemption. Fixing it inside React Flow would mean refusing to fit, which is panning a 63-node map in a pane - the thing the three representations exist to avoid.",
+    "lesson prose cannot reach 45ch at every container width this sweep DRIVES: 320 px of pane holds 30.6ch; 45ch needs 437 px; 360 px of pane holds 34.7ch; 45ch needs 437 px. Those are widths chosen to test the mechanism, not widths the shell produces: the module column is half the content area, so the narrowest Learn pane a reader can reach is about 400 px at 1280x800 and 690 px at 1920x1080. The measure in the shell a reader actually gets is reported beside this, at 1440x900."
+  ],
+  "problems": [],
+  "ok": true
+}
