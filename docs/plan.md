@@ -1,6 +1,6 @@
 ---
 type: plan
-project: "Sesame Lab"
+project: "Sesame Robot Emulator"
 status: active
 version: 6
 updated: 2026-08-23
@@ -26,7 +26,7 @@ phases:
 current_phase: 5
 ---
 
-# Plan: Sesame Lab
+# Plan: Sesame Robot Emulator
 
 ## Standing constraint — no physical hardware, ever
 

@@ -75,7 +75,7 @@ export function emitFaceHeader(frame: Uint8Array, name: string, options: FaceHea
   if (header) {
     lines.push(
       '// ---------------------------------------------------------------------',
-      '// Drawn in Sesame Lab. Paste into firmware/face-bitmaps.h.',
+      '// Drawn in Sesame Robot Emulator. Paste into firmware/face-bitmaps.h.',
       `// The face only becomes selectable once "X(${id}) \\" is added to the`,
       '// FACE_LIST macro at the top of that file — the X-macro is the single',
       '// source of truth for which faces exist, and an array nothing lists is',

@@ -2783,7 +2783,7 @@ dependencies = [
 ]
 
 [[package]]
-name = "sesame-lab-desktop"
+name = "sesame-robot-emulator"
 version = "0.1.0"
 dependencies = [
  "dunce",

@@ -27,7 +27,7 @@
  * against `source-annotations.json`'s curriculum so it cannot drift.
  *
  * **3. `boundaryNote` is not a caveat.** It is where a *factual* step admits
- * the fact is about a library, an emulator or Sesame Lab rather than about
+ * the fact is about a library, an emulator or Sesame Robot Emulator rather than about
  * Sesame's firmware, and it gets its own register: a dashed box keyed by
  * `claim.domain`, headed with which world the fact belongs to. Ordinary prose
  * treatment would make it read as a hedge on a Sesame fact, which is the
@@ -323,7 +323,7 @@ export function LessonRunner(props: { readonly wiring: LessonWiring }): ReactEle
 }
 
 /**
- * "Sesame Lab is modifying this robot."
+ * "Sesame Robot Emulator is modifying this robot."
  *
  * The banner itself lives in `src/editors/LabModifications.tsx`, beside the
  * controls that create the state it names. Lab mode sets far more of that state
@@ -636,7 +636,7 @@ function Claim(props: {
       {/*
         A different register entirely from the prose above. `boundaryNote` is
         where a FACTUAL claim says which world its fact belongs to — the
-        library's, the emulator's, or Sesame Lab's — and reading it as a hedge
+        library's, the emulator's, or Sesame Robot Emulator's — and reading it as a hedge
         on a Sesame fact gets it exactly backwards.
       */}
       {claim.boundaryNote !== null && (
@@ -647,7 +647,7 @@ function Claim(props: {
               : claim.domain === 'emulator'
                 ? 'this fact is about the EMULATOR, not about Sesame source'
                 : claim.domain === 'lab'
-                  ? 'this fact is about SESAME LAB itself, not about the robot'
+                  ? 'this fact is about SESAME ROBOT EMULATOR itself, not about the robot'
                   : 'boundary'}
           </span>
           <p>{claim.boundaryNote}</p>

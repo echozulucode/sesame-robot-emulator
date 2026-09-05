@@ -39,7 +39,7 @@ const COMMAND = 'resource_report';
 
 const report = (over: Partial<ResourceReport> = {}): ResourceReport => ({
   ok: true,
-  resourceDir: 'C:\\Program Files\\Sesame Lab',
+  resourceDir: 'C:\\Program Files\\Sesame Robot Emulator',
   total: 2,
   present: 2,
   bytes: 71749689 + 4194304,

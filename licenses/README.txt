@@ -1,24 +1,28 @@
-SESAME LAB — LICENCES AND ATTRIBUTION
+SESAME ROBOT EMULATOR — LICENCES AND ATTRIBUTION
 ================================================================================
 
-Sesame Lab is a teaching emulator. It runs the real Sesame robot firmware on an
-emulated ESP32 and draws what that firmware does. It is not a robot, and it is
-never a measurement of one — the application says so on its own front panel, and
-this folder is the other half of that honesty: it tells you exactly whose
-software is inside it and under what terms.
+Sesame Robot Emulator is a teaching emulator. It runs the real Sesame robot
+firmware on an emulated ESP32 and draws what that firmware does. It is not a
+robot, and it is never a measurement of one — the application says so on its
+own front panel, and this folder is the other half of that honesty: it tells
+you exactly whose software is inside it and under what terms.
 
 Everything named here is installed with the application, in the folder this file
 is in. You do not need the internet, a source checkout, or any account to read
 any of it.
 
 
-1. SESAME LAB ITSELF — Apache License 2.0
+1. SESAME ROBOT EMULATOR ITSELF — Apache License 2.0
 --------------------------------------------------------------------------------
-    Sesame-Lab-LICENSE-Apache-2.0.txt   the licence
-    Sesame-Lab-NOTICE.txt               attribution, and the list of files
-                                        derived from the upstream Sesame Robot
-                                        Project (Apache-2.0), which Sesame Lab
-                                        modified and says so
+    Sesame-Robot-Emulator-LICENSE-Apache-2.0.txt
+                            the licence
+    Sesame-Robot-Emulator-NOTICE.txt
+                            attribution, and the list of files derived from the
+                            upstream Sesame Robot Project (Apache-2.0), which
+                            Sesame Robot Emulator modified and says so
+
+    Published by Echo Zed Labs — https://echozed.com, contact@echozed.com
+    Source: https://github.com/echozulucode/sesame-robot-emulator
 
 2. QEMU — GNU General Public License, version 2   *** BUNDLED BINARY ***
 --------------------------------------------------------------------------------
@@ -32,9 +36,9 @@ any of it.
     QEMU-SOURCE-OFFER.txt   the written offer of source code required by
                             GPL-2.0 section 3(b), valid for three years.
 
-    The binary is <install folder>\qemu\bin\qemu-system-xtensa.exe. Sesame Lab
-    runs it as a separate process and talks to it over a socket; it does not
-    link against it.
+    The binary is <install folder>\qemu\bin\qemu-system-xtensa.exe.
+    Sesame Robot Emulator runs it as a separate process and talks to it over a
+    socket; it does not link against it.
 
 3. THE FIRMWARE IMAGE — mixed, and part of it is LGPL-2.1-or-later
 --------------------------------------------------------------------------------
@@ -63,18 +67,18 @@ any of it.
 IF YOU ARE INSTALLING THIS FOR A CHILD
 --------------------------------------------------------------------------------
 Nothing here asks anything of you. There is no account and no sign-in, and
-Sesame Lab makes no network connection of its own: the only socket it opens is a
-loopback one to the emulator running on the same machine, and its
+Sesame Robot Emulator makes no network connection of its own: the only socket
+it opens is a loopback one to the emulator running on the same machine, and its
 content-security policy refuses every remote address outright. The emulator and
-the firmware are already inside the installer, which is why it is large, and the
-application works with the network switched off.
+the firmware are already inside the installer, which is why it is large, and
+the application works with the network switched off.
 
 One honest caveat, because "no network" is the kind of claim that should be
-exact: the window itself is drawn by Microsoft's WebView2 runtime, which is part
-of Windows and not part of this application, and Windows was observed making its
-own connections to Microsoft while the app was open. That is Windows doing what
-Windows does. Nothing in Sesame Lab asks it to, and nothing from Sesame Lab is
-sent anywhere.
+exact: the window itself is drawn by Microsoft's WebView2 runtime, which is
+part of Windows and not part of this application, and Windows was observed
+making its own connections to Microsoft while the app was open. That is Windows
+doing what Windows does. Nothing in Sesame Robot Emulator asks it to, and
+nothing from Sesame Robot Emulator is sent anywhere.
 
 Windows will probably warn you that this application is from an unknown
 publisher, because it is not code-signed. That warning is about a signature, not

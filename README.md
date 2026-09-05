@@ -1,4 +1,6 @@
-# Sesame Lab
+# Sesame Robot Emulator
+
+**An [Echo Zed Labs](https://echozed.com) project.** *Small software systems, built with intent.*
 
 An educational engineering platform for tracing one command all the way down — API call →
 firmware function → servo angle → joint motion → OLED face — against a virtual
@@ -8,7 +10,7 @@ joint names, movement sequences, faces and API vocabulary.
 It is built for a technically curious ~12-year-old, by an adult who cared a lot about not lying to
 them. There is no physical robot involved, and the application says so on every screen.
 
-![Sesame Lab: the 3D robot on the left, a See the Signal causal trace on the right, with provenance
+![Sesame Robot Emulator: the 3D robot on the left, a See the Signal causal trace on the right, with provenance
 badges on every row and PHYSICAL HARDWARE: NONE in the status bar](docs/findings/assets/v8-see-the-signal-qemu.png)
 
 ## The rule this project enforces
@@ -174,12 +176,13 @@ route here comes from that work, pinned at commit `4017305`.
 
 Upstream source is **not** vendored into this repository; it is fetched at build time into
 `firmware/upstream/` (gitignored) and never modified — this project's firmware changes live as
-patch files in `firmware/patches/`. Sesame Lab is not endorsed by or affiliated with the Sesame
+patch files in `firmware/patches/`. Sesame Robot Emulator is not endorsed by or affiliated with the Sesame
 Robot Project.
 
 ## Licensing
 
-Sesame Lab is licensed under the **Apache License 2.0** — see [`LICENSE`](LICENSE).
+Sesame Robot Emulator is published by **Echo Zed Labs** and licensed under the
+**Apache License 2.0** — see [`LICENSE`](LICENSE).
 
 Three things are worth knowing before redistributing anything:
 
@@ -212,3 +215,17 @@ Good places to start: `docs/findings/PHASE-0-SUMMARY.md` (an independent audit w
 that did none of the work, including 20 corrections to the research report and 16 defects found in
 upstream), `docs/findings/Q1-qemu-spike.md` (real firmware reaching `setup()`), and
 `docs/findings/Q3-ledc-fidelity.md` (why one row in the UI will not say `observed`).
+
+## Who made this
+
+**Sesame Robot Emulator** is built and published by **[Echo Zed Labs](https://echozed.com)** — an
+independent lab for tools that make technical work easier to inspect, explain, and repeat. That is
+the whole argument for this project: a robot you cannot open is a robot you cannot learn from, so
+every claim it makes is traceable back to the line of firmware that caused it.
+
+| | |
+|---|---|
+| Author | Eric Zimmerman |
+| Publisher | Echo Zed Labs — <https://echozed.com> |
+| Contact | <contact@echozed.com> |
+| Source | <https://github.com/echozulucode/sesame-robot-emulator> |

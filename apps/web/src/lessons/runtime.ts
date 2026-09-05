@@ -542,7 +542,7 @@ export class LessonRuntime {
  *
  * The `while (1);` and the printed line are real firmware — `bootBlocker` and
  * the message both come out of the map — but *making* `display.begin()` fail on
- * demand is a Sesame Lab injection, and the fault catalogue says so.
+ * demand is a Sesame Robot Emulator injection, and the fault catalogue says so.
  */
 export function runBootModel(
   steps: readonly BootStep[],

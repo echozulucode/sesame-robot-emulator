@@ -263,7 +263,7 @@ export function desktopSimulatorProbe(): LabHostProbe {
     backend: 'sim',
     labHost: 'desktop',
     detail:
-      'This is the Sesame Lab desktop app, which has no emulator backend yet, so it opened on ' +
+      'This is the Sesame Robot Emulator desktop app, which has no emulator backend yet, so it opened on ' +
       'the BEHAVIOURAL SIMULATOR — a host model of the robot running in this window. Nothing ' +
       'here is the emulator and nothing here is hardware. Run `just dev` in the repository for ' +
       'real firmware under QEMU.',

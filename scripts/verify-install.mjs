@@ -52,8 +52,8 @@ import { fileURLToPath } from 'node:url';
 import zlib from 'node:zlib';
 
 const REPO = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
-const PRODUCT = 'Sesame Lab';
-const EXE = 'sesame-lab-desktop.exe';
+const PRODUCT = 'Sesame Robot Emulator';
+const EXE = 'sesame-robot-emulator.exe';
 
 const problems = [];
 const placeholderNotes = [];
@@ -80,8 +80,8 @@ const log = (line) => process.stdout.write(`${line}\n`);
  */
 const REQUIRED_LICENCES = {
   'licenses/README.txt': 'licenses/README.txt',
-  'licenses/Sesame-Lab-LICENSE-Apache-2.0.txt': 'LICENSE',
-  'licenses/Sesame-Lab-NOTICE.txt': 'NOTICE',
+  'licenses/Sesame-Robot-Emulator-LICENSE-Apache-2.0.txt': 'LICENSE',
+  'licenses/Sesame-Robot-Emulator-NOTICE.txt': 'NOTICE',
   'licenses/THIRD-PARTY-NOTICES.md': 'THIRD-PARTY-NOTICES.md',
   'licenses/QEMU-GPL-2.0.txt': 'licenses/QEMU-GPL-2.0.txt',
   'licenses/QEMU-LICENSE.txt': 'licenses/QEMU-LICENSE.txt',
@@ -125,8 +125,8 @@ const REQUIRED_PHRASES = {
     'firmware/build/sketch.yaml',
     'section 6',
   ],
-  'licenses/Sesame-Lab-LICENSE-Apache-2.0.txt': ['Apache License', 'Version 2.0, January 2004'],
-  'licenses/Sesame-Lab-NOTICE.txt': ['Sesame Robot Project', 'NOTICE OF MODIFICATION'],
+  'licenses/Sesame-Robot-Emulator-LICENSE-Apache-2.0.txt': ['Apache License', 'Version 2.0, January 2004'],
+  'licenses/Sesame-Robot-Emulator-NOTICE.txt': ['Sesame Robot Project', 'NOTICE OF MODIFICATION'],
   'licenses/README.txt': ['GNU General Public License, version 2', 'QEMU-SOURCE-OFFER.txt'],
 };
 
@@ -324,7 +324,7 @@ function checkInstalledTree(dir) {
   for (const [what, lnk] of Object.entries(startMenuShortcuts())) {
     check(
       fs.existsSync(lnk),
-      `the installer created no Start Menu entry for ${what} (${lnk}). "Sesame Lab" is what a ` +
+      `the installer created no Start Menu entry for ${what} (${lnk}). "Sesame Robot Emulator" is what a ` +
         `child types into the Start menu, and the licences are only accompanying the binary if ` +
         `someone can find them a year later.`,
     );
@@ -473,7 +473,7 @@ function main() {
       */
       const webview = path.join(
         process.env.LOCALAPPDATA ?? path.join(os.homedir(), 'AppData', 'Local'),
-        'com.sesamelab.desktop',
+        'com.echozed.sesame-robot-emulator',
       );
       const leftovers = () => {
         const key = spawnSync(
@@ -523,7 +523,7 @@ ${String(state.registry).slice(0, 400)}`,
 
         It is reported rather than ignored because "nothing was left behind" is
         a claim, and this is the one thing that is: about 15 MB of WebView2
-        cache under the bundle id, holding no Sesame Lab state — the app writes
+        cache under the bundle id, holding no Sesame Robot Emulator state — the app writes
         nothing there — and removed by ticking the box, or by deleting the
         folder.
       */
@@ -531,7 +531,7 @@ ${String(state.registry).slice(0, 400)}`,
         notes.push(
           `${webview} — the WebView2 cache. A silent uninstall leaves it: the generated NSIS ` +
             `script only removes it when the uninstaller's "delete application data" checkbox is ` +
-            `ticked, which /S does not tick. Sesame Lab stores nothing in it.`,
+            `ticked, which /S does not tick. Sesame Robot Emulator stores nothing in it.`,
         );
       }
       log(

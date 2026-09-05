@@ -157,7 +157,7 @@ export class TelemetryStore {
   #face: FaceView | null = null;
   #emptyFace: EmptyFaceEvent | null = null;
   /**
-   * True while the pixels on the panel are ones a PERSON drew in Sesame Lab.
+   * True while the pixels on the panel are ones a PERSON drew in Sesame Robot Emulator.
    *
    * `oledSource.kind` cannot answer this on its own: a host-side render of one
    * of the firmware's own face bitmaps is also `rendered`. The Lab's "Sesame
@@ -256,7 +256,7 @@ export class TelemetryStore {
     return this.#oledSource;
   }
 
-  /** Are the pixels on the panel ones Sesame Lab drew, rather than the robot's? */
+  /** Are the pixels on the panel ones Sesame Robot Emulator drew, rather than the robot's? */
   get panelIsAuthored(): boolean {
     return this.#panelAuthored;
   }
@@ -458,7 +458,7 @@ export class TelemetryStore {
   /**
    * Undo an authored frame by redrawing the face the ROBOT last reported.
    *
-   * The honest revert for "Sesame Lab drew on the panel" is not to blank it —
+   * The honest revert for "Sesame Robot Emulator drew on the panel" is not to blank it —
    * a blank panel is itself a state no firmware produced — but to put the
    * robot's own pixels back, through the same host-side render path they
    * arrived by. Returns false when there is nothing to restore (no face event
@@ -480,7 +480,7 @@ export class TelemetryStore {
       triggerOrigin: face.origin,
       detail:
         `Redrawn host-side from epd_bitmap_${face.name}${face.frame === 0 ? '' : `_${String(face.frame)}`} ` +
-        'after Sesame Lab’s authored frame was cleared. No backend transmitted these bytes.',
+        'after Sesame Robot Emulator’s authored frame was cleared. No backend transmitted these bytes.',
     };
     this.#bump();
     return true;
@@ -493,7 +493,7 @@ export class TelemetryStore {
    * `drawBitmap()` path a real face takes — but the bytes are not the robot's
    * and must never be presented as if they were. `oledSource` therefore reads
    * `rendered` with `pixelProvenance: 'inferred'` and a detail line naming
-   * Sesame Lab as the author, and `triggerOrigin` stays null because no
+   * Sesame Robot Emulator as the author, and `triggerOrigin` stays null because no
    * boundary was crossed: nothing outside this tab was involved.
    */
   writeAuthoredFrame(gddram: Uint8Array): void {
@@ -506,7 +506,7 @@ export class TelemetryStore {
       triggerProvenance: null,
       triggerOrigin: null,
       detail:
-        'Drawn in Sesame Lab’s pixel editor and pushed through the same drawBitmap() path a face ' +
+        'Drawn in Sesame Robot Emulator’s pixel editor and pushed through the same drawBitmap() path a face ' +
         'bitmap takes. No firmware produced these pixels and no backend transmitted them.',
     };
     this.#bump();

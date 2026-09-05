@@ -104,7 +104,7 @@ const OUT = path.resolve(REPO, argOf('out', 'docs/findings/assets'));
 const log = (line = '') => process.stdout.write(`${line}\n`);
 const rel = (p) => path.relative(REPO, p).replaceAll('\\', '/');
 
-const DESKTOP_EXE = path.join(REPO, 'src-tauri/target/release/sesame-lab-desktop.exe');
+const DESKTOP_EXE = path.join(REPO, 'src-tauri/target/release/sesame-robot-emulator.exe');
 const INSTALLER = path.join(REPO, 'src-tauri/target/release/bundle/nsis');
 const WEB_DIST = path.join(REPO, 'apps/web/dist/index.html');
 const BRIDGE_CLI = path.join(REPO, 'emulator/bridge/dist/cli.js');

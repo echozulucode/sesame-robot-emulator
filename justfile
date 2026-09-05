@@ -1,4 +1,4 @@
-# Sesame Lab — task runner
+# Sesame Robot Emulator — task runner
 #
 # On Windows `just` defaults to `sh`, which is only on PATH inside Git Bash —
 # from a PowerShell prompt every recipe failed with "could not find the shell
@@ -20,7 +20,7 @@ set windows-shell := ["powershell.exe", "-NoLogo", "-NoProfile", "-Command"]
 # Show the common recipes, then the full list.
 default:
     @echo ""
-    @echo "  Sesame Lab"
+    @echo "  Sesame Robot Emulator"
     @echo ""
     @echo "  just setup      fetch and build everything a fresh clone is missing"
     @echo ""
@@ -178,7 +178,7 @@ tauri-dev:
     pnpm exec tauri dev
 
 # T6 narrowed `bundle.targets` to NSIS alone, so this produces exactly one
-# artefact: `src-tauri/target/release/bundle/nsis/Sesame Lab_0.1.0_x64-setup.exe`,
+# artefact: `src-tauri/target/release/bundle/nsis/Sesame Robot Emulator_0.1.0_x64-setup.exe`,
 # ~21 MiB, which installs PER-USER into %LOCALAPPDATA% and needs no administrator.
 # An MSI is still one flag away — `pnpm exec tauri build --bundles msi` — and is
 # the thing to reach for if this is ever deployed by a school's IT rather than
@@ -227,7 +227,7 @@ tauri-install *args:
 #   just tauri-resources                     # src-tauri/target/release
 #   just tauri-resources debug               # after a plain `cargo build`
 tauri-resources profile='release':
-    & {$o="src-tauri/target/{{profile}}/resource-report.json"; & "src-tauri/target/{{profile}}/sesame-lab-desktop.exe" --resource-report $o; $rc=$LASTEXITCODE; Get-Content $o; exit $rc}
+    & {$o="src-tauri/target/{{profile}}/resource-report.json"; & "src-tauri/target/{{profile}}/sesame-robot-emulator.exe" --resource-report $o; $rc=$LASTEXITCODE; Get-Content $o; exit $rc}
 
 # T3's acceptance test, in the form you can re-run. Boots the BUNDLED QEMU from
 # the built exe with no window, streams UART0, stops, and then asks `tasklist` —
@@ -243,11 +243,11 @@ tauri-resources profile='release':
 #   just tauri-emulator                # release, 1 cycle
 #   just tauri-emulator debug 10       # after a plain `cargo build`, 10 cycles
 tauri-emulator profile='release' cycles='1':
-    & {$o="src-tauri/target/{{profile}}/emulator-selftest.json"; & "src-tauri/target/{{profile}}/sesame-lab-desktop.exe" --emulator-selftest $o --cycles {{cycles}}; $rc=$LASTEXITCODE; Get-Content $o; exit $rc}
+    & {$o="src-tauri/target/{{profile}}/emulator-selftest.json"; & "src-tauri/target/{{profile}}/sesame-robot-emulator.exe" --emulator-selftest $o --cycles {{cycles}}; $rc=$LASTEXITCODE; Get-Content $o; exit $rc}
 
 # T4's acceptance test: describeRobotContract's fifteen cases against
 # TauriSesameRobot, with the SHIPPED Rust supervisor on the other end. Each case
-# boots the bundled QEMU through `sesame-lab-desktop.exe --supervisor-stdio`, so
+# boots the bundled QEMU through `sesame-robot-emulator.exe --supervisor-stdio`, so
 # a `cargo build` has to have happened first - the suite skips itself, loudly,
 # when neither target profile exists. ~70 s.
 tauri-contract:
@@ -265,7 +265,7 @@ tauri-contract:
 # desktop work it is the one you re-run.
 #
 #   just tauri-honesty                                   # target/release
-#   just tauri-honesty "C:/Program Files/Sesame Lab/Sesame Lab.exe"   # installed
+#   just tauri-honesty "$env:LOCALAPPDATA/Sesame Robot Emulator/sesame-robot-emulator.exe"  # installed
 #
 # Exit 0 clean, 1 with problems, 2 when there was no artefact to check — three
 # codes, because "nothing was verified" must not read as "everything passed".

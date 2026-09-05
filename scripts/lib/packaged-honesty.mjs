@@ -1201,7 +1201,7 @@ export async function runPackagedHonestyPhase(ctx) {
   }
 
   // ------------------------------------------------------- the artefact
-  const exe = exePath ?? path.join(repo, 'src-tauri/target/release/sesame-lab-desktop.exe');
+  const exe = exePath ?? path.join(repo, 'src-tauri/target/release/sesame-robot-emulator.exe');
   const bundleDir = path.join(repo, 'src-tauri/target/release/bundle');
   if (!fs.existsSync(exe)) {
     record.reason =
@@ -1371,7 +1371,7 @@ export async function runPackagedHonestyPhase(ctx) {
     record.reason = originVerdict;
     record.survivorsAfterClose = {
       qemu: processCount('qemu-system-xtensa.exe'),
-      desktop: processCount('sesame-lab-desktop.exe'),
+      desktop: processCount('sesame-robot-emulator.exe'),
     };
     return record;
   }
@@ -1533,7 +1533,7 @@ export async function runPackagedHonestyPhase(ctx) {
         'phase 14: the HTML normaliser called two documents with different bundles the same',
       );
       for (const [what, mutated] of [
-        ['a changed title', original.replace('Sesame Lab', 'Sesame Robot')],
+        ['a changed title', original.replace('Sesame Robot Emulator', 'Sesame Robot')],
         ['a changed script ref', original.replace(/index-[A-Za-z0-9_-]+\.js/, 'index-0000000.js')],
         ['a dropped element', original.replace(/<noscript>[\s\S]*?<\/noscript>/, '')],
       ]) {
@@ -2268,7 +2268,7 @@ export async function runPackagedHonestyPhase(ctx) {
   // ------------------------------------------------------- T3's invariant
   const survivors = {
     qemu: processCount('qemu-system-xtensa.exe'),
-    desktop: processCount('sesame-lab-desktop.exe'),
+    desktop: processCount('sesame-robot-emulator.exe'),
   };
   record.survivorsAfterClose = survivors;
   check(
@@ -2278,7 +2278,7 @@ export async function runPackagedHonestyPhase(ctx) {
   );
   check(
     survivors.desktop === 0,
-    `phase 14: ${survivors.desktop} sesame-lab-desktop.exe survived the close`,
+    `phase 14: ${survivors.desktop} sesame-robot-emulator.exe survived the close`,
   );
 
   record.ok = ctx.problemCount() === before;

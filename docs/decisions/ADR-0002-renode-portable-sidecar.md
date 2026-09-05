@@ -2,7 +2,7 @@
 
 - **Status:** Accepted
 - **Date:** 2026-08-23
-- **Deciders:** Sesame Lab Phase-0 team
+- **Deciders:** Sesame Robot Emulator Phase-0 team
 - **Source:** `docs/plans/phase-0-foundations-and-renode-research.md` §2 (ground truth probed on this machine, 2026-08-23)
 
 ---

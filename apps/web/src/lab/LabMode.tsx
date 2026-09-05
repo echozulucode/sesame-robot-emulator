@@ -137,7 +137,7 @@ export function LabMode(props: { readonly wiring: LabWiring }): ReactElement {
    *
    * `App` re-renders on the telemetry store, and injecting a fault or moving
    * subtrim emits no telemetry whatsoever — so without a subscription the
-   * "Sesame Lab is modifying this robot" banner would keep saying nothing is
+   * "Sesame Robot Emulator is modifying this robot" banner would keep saying nothing is
    * modified until the next servo event happened to arrive, i.e. it would only
    * be right while the robot was busy.
    *
@@ -489,7 +489,7 @@ export function LabMode(props: { readonly wiring: LabWiring }): ReactElement {
               <h4>Export &mdash; Sesame-compatible C++</h4>
               <p className="lesson-lab-note is-inferred" data-testid="lab-cpp-warning">
                 <b>This is the one thing here that can leave this system and touch a real robot.</b>{' '}
-                These are <b>commanded</b> angles. Nothing in Sesame Lab has ever driven physical
+                These are <b>commanded</b> angles. Nothing in Sesame Robot Emulator has ever driven physical
                 hardware, so none of these numbers has been verified against a servo; the firmware
                 has no position feedback to verify them with. And <b>89 of the 181 commandable
                 angles are indistinguishable at the pin</b> &mdash; 181 commands, 92 distinct
@@ -674,7 +674,7 @@ export function LabMode(props: { readonly wiring: LabWiring }): ReactElement {
                     {' '}
                     What you are talking to is not that code.
                   </b>{' '}
-                  Sesame Lab&rsquo;s own adapter reduces every name to{' '}
+                  Sesame Robot Emulator&rsquo;s own adapter reduces every name to{' '}
                   <code>[A-Za-z0-9_.-]</code> at the boundary, with no way to switch it off,
                   because emitting attacker-controlled JSON or a forged telemetry sentinel is not a
                   compatibility feature. The defect is described here and not reproduced here.

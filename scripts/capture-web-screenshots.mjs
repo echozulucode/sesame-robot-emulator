@@ -727,7 +727,7 @@ async function launchBrowser(url, window = DEFAULT_WINDOW) {
 
     They were written here because this file was the only thing that spoke CDP.
     The packaged desktop window is the second thing, and it is not a browser
-    this file spawned — it is a WebView2 inside `sesame-lab-desktop.exe`. One
+    this file spawned — it is a WebView2 inside `sesame-robot-emulator.exe`. One
     client for both is what makes "the same scans, run against the packaged
     artefact" true rather than approximately true.
   */
@@ -4268,7 +4268,7 @@ await waitFor(
     await page.shoot(
       'l6-lesson-fault-injector.png',
       'the display-init fault, badged INJECTED and dashed because the while(1) is real firmware but ' +
-        'making display.begin() fail on demand is Sesame Lab’s — and the boot it halts at bootOrder 4, ' +
+        'making display.begin() fail on demand is Sesame Robot Emulator’s — and the boot it halts at bootOrder 4, ' +
         'printing the line the firmware itself prints',
     ),
   );
@@ -6021,13 +6021,13 @@ if (SKIP_QEMU) {
     // the "is this robot broken, or did we break it?" case it exists for.
     check(
       faceReading.modifications !== null && faceReading.modifications.panelAuthored === true,
-      `the "Sesame Lab is modifying this robot" banner does not name the authored panel: ` +
+      `the "Sesame Robot Emulator is modifying this robot" banner does not name the authored panel: ` +
         `${JSON.stringify(faceReading.modifications)}`,
     );
 
     // …and it has to STOP claiming it the moment the robot repaints. An
     // authored frame is not sticky the way subtrim is: the next face event
-    // overwrites those pixels, and a banner that kept saying "Sesame Lab drew
+    // overwrites those pixels, and a banner that kept saying "Sesame Robot Emulator drew
     // this" over the robot's own face would be exactly the kind of confident
     // wrongness the banner exists to prevent. This is the falsification —
     // `panelAuthored` is asserted true above and false here, so it is known
@@ -6037,7 +6037,7 @@ if (SKIP_QEMU) {
     const afterRepaint = await evaluate(LAB_EXPR);
     check(
       (afterRepaint.modifications?.panelAuthored ?? false) === false,
-      `the banner still claims Sesame Lab drew the panel after the robot repainted it: ` +
+      `the banner still claims Sesame Robot Emulator drew the panel after the robot repainted it: ` +
         `${JSON.stringify(afterRepaint.modifications)}`,
     );
 
@@ -10624,7 +10624,7 @@ if (SKIP_QEMU) {
 // flag, an asset that resolves in dev and not in the bundle.
 //
 // So this phase drives the WINDOW OF THE PACKAGED APP: WebView2 inside
-// `sesame-lab-desktop.exe`, serving `http://tauri.localhost/` out of the
+// `sesame-robot-emulator.exe`, serving `http://tauri.localhost/` out of the
 // binary, booting the QEMU that was bundled with it. The scans are the same
 // objects phases 12 and 13 used — imported, not re-typed.
 //

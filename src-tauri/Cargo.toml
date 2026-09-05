@@ -8,11 +8,14 @@
 # spawn `qemu-system-xtensa.exe` and hold a TCP socket to UART0. T1 does neither.
 
 [package]
-name = "sesame-lab-desktop"
+name = "sesame-robot-emulator"
 version = "0.1.0"
-description = "Sesame Lab — the emulator, the virtual robot and the lessons, in a native window"
-authors = ["Sesame Lab"]
+description = "Sesame Robot Emulator — the emulator, the virtual robot and the lessons, in a native window"
+authors = ["Eric Zimmerman <contact@echozed.com>"]
 license = "Apache-2.0"
+homepage = "https://echozed.com"
+repository = "https://github.com/echozulucode/sesame-robot-emulator"
+publish = false
 edition = "2021"
 rust-version = "1.77.2"
 
@@ -21,7 +24,7 @@ rust-version = "1.77.2"
 # so explicitly (§8) — but the split costs nothing and is the difference between
 # "mobile was never wanted" and "mobile is now a rewrite".
 [lib]
-name = "sesame_lab_desktop_lib"
+name = "sesame_robot_emulator_lib"
 crate-type = ["staticlib", "cdylib", "rlib"]
 
 [build-dependencies]

@@ -35,8 +35,8 @@ import {
   type SupervisorSession,
 } from '../backends/tauri/supervisor.js';
 
-const OLED_IMAGE = 'C:\\Program Files\\Sesame Lab\\images\\distro-v1-esp32-cli-oled.flash.bin';
-const PLAIN_IMAGE = 'C:\\Program Files\\Sesame Lab\\images\\distro-v1-esp32-cli.flash.bin';
+const OLED_IMAGE = 'C:\\Program Files\\Sesame Robot Emulator\\images\\distro-v1-esp32-cli-oled.flash.bin';
+const PLAIN_IMAGE = 'C:\\Program Files\\Sesame Robot Emulator\\images\\distro-v1-esp32-cli.flash.bin';
 
 /** The `subtrim` reply the fence counts. `sesame-firmware-main.ino:826`. */
 const BARRIER_REPLY = 'Subtrim values:\n';
@@ -55,7 +55,7 @@ function sessionInfo(
       machine: 'esp32',
       imagePath,
       imageName: imagePath.split('\\').pop() ?? imagePath,
-      qemuPath: 'C:\\Program Files\\Sesame Lab\\qemu\\bin\\qemu-system-xtensa.exe',
+      qemuPath: 'C:\\Program Files\\Sesame Robot Emulator\\qemu\\bin\\qemu-system-xtensa.exe',
     },
     snapshot: true,
     args: ['-display', 'none', '-machine', 'esp32'],

@@ -1,7 +1,7 @@
 # Third-party notices
 
-This file lists software that is **not** part of Sesame Lab and is **not**
-licensed under Sesame Lab's Apache-2.0 licence.
+This file lists software that is **not** part of Sesame Robot Emulator and is
+**not** licensed under Sesame Robot Emulator's Apache-2.0 licence.
 
 It distinguishes three very different things, because only the last two create
 redistribution obligations:
@@ -10,7 +10,7 @@ redistribution obligations:
 |---|---|---|
 | **A. Committed** | The bytes are in this git repository | Repository must carry the licence |
 | **B. Fetched at build time** | Downloaded by pnpm / cargo / a fetch script; never committed | Nothing for the repository; obligations transfer to whatever you ship |
-| **C. Bundled in the installer** | Copied into the Sesame Lab desktop installer and given to a user | **Full redistribution obligations** |
+| **C. Bundled in the installer** | Copied into the Sesame Robot Emulator desktop installer and given to a user | **Full redistribution obligations** |
 
 Nothing in category A exists today other than material derived from the
 Apache-2.0 upstream Sesame Robot Project, which `NOTICE` covers.
@@ -49,20 +49,23 @@ which is QEMU's own and opens:
 > information are released under the GNU General Public License, version 2 …
 
 **The distributed Windows archive contains no licence text at all.** Verified:
-the tarball `qemu-xtensa-softmmu-esp_develop_9.2.2_20260417-x86_64-w64-mingw32.tar.xz`
-holds 18 entries and none is a `LICENSE`, `COPYING`, or `NOTICE` file. If Sesame
-Lab redistributes this binary, Sesame Lab must supply the GPL-2.0 text itself.
+the tarball
+`qemu-xtensa-softmmu-esp_develop_9.2.2_20260417-x86_64-w64-mingw32.tar.xz`
+holds 18 entries and none is a `LICENSE`, `COPYING`, or `NOTICE` file. If
+Sesame Robot Emulator redistributes this binary, it must supply the GPL-2.0
+text itself.
 
-**Relationship to Sesame Lab's own code.** Sesame Lab *executes* QEMU as a
-separate operating-system process (`src-tauri/src/qemu/` builds a `Command` and
-spawns the `.exe`; `src-tauri/src/supervisor.rs` is the Tauri adapter over it)
-and talks to it over a TCP socket. Nothing links against QEMU. The archive's
-`include/` and `lib/libfdt.a` are not compiled, not referenced by
-`src-tauri/Cargo.toml` or `build.rs`, and are deliberately **not** in
-`bundle.resources` — only `bin/qemu-system-xtensa.exe` and `share/qemu/*.bin`
-ship. On the usual reading, this keeps Sesame Lab's own source outside the GPL's
-derivative-work scope and confines the obligation to the QEMU binary itself.
-That reading is standard practice, not a guarantee; see `docs/findings/LICENSE-AUDIT.md` §3.
+**Relationship to Sesame Robot Emulator's own code.** Sesame Robot Emulator
+*executes* QEMU as a separate operating-system process (`src-tauri/src/qemu/`
+builds a `Command` and spawns the `.exe`; `src-tauri/src/supervisor.rs` is the
+Tauri adapter over it) and talks to it over a TCP socket. Nothing links against
+QEMU. The archive's `include/` and `lib/libfdt.a` are not compiled, not
+referenced by `src-tauri/Cargo.toml` or `build.rs`, and are deliberately
+**not** in `bundle.resources` — only `bin/qemu-system-xtensa.exe` and
+`share/qemu/*.bin` ship. On the usual reading, this keeps Sesame Robot
+Emulator's own source outside the GPL's derivative-work scope and confines the
+obligation to the QEMU binary itself. That reading is standard practice, not a
+guarantee; see `docs/findings/LICENSE-AUDIT.md` §3.
 
 ### What redistributing it requires (GPL-2.0 §3)
 
@@ -74,7 +77,7 @@ Distributing a GPL-2.0 binary requires the corresponding source, by one of:
   years**, to give any third party the source for no more than the cost of
   physically performing distribution; or
 * **§3(c)** — pass along the offer you received. **This one is not available
-  to Sesame Lab.** §3(c) is only for non-commercial distribution *and* only
+  to Sesame Robot Emulator.** §3(c) is only for non-commercial distribution *and* only
   when you received the binary *with* a §3(b) offer. The Espressif release
   carries no such offer, so there is nothing to pass along.
 
@@ -82,13 +85,14 @@ Plus §1: keep the copyright notices and give every recipient a copy of the
 licence.
 
 **Note the asymmetry of redistributing someone else's pre-built binary.**
-Sesame Lab did not compile this executable, so Sesame Lab cannot certify from
-its own build that the source at tag `esp-develop-9.2.2-20260417` is the exact
-"corresponding source". The tag is the best available correspondence and is
-what Espressif itself publishes the binary from. Publishing a source snapshot
-of that exact tag alongside the installer is the closest a redistributor can
-get to §3(a) without rebuilding. Building it yourself removes the ambiguity
-entirely and is the only way to be certain the correspondence is exact.
+Sesame Robot Emulator did not compile this executable, so Sesame Robot Emulator
+cannot certify from its own build that the source at tag
+`esp-develop-9.2.2-20260417` is the exact "corresponding source". The tag is
+the best available correspondence and is what Espressif itself publishes the
+binary from. Publishing a source snapshot of that exact tag alongside the
+installer is the closest a redistributor can get to §3(a) without rebuilding.
+Building it yourself removes the ambiguity entirely and is the only way to be
+certain the correspondence is exact.
 
 ### Concrete artifacts to add
 
@@ -109,13 +113,13 @@ entirely and is the only way to be certain the correspondence is exact.
 
 ### Written offer — what it must say
 
-> Sesame Lab redistributes `qemu-system-xtensa.exe`, built from the Espressif
+> Sesame Robot Emulator redistributes `qemu-system-xtensa.exe`, built from the Espressif
 > fork of QEMU at tag `esp-develop-9.2.2-20260417`
 > (https://github.com/espressif/qemu). QEMU is licensed under the GNU General
 > Public License, version 2.
 >
 > For a period of **three (3) years** from the date you received this software,
-> Sesame Lab will provide, to any third party who asks, the complete
+> Sesame Robot Emulator will provide, to any third party who asks, the complete
 > corresponding machine-readable source code for that version of QEMU, on a
 > medium customarily used for software interchange, for no more than Sesame
 > Lab's cost of physically performing the distribution. Write to
@@ -145,7 +149,8 @@ licenses"), and the Espressif release states no terms for them.
 
 **This is an open question and I could not resolve it.** Espressif ships these
 files publicly and expects them to be used with its QEMU, but "expects" is not
-a licence grant. Flagged for your judgement in `docs/findings/LICENSE-AUDIT.md` §3.
+a licence grant. Flagged for your judgement in `docs/findings/LICENSE-AUDIT.md`
+§3.
 
 ---
 
@@ -158,7 +163,7 @@ in the installer. It is a compiled, statically linked image containing:
 | Component | Version | Licence |
 |---|---|---|
 | The Sesame Robot Project firmware | commit `4017305…` | Apache-2.0 |
-| Sesame Lab telemetry patch | — | Apache-2.0 |
+| Sesame Robot Emulator telemetry patch | — | Apache-2.0 |
 | arduino-esp32 core (Arduino API layer) | 3.3.11 | **LGPL-2.1-or-later** |
 | arduino-esp32 core (ESP-IDF components) | 3.3.11 | Apache-2.0 |
 | ESP32Servo | 3.0.9 | **LGPL-2.1-or-later** |
@@ -232,14 +237,14 @@ bundle). **No copyleft, and no unlicensed package, anywhere in the JS tree.**
 
 `src-tauri/Cargo.lock` resolves 431 packages. Direct dependencies —
 `tauri` 2.11.3, `serde`, `serde_json`, `dunce`, `windows-sys` 0.61 — are all
-MIT-OR-Apache-2.0 dual-licensed. Sesame Lab's own crate declares
+MIT-OR-Apache-2.0 dual-licensed. Sesame Robot Emulator's own crate declares
 `license = "Apache-2.0"` in `Cargo.toml`.
 
 **Not yet verified exhaustively.** `Cargo.lock` is cross-platform and includes
 `gtk`, `webkit2gtk` and `soup3` bindings for Linux (the underlying system
-libraries are LGPL, dynamically linked) and `objc2-*` for macOS. Sesame Lab
-ships Windows only, so those are not compiled into what is distributed — but
-that should be confirmed against the actual build, not assumed.
+libraries are LGPL, dynamically linked) and `objc2-*` for macOS. Sesame Robot
+Emulator ships Windows only, so those are not compiled into what is distributed
+— but that should be confirmed against the actual build, not assumed.
 
 **Action:** run `cargo about generate` (or `cargo-license`) against the Windows
 target and commit the generated attribution file. This is the one third-party

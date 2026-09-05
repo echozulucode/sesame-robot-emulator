@@ -9,10 +9,10 @@
  * version of that worth running is one where the thing on the other end is the
  * **real** supervisor.
  *
- * So this speaks to `sesame-lab-desktop.exe --supervisor-stdio`:
+ * So this speaks to `sesame-robot-emulator.exe --supervisor-stdio`:
  *
  * ```text
- * vitest (node)                       sesame-lab-desktop.exe
+ * vitest (node)                       sesame-robot-emulator.exe
  * ─────────────────────────           ─────────────────────────────────────
  * describeRobotContract
  *   TauriSesameRobot                  app.path() -> the bundled qemu + image
@@ -55,7 +55,7 @@ const KIND_JSON = 1;
 
 /** Where `cargo build` leaves the desktop shell. */
 export function desktopExePath(profile: 'debug' | 'release' = 'debug'): string {
-  return path.join(REPO_ROOT, 'src-tauri', 'target', profile, 'sesame-lab-desktop.exe');
+  return path.join(REPO_ROOT, 'src-tauri', 'target', profile, 'sesame-robot-emulator.exe');
 }
 
 /**

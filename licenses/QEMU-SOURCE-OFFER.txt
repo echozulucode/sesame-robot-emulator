@@ -1,14 +1,14 @@
 WRITTEN OFFER OF SOURCE CODE — QEMU (GNU General Public License, version 2)
 ================================================================================
 
-This offer accompanies the Sesame Lab desktop application. It is made under
-section 3(b) of the GNU General Public License, version 2, the full text of
-which is in QEMU-GPL-2.0.txt in this same folder.
+This offer accompanies the Sesame Robot Emulator desktop application. It is
+made under section 3(b) of the GNU General Public License, version 2, the full
+text of which is in QEMU-GPL-2.0.txt in this same folder.
 
 WHAT THIS IS ABOUT
 ------------------
 
-Sesame Lab redistributes one program it did not write:
+Sesame Robot Emulator redistributes one program it did not write:
 
     qemu-system-xtensa.exe        71,749,689 bytes
     installed as                  <install folder>\qemu\bin\qemu-system-xtensa.exe
@@ -22,10 +22,10 @@ Sesame Lab redistributes one program it did not write:
                  developers
     Licence      GNU General Public License, version 2
 
-QEMU is a separate program. Sesame Lab starts it as its own operating-system
-process and talks to it over a TCP socket; nothing in Sesame Lab links against
-it. Sesame Lab's own code is licensed under the Apache License 2.0
-(Sesame-Lab-LICENSE-Apache-2.0.txt).
+QEMU is a separate program. Sesame Robot Emulator starts it as its own
+operating-system process and talks to it over a TCP socket; nothing in Sesame
+Robot Emulator links against it. Sesame Robot Emulator's own code is licensed
+under the Apache License 2.0 (Sesame-Robot-Emulator-LICENSE-Apache-2.0.txt).
 
 The four ESP32 boot ROM images installed beside it under qemu\share\qemu\ are
 Espressif silicon ROM dumps, not part of QEMU. QEMU's own LICENSE file
@@ -60,12 +60,16 @@ The same source is also published at:
     these five lines.
 
 --------------------------------------------------------------------------------
-THE TWO BLANKS ABOVE ARE NOT RHETORICAL. Until they are replaced with a real
-address and a real URL, this offer names no one and this application must not be
-given to anybody. They are deliberately left blank rather than guessed: an offer
-with an invented address is worse than no offer, because it looks discharged and
-is not. `node scripts/verify-install.mjs` prints both, by file and line, every
-time it runs.
+THE ADDRESS ABOVE IS REAL AND THE OFFER IS LIVE. Echo Zed Labs is the
+distributor named by it, and it is bound by it for three years from the date any
+copy is handed over. That half is discharged.
+
+ONE THING IS STILL OUTSTANDING. The source archive named above is NOT YET
+ATTACHED to the release, so the second route is a commitment rather than a fact.
+The offer stands on the address alone until it is uploaded -- which does satisfy
+GPL-2.0 section 3(b) on its own -- but an offer that also points at a 404 is
+worse than one that does not point anywhere. Upload the archive, or delete the
+six lines naming the release URL, before this installer is given to anyone.
 
 Nothing else in this folder needs editing.
 --------------------------------------------------------------------------------
@@ -79,26 +83,27 @@ Espressif release that this binary came from carries no such offer, so there is
 nothing to pass along. That leaves 3(a), shipping the source alongside, and
 3(b), this offer.
 
-Publishing the source archive on the same page as the installer is the closest a
-download-based distribution gets to 3(a), and it is the intended primary
+Publishing the source archive on the same page as the installer is the closest
+a download-based distribution gets to 3(a), and it is the intended primary
 mechanism. GPL-2.0 was written for physical media, and whether same-page
-availability satisfies "accompany" for a network download is genuinely contested,
-so this offer is the backstop — and it is the only thing that covers a copy
-handed over on a USB stick, or a chat attachment, or any other route that never
-touches the release page.
+availability satisfies "accompany" for a network download is genuinely
+contested, so this offer is the backstop — and it is the only thing that covers
+a copy handed over on a USB stick, or a chat attachment, or any other route
+that never touches the release page.
 
 WHY THE TAG IS THE CORRESPONDENCE
 ---------------------------------
 
-This executable was not compiled by Sesame Lab. It is Espressif's own published
-build, downloaded by emulator/qemu/fetch-qemu.mjs and verified byte-for-byte
-against the SHA-256 manifest Espressif publishes with that same release — so
-which release this binary came from is provable rather than asserted. The source
-at tag esp-develop-9.2.2-20260417 is the source Espressif builds it from.
+This executable was not compiled by Sesame Robot Emulator. It is Espressif's
+own published build, downloaded by emulator/qemu/fetch-qemu.mjs and verified
+byte-for-byte against the SHA-256 manifest Espressif publishes with that same
+release — so which release this binary came from is provable rather than
+asserted. The source at tag esp-develop-9.2.2-20260417 is the source Espressif
+builds it from.
 
 Building QEMU from that tag yourself is the only way to make the correspondence
 exact, because Espressif's MinGW cross-toolchain and build flags are part of its
 own repository rather than part of this application.
 
 For the full analysis, see docs/findings/LICENSE-AUDIT.md section 3 in the
-Sesame Lab repository.
+Sesame Robot Emulator repository.

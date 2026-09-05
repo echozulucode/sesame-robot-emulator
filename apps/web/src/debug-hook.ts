@@ -334,7 +334,7 @@ export interface LabReading {
   readonly exportedFaceRoundTripOk: boolean | null;
   readonly routeOptions: readonly string[];
   readonly httpLog: readonly string[];
-  /** The "Sesame Lab is modifying this robot" banner, or `null` when absent. */
+  /** The "Sesame Robot Emulator is modifying this robot" banner, or `null` when absent. */
   readonly modifications: {
     readonly trims: number;
     readonly faults: number;

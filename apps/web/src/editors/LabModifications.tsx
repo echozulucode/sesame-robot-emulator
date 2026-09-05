@@ -1,5 +1,5 @@
 /**
- * "Sesame Lab is modifying this robot."
+ * "Sesame Robot Emulator is modifying this robot."
  *
  * Subtrim and injected faults are sticky, and they should be: they are state,
  * not a mode. But a `+40` left on R1 in lesson 2 is still there in lesson 4,
@@ -50,7 +50,7 @@ export function LabModifications(props: LabModificationsProps): ReactElement | n
       data-faults={String(faults.length)}
       data-panel-authored={String(panelAuthored)}
     >
-      <b>Sesame Lab is modifying this robot.</b>{' '}
+      <b>Sesame Robot Emulator is modifying this robot.</b>{' '}
       {trims.length > 0 && (
         <span>
           subtrim{' '}

@@ -1,4 +1,4 @@
-//! `sesame-lab-desktop.exe --supervisor-stdio` — the same supervisor, driven
+//! `sesame-robot-emulator.exe --supervisor-stdio` — the same supervisor, driven
 //! from a process that is not a webview.
 //!
 //! ## Why this exists, stated plainly, because it is the awkward part of T4

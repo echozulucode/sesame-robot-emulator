@@ -71,7 +71,7 @@ export function FaultInjector(props: FaultInjectorProps): ReactElement {
 
       {injected.length > 0 && (
         <section data-testid="faults-injected">
-          <h5 className="fault-group is-injected">Injected by Sesame Lab</h5>
+          <h5 className="fault-group is-injected">Injected by Sesame Robot Emulator</h5>
           {injected.map((fault) => (
             <div key={fault.id} className="fault-card is-injected" data-fault={fault.id} data-injected="true">
               <div className="fault-title">

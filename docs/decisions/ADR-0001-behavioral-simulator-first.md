@@ -2,14 +2,14 @@
 
 - **Status:** Accepted
 - **Date:** 2026-08-23
-- **Deciders:** Sesame Lab Phase-0 team
+- **Deciders:** Sesame Robot Emulator Phase-0 team
 - **Source:** `research/Sesame Lab_ Emulator, Virtual Robot, and Interactive Engineering Learning Platform.md`, section *Executive findings and architecture decision*
 
 ---
 
 ## Context
 
-Sesame Lab's end state is a continuum from physical hardware, through firmware
+Sesame Robot Emulator's end state is a continuum from physical hardware, through firmware
 emulation and visualization, to guided learning and experimentation. The obvious
 naive architecture is to make firmware emulation the foundation: run the real
 compiled Sesame firmware under an emulator, and let everything else (visualizer,

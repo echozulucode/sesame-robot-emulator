@@ -2,7 +2,13 @@
   "name": "sesame-lab",
   "version": "0.0.0",
   "private": true,
-  "description": "Sesame Lab \u00e2\u20ac\u201d emulator, virtual robot, and interactive engineering learning platform",
+  "description": "Sesame Robot Emulator — emulator, virtual robot, and interactive engineering learning platform",
+  "author": "Eric Zimmerman <contact@echozed.com>",
+  "homepage": "https://echozed.com",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/echozulucode/sesame-robot-emulator.git"
+  },
   "license": "Apache-2.0",
   "packageManager": "pnpm@10.34.1",
   "engines": {

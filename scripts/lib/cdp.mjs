@@ -7,7 +7,7 @@
  * `launchBrowser()` and could not be pointed at anything else.
  *
  * T5 has to point it at something else. The packaged desktop app is a WebView2
- * window inside `sesame-lab-desktop.exe`; there is no `--headless`, no
+ * window inside `sesame-robot-emulator.exe`; there is no `--headless`, no
  * `--user-data-dir` and no profile to delete, and the only way in is the port
  * WebView2 opens when the process is started with
  *

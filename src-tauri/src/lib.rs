@@ -48,7 +48,7 @@ use tauri::Manager;
 /// property that fails on somebody else's machine. So:
 ///
 /// ```text
-/// sesame-lab-desktop.exe --resource-report [out.json]
+/// sesame-robot-emulator.exe --resource-report [out.json]
 /// ```
 ///
 /// writes the same document [`resources::resource_report`] returns to the

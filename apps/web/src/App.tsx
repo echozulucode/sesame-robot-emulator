@@ -1074,7 +1074,7 @@ export function App(): ReactElement {
   // Section 5.1, and the other half of section 4's "collapsing costs no
   // awareness". A closed header still says what its pane holds: which joint is
   // selected, how many trace rows the selection hit, how far the open lesson
-  // has got, and whether Sesame Lab is currently modifying this robot. Every
+  // has got, and whether Sesame Robot Emulator is currently modifying this robot. Every
   // one of these is read from state that already existed - `SelectionState`,
   // the trace store, the lesson progress record and the lesson runtime - so a
   // badge cannot say something its own pane would contradict.
@@ -1487,7 +1487,7 @@ export function App(): ReactElement {
             />
           </Suspense>
           <div className="viewport-caption">
-            <b>Sesame Lab</b> · kinematics only, no physics · click a joint to inspect it ·{' '}
+            <b>Sesame Robot Emulator</b> · kinematics only, no physics · click a joint to inspect it ·{' '}
             {driveFromSimulated && canDriveFromSimulated
               ? 'showing the model’s slew estimate (simulatedDeg)'
               : 'showing commanded angles'}

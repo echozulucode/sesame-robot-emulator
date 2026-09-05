@@ -39,7 +39,7 @@ export function SubtrimControl(props: SubtrimControlProps): ReactElement {
       <p className="lesson-lab-note" data-testid="subtrim-lab-note">
         <b>Lab feature.</b> The offset arithmetic below is the firmware&rsquo;s own
         (<code>constrain(angle + servoSubtrim[channel], 0, 180)</code>), but the firmware only lets
-        you set it over the serial CLI. This slider is Sesame Lab&rsquo;s, not the robot&rsquo;s.
+        you set it over the serial CLI. This slider is Sesame Robot Emulator&rsquo;s, not the robot&rsquo;s.
       </p>
       {joints.map((joint) => {
         const deg = value[joint];

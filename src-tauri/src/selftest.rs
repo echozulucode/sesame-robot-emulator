@@ -1,4 +1,4 @@
-//! `sesame-lab-desktop.exe --emulator-selftest` — T3's acceptance test, in the
+//! `sesame-robot-emulator.exe --emulator-selftest` — T3's acceptance test, in the
 //! form that can be re-run against a **packaged** build.
 //!
 //! T2 set the precedent and the reason has not changed: verifying that the
@@ -7,7 +7,7 @@
 //! start accepting for the one property that fails on somebody else's machine.
 //!
 //! ```text
-//! sesame-lab-desktop.exe --emulator-selftest [out.json] [--cycles N] [--hold-ms N]
+//! sesame-robot-emulator.exe --emulator-selftest [out.json] [--cycles N] [--hold-ms N]
 //! ```
 //!
 //! Each cycle boots the **bundled** QEMU through the same

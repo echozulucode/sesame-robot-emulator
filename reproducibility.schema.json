@@ -1,8 +1,8 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://sesame-lab.local/schemas/reproducibility.schema.json",
-  "title": "Sesame Lab reproducibility ledger",
-  "description": "Everything needed to reproduce a Sesame Lab build/run, per the research report's reproducibility checklist. Every field is REQUIRED to be present; a field whose value is not yet known MUST be null, never absent.",
+  "title": "Sesame Robot Emulator reproducibility ledger",
+  "description": "Everything needed to reproduce a Sesame Robot Emulator build/run, per the research report's reproducibility checklist. Every field is REQUIRED to be present; a field whose value is not yet known MUST be null, never absent.",
   "type": "object",
   "additionalProperties": false,
   "required": [

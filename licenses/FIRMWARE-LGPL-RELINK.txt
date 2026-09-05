@@ -15,7 +15,7 @@ WHAT IS INSIDE IT
 
     The Sesame Robot Project firmware      commit 4017305…      Apache-2.0
       https://github.com/dorianborian/sesame-robot
-    Sesame Lab's telemetry instrumentation                      Apache-2.0
+    Sesame Robot Emulator telemetry patch                       Apache-2.0
     arduino-esp32 core, Arduino API layer  3.3.11               LGPL-2.1-or-later
     arduino-esp32 core, ESP-IDF components 3.3.11               Apache-2.0
     ESP32Servo                             3.0.9                LGPL-2.1-or-later
@@ -37,8 +37,8 @@ LGPL-2.1 section 6 permits static linking on the condition that a recipient can
 relink the combined work against a modified version of the library.
 
 Everything required to do that is published, pinned and scripted in the Sesame
-Lab repository. This image is not a hand-built artifact; it is the output of a
-recorded build:
+Robot Emulator repository. This image is not a hand-built artifact; it is the
+output of a recorded build:
 
     firmware/upstream.pin.json      pins the upstream firmware source to an
                                     exact commit
@@ -59,14 +59,14 @@ the library, and re-run scripts/build-firmware.ps1 (profile
 "distro-v1-esp32") followed by emulator/qemu/build-qemu-images.mjs. The result
 is a flash image this application will boot in exactly the same way.
 
-Those files are in the Sesame Lab repository, published at the same place the
-source archive named in QEMU-SOURCE-OFFER.txt is published. The written offer in
-that file covers this request too: ask at the address it names and you will be
-sent the build inputs listed above.
+Those files are in the Sesame Robot Emulator repository, published at the same
+place the source archive named in QEMU-SOURCE-OFFER.txt is published. The
+written offer in that file covers this request too: ask at the address it names
+and you will be sent the build inputs listed above.
 
 The library sources themselves are fetched by arduino-cli from the versions
-pinned above; they are not modified by Sesame Lab and are not redistributed
-here in source form.
+pinned above; they are not modified by Sesame Robot Emulator and are not
+redistributed here in source form.
 
 THE ALTERNATIVE THAT WAS NOT TAKEN
 ----------------------------------
