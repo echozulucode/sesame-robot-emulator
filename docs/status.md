@@ -1,15 +1,50 @@
 ---
 type: status
-updated: 2026-08-26
-current_phase: "Phase 2 complete; responsive shell landed. Awaiting external Renode research."
+updated: 2026-09-02
+current_phase: "Phase 5 (Tauri desktop app) - T1-T5 done, T6 in progress"
 blockers: []
 next_actions:
-  - "Evaluate: `pnpm dev` (lab host + vite, one command) or `pnpm dev:sim` for a faster boot"
-  - "External research pending on the Renode decision (docs/research/renode-fit-deep-research-prompt.md)"
-  - "Optional: the carried-forward items in plan.md Phase 3+"
+  - "T6 installer, then T7 both-targets verification"
+  - "Then the agreed git filter-repo pass (docs/findings/PUBLIC-RELEASE-CHECKLIST.md), then push --force-with-lease"
+  - "User to supply: the three-year GPL offer address and the permanent source URL"
+  - "Nice to have before publishing: a `just setup` recipe - a cold clone currently needs four commands"
 ---
 
 # Status Log
+
+## Session: 2026-09-02 - Tauri packaging and public-release preparation
+
+**Phase 5 T1-T5 complete.** 1,096 tests, 44 captures, 0 problems, zero new frontend dependencies.
+
+- **T1** the app renders in a Tauri window and as a release exe. Added a fifth `labHost: 'desktop'`
+  state rather than weakening W8's rule, because the desktop shell is not an unreachable lab host -
+  it is an arrangement with no origin to probe.
+- **T2** 13 files / 75.4 MiB bundled, verified by installing into a directory that did not exist
+  with the repo nowhere on any path. Three failure modes found by reading `tauri-utils` rather than
+  guessing, one of which - `bin/` and `share/qemu/` losing their relative offset - would have failed
+  at BOOT, not at build.
+- **T3** a Windows Job Object with `KILL_ON_JOB_CLOSE`: a kernel guarantee, not a code path.
+  0 survivors even when the app is hard-killed mid-boot, with a negative control proving the check
+  is not vacuous.
+- **T4** 15/15 contract cases. The suite caught a real bug no other path could: events from
+  *abandoned* retry attempts poisoning the surviving session.
+- **T5** the packaged artifact is now asserted, and the `tauri.localhost` guard was **proved to
+  fail** by pointing it at a live Vite. Exit code 2 means *nothing verified*, so CI cannot read a
+  skip as a pass.
+
+**Public release prepared.** Apache-2.0 for our work; upstream attributed in `NOTICE` with the
+§4(b) modification notice. Two things removed from the tree that should not have shipped - an
+arduino-cli `installation.secret` and a home directory in five Renode logs - **neither of which a
+`ts|mjs|json|rs|md` scan would have caught**, which is how both survived. The audit's own report
+then reproduced the leak by quoting it, caught on a re-verify across every tracked file.
+
+The arduino-cli identity was rotated, so the copy still in history is inert.
+
+**The finding I would have missed:** the bundled flash image statically links **LGPL-2.1-or-later**
+code. Its §6 relink path already exists in the pinned `sketch.yaml` and build scripts - it needs
+stating, not building.
+
+---
 
 ## Session: 2026-08-26 (later) - dev script + responsive shell
 

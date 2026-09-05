@@ -2,7 +2,7 @@
 type: plan
 project: "Sesame Lab"
 status: active
-version: 5
+version: 6
 updated: 2026-08-23
 phases:
   - id: 0
@@ -17,10 +17,13 @@ phases:
   - id: 3
     name: "Integration (real hardware adapter, contract tests)"
     status: out_of_scope
+  - id: 5
+    name: "Rust + Tauri desktop app"
+    status: in_progress
   - id: 4
     name: "Renode research track"
     status: superseded_by_qemu
-current_phase: 2
+current_phase: 5
 ---
 
 # Plan: Sesame Lab
@@ -157,6 +160,38 @@ Carried forward from Phase 2's own findings, none blocking:
   `injectorIsLabFeature: false` while `debug-a-robot`'s text and `L5-lesson-content.md` §6.6 both
   say three.
 - **Document the CRLF/trim conventions** in `source-annotations.json` that L4 had to reverse-engineer.
+
+## Phase 5: Rust + Tauri desktop app — IN PROGRESS
+
+Plan: `docs/plans/phase-5-tauri-desktop-app.md`. A double-clickable app for the user's nephew,
+while `just dev` and the local web server stay exactly as they are.
+
+- [x] **T1** Tauri scaffold — app renders in a desktop window and as a release exe, on the simulator
+- [x] **T2** Resource bundling — 13 files / 75.4 MiB, verified in a literally empty directory
+- [x] **T3** Rust supervisor — job-object teardown, raw bytes, 0 orphans under adversarial kill
+- [x] **T4** `TauriSesameRobot` — 15/15 contract cases, no case adjusted
+- [x] **T5** Honesty asserted against the packaged artifact; the `tauri.localhost` guard proved to fail
+- [ ] **T6** Installer, icons, first run — in progress
+- [ ] **T7** Both targets verified in one pass
+
+**Architecture (§4, Option C):** Rust does only what a browser cannot — spawn QEMU, hold the socket,
+stream raw bytes, retry the boot, stamp origin. The `@SESAME` parser, the sim, the lessons and the
+UI are reused unchanged. Porting the parser would have meant re-earning an invariant proven across
+~1,500 split offsets and 255 tests.
+
+## Public release — prepared, not yet done
+
+`LICENSE` (Apache-2.0), `NOTICE`, `THIRD-PARTY-NOTICES.md` and `README.md` are in. Two items were
+removed from the tree before publishing: a tracked arduino-cli `installation.secret`, and a home
+directory plus session UUID embedded in five Renode logs. **Both are still in history**, which
+`origin/main` already has — see `docs/findings/PUBLIC-RELEASE-CHECKLIST.md` for the agreed
+`git filter-repo` pass, to be run only after T7.
+
+The arduino-cli identity was **rotated on 2026-09-02** (file deleted; the CLI regenerates one), so
+the value in history is inert.
+
+Open decisions recorded there: the three-year GPL offer address, the permanent source URL, and
+whether same-release attachment satisfies "accompany" for a network download.
 
 ## Phase 4: Renode track — SUPERSEDED by QEMU
 
