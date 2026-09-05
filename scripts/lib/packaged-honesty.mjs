@@ -378,6 +378,72 @@ export function boardNamingProblems(text) {
 }
 
 /**
+ * The desktop-simulator line, in the state that renders it — Phase 5 T6.
+ *
+ * T5 could only assert this line ABSENT, both while the emulator drove and
+ * while the packaged app's own simulator drove, because T4's seam flip made its
+ * condition (`labProbe?.labHost === 'desktop'`) unreachable: nothing rendered
+ * it in any state of the artefact, so "absent" was as true of a deleted
+ * component as of a correct one. T6 changed the condition to *desktop shell,
+ * simulator driving* — which the shipped build reaches the moment a reader
+ * switches the backend — and this is the verdict that reads it there.
+ *
+ * The last clause is the one worth having. T1's sentence, *"this desktop build
+ * has no emulator yet"*, was false from the day T4 landed and stayed in the
+ * bundle for two workstreams because nothing rendered it. Re-introducing it is
+ * a specific regression with a specific shape, so it is refused by name.
+ */
+export function desktopSimulatorLineProblems(reading) {
+  if (reading === null || reading === undefined) {
+    return ['the packaged window returned no reading for the desktop-simulator line'];
+  }
+  const problems = [];
+  if (reading.trustCardMounted !== true) {
+    problems.push(
+      'the trust card is not mounted, so anything said about the line inside it is a statement ' +
+        'about a card that is not there',
+    );
+  }
+  if (reading.present !== true) {
+    problems.push(
+      'the packaged app renders NO line naming what is driving it while its own behavioural ' +
+        'simulator drives the scene. That is the one state this line exists for: a window with no ' +
+        'address bar and no terminal, showing a host model.',
+    );
+    return problems;
+  }
+  if (reading.visible !== true) {
+    problems.push('the desktop-simulator line is in the DOM but is not laid out');
+  }
+  const flat = String(reading.text ?? '').replace(/\s+/g, ' ').trim();
+  if (!/behavioural simulator/i.test(flat)) {
+    problems.push(
+      `the desktop-simulator line does not name the BEHAVIOURAL SIMULATOR: ${JSON.stringify(flat.slice(0, 200))}`,
+    );
+  }
+  if (!/host model/i.test(flat)) {
+    problems.push(
+      `the desktop-simulator line does not call it a HOST MODEL: ${JSON.stringify(flat.slice(0, 200))}`,
+    );
+  }
+  if (!/not the emulator/i.test(flat) || !/not hardware/i.test(flat)) {
+    problems.push(
+      `the desktop-simulator line does not deny BOTH the emulator and hardware: ` +
+        `${JSON.stringify(flat.slice(0, 200))}`,
+    );
+  }
+  if (/no emulator yet|has no emulator|without an emulator/i.test(flat)) {
+    problems.push(
+      `the desktop-simulator line claims this build has no emulator — ` +
+        `${JSON.stringify(flat.slice(0, 200))}. It has one: T4 shipped TauriSesameRobot over the ` +
+        `bundled QEMU, and this window can switch back to it. That sentence was T1's, was made ` +
+        `false by T4, and survived because no reachable state rendered it.`,
+    );
+  }
+  return problems;
+}
+
+/**
  * The OLED is `observed` only where the CAPABILITY says so, and the wording
  * still carries the qualifier that keeps it from being a claim about glass.
  *
@@ -612,6 +678,46 @@ export function selfTestVerdicts() {
     boardNamingProblems('distro-v1-esp32 — the legacy V1 board.'),
   );
 
+  // T6. Five bad fixtures, each the shape the line would take if the fix that
+  // made it reachable were undone, half-applied, or reverted to T1's sentence.
+  const GOOD_SIM_LINE = {
+    present: true,
+    visible: true,
+    trustCardMounted: true,
+    text:
+      'This desktop window is being driven by the behavioural simulator — a host model, not the ' +
+      'emulator and not hardware. No firmware is executing. change what drives this',
+  };
+  mustPass('desktop-simulator-line', desktopSimulatorLineProblems(GOOD_SIM_LINE));
+  mustFail(
+    'desktop-simulator-line (absent on the simulator, which is T5’s open gap)',
+    desktopSimulatorLineProblems({ ...GOOD_SIM_LINE, present: false, text: null }),
+  );
+  mustFail(
+    'desktop-simulator-line (in the DOM but not laid out)',
+    desktopSimulatorLineProblems({ ...GOOD_SIM_LINE, visible: false }),
+  );
+  mustFail(
+    'desktop-simulator-line (T1’s untrue sentence restored)',
+    desktopSimulatorLineProblems({
+      ...GOOD_SIM_LINE,
+      text:
+        'This desktop build has no emulator yet, so the scene is driven by the behavioural ' +
+        'simulator — a host model, not the emulator and not hardware.',
+    }),
+  );
+  mustFail(
+    'desktop-simulator-line (hardware no longer denied)',
+    desktopSimulatorLineProblems({
+      ...GOOD_SIM_LINE,
+      text: 'This desktop window is being driven by the behavioural simulator — a host model.',
+    }),
+  );
+  mustFail(
+    'desktop-simulator-line (the trust card unmounted underneath it)',
+    desktopSimulatorLineProblems({ ...GOOD_SIM_LINE, trustCardMounted: false }),
+  );
+
   const goodOled = { pixels: { state: 'observed', fromEmulator: true } };
   const goodOledFacts = { oledFramebuffer: true, elided: ['ssd1306-glass', 'wifi-mac'] };
   const GOOD_OLED_TEXT =
@@ -775,13 +881,21 @@ const SERVED_ASSETS_JS = `(async () => {
     }
     return h >>> 0;
   };
-  const read = async (url) => {
+  const read = async (url, withText) => {
     const response = await fetch(url, { cache: 'no-store' });
     if (!response.ok) return { url, ok: false, status: response.status };
-    const bytes = new Uint8Array(await response.arrayBuffer());
-    return { url, ok: true, bytes: bytes.length, sum: fnv(bytes) };
+    const buffer = await response.arrayBuffer();
+    const bytes = new Uint8Array(buffer);
+    const entry = { url, ok: true, bytes: bytes.length, sum: fnv(bytes) };
+    // T6: index.html is fetched as TEXT as well, because a configured CSP makes
+    // Tauri re-serialise the document (see the comparison in run()) and the
+    // bytes then legitimately differ from apps/web/dist while the document does
+    // not. Nothing else is read as text — the bundles are compared byte for
+    // byte and must stay that way.
+    if (withText === true) entry.text = new TextDecoder().decode(bytes);
+    return entry;
   };
-  const index = await read('/index.html');
+  const index = await read('/index.html', true);
   /*
     Vite writes the refs RELATIVE — "./assets/index-BSgqlBYh.js" — so the first
     version of this filtered on a leading "/" and matched nothing. It reported
@@ -1031,6 +1145,30 @@ const fnv1a = (buffer) => {
   }
   return h >>> 0;
 };
+
+/**
+ * The four differences an HTML parse-and-re-serialise makes, and no others —
+ * Phase 5 T6.
+ *
+ * `tauri-build` parses `index.html` when `app.security.csp` is set, so the
+ * document the executable serves is html5ever's serialisation of the document
+ * Vite wrote: the doctype upper-cased, void elements' ` />` written `>`, valueless
+ * attributes written `=""`, and the whitespace between tags moved. Twenty bytes
+ * on this app.
+ *
+ * Exported so it is testable, and deliberately small: it does not lower-case
+ * text, does not touch attribute order, does not strip comments and does not
+ * parse anything. Every run shows it three edits it must refuse.
+ */
+export function normaliseServedHtml(html) {
+  return String(html)
+    .replace(/<!doctype html>/i, '<!doctype html>')
+    .replace(/\s*\/>/g, '>')
+    .replace(/=""/g, '')
+    .replace(/>\s+</g, '><')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
 
 // ===========================================================================
 // the phase
@@ -1291,12 +1429,38 @@ export async function runPackagedHonestyPhase(ctx) {
     // test is the same class of mistake as verifying it against Vite, and it is
     // quieter — the window looks right, because it once was.
     const served = await evaluate(SERVED_ASSETS_JS);
+    let indexNormalised = false;
     const compare = (entry) => {
       const rel = decodeURIComponent(new URL(entry.url, 'http://tauri.localhost/').pathname).replace(/^\//, '');
       const onDisk = path.join(repo, 'apps/web/dist', rel);
       if (!entry.ok) return `${rel}: the packaged window answered HTTP ${entry.status} for its own asset`;
       if (!fs.existsSync(onDisk)) return `${rel}: served by the package, absent from apps/web/dist`;
       const buffer = fs.readFileSync(onDisk);
+      /*
+        T6: index.html, and ONLY index.html, may differ by serialisation.
+
+        With `app.security.csp` set — which T6 did, after T1, T2, T3 and T4 each
+        flagged `csp: null` and left it — `tauri-build` parses index.html to
+        place the policy, and what it embeds is the re-serialised document:
+        `<!DOCTYPE>` upper-cased, `<meta … />` closed as `<meta …>`,
+        `crossorigin` written `crossorigin=""`, and the inter-tag whitespace
+        rearranged. Twenty bytes, no semantic difference, and it broke the
+        byte-identity check the first time this ran.
+
+        So the fallback is a normalisation that removes exactly those four
+        differences and nothing else. It is applied to BOTH sides, it is applied
+        only to the HTML, and the JavaScript and CSS bundles — which carry the
+        entire application and whose names are Vite content hashes — are still
+        compared byte for byte. A changed title, a changed script ref or a
+        changed meta still fails; `NORMALISED_HTML_CONTROL` below is that
+        assertion made to fail on purpose.
+      */
+      if (entry.text !== undefined && (buffer.length !== entry.bytes || fnv1a(buffer) !== entry.sum)) {
+        if (normaliseServedHtml(buffer.toString('utf8')) === normaliseServedHtml(entry.text)) {
+          indexNormalised = true;
+          return null;
+        }
+      }
       if (buffer.length !== entry.bytes || fnv1a(buffer) !== entry.sum) {
         return (
           `${rel}: the packaged window serves ${entry.bytes} B (fnv ${entry.sum}) and ` +
@@ -1321,6 +1485,7 @@ export async function runPackagedHonestyPhase(ctx) {
     record.servedAssets = {
       checked: 1 + served.assets.length,
       matchesDist: assetProblems.length === 0,
+      indexMatchedAfterNormalisation: indexNormalised,
       files: [served.index, ...served.assets].map((a) => a.url),
     };
     // The comparison has to be able to say no. One byte, on a copy.
@@ -1333,6 +1498,52 @@ export async function runPackagedHonestyPhase(ctx) {
         'phase 14: the served-asset comparison did not notice a one-byte change, so "the package ' +
           'serves this dist" was never a measurement',
       );
+      /*
+        And the HTML fallback has to be able to say no too, which is the whole
+        risk of introducing it: a normaliser that collapsed too much would let
+        the package serve a different document and go on reporting a match. So
+        it is shown three documents it must refuse and one it must accept —
+        every run, on the real index.html, before the run is graded.
+      */
+      const original = indexOnDisk.toString('utf8');
+      const base = normaliseServedHtml(original);
+      /*
+        The pair is written out by hand rather than produced by applying the
+        normaliser's own rules to the file, which would have made this control
+        vacuous — the seventh failure mode in this project's list, an assertion
+        graded against itself. Left is Vite's output shape, right is what
+        html5ever serialised it back to in the shipped executable, copied from a
+        real fetch of `http://tauri.localhost/index.html`.
+      */
+      const VITE_SHAPE =
+        '<!doctype html>\n<html lang="en">\n  <head>\n    <meta charset="utf-8" />\n' +
+        '    <script type="module" crossorigin src="./assets/index-A.js"></script>\n' +
+        '  </head>\n  <body>\n    <div id="root"></div>\n  </body>\n</html>\n';
+      const TAURI_SHAPE =
+        '<!DOCTYPE html><html lang="en"><head>\n    <meta charset="utf-8">\n' +
+        '    <script type="module" crossorigin="" src="./assets/index-A.js"></script>\n' +
+        '  </head>\n  <body>\n    <div id="root"></div>\n  \n\n</body></html>';
+      check(
+        normaliseServedHtml(VITE_SHAPE) === normaliseServedHtml(TAURI_SHAPE),
+        'phase 14: the HTML normaliser rejected the exact re-serialisation Tauri performs, so the ' +
+          'index.html comparison would fail on every packaged build for no reason',
+      );
+      check(
+        normaliseServedHtml(VITE_SHAPE) !== normaliseServedHtml(TAURI_SHAPE.replace('index-A.js', 'index-B.js')),
+        'phase 14: the HTML normaliser called two documents with different bundles the same',
+      );
+      for (const [what, mutated] of [
+        ['a changed title', original.replace('Sesame Lab', 'Sesame Robot')],
+        ['a changed script ref', original.replace(/index-[A-Za-z0-9_-]+\.js/, 'index-0000000.js')],
+        ['a dropped element', original.replace(/<noscript>[\s\S]*?<\/noscript>/, '')],
+      ]) {
+        check(
+          normaliseServedHtml(mutated) !== base,
+          `phase 14: the HTML normaliser accepted ${what}. It exists to absorb Tauri's ` +
+            `re-serialisation and nothing else; if it absorbs a real edit then "the package serves ` +
+            `this dist" has stopped being a measurement for index.html.`,
+        );
+      }
     }
 
     // ================================================= the packaged surfaces
@@ -1434,11 +1645,13 @@ export async function runPackagedHonestyPhase(ctx) {
 
       This is the mirror of the six assertions that could not fail. `absent`
       passes just as happily when the testid has been renamed, the component
-      removed, or the branch dropped by a bundler — and unlike every other
-      surface here, no reachable state of THIS artefact renders the line (§6),
-      so nothing else would notice. Two things are checked instead: the probe
-      can see such a node when one exists (the negative control injects one),
-      and the branch is still in the JavaScript the executable serves.
+      removed, or the branch dropped by a bundler. Three things are checked
+      instead: the probe can see such a node when one exists (the negative
+      control injects one), the branch is still in the JavaScript the executable
+      serves, and — since T6 — the line is asserted PRESENT further down, in the
+      state that now renders it. That third one is what T5 could not have: when
+      this file was written, no reachable state of the artefact rendered the
+      line at all.
     */
     const simLineInBundle = await evaluate(`(async () => {
       const refs = [...document.querySelectorAll('script[src]')]
@@ -1449,7 +1662,7 @@ export async function runPackagedHonestyPhase(ctx) {
       for (const ref of refs) {
         const text = await (await fetch(ref.pathname, { cache: 'no-store' })).text();
         if (text.includes('panel-desktop-simulator')) testid += 1;
-        if (text.includes('This desktop build has no emulator yet')) sentence += 1;
+        if (text.includes('No firmware is executing')) sentence += 1;
       }
       return { bundles: refs.length, testid, sentence };
     })()`);
@@ -1977,11 +2190,16 @@ export async function runPackagedHonestyPhase(ctx) {
 
     // ------------------------------- and what the packaged app says on the sim
     //
-    // The desktop-simulator line's condition is `backendId === 'sim' &&
-    // labProbe.labHost === 'desktop'`, and T4's seam flip made the second half
-    // unreachable in a build that HAS an emulator. So the line stays absent
-    // here — and what must not be absent is the claim it used to carry, which
-    // the environment line and the origin badge take over.
+    // T5 asserted the line ABSENT here and recorded it as a note rather than a
+    // pass, because T4's seam flip had made its condition
+    // (`labProbe.labHost === 'desktop'`) unreachable: the packaged app rendered
+    // nothing at all in the one state the line exists for. T6 changed the
+    // condition to `desktop.present && backendId === 'sim'` and reworded the
+    // sentence, which the plan asked for from the start — *absent when the
+    // emulator is driving and PRESENT when the simulator is*. Both halves are
+    // now assertions. The claims that stood in for it — the environment line,
+    // the origin attribution, isPhysicallyObserved() — are still asserted too,
+    // because they are the surfaces a reader actually reads.
     await evaluate(`window.__sesame.setBackend('sim')`);
     await waitFor(
       'window.__sesame.backendId()',
@@ -2023,23 +2241,16 @@ export async function runPackagedHonestyPhase(ctx) {
         `nothing is naming the host model, which is the claim that replaces the desktop-simulator ` +
         `line in a build that does have an emulator`,
     );
+    for (const problem of desktopSimulatorLineProblems(simLineOnSim)) {
+      check(false, `phase 14 (packaged app on the simulator): ${problem}`);
+    }
     record.simulator = {
       environmentLine: envSim?.text ?? null,
       desktopSimulatorLinePresent: simLineOnSim.present,
+      desktopSimulatorLineText: simLineOnSim.text,
       counts: originsSim?.counts ?? null,
       physicallyObservedEvents: originsSim?.physicallyObservedEvents ?? null,
     };
-    if (simLineOnSim.present === false) {
-      note(
-        'phase 14: the packaged app does NOT render `panel-desktop-simulator` even when the ' +
-          'behavioural simulator is driving. Its condition is `backendId === "sim" && ' +
-          'labProbe.labHost === "desktop"`, and T4 made the second half unreachable in a build that ' +
-          'has an emulator. What the reader gets instead is asserted here: the environment line ' +
-          'reads SYSTEM: HOST MODEL · PHYSICAL HARDWARE: NONE and every event is attributed to ' +
-          'host-model. The line itself is asserted PRESENT only by injecting one (the negative ' +
-          'control above), because no reachable state of this artefact renders it.',
-      );
-    }
 
     const errors = session.errors();
     check(

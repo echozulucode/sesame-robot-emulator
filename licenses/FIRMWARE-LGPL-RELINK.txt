@@ -1,0 +1,78 @@
+THE FIRMWARE IMAGE, THE LGPL, AND HOW TO RELINK IT
+================================================================================
+
+This application installs one 4 MiB file that is a compiled ESP32 firmware
+image:
+
+    <install folder>\images\distro-v1-esp32-cli-oled.flash.bin      4,194,304 bytes
+
+It looks like data and it is not. It is a statically linked binary, and two of
+the things linked into it are covered by the GNU Lesser General Public License,
+version 2.1 or later — the full text is in LGPL-2.1.txt in this same folder.
+
+WHAT IS INSIDE IT
+-----------------
+
+    The Sesame Robot Project firmware      commit 4017305…      Apache-2.0
+      https://github.com/dorianborian/sesame-robot
+    Sesame Lab's telemetry instrumentation                      Apache-2.0
+    arduino-esp32 core, Arduino API layer  3.3.11               LGPL-2.1-or-later
+    arduino-esp32 core, ESP-IDF components 3.3.11               Apache-2.0
+    ESP32Servo                             3.0.9                LGPL-2.1-or-later
+    Adafruit GFX Library                   1.12.6               BSD-2-Clause
+    Adafruit SSD1306                       2.5.17               BSD-3-Clause
+    Adafruit BusIO                         1.17.4               MIT
+
+The two LGPL grants are in the library headers rather than in licence files:
+cores/esp32/Arduino.h ("Copyright (c) 2005-2013 Arduino Team … GNU Lesser
+General Public License … version 2.1 … or (at your option) any later version")
+and ESP32Servo/src/ESP32Servo.h ("Copyright (c) 2017 John K. Bennett … GNU
+Lesser General Public License … version 2.1 … or any later version").
+ESP32Servo ships no LICENSE file at all.
+
+THE OBLIGATION, AND HOW IT IS DISCHARGED
+----------------------------------------
+
+LGPL-2.1 section 6 permits static linking on the condition that a recipient can
+relink the combined work against a modified version of the library.
+
+Everything required to do that is published, pinned and scripted in the Sesame
+Lab repository. This image is not a hand-built artifact; it is the output of a
+recorded build:
+
+    firmware/upstream.pin.json      pins the upstream firmware source to an
+                                    exact commit
+    firmware/build/sketch.yaml      pins the arduino-esp32 core version, every
+                                    library version, and the full FQBN
+    firmware/patches/*.patch        the modifications, as unified diffs against
+                                    that commit
+    scripts/build-firmware.ps1      performs the build
+    scripts/build-firmware.sh       the same, on a POSIX shell
+    emulator/qemu/build-qemu-images.mjs
+                                    turns the build output into this flash image
+    reproducibility.json            records the toolchain and the compiler
+                                    command lines the recorded build used
+
+To relink against your own arduino-esp32 or ESP32Servo: change the version or
+the path in firmware/build/sketch.yaml, or point arduino-cli at a local copy of
+the library, and re-run scripts/build-firmware.ps1 (profile
+"distro-v1-esp32") followed by emulator/qemu/build-qemu-images.mjs. The result
+is a flash image this application will boot in exactly the same way.
+
+Those files are in the Sesame Lab repository, published at the same place the
+source archive named in QEMU-SOURCE-OFFER.txt is published. The written offer in
+that file covers this request too: ask at the address it names and you will be
+sent the build inputs listed above.
+
+The library sources themselves are fetched by arduino-cli from the versions
+pinned above; they are not modified by Sesame Lab and are not redistributed
+here in source form.
+
+THE ALTERNATIVE THAT WAS NOT TAKEN
+----------------------------------
+
+This image could have been built on your machine at first run instead of
+shipped, which would remove the obligation entirely. It is bundled because a
+first run that needs the network, the Arduino toolchain and about ten minutes is
+a first run that fails on a kitchen table, and this application is meant to work
+offline the day it is installed.

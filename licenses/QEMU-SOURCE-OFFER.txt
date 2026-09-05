@@ -1,0 +1,96 @@
+WRITTEN OFFER OF SOURCE CODE — QEMU (GNU General Public License, version 2)
+================================================================================
+
+This offer accompanies the Sesame Lab desktop application. It is made under
+section 3(b) of the GNU General Public License, version 2, the full text of
+which is in QEMU-GPL-2.0.txt in this same folder.
+
+WHAT THIS IS ABOUT
+------------------
+
+Sesame Lab redistributes one program it did not write:
+
+    qemu-system-xtensa.exe        71,749,689 bytes
+    installed as                  <install folder>\qemu\bin\qemu-system-xtensa.exe
+
+    Project      QEMU, Espressif fork
+    Upstream     https://github.com/qemu/qemu
+    Fork shipped https://github.com/espressif/qemu
+    Pinned tag   esp-develop-9.2.2-20260417
+    Reports      QEMU emulator version 9.2.2 (esp_develop_9.2.2_20260417)
+                 Copyright (c) 2003-2024 Fabrice Bellard and the QEMU Project
+                 developers
+    Licence      GNU General Public License, version 2
+
+QEMU is a separate program. Sesame Lab starts it as its own operating-system
+process and talks to it over a TCP socket; nothing in Sesame Lab links against
+it. Sesame Lab's own code is licensed under the Apache License 2.0
+(Sesame-Lab-LICENSE-Apache-2.0.txt).
+
+The four ESP32 boot ROM images installed beside it under qemu\share\qemu\ are
+Espressif silicon ROM dumps, not part of QEMU. QEMU's own LICENSE file
+(QEMU-LICENSE.txt) states that such firmware blobs are separate programs under
+separate licences.
+
+THE OFFER
+---------
+
+For a period of THREE (3) YEARS from the date you received this copy of the
+software, the distributor named below will give any third party, on request, the
+complete corresponding machine-readable source code for the version of QEMU
+distributed with this application, on a medium customarily used for software
+interchange, for no more than the distributor's cost of physically performing
+the distribution.
+
+    Write to:   [[FILL IN: a contact address that will still reach you three
+                 years after you give this software to anyone]]
+
+The same source is also published at:
+
+    [[FILL IN: the permanent URL of the source archive
+     qemu-source-esp-develop-9.2.2-20260417.tar.gz, published alongside the
+     installer]]
+
+--------------------------------------------------------------------------------
+THE TWO BLANKS ABOVE ARE NOT RHETORICAL. Until they are replaced with a real
+address and a real URL, this offer names no one and this application must not be
+given to anybody. They are deliberately left blank rather than guessed: an offer
+with an invented address is worse than no offer, because it looks discharged and
+is not. `node scripts/verify-install.mjs` prints both, by file and line, every
+time it runs.
+
+Nothing else in this folder needs editing.
+--------------------------------------------------------------------------------
+
+WHY AN OFFER AND NOT ONLY A DOWNLOAD LINK
+-----------------------------------------
+
+Section 3 of GPL-2.0 offers three ways to accompany a binary with its source.
+3(c) — passing along an offer you yourself received — is unavailable here: the
+Espressif release that this binary came from carries no such offer, so there is
+nothing to pass along. That leaves 3(a), shipping the source alongside, and
+3(b), this offer.
+
+Publishing the source archive on the same page as the installer is the closest a
+download-based distribution gets to 3(a), and it is the intended primary
+mechanism. GPL-2.0 was written for physical media, and whether same-page
+availability satisfies "accompany" for a network download is genuinely contested,
+so this offer is the backstop — and it is the only thing that covers a copy
+handed over on a USB stick, or a chat attachment, or any other route that never
+touches the release page.
+
+WHY THE TAG IS THE CORRESPONDENCE
+---------------------------------
+
+This executable was not compiled by Sesame Lab. It is Espressif's own published
+build, downloaded by emulator/qemu/fetch-qemu.mjs and verified byte-for-byte
+against the SHA-256 manifest Espressif publishes with that same release — so
+which release this binary came from is provable rather than asserted. The source
+at tag esp-develop-9.2.2-20260417 is the source Espressif builds it from.
+
+Building QEMU from that tag yourself is the only way to make the correspondence
+exact, because Espressif's MinGW cross-toolchain and build flags are part of its
+own repository rather than part of this application.
+
+For the full analysis, see docs/findings/LICENSE-AUDIT.md section 3 in the
+Sesame Lab repository.

@@ -26,6 +26,7 @@ default:
     @echo "  just run        one origin, no hot reload - closest to production"
     @echo ""
     @echo "  just tauri-dev  the desktop app - real firmware in the bundled QEMU"
+    @echo "  just tauri-build   the installer; just tauri-install   check it on a clean install"
     @echo ""
     @echo "  just doctor     check prerequisites"
     @echo "  just check      build + typecheck + 934 tests + 11 validators"
@@ -143,9 +144,41 @@ capture:
 tauri-dev:
     pnpm exec tauri dev
 
-# Build apps/web/dist, then the Windows installer. Slow on a cold cargo cache.
+# T6 narrowed `bundle.targets` to NSIS alone, so this produces exactly one
+# artefact: `src-tauri/target/release/bundle/nsis/Sesame Lab_0.1.0_x64-setup.exe`,
+# ~21 MiB, which installs PER-USER into %LOCALAPPDATA% and needs no administrator.
+# An MSI is still one flag away — `pnpm exec tauri build --bundles msi` — and is
+# the thing to reach for if this is ever deployed by a school's IT rather than
+# double-clicked by the person using it.
+#
+# A clean clone cannot run this: `tools/` and `emulator/qemu/images/` are
+# gitignored, so fetch them first —
+#     node emulator/qemu/fetch-qemu.mjs
+#     just qemu-image
+#
+# Build apps/web/dist, then the per-user Windows installer (NSIS, ~21 MiB).
 tauri-build:
     pnpm exec tauri build
+
+# T6's acceptance test: install the NSIS installer into a directory that did not
+# exist, with the REPOSITORY STRIPPED FROM PATH and the working directory set to
+# a fresh empty one, then ask the installed copy where its 22 bundled resources
+# are, boot the bundled QEMU out of it, check every licence text a recipient is
+# owed, and uninstall it again — asserting nothing is left behind and no HKCU
+# uninstall key survives.
+#
+# It also prints the placeholders in the GPL source offer that only the person
+# distributing this can fill in. They are deliberate; see licenses/.
+#
+#   just tauri-install                  install, check, uninstall
+#   just tauri-install --keep           leave it installed (for `just tauri-honesty`)
+#   just tauri-install --no-emulator    skip the QEMU boot, ~20 s instead of ~40
+#
+# Exit 0 clean, 1 with problems, 2 when there was no installer to check.
+#
+# Install the built installer somewhere fresh, check it, and uninstall it again.
+tauri-install *args:
+    node scripts/verify-install.mjs {{args}}
 
 # Ask the BUILT exe where its bundled resources are; fail if any is missing or
 # the wrong size. This is T2's acceptance test in the form you can re-run:

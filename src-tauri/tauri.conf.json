@@ -25,12 +25,19 @@
       }
     ],
     "security": {
-      "csp": null
+      "csp": "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self' data:; media-src 'self' blob:; worker-src 'self' blob:; child-src 'self' blob:; connect-src 'self' ipc: http://ipc.localhost data: blob:; object-src 'none'; base-uri 'self'; form-action 'none'; frame-ancestors 'none'"
     }
   },
   "bundle": {
     "active": true,
-    "targets": "all",
+    "targets": ["nsis"],
+    "publisher": "Sesame Lab",
+    "copyright": "Copyright 2026 Eric Zimmerman. Apache-2.0. Bundles QEMU under GPL-2.0 — see licenses/.",
+    "category": "Education",
+    "license": "Apache-2.0",
+    "licenseFile": "../licenses/README.txt",
+    "shortDescription": "The Sesame robot's own firmware, running in an emulator you can watch.",
+    "longDescription": "Sesame Lab boots the real Sesame robot firmware on an emulated ESP32 and shows you what it does: the servo angles it writes, the face it draws on the OLED, and the line of its own source that caused each one. Nothing here is a physical robot and nothing here is a measurement, which the app says on its front panel and never stops saying. Includes the emulator and the firmware image, so it works with no network connection.",
     "resources": {
       "../tools/qemu/qemu/bin/qemu-system-xtensa.exe": "qemu/bin/qemu-system-xtensa.exe",
       "../tools/qemu/qemu/share/qemu/esp32-v3-rom.bin": "qemu/share/qemu/esp32-v3-rom.bin",
@@ -44,7 +51,16 @@
       "../hardware/joint-map.json": "hardware/joint-map.json",
       "../hardware/calibration.json": "hardware/calibration.json",
       "../hardware/assembly-map.json": "hardware/assembly-map.json",
-      "../hardware/assets-inventory.json": "hardware/assets-inventory.json"
+      "../hardware/assets-inventory.json": "hardware/assets-inventory.json",
+      "../licenses/README.txt": "licenses/README.txt",
+      "../LICENSE": "licenses/Sesame-Lab-LICENSE-Apache-2.0.txt",
+      "../NOTICE": "licenses/Sesame-Lab-NOTICE.txt",
+      "../THIRD-PARTY-NOTICES.md": "licenses/THIRD-PARTY-NOTICES.md",
+      "../licenses/QEMU-GPL-2.0.txt": "licenses/QEMU-GPL-2.0.txt",
+      "../licenses/QEMU-LICENSE.txt": "licenses/QEMU-LICENSE.txt",
+      "../licenses/QEMU-SOURCE-OFFER.txt": "licenses/QEMU-SOURCE-OFFER.txt",
+      "../licenses/LGPL-2.1.txt": "licenses/LGPL-2.1.txt",
+      "../licenses/FIRMWARE-LGPL-RELINK.txt": "licenses/FIRMWARE-LGPL-RELINK.txt"
     },
     "icon": [
       "icons/32x32.png",
@@ -52,6 +68,15 @@
       "icons/128x128@2x.png",
       "icons/icon.icns",
       "icons/icon.ico"
-    ]
+    ],
+    "windows": {
+      "nsis": {
+        "installMode": "currentUser",
+        "installerIcon": "icons/icon.ico",
+        "installerHooks": "installer-hooks.nsh",
+        "displayLanguageSelector": false,
+        "languages": ["English"]
+      }
+    }
   }
 }

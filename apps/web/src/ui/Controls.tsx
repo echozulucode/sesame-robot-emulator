@@ -317,16 +317,29 @@ export interface TrustCardProps {
    */
   readonly noLabHost: boolean;
   /**
-   * True when the Tauri desktop shell selected the behavioural simulator
-   * because it has no emulator backend yet — Phase 5 T1.
+   * True when this page is inside the Tauri desktop shell **and** the
+   * behavioural simulator is what is driving — Phase 5 T1, reworded by T6.
    *
-   * The selection itself is defensible: there is no lab host inside a packaged
-   * `.exe` and there never will be one, so {@link noLabHost}'s "start one"
-   * guidance would be advice the reader cannot act on. What is NOT defensible
-   * is making that selection silently, which is the substitution this project
-   * refuses everywhere else. So the desktop app says, on the panel, at every
-   * width, that what is driving the scene is a host model. It disappears on its
-   * own when T4's `TauriSesameRobot` makes the sentence untrue.
+   * There is no lab host inside a packaged `.exe` and there never will be one,
+   * so {@link noLabHost}'s "start one" guidance is advice the reader cannot
+   * act on. This line is what stands in its place: in a window with no address
+   * bar and no terminal, it says on the panel, at every width, that what is
+   * driving the scene is a host model.
+   *
+   * **T6 changed the sentence and the condition, and the two go together.**
+   * T1 wrote *"this desktop build has no emulator yet"*, which stopped being
+   * true the moment T4 shipped one, and T1's condition
+   * (`labProbe?.labHost === 'desktop'`) stopped being *reachable* at the same
+   * moment — `labProbe` is only ever set from `desktopSimulatorProbe()`, and
+   * only when the shell has no emulator backend. So the line described a state
+   * it could no longer be rendered in, and nothing rendered it at all: T5
+   * could assert it absent both ways and could only prove the branch still
+   * existed by searching the JavaScript the executable serves.
+   *
+   * The condition is now simply *desktop shell, simulator driving*, which the
+   * shipped app reaches whenever the reader switches the backend by hand, and
+   * a build with `TAURI_EMULATOR_BACKEND === null` reaches on its first frame.
+   * The sentence says only what is true in both.
    */
   readonly desktopSimulator: boolean;
   readonly onMore: () => void;
@@ -444,17 +457,25 @@ export function TrustCard(props: TrustCardProps): ReactElement {
           /*
             The desktop app's own line. Not a duplicate of the origin badge
             above it — that badge says `host-model` once telemetry arrives, and
-            this says WHY, before anything has arrived, in the one arrangement
+            this says it BEFORE anything has arrived, in the one arrangement
             where the reader has no address bar and no terminal to infer it
-            from. It is the counterweight to selecting the simulator on the
-            reader's behalf.
+            from.
+
+            Every clause has to be true in both states that reach it: a shipped
+            build whose reader chose the simulator, and a build with no emulator
+            backend that opened on it. So it says what is driving and what is
+            not, and offers the backend switch rather than naming which of the
+            two happened.
           */
           <p
             className="warn-inline panel-desktop-simulator"
             data-testid="panel-desktop-simulator"
           >
-            This desktop build has no emulator yet, so the scene is driven by the{' '}
-            <b>behavioural simulator</b> — a host model, not the emulator and not hardware.
+            This desktop window is being driven by the <b>behavioural simulator</b> — a host model,
+            not the emulator and not hardware. No firmware is executing.{' '}
+            <button type="button" className="panel-inline-more" onClick={onMore}>
+              change what drives this
+            </button>
           </p>
         )}
       </div>

@@ -1513,13 +1513,24 @@ export function App(): ReactElement {
             */
             noLabHost={backendId === 'qemu' && labProbe?.labHost === 'absent'}
             /*
-              Phase 5 T1. The desktop shell picked the behavioural simulator
-              because it has no emulator backend yet, and it may not do that
-              quietly — see `backends/default-backend.ts`. Read off the probe
-              rather than off `detectDesktopShell()` so a reader who switches
-              backend by hand stops seeing a line about a choice they replaced.
+              Phase 5 T1, corrected by T6.
+
+              T1 read this off the probe — `labProbe?.labHost === 'desktop'` —
+              so that a reader who switched backend by hand stopped seeing a
+              line about a choice they had replaced. That was right while the
+              desktop shell's only reachable backend WAS the simulator. T4's
+              seam flip inverted it: `labProbe` is set from
+              `desktopSimulatorProbe()` only when `desktop.selectsSimulator`,
+              which is now permanently false, so the condition became
+              unreachable and the desktop app rendered NOTHING when a reader
+              switched it to the simulator — the one state the line exists for.
+
+              `desktop.present && backendId === 'sim'` is the honest condition:
+              this window is a packaged app, and a host model is driving it.
+              `labProbe` is not consulted because inside Tauri there is no
+              origin to probe and it stays null forever.
             */
-            desktopSimulator={backendId === 'sim' && labProbe?.labHost === 'desktop'}
+            desktopSimulator={desktop.present && backendId === 'sim'}
             onMore={() => setPopover('trust')}
           />
         }
