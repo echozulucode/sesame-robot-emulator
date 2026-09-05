@@ -48,3 +48,25 @@ tauri = { version = "2.11.3", features = [] }
 dunce = "1.0"
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
+
+# T3: the ONLY new dependency, and only on Windows.
+#
+# `JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE` is the difference between "no orphaned
+# qemu-system-xtensa.exe" as a code path and as a property the kernel enforces.
+# A `kill()` — in any form, including `taskkill /T`, which `scripts/dev-lab.mjs`
+# uses — only runs if this process is still alive to run it, and the failure
+# that matters is the one where it is not. See `src/qemu/job.rs`.
+#
+# windows-sys is already in Cargo.lock three times over as a transitive
+# dependency of tauri, wry and tokio, so this adds a feature set rather than a
+# crate. Four features, all of them needed by CreateJobObjectW's own signature.
+# No other Rust crate was added by T3: the panic patterns are matched by hand
+# rather than by pulling in `regex`, and the blocking work runs on tauri's own
+# tokio via `async_runtime::spawn_blocking` rather than on a second runtime.
+[target.'cfg(windows)'.dependencies]
+windows-sys = { version = "0.61", features = [
+    "Win32_Foundation",
+    "Win32_Security",
+    "Win32_System_JobObjects",
+    "Win32_System_Threading",
+] }

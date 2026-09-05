@@ -156,6 +156,22 @@ tauri-build:
 tauri-resources profile='release':
     & {$o="src-tauri/target/{{profile}}/resource-report.json"; & "src-tauri/target/{{profile}}/sesame-lab-desktop.exe" --resource-report $o; $rc=$LASTEXITCODE; Get-Content $o; exit $rc}
 
+# T3's acceptance test, in the form you can re-run. Boots the BUNDLED QEMU from
+# the built exe with no window, streams UART0, stops, and then asks `tasklist` —
+# not its own bookkeeping — whether anything survived. Exits non-zero if a boot
+# failed, if the byte stream is missing the banner or the telemetry that
+# precedes it, or if a single qemu-system-xtensa.exe is left behind.
+#
+# Each cycle is a fresh process, so `--cycles 10` is the repeated start/stop
+# case. Expect ~2 s per boot plus ~2 s per ISSUE-20260823-022 retry (~28% of
+# boots); the raw stream of each cycle is written beside the report as
+# `.cycleN.uart.bin`, unaltered, so the summary can be checked rather than
+# believed.
+#   just tauri-emulator                # release, 1 cycle
+#   just tauri-emulator debug 10       # after a plain `cargo build`, 10 cycles
+tauri-emulator profile='release' cycles='1':
+    & {$o="src-tauri/target/{{profile}}/emulator-selftest.json"; & "src-tauri/target/{{profile}}/sesame-lab-desktop.exe" --emulator-selftest $o --cycles {{cycles}}; $rc=$LASTEXITCODE; Get-Content $o; exit $rc}
+
 # ────────────────────────────────────────────────────── firmware and assets
 
 # The source explorer refuses to render without it.

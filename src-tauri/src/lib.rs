@@ -7,21 +7,34 @@
 //! today and is the difference between "mobile was never wanted" and "mobile is
 //! a rewrite".
 //!
-//! ## What is deliberately NOT here
+//! ## What is here, and what is deliberately not
 //!
-//! No emulator. T1 proved the existing web app renders in a WebView2 window
-//! with its honesty surfaces intact; T2 makes the files that emulator will need
-//! locatable from a packaged executable, and proves it. Neither spawns a
-//! process or opens a socket.
+//! T1 proved the existing web app renders in a WebView2 window with its honesty
+//! surfaces intact. T2 made the files locatable from a packaged executable and
+//! proved it. **T3 adds the supervisor**: [`qemu`] spawns
+//! `qemu-system-xtensa.exe`, holds the UART0 socket and owns the boot-retry
+//! loop; [`supervisor`] exposes that as `spawn_emulator` / `stop_emulator` /
+//! `send_command` / `emulator_status` over two IPC channels.
 //!
-//! T3 adds `spawn_emulator` / `stop_emulator` / `send_command` and a
-//! `Channel<Vec<u8>>` carrying UART0 bytes — resolving its two paths through
-//! [`resources::QEMU_EXE`] and [`resources::FLASH_IMAGE`]; T4 adds the
-//! `TauriSesameRobot` that consumes them. Until then the frontend selects the
-//! **behavioural simulator** and says so — see
-//! `apps/web/src/backends/default-backend.ts`.
+//! What is still **not** here, on purpose: the `@SESAME` parser, the serial-CLI
+//! encoder, the capability record and the behaviour model. Those are the most
+//! carefully verified modules in the project — 255 tests, an invariant proven
+//! across ~1,500 chunk splits — and option C
+//! (`docs/plans/phase-5-tauri-desktop-app.md` §4) exists precisely so they are
+//! reused byte for byte rather than reimplemented. Rust ships raw bytes.
+//!
+//! T4 adds the `TauriSesameRobot` that consumes these commands. Until it lands,
+//! the frontend still selects the **behavioural simulator** and says so — see
+//! `apps/web/src/backends/default-backend.ts`, which T3 does not touch.
 
+pub mod qemu;
 pub mod resources;
+pub mod selftest;
+pub mod supervisor;
+
+use std::sync::Arc;
+
+use tauri::Manager;
 
 /// The flag that turns this GUI app into a one-shot resource check.
 ///
@@ -52,27 +65,62 @@ const REPORT_FLAG: &str = "--resource-report";
 /// and by definition the thing being tested in an install.
 const REPORT_DEFAULT: &str = "resource-report.json";
 
+/// The same idea for T3: boot the **bundled** QEMU from a packaged executable,
+/// receive bytes, stop, and count survivors — with no window and no webview.
+/// See [`selftest`].
+const SELFTEST_FLAG: &str = "--emulator-selftest";
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     let report_to = report_destination(std::env::args().skip(1));
+    let selftest = selftest::parse_args(std::env::args().skip(1), SELFTEST_FLAG);
+    let headless = report_to.is_some() || selftest.is_some();
 
     let mut context = tauri::generate_context!();
-    if report_to.is_some() {
+    if headless {
         for window in context.config_mut().app.windows.iter_mut() {
             window.create = false;
         }
     }
 
     let app = tauri::Builder::default()
-        .invoke_handler(tauri::generate_handler![resources::resource_report])
+        .manage(Arc::new(supervisor::Supervisor::default()))
+        .invoke_handler(tauri::generate_handler![
+            resources::resource_report,
+            supervisor::spawn_emulator,
+            supervisor::stop_emulator,
+            supervisor::send_command,
+            supervisor::emulator_status,
+        ])
         .build(context)
         .expect("error while building tauri application");
 
     if let Some(destination) = report_to {
         std::process::exit(write_resource_report(&app, &destination));
     }
+    if let Some(args) = selftest {
+        std::process::exit(selftest::run(&app, &args));
+    }
 
-    app.run(|_, _| {});
+    // The deliberate teardown path. The *guarantee* is the job object in
+    // `qemu::job` — it is what covers a hard kill, where no callback runs at
+    // all — but a normal window close should stop QEMU promptly and visibly
+    // rather than leave it to a handle closing during process teardown.
+    //
+    // `ExitRequested` fires when the last window closes and before the event
+    // loop ends; `Exit` fires on the way out, including `AppHandle::exit()`.
+    // Both are handled because a user closing the window and an app asking to
+    // quit are different paths to the same requirement.
+    app.run(|handle, event| {
+        if matches!(
+            event,
+            tauri::RunEvent::ExitRequested { .. } | tauri::RunEvent::Exit
+        ) {
+            if let Some(state) = handle.try_state::<Arc<supervisor::Supervisor>>() {
+                state.clear();
+            }
+        }
+    });
 }
 
 /// `Some(path)` when `--resource-report` was passed, with its optional argument.
