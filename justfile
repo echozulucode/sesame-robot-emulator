@@ -181,6 +181,25 @@ tauri-emulator profile='release' cycles='1':
 tauri-contract:
     pnpm --filter @sesame-lab/web exec vitest run src/__tests__/tauri-contract.test.ts
 
+# T5's acceptance test: every honesty surface, asserted against the PACKAGED
+# window rather than against `tauri dev` or Vite. Launches the built exe with
+# WebView2 remote debugging, checks the CDP target really says tauri.localhost
+# (a plain `cargo build --release` serves devUrl and would have this grading a
+# dev server), drives a real wave through the bundled QEMU, and breaks seven
+# things in the window first to prove each check can fail. ~90 s.
+#
+# This is the last phase of `just capture`; the recipe exists because it is the
+# only one that needs a build artefact instead of a browser, and because during
+# desktop work it is the one you re-run.
+#
+#   just tauri-honesty                                   # target/release
+#   just tauri-honesty "C:/Program Files/Sesame Lab/Sesame Lab.exe"   # installed
+#
+# Exit 0 clean, 1 with problems, 2 when there was no artefact to check — three
+# codes, because "nothing was verified" must not read as "everything passed".
+tauri-honesty exe='':
+    & {if ('{{exe}}' -eq '') { node scripts/verify-packaged-honesty.mjs } else { node scripts/verify-packaged-honesty.mjs --packaged-exe '{{exe}}' }}
+
 # ────────────────────────────────────────────────────── firmware and assets
 
 # The source explorer refuses to render without it.
