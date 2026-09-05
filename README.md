@@ -46,27 +46,40 @@ Windows x86-64 build, and the firmware/asset scripts are PowerShell-first. The b
 simulator path is plain Node and has no such constraint.
 
 ```
-pnpm install
-just build
-just             # the menu of common recipes
+just setup --sim # dependencies, the upstream tree and the builds - ~2 minutes
 just dev-sim     # the behavioural simulator + the web UI, boots in milliseconds
+
+just setup       # the above PLUS QEMU, the toolchain and the flash image
+just dev         # real firmware in QEMU + the web UI, hot reload
+just             # the menu of common recipes
 ```
 
-`just dev-sim` is the fastest way to see the whole application. To run **real Sesame firmware under
-Espressif's QEMU** instead, two large things have to be fetched or built first, because neither is
-committed to this repository:
+Almost everything a clone needs is **gitignored, and therefore invisible**: `node_modules/`,
+every `dist/`, `tools/`, `firmware/upstream/` and `emulator/qemu/images/`. `just setup` fetches or
+builds all of it — dependencies, the workspace build, Espressif's QEMU fork (checked against their
+own published SHA-256), the pinned upstream Sesame tree that the source explorer refuses to render
+without, the portable Arduino/ESP32 toolchain, and the flash image `just dev` boots. Measured on a
+real cold clone: **about 37 minutes and 15 GB** — of which the Arduino/ESP32 toolchain is 31
+minutes and **14 GB**, all of it there to compile one 4 MB flash image. Warm it takes a couple of
+seconds, because every step is detected before it runs and detected again afterwards and reports
+which of the two happened. `just setup --dry-run` prints the plan and the cost without running
+anything, and the plan says the 14 GB out loud before it starts.
 
-```
-node emulator/qemu/fetch-qemu.mjs   # Espressif's QEMU fork, verified against their own checksum
-just upstream                       # the pinned upstream Sesame tree, into firmware/upstream/
-just qemu-image                     # assemble the QEMU-bootable flash image
-just dev                            # real firmware in QEMU + the web UI, hot reload
-```
+**`just dev-sim` needs none of the emulator half**, which is what `just setup --sim` is for: it
+stops before QEMU, the toolchain and the flash image, takes about two minutes, and then names the
+blocking rows it deliberately left out rather than pretending the clone is complete.
 
-**`just doctor` is the thing to run when something is wrong.** It checks every prerequisite —
-toolchain, workspace build, QEMU binary, flash image, upstream checkout, and the ports `just dev`
-needs — and prints the exact command that fixes each failing row. A fresh clone is *expected* to
-fail several of them; the point is that it names which.
+There are **three** flash images with three different consumers, and only the first is built by
+default: `distro-v1-esp32-cli` is what `just dev` boots, `distro-v1-esp32-nowifi` is what the
+capture harness's bridge phase boots, and `distro-v1-esp32-cli-oled` is the one `just tauri-build`
+bundles into the desktop app. `just setup --all-images` builds all three (about eleven minutes
+more, once the toolchain is in place).
+
+**`just doctor` is the thing to run when something is wrong.** It reads the same list `just setup`
+acts on, so the two cannot disagree about what is missing: toolchain, workspace build, QEMU binary,
+the three flash images, upstream checkout, Arduino toolchain, and the ports `just dev` needs. It
+prints the exact command that fixes each failing row, and names which of them `just setup` would
+have handled. A fresh clone is *expected* to fail several of them; the point is that it names which.
 
 Other useful recipes (all in the `justfile`):
 
@@ -76,11 +89,23 @@ just run             # one origin, no hot reload, closest to production
 just qemu            # one-shot: boot real firmware, send `wave`, print the servo events
 just api             # the Sesame-compatible HTTP API on 127.0.0.1:8080
 just tauri-dev       # the desktop app, driving real firmware in the bundled QEMU
+just verify-all      # the web target AND the packaged target, one verdict
 ```
 
-Building the firmware yourself (`just firmware`) additionally needs the portable Arduino toolchain
-from `scripts/setup-firmware-toolchain.ps1`, and regenerating the 3D assets (`just assets`) needs
-the Python environment from `scripts/setup-asset-env.ps1`. Neither is required to run the app.
+`just verify-all` exists because the browser build and the packaged desktop app are two targets,
+and two targets that are never verified together drift. It runs the 41-capture browser harness, the
+packaged app's own resource and emulator self-tests plus the packaged-honesty phase, and the
+installer check, then says **which targets actually ran**. About thirteen minutes, of which the
+browser harness is twelve; `just verify-all --only packaged,installer` is the whole desktop half in
+under a minute. It exits 0 only when every target ran and passed, **3 when what ran passed and
+something did not run** — the usual outcome on a tree with no `just tauri-build` artefact, and
+non-zero deliberately, because a green half is not a green tree.
+
+Building the firmware yourself (`just firmware`) needs the portable Arduino toolchain from
+`scripts/setup-firmware-toolchain.ps1` — `just setup` already installs it, because assembling a
+flash image is a firmware compile and cannot happen without it. Regenerating the 3D assets
+(`just assets`) needs the Python environment from `scripts/setup-asset-env.ps1`, which `just setup`
+does **not** install; nothing required to run the app depends on it.
 
 ## Architecture
 

@@ -9,7 +9,8 @@
 # Every recipe is one command, so no shell-specific syntax is involved.
 #
 #   just            show this
-#   just dev        the emulator and the web UI, together   <- start here
+#   just setup      take a fresh clone to `just dev`        <- start here
+#   just dev        the emulator and the web UI, together
 #   just doctor     check that everything this needs exists
 
 set windows-shell := ["powershell.exe", "-NoLogo", "-NoProfile", "-Command"]
@@ -21,6 +22,8 @@ default:
     @echo ""
     @echo "  Sesame Lab"
     @echo ""
+    @echo "  just setup      fetch and build everything a fresh clone is missing"
+    @echo ""
     @echo "  just dev        real firmware in QEMU + the web UI, hot reload"
     @echo "  just dev-sim    the behavioural simulator + the web UI (boots in ms)"
     @echo "  just run        one origin, no hot reload - closest to production"
@@ -30,6 +33,7 @@ default:
     @echo ""
     @echo "  just doctor     check prerequisites"
     @echo "  just check      build + typecheck + 934 tests + 11 validators"
+    @echo "  just verify-all the web target AND the packaged target, one verdict"
     @echo ""
     @just --list --unsorted
 
@@ -130,6 +134,35 @@ validate:
 capture:
     pnpm capture:web
 
+# T7. The web build and the packaged build are two targets, and two targets that
+# are never verified together drift. This runs both, sequentially — the harness
+# with `--skip-packaged` so T5's phase 14 runs exactly once, in the packaged
+# target, because two WebView2 windows cannot be driven at the same time — and
+# prints one verdict naming which targets actually ran.
+#
+#   just verify-all                            all three targets, ~13 min
+#   just verify-all --only packaged,installer  the desktop half, ~37 s
+#   just verify-all --list                     the plan and what it costs
+#
+# Measured on this machine: web 733 s, packaged 29 s, installer 8 s. There is
+# no `--fast`: one was written and measured at 12m 13s against the full run's
+# 12m 50s — a 5% saving — and deleted, because a flag that saves thirty-seven
+# seconds gets used in place of the real thing for no benefit. The subset worth
+# having is `--only`, which always exits 3.
+#
+# Exit 0 only when every requested target RAN AND PASSED. 1 when one failed.
+# 2 when nothing ran at all. **3 when what ran passed and something did not
+# run** — the usual outcome on a tree with no `just tauri-build` artefact, and
+# non-zero on purpose: a green web harness beside an unverified package is not
+# a verified tree.
+#
+# It never writes into docs/findings/assets: `just capture` owns the committed
+# 44-capture evidence, and this writes its 41-capture run to gitignored scratch.
+#
+# Verify the web target and the packaged target together, and say which ran.
+verify-all *args:
+    node scripts/verify-all.mjs {{args}}
+
 # ──────────────────────────────────────────────────────────── desktop app
 #
 # Phase 5. The desktop shell is `src-tauri/` at the repo root; `just dev` and
@@ -153,8 +186,14 @@ tauri-dev:
 #
 # A clean clone cannot run this: `tools/` and `emulator/qemu/images/` are
 # gitignored, so fetch them first —
-#     node emulator/qemu/fetch-qemu.mjs
-#     just qemu-image
+#     just setup --all-images
+#
+# T7 corrected what used to be written here. It said `just qemu-image`, which
+# builds `distro-v1-esp32-cli` — the image `just dev` boots. `tauri.conf.json`
+# bundles `distro-v1-esp32-cli-oled`, a different file, and a clone that
+# followed the old two lines got a `tauri build` that failed on a missing
+# resource with nothing anywhere saying why. `--all-images` builds both, plus
+# the `nowifi` image `just capture` phase 5 needs.
 #
 # Build apps/web/dist, then the per-user Windows installer (NSIS, ~21 MiB).
 tauri-build:
@@ -264,6 +303,35 @@ regen: && validate
 
 # ───────────────────────────────────────────────────────────────── prereqs
 
+# T7. Everything a clone needs that git does not carry — dependencies, the
+# workspace build, Espressif's QEMU, the pinned upstream tree, the Arduino
+# toolchain and the flash image `just dev` boots. Four of those were README
+# prose and a fifth was named nowhere; this is the command.
+#
+# Idempotent: each step is detected before it runs and detected AGAIN
+# afterwards, so a fetcher that exits 0 without producing anything is reported
+# as a failure rather than as a step that ran. Re-running it on a warm clone
+# takes a couple of seconds and says "already present" for every row.
+#
+#   just setup                 the `just dev` path — measured at ~37 min and
+#                              ~15 GB on a real cold clone, of which the
+#                              Arduino/ESP32 toolchain is 31 min and 14 GB
+#   just setup --sim           the `just dev-sim` path — ~2 min, no QEMU and no
+#                              14 GB toolchain
+#   just setup --all-images    also the two flash images the VERIFICATION
+#                              targets need: distro-v1-esp32-nowifi for
+#                              `just capture` phase 5, distro-v1-esp32-cli-oled
+#                              for `just tauri-build`
+#   just setup --dry-run       the plan and what it costs, changes nothing
+#
+# Take a fresh clone to `just dev`. Safe to re-run; skips what is already there.
+setup *args:
+    node scripts/setup.mjs {{args}}
+
+# Reads the same list `just setup` acts on (scripts/lib/prereqs.mjs), so the
+# two cannot disagree about what a clone is missing, and it closes by naming
+# which of its failing rows `just setup` would have handled.
+#
 # Check that everything the recipes need is actually present.
 doctor:
     node scripts/doctor.mjs

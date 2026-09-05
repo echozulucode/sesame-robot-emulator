@@ -11,10 +11,13 @@
  */
 
 import { execFileSync } from 'node:child_process';
-import fs from 'node:fs';
 import net from 'node:net';
-import path from 'node:path';
 import process from 'node:process';
+
+import { PREREQS, inspect } from './lib/prereqs.mjs';
+
+/** The row names `just setup` can actually do something about. */
+const FETCHABLE = new Set(PREREQS.filter((p) => p.setup !== null).map((p) => p.name));
 
 const REPO = process.cwd();
 const rows = [];
@@ -56,56 +59,16 @@ add(pnpm ? 'OK' : 'FAIL', 'pnpm', pnpm ?? 'not found', pnpm ? '' : 'npm i -g pnp
 const py = version('python', ['--version']);
 add(py ? 'OK' : 'WARN', 'python', py ?? 'not found', py ? '' : 'only needed for asset regeneration');
 
-// ── workspace ────────────────────────────────────────────────────────────
-const hasModules = fs.existsSync(path.join(REPO, 'node_modules'));
-add(hasModules ? 'OK' : 'FAIL', 'node_modules', hasModules ? 'installed' : 'missing', hasModules ? '' : 'pnpm install');
-
-const built = ['packages/sesame-qemu/dist/cli.js', 'packages/sesame-api/dist/cli.js', 'emulator/bridge/dist/cli.js'];
-const missingBuilt = built.filter((p) => !fs.existsSync(path.join(REPO, p)));
-add(
-  missingBuilt.length === 0 ? 'OK' : 'FAIL',
-  'workspace build',
-  missingBuilt.length === 0 ? 'dist/ present' : `missing ${String(missingBuilt.length)}: ${missingBuilt[0]}`,
-  missingBuilt.length === 0 ? '' : 'just build',
-);
-
-const webDist = fs.existsSync(path.join(REPO, 'apps/web/dist/index.html'));
-add(
-  webDist ? 'OK' : 'WARN',
-  'apps/web/dist',
-  webDist ? 'built' : 'not built',
-  webDist ? '' : 'just build-web  (only `just run` needs it; `just dev` does not)',
-);
-
-// ── emulator ─────────────────────────────────────────────────────────────
-const qemuBin = path.join(REPO, 'tools/qemu/qemu/bin/qemu-system-xtensa.exe');
-const hasQemu = fs.existsSync(qemuBin);
-add(
-  hasQemu ? 'OK' : 'FAIL',
-  'qemu binary',
-  hasQemu ? 'tools/qemu/' : 'not fetched',
-  hasQemu ? '' : 'node emulator/qemu/fetch-qemu.mjs',
-);
-
-const imageDir = path.join(REPO, 'emulator/qemu/images');
-const images = fs.existsSync(imageDir) ? fs.readdirSync(imageDir).filter((f) => f.endsWith('.flash.bin')) : [];
-const cliImage = images.includes('distro-v1-esp32-cli.flash.bin');
-add(
-  cliImage ? 'OK' : 'FAIL',
-  'qemu flash image',
-  images.length ? `${String(images.length)} image(s)` : 'none',
-  cliImage ? '' : 'just qemu-image',
-);
-
-// ── firmware source (gitignored; only the source explorer needs it) ──────
-const upstream = path.join(REPO, 'firmware/upstream/firmware/sesame-firmware-main.ino');
-const hasUpstream = fs.existsSync(upstream);
-add(
-  hasUpstream ? 'OK' : 'WARN',
-  'firmware/upstream',
-  hasUpstream ? 'present (pinned)' : 'not fetched',
-  hasUpstream ? '' : 'bash scripts/fetch-upstream.sh - the source explorer refuses to render without it',
-);
+// ── the fetched-and-built prerequisites ──────────────────────────────────
+//
+// One list, shared with `just setup` — scripts/lib/prereqs.mjs. Before T7
+// these rows were written out here and the four fetch commands were written out
+// in the README, and nothing made the two agree; `just setup` now runs the same
+// array this prints, so a prerequisite cannot be visible to one and invisible
+// to the other.
+for (const p of inspect(REPO)) {
+  add(p.present ? 'OK' : p.level, p.name, p.detail, p.present ? '' : p.fix);
+}
 
 // ── ports ────────────────────────────────────────────────────────────────
 const portFree = (port) =>
@@ -145,6 +108,18 @@ for (const r of rows) {
   );
 }
 process.stdout.write('\n');
+
+// Every gitignored row above is something `just setup` fetches or builds. It is
+// named here rather than only in the README because this is the screen a person
+// is looking at when they need it, and because a reader who fixes the rows by
+// hand, one command at a time, is doing exactly what T7 exists to remove.
+const fetchable = rows.filter((r) => r.level !== 'OK' && FETCHABLE.has(r.name));
+if (fetchable.length > 0) {
+  process.stdout.write(
+    `  ${String(fetchable.length)} of the rows above (${fetchable.map((r) => r.name).join(', ')}) ` +
+      'are fetched or built by `just setup`, which is safe to re-run.\n\n',
+  );
+}
 
 if (failures > 0) {
   process.stdout.write(`  ${String(failures)} blocking problem(s). Fix the FAIL rows above, then re-run.\n\n`);
