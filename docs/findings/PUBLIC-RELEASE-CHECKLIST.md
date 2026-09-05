@@ -191,3 +191,43 @@ screenshots are headless-browser viewport captures with no browser chrome, no OS
 chrome, no local paths and no username. `reference/`, `firmware/upstream/`,
 `firmware/artifacts/` and `tools/` are gitignored with zero tracked files — no
 upstream source, no CAD, no compiled firmware, no QEMU, no Renode is in git.
+
+---
+
+## History rewrite — decided 2026-09-02, run AFTER T7
+
+The user chose option **B**: one targeted `git filter-repo` pass, then publish.
+**Keep the current screenshots; drop the 494 historical revisions.**
+
+### Remove from all commits
+| Path | Why |
+|---|---|
+| `Projectssesame-robot-emulatortoolsarduino-datadata/` | arduino-cli `installation.secret`; the directory name is a local path with its separators eaten by an early script bug |
+| home-directory paths + session UUID in `emulator/renode/tests/logs/r4-*.log` | Renode echoes the full path of every script it includes |
+| `docs/findings/assets/**` | 494 blob revisions; the harness rewrites 20–49 PNGs per run and every run was committed |
+
+### Keep
+Every commit, message, author and date. The narrative is the point — six hollow
+assertions found, four wrong numbers corrected, decisions reversed with the
+arithmetic that reversed them.
+
+### The screenshots specifically
+`docs/findings/assets/` is stripped from **history**, then the **current** files
+are re-added as a fresh commit. They are ~11 MB and several are the evidence
+behind claims in the findings, so the files stay while the churn does not.
+
+### Order of operations
+1. Finish T5–T7. **Do not rewrite under a running agent.**
+2. `pip install git-filter-repo` (pin the version; record it).
+3. Back up: `git bundle create ../sesame-pre-rewrite.bundle --all`.
+4. `git filter-repo --invert-paths` for the three path sets above.
+5. Re-add the current `docs/findings/assets/` as one commit.
+6. Apply the `docs/findings` tracking decision in the same pass — the rule at
+   `.gitignore:11` currently matches nothing that is already tracked.
+7. Fix any findings that reference an asset path the rewrite moved.
+8. Verify: no tracked file contains the username or the secret; measure `.git`
+   before and after; confirm the working tree still builds and tests green.
+9. Force-push to `echozulucode/sesame-robot-emulator`.
+
+**Expected:** ~110 MB → ~15–20 MB. Every SHA changes; safe because this is the
+only clone.
