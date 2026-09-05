@@ -1,7 +1,7 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://sesame-lab.local/schemas/source-annotations.schema.json",
-  "title": "Sesame Lab source annotations",
+  "title": "Sesame Robot Emulator source annotations",
   "description": "Annotation metadata for the Phase 2 source explorer, extracted from the pinned upstream firmware tree. Every symbol, concept anchor and teaching-note citation resolves to a file:line inside firmware/upstream/ at meta.upstreamCommit and carries the exact source text of that line so it can be re-read and compared. additionalProperties is false throughout: a typo'd key is a hard failure, not a silently ignored field.",
   "type": "object",
   "required": ["meta", "coverage", "concepts", "symbols", "teachingNotes", "curriculum"],

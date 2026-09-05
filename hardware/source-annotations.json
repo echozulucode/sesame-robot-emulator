@@ -5887,7 +5887,7 @@
       ],
       "grounding": "conceptual",
       "groundingNote": null,
-      "conceptualReason": "The firmware contains no frame editor and no movement data format — movements are hand-written C++ functions, which is precisely why they cannot be edited at runtime. Sesame Studio is a separate upstream tool under firmware/upstream/software/sesame-studio/ and is not covered by this annotation set. The lesson may show runWalkPose as the thing being replaced, but the editor itself is a Sesame Lab construct."
+      "conceptualReason": "The firmware contains no frame editor and no movement data format — movements are hand-written C++ functions, which is precisely why they cannot be edited at runtime. Sesame Studio is a separate upstream tool under firmware/upstream/software/sesame-studio/ and is not covered by this annotation set. The lesson may show runWalkPose as the thing being replaced, but the editor itself belongs to this app."
     },
     {
       "id": "sesames-face",
@@ -6120,7 +6120,7 @@
         "TN-016"
       ],
       "grounding": "factual",
-      "groundingNote": "Each failure mode this module teaches has a real source location — subtrim saturation, the display-init hard stop, 400/404/405 responses, and the empty-face fallback. The injection mechanism that triggers them on demand is a Sesame Lab feature and is not in firmware.",
+      "groundingNote": "Each failure mode this module teaches has a real source location — subtrim saturation, the display-init hard stop, 400/404/405 responses, and the empty-face fallback. The injection mechanism that triggers them on demand is a feature of this app and is not in firmware.",
       "conceptualReason": null
     },
     {
@@ -6136,7 +6136,7 @@
       "teachingNotes": [],
       "grounding": "conceptual",
       "groundingNote": null,
-      "conceptualReason": "The SesameRobot contract is Sesame Lab’s own abstraction; no symbol in the pinned firmware corresponds to it. Additionally, per docs/plan.md \"Standing constraint — no physical hardware, ever\", \"real\" in this module can only ever mean \"real firmware executing under QEMU\", never a physical robot — Phase 3 and RealSesameRobot are permanently out of scope, and the module copy must say so."
+      "conceptualReason": "The SesameRobot contract is this app’s own abstraction; no symbol in the pinned firmware corresponds to it. Additionally, per docs/plan.md \"Standing constraint — no physical hardware, ever\", \"real\" in this module can only ever mean \"real firmware executing under QEMU\", never a physical robot — Phase 3 and RealSesameRobot are permanently out of scope, and the module copy must say so."
     },
     {
       "id": "what-an-emulator-is",

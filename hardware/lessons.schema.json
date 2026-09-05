@@ -1,7 +1,7 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://sesame-lab.local/schemas/lessons.schema.json",
-  "title": "Sesame Lab lesson content (L5)",
+  "title": "Sesame Robot Emulator lesson content (L5)",
   "description": "Lesson content as data. Consumed by the Phase 2 lesson runner, the source explorer, the architecture graph and Lab mode. Gate F lives on step.claim: a factual claim about firmware requires a symbol citation that resolves in hardware/source-annotations.json, and a lesson's grounding is copied from that file rather than decided here. Semantic rules the schema cannot express (reference resolution, per-check required parameters, the anti-pattern screens) are enforced by scripts/validate-lessons.mjs.",
   "type": "object",
   "additionalProperties": false,

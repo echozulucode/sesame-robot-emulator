@@ -296,7 +296,7 @@ const CLAIM_DOMAINS = [
   { id: 'firmware', description: 'A fact about pinned Sesame firmware. Requires at least one resolving symbol citation. This is Gate F.' },
   { id: 'library', description: 'A fact about a pinned third-party library the firmware calls, not about Sesame source. Requires a library citation and a boundaryNote.' },
   { id: 'emulator', description: 'A fact about QEMU or the behavioural simulator. Requires a document citation, a boundaryNote and an observability value.' },
-  { id: 'lab', description: 'A fact about Sesame Lab itself (an editor, an injector, an adapter). Requires a document or hardware-map citation and a boundaryNote.' },
+  { id: 'lab', description: 'A fact about Sesame Robot Emulator itself (an editor, an injector, an adapter). Requires a document or hardware-map citation and a boundaryNote.' },
   { id: 'none', description: 'Only for conceptual claims, which assert nothing about how Sesame works.' },
 ];
 
@@ -372,13 +372,13 @@ const CHECK_TYPE = new Map(CHECK_TYPES.map((c) => [c.id, c]));
 
 /**
  * Faults the debugging lessons may inject. Every one is a real firmware behaviour
- * with a citation; the INJECTOR is a Sesame Lab feature and says so.
+ * with a citation; the INJECTOR is a feature of this app and says so.
  */
 const FAULTS = [
   { id: 'blank-face-stand', title: 'The stand face renders nothing', causeSymbol: 'face-weak-decls', teachingNote: 'TN-001', injectorIsLabFeature: false, note: 'Not injected. This is the shipped behaviour of the pinned firmware.' },
   { id: 'subtrim-saturation', title: 'Large subtrim eats the top of the range', causeSymbol: 'setServoAngle', teachingNote: 'TN-003', injectorIsLabFeature: true, note: 'The firmware behaviour is real; setting the offset from the lab UI is not - firmware only exposes it over serial.' },
-  { id: 'oled-init-fail', title: 'The display never initialises and boot stops', causeSymbol: 'setup', teachingNote: 'TN-014', injectorIsLabFeature: true, note: 'The while(1) is real firmware. Making display.begin() fail on demand is a Sesame Lab injection.' },
-  { id: 'oled-wrong-address', title: 'The display is addressed at 0x3D instead of 0x3C', causeSymbol: 'display-config-defines', teachingNote: 'TN-014', injectorIsLabFeature: true, note: 'The address constant is real firmware. Changing it at runtime is a Sesame Lab injection; in firmware it is a compile-time define.' },
+  { id: 'oled-init-fail', title: 'The display never initialises and boot stops', causeSymbol: 'setup', teachingNote: 'TN-014', injectorIsLabFeature: true, note: 'The while(1) is real firmware. Making display.begin() fail on demand is a fault this app injects.' },
+  { id: 'oled-wrong-address', title: 'The display is addressed at 0x3D instead of 0x3C', causeSymbol: 'display-config-defines', teachingNote: 'TN-014', injectorIsLabFeature: true, note: 'The address constant is real firmware. Changing it at runtime is a fault this app injects; in firmware it is a compile-time define.' },
   { id: 'unknown-command-sticks', title: 'An unrecognised command word is never cleared', causeSymbol: 'command-dispatch', teachingNote: 'TN-010', injectorIsLabFeature: false, note: 'Not injected. Send an unknown word and the shipped dispatcher does this by itself.' },
   { id: 'walk-cancelled-into-idle', title: 'Cancelling a walk runs a whole stand pose and enters idle', causeSymbol: 'pressingCheck', teachingNote: 'TN-011', injectorIsLabFeature: false, note: 'Not injected. Change the command mid-walk and the shipped cancel path does this.' },
   { id: 'status-json-unescaped', title: 'A quote in a command word breaks /api/status', causeSymbol: 'handleGetStatus', teachingNote: 'TN-008', injectorIsLabFeature: false, note: 'Not injected. The route interpolates without calling the escaper that sits 100 lines above it.' },
@@ -1185,7 +1185,7 @@ L({
       prog: 'Author it in the Lab sequence editor. The editor checks each commanded angle against the same constrain() the firmware applies.',
       arch: 'Composing in the same shape the firmware uses. What you author here is a list, because that is what a Sesame movement is.',
       claim: LABF(
-        'The sequence editor is a Sesame Lab tool. This firmware has no movement data format and no way to receive a sequence at runtime - movements are C++ functions compiled into the image, which is exactly why Sesame Studio exists as a separate upstream tool.',
+        'The sequence editor is a Lab tool. This firmware has no movement data format and no way to receive a sequence at runtime - movements are C++ functions compiled into the image, which is exactly why Sesame Studio exists as a separate upstream tool.',
         [hw('movements[function=runDancePose]'), doc('docs/findings/L3-source-annotations.md', 'Section 5')],
         'What you author is a Lab artifact. It is shaped like a Sesame movement and it is validated against the same limits, but nothing here can send it to the firmware.',
       ),
@@ -1207,7 +1207,7 @@ L({
       title: 'Where a solver would go - and why there is not one',
       b12: 'You could imagine telling Sesame "put this foot here" and letting it work out the angles. That is called inverse kinematics. Sesame does not do it, and to even ask the question you would need to know which joint is which leg - which nobody here does.',
       prog: 'A solver needs link lengths and a joint tree. The firmware has eight indices, eight names and eight pin numbers. It has no notion of a hip, a leg, or a left and right pairing.',
-      arch: 'The step from scripted sequences to kinematics is a step from an ordered list to a model. Sesame Lab has the list; it does not have a verifiable model.',
+      arch: 'The step from scripted sequences to kinematics is a step from an ordered list to a model. Sesame Robot Emulator has the list; it does not have a verifiable model.',
       claim: C(
         'Sesame runs no kinematics of any kind. Describing a pose in terms of legs and hips is a reading laid on top of the firmware, not something the firmware says.',
         MODULE.get('build-a-leg-pose').conceptualReason,
@@ -1399,7 +1399,7 @@ L({
       prog: 'The firmware ships bitmaps in flash and draws them with drawBitmap(). There is no route, no serial command and no code path anywhere that accepts a bitmap at runtime.',
       arch: 'Content compiled into the image. Authoring is an offline toolchain step, not a runtime capability.',
       claim: LABF(
-        'The pixel editor is a Sesame Lab tool. The firmware has no way to receive a bitmap at runtime: face data lives in PROGMEM and is selected by name, and nothing in the route table or the serial CLI accepts image data.',
+        'The pixel editor is a Lab tool. The firmware has no way to receive a bitmap at runtime: face data lives in PROGMEM and is selected by name, and nothing in the route table or the serial CLI accepts image data.',
         [sym('face-bitmap-data'), sym('updateFaceBitmap'), hw('network.http.routes'), hw('commands.serialCli')],
         'What you draw is a Lab artifact on a virtual display of the same size and depth. It is not something this firmware could be given.',
       ),
@@ -1894,7 +1894,7 @@ L({
   learningGoal: 'Diagnose four faults you have already met, but this time without being told which lesson they came from - working from the symptom to the source span.',
   willBeAbleTo: [
     'Work backwards from a symptom to a source span, using the trace and the boot list.',
-    'Tell a firmware defect apart from a fault Sesame Lab injected.',
+    'Tell a firmware defect apart from a fault the lab injected.',
     'Write down a diagnosis that names a line of code.',
   ],
   labHandoff: 'The fault injector stays in Lab, with all declared faults available.',
@@ -1914,9 +1914,9 @@ L({
       id: 'injected-or-real', kind: 'explain', detail: 'outline',
       title: 'Is this fault real, or did the lab do it to you?',
       b12: 'Some of these faults are in the firmware as it ships. Others are things the lab turned on to give you something to find. Knowing which is which matters.',
-      claim: LABF('Of the declared faults, three are shipped firmware behaviour and are not injected at all; the rest are Sesame Lab injections that make a real firmware failure path reachable on demand.',
+      claim: LABF('Of the declared faults, three are shipped firmware behaviour and are not injected at all; the rest are faults the lab injects to make a real firmware failure path reachable on demand.',
         [doc('docs/findings/L3-source-annotations.md', 'Section 5'), hw('display.bootFailureBehaviour')],
-        'The injector is a Sesame Lab feature. Every failure it produces is a real firmware path, but the trigger is not.'),
+        'The injector is a feature of this app, not of the firmware. Every failure it produces is a real firmware path, but the trigger is not.'),
       manipulate: M('fault-injector', 'catalogue', 'Read the fault list and sort it into shipped behaviour and injected behaviour.'),
       success: OK('fault-provenance-sorted', 'The learner distinguished a shipped defect from an injected one.', { type: 'fault-diagnosed', faultId: 'unknown-command-sticks', expectIdentifiedSymbol: 'command-dispatch' }, 'One of these needs no injector at all. Send a nonsense word and watch.'),
       concepts: ['error-handling', 'firmware'],
@@ -2049,7 +2049,7 @@ L({
       id: 'author-then-export', kind: 'variation', detail: 'outline',
       title: 'Author a movement, then read it as C++',
       b12: 'Build your movement out of frames, then look at it as code. It should look exactly like the ones in the firmware, because that is the only form it could take.',
-      claim: LABF('The editor and the C++ export are Sesame Lab features. Movements in this firmware are hand-written inline functions in a header, so the only representation the firmware could ever accept is source code.',
+      claim: LABF('The editor and the C++ export are Lab tools. Movements in this firmware are hand-written inline functions in a header, so the only representation the firmware could ever accept is source code.',
         [hw('movements[function=runDancePose]'), doc('docs/findings/L3-source-annotations.md', 'Section 5')],
         'The editor is not part of Sesame. The upstream project has its own separate tool, Sesame Studio, for the same reason: nothing at runtime can take a movement.'),
       manipulate: M('sequence-editor', 'new', 'Author at least five frames with timing, then open the export view.'),
@@ -2070,7 +2070,7 @@ L({
       id: 'why-there-is-no-editor', kind: 'explain', detail: 'outline',
       title: 'Why the firmware has no editor of its own',
       b12: 'Everything in this lesson happens in the lab, not on the robot. There is no frame editor in Sesame and no format for a movement - so this whole idea is one the lab brought with it.',
-      claim: C("There is no movement editor and no movement data format anywhere in the pinned firmware. The editing experience taught here belongs to Sesame Lab, so this module cannot claim to describe how Sesame works.",
+      claim: C("There is no movement editor and no movement data format anywhere in the pinned firmware. The editing experience taught here belongs to this app, so this module cannot claim to describe how Sesame works.",
         MODULE.get('build-a-movement').conceptualReason,
         [sym('movement-prototypes'), hw('movements[function=runWavePose]')]),
       manipulate: M('source-selector', 'movement-prototypes', 'Search the pinned tree for anything that reads a movement at runtime.'),
@@ -2157,7 +2157,7 @@ L({
       id: 'one-interface-two-backends', kind: 'manipulate', detail: 'outline',
       title: 'One interface, two very different things behind it',
       b12: 'The same button drives a model of the robot and a pretend computer running the robot\'s real program. The page cannot tell the difference, and that is the point.',
-      claim: C('The shared robot contract is Sesame Lab\'s own abstraction. No pinned firmware symbol corresponds to it, and in this project "real" can only ever mean real firmware under QEMU - a physical adapter is permanently out of scope.',
+      claim: C('The shared robot contract is this app\'s own abstraction. No pinned firmware symbol corresponds to it, and in this project "real" can only ever mean real firmware under QEMU - a physical adapter is permanently out of scope.',
         MODULE.get('real-versus-virtual').conceptualReason,
         [doc('docs/findings/V5-api-adapter.md'), doc('docs/plan.md', 'Standing constraint - no physical hardware, ever')]),
       manipulate: M('backend-switch', 'qemu', 'Send the same command on both backends and compare the resulting commanded poses.'),

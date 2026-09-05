@@ -1,7 +1,7 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://sesame-lab.local/schemas/assembly-map.schema.json",
-  "title": "Sesame Lab CAD assembly map (Phase 1, task V0)",
+  "title": "Sesame Robot Emulator CAD assembly map (Phase 1, task V0)",
   "description": "Per-instance rigid pose of every printed Sesame part in one canonical robot frame, reconstructed from the STEP design master. Poses read out of the exchange file are `authoritative`; anything derived carries a method. Nothing here has been checked against a physical robot.",
   "type": "object",
   "required": [

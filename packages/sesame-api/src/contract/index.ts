@@ -547,7 +547,7 @@ export const ROBOT_CONTRACT_CASES: readonly ContractCase[] = Object.freeze([
     id: 'C14',
     title: 'the server binds loopback by default and refuses a remote bind without opt-in',
     requirement:
-      'A Sesame Lab compatibility proxy must not casually publish a robot control API onto a ' +
+      'A Sesame Robot Emulator compatibility proxy must not casually publish a robot control API onto a ' +
       'wider network. The firmware has no TLS and no auth; that is only acceptable on loopback.',
     provenance:
       'docs/plans/phase-1-virtual-mvp.md §3 V5; hardware-map.json network.http.tls/authentication',

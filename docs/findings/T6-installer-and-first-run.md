@@ -89,6 +89,24 @@ four: `just tauri-resources`, `just tauri-emulator`, `just tauri-honesty` and
 `findDesktopExe()` in the contract suite all name the binary. What a child looks
 for is the Start Menu entry and the icon, and both say *Sesame Lab*.
 
+> **Corrected 2026-09-05 (rebrand, commit `97d2b40`):** the paragraph above no longer
+> holds. The executable is now **`sesame-robot-emulator.exe`**. The rebrand renamed the
+> product to *Sesame Robot Emulator* and the install folder with it, and a
+> `sesame-lab-desktop.exe` sitting inside `Sesame Robot Emulator\` is exactly the
+> dead-brand residue the rename existed to remove — so the cost T6 declined here was
+> paid: all 14 references were updated, `just verify-all` came back exit 0, and a real
+> reinstall confirmed the Start Menu entry, the Add/Remove Programs row and the live
+> window title. The reasoning above is preserved because it was correct *at the time*:
+> while the product was called Sesame Lab, `sesame-lab-desktop.exe` was consistent with
+> everything around it, and the four tools really did name it. The rebrand changed the
+> answer, not the argument.
+>
+> The `MainBinaryName` readback above, the `publisher`/`identifier` table rows before it,
+> and the file listing in §2's bundle inventory are **pre-rebrand transcripts** and are
+> left verbatim. What the installed machine reports today is `DisplayName`
+> *Sesame Robot Emulator*, `Publisher` *Echo Zed Labs*, identifier
+> `com.echozed.sesame-robot-emulator`, `MainBinaryName sesame-robot-emulator.exe`.
+
 ### The icon is drawn, and the design constraint was 16 px
 
 T1 §6 left Tauri's default logo. `src-tauri/icons/make-icon.mjs` (no
@@ -616,6 +634,10 @@ just tauri-honesty "<installed exe>"   exit 0
 * **The installed executable is `sesame-lab-desktop.exe`, not `Sesame Lab.exe`.**
   §2. Four tools name it. What the reader sees is right; what `dir` shows is a
   crate name.
+
+  > **Corrected 2026-09-05 (rebrand, commit `97d2b40`):** no longer true, and no longer
+  > awkward. The binary is `sesame-robot-emulator.exe` and the four tools that named it
+  > were renamed with it. See the correction in §2.
 * **SmartScreen was reasoned about, not triggered.** The signature status is
   measured (`NotSigned`, all three binaries) and the dialog's wording and the
   path through it are documented from what Windows shows for an unsigned

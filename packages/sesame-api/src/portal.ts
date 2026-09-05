@@ -26,7 +26,7 @@ export const STUB_PORTAL_HTML = `<!DOCTYPE html>
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Sesame Lab — compatibility proxy</title>
+<title>Sesame Robot Emulator — compatibility proxy</title>
 <style>
   :root { color-scheme: light dark; }
   body { font: 15px/1.5 ui-sans-serif, system-ui, sans-serif; margin: 0; padding: 2rem;
@@ -40,7 +40,7 @@ export const STUB_PORTAL_HTML = `<!DOCTYPE html>
 </style>
 </head>
 <body>
-<h1>Sesame Lab compatibility proxy</h1>
+<h1>Sesame Robot Emulator compatibility proxy</h1>
 <p class="sub">Sesame-compatible HTTP API in front of a robot backend.</p>
 <div class="note">
   <strong>This page is a stub.</strong> The real robot serves its captive-portal
