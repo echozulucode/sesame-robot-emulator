@@ -52,27 +52,6 @@ The same source is also published at:
     (attached to the same release as the installer, as
      qemu-source-esp-develop-9.2.2-20260417.tar.gz)
 
-    NOT YET UPLOADED. This URL is a commitment, not yet a fact: the archive
-    must be attached to the release before the installer is given to anyone.
-    Until then the offer above stands on the address alone, which does satisfy
-    GPL-2.0 section 3(b) on its own -- but an offer that also points at a 404
-    is worse than one that does not point anywhere, so upload it or delete
-    these five lines.
-
---------------------------------------------------------------------------------
-THE ADDRESS ABOVE IS REAL AND THE OFFER IS LIVE. Echo Zed Labs is the
-distributor named by it, and it is bound by it for three years from the date any
-copy is handed over. That half is discharged.
-
-ONE THING IS STILL OUTSTANDING. The source archive named above is NOT YET
-ATTACHED to the release, so the second route is a commitment rather than a fact.
-The offer stands on the address alone until it is uploaded -- which does satisfy
-GPL-2.0 section 3(b) on its own -- but an offer that also points at a 404 is
-worse than one that does not point anywhere. Upload the archive, or delete the
-six lines naming the release URL, before this installer is given to anyone.
-
-Nothing else in this folder needs editing.
---------------------------------------------------------------------------------
 
 WHY AN OFFER AND NOT ONLY A DOWNLOAD LINK
 -----------------------------------------
