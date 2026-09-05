@@ -1,0 +1,126 @@
+Sesame Lab
+Copyright 2026 Eric Zimmerman
+
+This product includes software developed for the Sesame Lab project.
+Licensed under the Apache License, Version 2.0 (see LICENSE).
+
+================================================================================
+1. The Sesame Robot Project (upstream)
+================================================================================
+
+This work is a derivative of, and contains material extracted from, the
+Sesame Robot Project:
+
+    https://github.com/dorianborian/sesame-robot
+    Licensed under the Apache License, Version 2.0
+    Pinned commit: 401730514cefed738710d22303e84b0dcd6b76d0
+    (recorded in firmware/upstream.pin.json)
+
+The upstream repository's LICENSE is the unmodified Apache License 2.0 text,
+byte-identical to the copy in this repository's LICENSE file
+(sha256 c71d239df91726fc519c6eb72d318ec65820627232b2f796219e87dcf35d0ab4).
+Upstream ships no NOTICE file and its LICENSE appendix is unfilled boilerplate,
+so no upstream copyright line is reproduced here beyond the project's own name;
+attribution is given to the project and its repository. If the upstream authors
+publish an explicit copyright line, it should be added to this file verbatim.
+
+Upstream source code is NOT vendored into this repository. It is fetched at
+build time into `firmware/upstream/` (gitignored) by `scripts/fetch-upstream.*`.
+
+The following files in this repository ARE derived from upstream material and
+carry upstream copyright. Each states, in its own header or `meta` block, the
+upstream commit it was produced from:
+
+  apps/web/src/generated/face-bitmaps.ts
+      Upstream OLED face artwork (firmware/face-bitmaps.h) re-encoded as
+      base64. This is upstream's artwork in a different container, not a
+      description of it.
+
+  packages/sesame-sim/src/generated/choreography.ts
+      21 movement functions / 395 steps, extracted from upstream
+      firmware/movement-sequences.h.
+
+  hardware/hardware-map.json
+      Provenance citations (file:line + short quoted identifiers) extracted
+      from upstream firmware sources.
+
+  hardware/source-annotations.json
+      Contains 263 verbatim single lines of upstream C++ source (141 unique),
+      stored as `text` / `startLineText` / `endLineText` for line-anchoring the
+      Source Explorer, plus ~80 unique upstream declarations in `signature`.
+
+  apps/web/src/generated/source-annotations.ts
+  apps/web/src/generated/architecture-graph.ts
+  apps/web/src/generated/lessons.ts
+  hardware/lessons.json
+  hardware/joint-map.json
+  hardware/assembly-map.json
+  hardware/assets-inventory.json
+  hardware/calibration.json
+      Projected from the files above; carry the same extracted upstream
+      identifiers and citations.
+
+  assets/sesame.glb
+      Geometry derived by measurement from upstream STL and STEP files under
+      hardware/printing/ and hardware/cad/.
+
+  firmware/patches/*.patch
+      Unified diffs against upstream firmware sources. They contain upstream
+      context lines (74 lines across three patches) alongside this project's
+      additions (211 lines). These patches ARE the "changed files" notice
+      required by Apache-2.0 section 4(b) for the firmware: they state exactly
+      what was changed and where.
+
+  docs/**
+      Findings and plans quote short fragments of upstream source for analysis
+      and teaching, and screenshots under docs/findings/assets/ render upstream
+      source on screen.
+
+NOTICE OF MODIFICATION (Apache-2.0 section 4(b)):
+Sesame Lab modifies upstream Sesame Robot Project material. The modifications
+are: re-encoding face artwork, extraction of movement choreography into data,
+derivation of 3D geometry from CAD/STL, addition of telemetry instrumentation
+and board-configuration changes to the firmware (firmware/patches/), and
+re-implementation of upstream behaviour in TypeScript. Sesame Lab is not
+endorsed by or affiliated with the Sesame Robot Project.
+
+TRADEMARKS: "Sesame" and the Sesame Robot Project name and logos are used here
+only to identify the origin of the derived material, as permitted by
+Apache-2.0 section 6 (reasonable and customary use in describing the origin of
+the Work). No endorsement is claimed or implied.
+
+================================================================================
+2. Third-party software redistributed in the desktop installer
+================================================================================
+
+The Sesame Lab desktop installer (src-tauri) bundles third-party binaries that
+are NOT in this repository and are NOT under the Apache License. See
+THIRD-PARTY-NOTICES.md for the full text and obligations.
+
+  QEMU (Espressif fork), qemu-system-xtensa.exe
+      GNU General Public License, version 2
+      https://github.com/espressif/qemu, tag esp-develop-9.2.2-20260417
+
+  ESP32 / ESP32-C3 / ESP32-S3 boot ROM images (share/qemu/*.bin)
+      Espressif Systems. Redistribution terms not stated in the release.
+
+  Sesame firmware flash image (emulator/qemu/images/*.flash.bin)
+      Contains compiled code from:
+        - The Sesame Robot Project        Apache-2.0
+        - arduino-esp32 core 3.3.11       LGPL-2.1-or-later (Arduino core),
+                                          Apache-2.0 (ESP-IDF components)
+        - ESP32Servo 3.0.9                LGPL-2.1-or-later
+        - Adafruit GFX Library 1.12.6     BSD
+        - Adafruit SSD1306 2.5.17         BSD
+        - Adafruit BusIO 1.17.4           MIT
+
+================================================================================
+3. Third-party software fetched at build time (not redistributed here)
+================================================================================
+
+Node and Rust dependencies are declared in package.json / pnpm-lock.yaml and
+src-tauri/Cargo.toml / Cargo.lock and are fetched from their registries. They
+are not vendored in this repository. The runtime web dependencies are
+predominantly MIT-licensed (React, Vite, three, @react-three/fiber,
+@xyflow/react, ws); the Rust dependencies are predominantly MIT/Apache-2.0
+dual-licensed (tauri, windows-sys, serde, dunce). See THIRD-PARTY-NOTICES.md.

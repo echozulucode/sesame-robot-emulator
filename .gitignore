@@ -52,3 +52,9 @@ firmware/probes/build/
 #   node emulator/renode/tests/count-window-vectors.mjs
 emulator/renode/tests/logs/*.trace
 
+
+# Artifact of an early script-path bug: a literal directory whose name is a
+# Windows path with the separators eaten. It held arduino-cli's installation
+# id/secret. Removed from tracking 2026-09-02; the glob stops it recurring.
+Projects*sesame-robot-emulator*
+**/inventory.yaml

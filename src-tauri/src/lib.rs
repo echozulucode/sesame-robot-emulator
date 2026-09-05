@@ -30,6 +30,7 @@
 pub mod qemu;
 pub mod resources;
 pub mod selftest;
+pub mod stdio;
 pub mod supervisor;
 
 use std::sync::Arc;
@@ -70,11 +71,24 @@ const REPORT_DEFAULT: &str = "resource-report.json";
 /// See [`selftest`].
 const SELFTEST_FLAG: &str = "--emulator-selftest";
 
+/// T4's version of the same idea, and the reason it exists is worth stating
+/// where the other two flags are.
+///
+/// `describeRobotContract` is Node code — `node:assert`, and C14 opens a real
+/// `node:http` listener — so it cannot run inside a WebView2 window, and a
+/// `TauriSesameRobot` verified against a *fake* supervisor would be measuring
+/// the fake. This flag lets the suite drive **this binary**: the bundled paths,
+/// the bundled QEMU, the same retry loop, the same write budget, the same job
+/// object. See [`stdio`] for the frame format and for the two alternatives that
+/// were rejected.
+const STDIO_FLAG: &str = "--supervisor-stdio";
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     let report_to = report_destination(std::env::args().skip(1));
     let selftest = selftest::parse_args(std::env::args().skip(1), SELFTEST_FLAG);
-    let headless = report_to.is_some() || selftest.is_some();
+    let stdio = stdio::requested(std::env::args().skip(1), STDIO_FLAG);
+    let headless = report_to.is_some() || selftest.is_some() || stdio;
 
     let mut context = tauri::generate_context!();
     if headless {
@@ -100,6 +114,9 @@ pub fn run() {
     }
     if let Some(args) = selftest {
         std::process::exit(selftest::run(&app, &args));
+    }
+    if stdio {
+        std::process::exit(stdio::run(&app));
     }
 
     // The deliberate teardown path. The *guarantee* is the job object in

@@ -27,6 +27,7 @@
     "@react-three/fiber": "^9.7.0",
     "@sesame-lab/sesame-model": "workspace:*",
     "@sesame-lab/sesame-protocol": "workspace:*",
+    "@sesame-lab/sesame-qemu": "workspace:*",
     "@sesame-lab/sesame-sim": "workspace:*",
     "@xyflow/react": "^12.11.5",
     "react": "^19.2.0",
@@ -36,7 +37,6 @@
   "devDependencies": {
     "@sesame-lab/sesame-api": "workspace:*",
     "@sesame-lab/sesame-bridge": "workspace:*",
-    "@sesame-lab/sesame-qemu": "workspace:*",
     "@types/node": "^24.10.1",
     "@types/react": "^19.2.0",
     "@types/react-dom": "^19.2.0",

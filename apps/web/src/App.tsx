@@ -73,6 +73,7 @@ import {
 } from './backends/default-backend.js';
 import { defaultLabBaseUrl, QemuBackend } from './backends/qemu-backend.js';
 import { SimBackend } from './backends/sim-backend.js';
+import { TauriBackend } from './backends/tauri/backend.js';
 import type { BackendId, BackendStatus, TelemetryBackend } from './backends/types.js';
 import { installDebugHook } from './debug-hook.js';
 import { renderAuthoredBitmap } from './oled/framebuffer.js';
@@ -374,11 +375,17 @@ export function App(): ReactElement {
    * unexplained error.
    */
   useEffect(() => {
-    // The desktop shell has no origin to probe. Firing the request anyway would
-    // 404 against the `tauri://` asset protocol and land on `labHost: 'absent'`,
-    // which is the state that renders "start a lab host" — advice a reader of a
-    // packaged .exe cannot act on. The announcement is already in state.
-    if (desktop.selectsSimulator) return;
+    // The desktop shell has no origin to probe, and that stayed true when T4
+    // gave it an emulator — the emulator is a Rust command, not an HTTP host.
+    // Firing the request anyway would 404 against the `tauri://` asset protocol
+    // and land on `labHost: 'absent'`, which is the state that renders "start a
+    // lab host" — advice a reader of a packaged .exe cannot act on, and which
+    // would now also be describing a perfectly good emulator as absent.
+    //
+    // `desktop.present`, not `desktop.selectsSimulator`: the second one goes
+    // false the moment `TAURI_EMULATOR_BACKEND` names a backend, and gating on
+    // it would have quietly re-enabled the probe inside the packaged app.
+    if (desktop.present) return;
     let disposed = false;
     void probeLabHost(labUrl).then((probe) => {
       if (disposed) return;
@@ -410,7 +417,14 @@ export function App(): ReactElement {
         case 'bridge':
           return new BridgeBackend({ url: bridgeUrl });
         case 'qemu':
-          return new QemuBackend({ baseUrl: labUrl });
+          // The same backend id, two owners of the process. In a browser the
+          // emulator belongs to `apps/web/server/lab-host.mjs` on this origin
+          // and is reached over HTTP + SSE; in the desktop shell it belongs to
+          // this app's own Rust supervisor and is reached over IPC. What is
+          // behind the wire — real firmware under Espressif's QEMU, commanded
+          // through the firmware's own serial console — is identical, which is
+          // why this is one arm and not two. See `backends/tauri/backend.ts`.
+          return desktop.present ? new TauriBackend() : new QemuBackend({ baseUrl: labUrl });
       }
     };
     const next: TelemetryBackend = build();
@@ -449,7 +463,7 @@ export function App(): ReactElement {
       offStatus();
       void next.stop();
     };
-  }, [backendId, bridgeUrl, labUrl, store, traceStore, lessonRuntime]);
+  }, [backendId, bridgeUrl, labUrl, desktop, store, traceStore, lessonRuntime]);
 
   // ------------------------------------------------- model-state pump (rAF)
   useEffect(() => {

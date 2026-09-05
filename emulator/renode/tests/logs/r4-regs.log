@@ -1,128 +1,248 @@
 11:14:00.8322 [INFO] Loaded monitor commands from: C:\Projects\sesame-robot-emulator\tools\renode\scripts/monitor.py
 Renode, version 1.16.1 (d66b0c2a-202602161036)
 
-(monitor) i @<local-path>/AppData/Local/Temp/claude/C--Projects-sesame-robot-emulator/<session>/scratchpad/regs.resc
-11:14:01.0033 [INFO] Including script(s): <local-path>\AppData\Local\Temp\claude\C--Projects-sesame-robot-emulator\<session>\scratchpad\regs.resc
+
+(monitor) i @<scratchpad>/regs.resc
+
+11:14:01.0033 [INFO] Including script(s): <local-path>
 11:14:01.0251 [INFO] System bus created.
 11:14:01.7404 [WARNING] The debug mode now has no effect - connect a debugger, and switch to stepping mode.
-### registers
+### registers
+
+
 -------------------------------------
-| Name         | Index | Value      |
--------------------------------------
-| PC           | 0     | 0x50000000 |
-| AR0          | 1     | 0x0        |
-| AR1          | 2     | 0x0        |
-| AR2          | 3     | 0x0        |
-| AR3          | 4     | 0x0        |
-| AR4          | 5     | 0x0        |
-| AR5          | 6     | 0x0        |
-| AR6          | 7     | 0x0        |
-| AR7          | 8     | 0x0        |
-| AR8          | 9     | 0x0        |
-| AR9          | 10    | 0x0        |
-| AR10         | 11    | 0x0        |
-| AR11         | 12    | 0x0        |
-| AR12         | 13    | 0x0        |
-| AR13         | 14    | 0x0        |
-| AR14         | 15    | 0x0        |
-| AR15         | 16    | 0x0        |
-| AR16         | 17    | 0x0        |
-| AR17         | 18    | 0x0        |
-| AR18         | 19    | 0x0        |
-| AR19         | 20    | 0x0        |
-| AR20         | 21    | 0x0        |
-| AR21         | 22    | 0x0        |
-| AR22         | 23    | 0x0        |
-| AR23         | 24    | 0x0        |
-| AR24         | 25    | 0x0        |
-| AR25         | 26    | 0x0        |
-| AR26         | 27    | 0x0        |
-| AR27         | 28    | 0x0        |
-| AR28         | 29    | 0x0        |
-| AR29         | 30    | 0x0        |
-| AR30         | 31    | 0x0        |
-| AR31         | 32    | 0x0        |
-| SAR          | 33    | 0x0        |
-| WINDOWBASE   | 34    | 0x0        |
-| WINDOWSTART  | 35    | 0x0        |
-| CONFIGID0    | 36    | 0xC2ECFAFE |
-| CONFIGID1    | 37    | 0x22075F76 |
-| PS           | 38    | 0x1F       |
-| SCOMPARE1    | 39    | 0x0        |
-| EXPSTATE     | 40    | 0x0        |
-| MMID         | 41    | 0x0        |
-| IBREAKENABLE | 42    | 0x0        |
-| ATOMCTL      | 43    | 0x15       |
-| DDR          | 44    | 0x0        |
-| IBREAKA0     | 45    | 0x0        |
-| IBREAKA1     | 46    | 0x0        |
-| DBREAKA0     | 47    | 0x0        |
-| DBREAKA1     | 48    | 0x0        |
-| DBREAKC0     | 49    | 0x0        |
-| DBREAKC1     | 50    | 0x0        |
-| EPC1         | 51    | 0x0        |
-| EPC2         | 52    | 0x0        |
-| EPC3         | 53    | 0x0        |
-| EPC4         | 54    | 0x0        |
-| EPC5         | 55    | 0x0        |
-| EPC6         | 56    | 0x0        |
-| EPC7         | 57    | 0x0        |
-| DEPC         | 58    | 0x0        |
-| EPS2         | 59    | 0x0        |
-| EPS3         | 60    | 0x0        |
-| EPS4         | 61    | 0x0        |
-| EPS5         | 62    | 0x0        |
-| EPS6         | 63    | 0x0        |
-| EPS7         | 64    | 0x0        |
-| EXCSAVE1     | 65    | 0x0        |
-| EXCSAVE2     | 66    | 0x0        |
-| EXCSAVE3     | 67    | 0x0        |
-| EXCSAVE4     | 68    | 0x0        |
-| EXCSAVE5     | 69    | 0x0        |
-| EXCSAVE6     | 70    | 0x0        |
-| EXCSAVE7     | 71    | 0x0        |
-| INTERRUPT    | 72    | 0x0        |
-| INTSET       | 73    | 0x0        |
-| INTCLEAR     | 74    | 0x0        |
-| INTENABLE    | 75    | 0x0        |
-| VECBASE      | 76    | 0x40000000 |
-| EXCCAUSE     | 77    | 0x0        |
-| DEBUGCAUSE   | 78    | 0x0        |
-| CCOUNT       | 79    | 0x0        |
-| PRID         | 80    | 0x0        |
-| ICOUNT       | 81    | 0x0        |
-| ICOUNTLEVEL  | 82    | 0x0        |
-| EXCVADDR     | 83    | 0x0        |
-| CCOMPARE0    | 84    | 0x0        |
-| CCOMPARE1    | 85    | 0x0        |
-| CCOMPARE2    | 86    | 0x0        |
-| MISC0        | 87    | 0x0        |
-| MISC1        | 88    | 0x0        |
-| A0           | 89    | 0x0        |
-| A1           | 90    | 0x0        |
-| A2           | 91    | 0x0        |
-| A3           | 92    | 0x0        |
-| A4           | 93    | 0x0        |
-| A5           | 94    | 0x0        |
-| A6           | 95    | 0x0        |
-| A7           | 96    | 0x0        |
-| A8           | 97    | 0x0        |
-| A9           | 98    | 0x0        |
-| A10          | 99    | 0x0        |
-| A11          | 100   | 0x0        |
-| A12          | 101   | 0x0        |
-| A13          | 102   | 0x0        |
-| A14          | 103   | 0x0        |
-| A15          | 104   | 0x0        |
-| PSINTLEVEL   | 105   | 0xF        |
-| PSUM         | 106   | 0x0        |
-| PSWOE        | 107   | 0x0        |
-| PSEXCM       | 108   | 0x1        |
-| PSCALLINC    | 109   | 0x0        |
-| PSOWB        | 110   | 0x0        |
--------------------------------------
-Renode is quitting
-11:14:02.1776 [WARNING] cpu: Some memory allocated by the translation library was not freed - 128.08KiB left allocated. This might indicate a memory leak. Cleaning up...
+
+| Name         | Index | Value      |
+
+-------------------------------------
+
+| PC           | 0     | 0x50000000 |
+
+| AR0          | 1     | 0x0        |
+
+| AR1          | 2     | 0x0        |
+
+| AR2          | 3     | 0x0        |
+
+| AR3          | 4     | 0x0        |
+
+| AR4          | 5     | 0x0        |
+
+| AR5          | 6     | 0x0        |
+
+| AR6          | 7     | 0x0        |
+
+| AR7          | 8     | 0x0        |
+
+| AR8          | 9     | 0x0        |
+
+| AR9          | 10    | 0x0        |
+
+| AR10         | 11    | 0x0        |
+
+| AR11         | 12    | 0x0        |
+
+| AR12         | 13    | 0x0        |
+
+| AR13         | 14    | 0x0        |
+
+| AR14         | 15    | 0x0        |
+
+| AR15         | 16    | 0x0        |
+
+| AR16         | 17    | 0x0        |
+
+| AR17         | 18    | 0x0        |
+
+| AR18         | 19    | 0x0        |
+
+| AR19         | 20    | 0x0        |
+
+| AR20         | 21    | 0x0        |
+
+| AR21         | 22    | 0x0        |
+
+| AR22         | 23    | 0x0        |
+
+| AR23         | 24    | 0x0        |
+
+| AR24         | 25    | 0x0        |
+
+| AR25         | 26    | 0x0        |
+
+| AR26         | 27    | 0x0        |
+
+| AR27         | 28    | 0x0        |
+
+| AR28         | 29    | 0x0        |
+
+| AR29         | 30    | 0x0        |
+
+| AR30         | 31    | 0x0        |
+
+| AR31         | 32    | 0x0        |
+
+| SAR          | 33    | 0x0        |
+
+| WINDOWBASE   | 34    | 0x0        |
+
+| WINDOWSTART  | 35    | 0x0        |
+
+| CONFIGID0    | 36    | 0xC2ECFAFE |
+
+| CONFIGID1    | 37    | 0x22075F76 |
+
+| PS           | 38    | 0x1F       |
+
+| SCOMPARE1    | 39    | 0x0        |
+
+| EXPSTATE     | 40    | 0x0        |
+
+| MMID         | 41    | 0x0        |
+
+| IBREAKENABLE | 42    | 0x0        |
+
+| ATOMCTL      | 43    | 0x15       |
+
+| DDR          | 44    | 0x0        |
+
+| IBREAKA0     | 45    | 0x0        |
+
+| IBREAKA1     | 46    | 0x0        |
+
+| DBREAKA0     | 47    | 0x0        |
+
+| DBREAKA1     | 48    | 0x0        |
+
+| DBREAKC0     | 49    | 0x0        |
+
+| DBREAKC1     | 50    | 0x0        |
+
+| EPC1         | 51    | 0x0        |
+
+| EPC2         | 52    | 0x0        |
+
+| EPC3         | 53    | 0x0        |
+
+| EPC4         | 54    | 0x0        |
+
+| EPC5         | 55    | 0x0        |
+
+| EPC6         | 56    | 0x0        |
+
+| EPC7         | 57    | 0x0        |
+
+| DEPC         | 58    | 0x0        |
+
+| EPS2         | 59    | 0x0        |
+
+| EPS3         | 60    | 0x0        |
+
+| EPS4         | 61    | 0x0        |
+
+| EPS5         | 62    | 0x0        |
+
+| EPS6         | 63    | 0x0        |
+
+| EPS7         | 64    | 0x0        |
+
+| EXCSAVE1     | 65    | 0x0        |
+
+| EXCSAVE2     | 66    | 0x0        |
+
+| EXCSAVE3     | 67    | 0x0        |
+
+| EXCSAVE4     | 68    | 0x0        |
+
+| EXCSAVE5     | 69    | 0x0        |
+
+| EXCSAVE6     | 70    | 0x0        |
+
+| EXCSAVE7     | 71    | 0x0        |
+
+| INTERRUPT    | 72    | 0x0        |
+
+| INTSET       | 73    | 0x0        |
+
+| INTCLEAR     | 74    | 0x0        |
+
+| INTENABLE    | 75    | 0x0        |
+
+| VECBASE      | 76    | 0x40000000 |
+
+| EXCCAUSE     | 77    | 0x0        |
+
+| DEBUGCAUSE   | 78    | 0x0        |
+
+| CCOUNT       | 79    | 0x0        |
+
+| PRID         | 80    | 0x0        |
+
+| ICOUNT       | 81    | 0x0        |
+
+| ICOUNTLEVEL  | 82    | 0x0        |
+
+| EXCVADDR     | 83    | 0x0        |
+
+| CCOMPARE0    | 84    | 0x0        |
+
+| CCOMPARE1    | 85    | 0x0        |
+
+| CCOMPARE2    | 86    | 0x0        |
+
+| MISC0        | 87    | 0x0        |
+
+| MISC1        | 88    | 0x0        |
+
+| A0           | 89    | 0x0        |
+
+| A1           | 90    | 0x0        |
+
+| A2           | 91    | 0x0        |
+
+| A3           | 92    | 0x0        |
+
+| A4           | 93    | 0x0        |
+
+| A5           | 94    | 0x0        |
+
+| A6           | 95    | 0x0        |
+
+| A7           | 96    | 0x0        |
+
+| A8           | 97    | 0x0        |
+
+| A9           | 98    | 0x0        |
+
+| A10          | 99    | 0x0        |
+
+| A11          | 100   | 0x0        |
+
+| A12          | 101   | 0x0        |
+
+| A13          | 102   | 0x0        |
+
+| A14          | 103   | 0x0        |
+
+| A15          | 104   | 0x0        |
+
+| PSINTLEVEL   | 105   | 0xF        |
+
+| PSUM         | 106   | 0x0        |
+
+| PSWOE        | 107   | 0x0        |
+
+| PSEXCM       | 108   | 0x1        |
+
+| PSCALLINC    | 109   | 0x0        |
+
+| PSOWB        | 110   | 0x0        |
+
+-------------------------------------
+
+Renode is quitting
+
+11:14:02.1776 [WARNING] cpu: Some memory allocated by the translation library was not freed - 128.08KiB left allocated. This might indicate a memory leak. Cleaning up...
 11:14:02.1828 [INFO] rs: Disposed.
 
 ### R4-RUNNER: exit code 0

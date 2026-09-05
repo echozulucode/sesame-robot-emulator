@@ -25,7 +25,7 @@ default:
     @echo "  just dev-sim    the behavioural simulator + the web UI (boots in ms)"
     @echo "  just run        one origin, no hot reload - closest to production"
     @echo ""
-    @echo "  just tauri-dev  the desktop app (simulator only until Phase 5 T4)"
+    @echo "  just tauri-dev  the desktop app - real firmware in the bundled QEMU"
     @echo ""
     @echo "  just doctor     check prerequisites"
     @echo "  just check      build + typecheck + 934 tests + 11 validators"
@@ -134,11 +134,12 @@ capture:
 # Phase 5. The desktop shell is `src-tauri/` at the repo root; `just dev` and
 # everything above it are unchanged and remain the development path.
 #
-# T1 ships the window and nothing behind it: there is no lab host inside the
-# app, so it opens on the BEHAVIOURAL SIMULATOR and says so on the panel. Real
-# firmware under QEMU is `just dev`, and stays `just dev` until T3/T4 land.
+# T1 shipped the window with nothing behind it and said so on the panel. T3 gave
+# it a supervisor and T4 gave it a `SesameRobot`, so the window now opens on the
+# BUNDLED QEMU running real firmware, with no lab host and no HTTP anywhere in
+# the path. `just dev` is unchanged and remains the development path.
 
-# Vite + the Tauri window. Simulator only until T4 - no QEMU, no lab host.
+# Vite + the Tauri window, driving real firmware in the bundled QEMU.
 tauri-dev:
     pnpm exec tauri dev
 
@@ -171,6 +172,14 @@ tauri-resources profile='release':
 #   just tauri-emulator debug 10       # after a plain `cargo build`, 10 cycles
 tauri-emulator profile='release' cycles='1':
     & {$o="src-tauri/target/{{profile}}/emulator-selftest.json"; & "src-tauri/target/{{profile}}/sesame-lab-desktop.exe" --emulator-selftest $o --cycles {{cycles}}; $rc=$LASTEXITCODE; Get-Content $o; exit $rc}
+
+# T4's acceptance test: describeRobotContract's fifteen cases against
+# TauriSesameRobot, with the SHIPPED Rust supervisor on the other end. Each case
+# boots the bundled QEMU through `sesame-lab-desktop.exe --supervisor-stdio`, so
+# a `cargo build` has to have happened first - the suite skips itself, loudly,
+# when neither target profile exists. ~70 s.
+tauri-contract:
+    pnpm --filter @sesame-lab/web exec vitest run src/__tests__/tauri-contract.test.ts
 
 # ────────────────────────────────────────────────────── firmware and assets
 

@@ -1,8 +1,10 @@
 11:11:47.8537 [INFO] Loaded monitor commands from: C:\Projects\sesame-robot-emulator\tools\renode\scripts/monitor.py
 Renode, version 1.16.1 (d66b0c2a-202602161036)
 
-(monitor) i @<local-path>/AppData/Local/Temp/claude/C--Projects-sesame-robot-emulator/<session>/scratchpad/resetstate.resc
-11:11:48.0160 [INFO] Including script(s): <local-path>\AppData\Local\Temp\claude\C--Projects-sesame-robot-emulator\<session>\scratchpad\resetstate.resc
+
+(monitor) i @<scratchpad>/resetstate.resc
+
+11:11:48.0160 [INFO] Including script(s): <local-path>
 11:11:48.0377 [INFO] System bus created.
 11:11:48.9486 [WARNING] The debug mode now has no effect - connect a debugger, and switch to stepping mode.
 11:11:49.2355 [INFO] sysbus: Loading block of 55500 bytes length at 0x3F000020.
@@ -12,29 +14,62 @@ Renode, version 1.16.1 (d66b0c2a-202602161036)
 11:11:49.2497 [INFO] sysbus: Loading block of 174038 bytes length at 0x40080020.
 11:11:49.2499 [INFO] sysbus: Loading block of 32 bytes length at 0x50000200.
 11:11:49.3649 [INFO] cpu: Setting PC value to 0x40025504.
-### reset state after LoadELF
-PC
-0x40025504
-PS
-0x1f
-PSWOE
-0x0
-PSEXCM
-0x1
-PSINTLEVEL
-0xf
-PSCALLINC
-0x0
-VECBASE
-0x40000000
-WINDOWBASE
-0x0
-WINDOWSTART
-0x0
-a1
-0x0
+### reset state after LoadELF
+
+
+PC
+
+
+0x40025504
+
+PS
+
+
+0x1f
+
+PSWOE
+
+
+0x0
+
+PSEXCM
+
+
+0x1
+
+PSINTLEVEL
+
+
+0xf
+
+PSCALLINC
+
+
+0x0
+
+VECBASE
+
+
+0x40000000
+
+WINDOWBASE
+
+
+0x0
+
+WINDOWSTART
+
+
+0x0
+
+a1
+
+
+0x0
+
 Renode is quitting
-11:11:49.7203 [WARNING] cpu: Some memory allocated by the translation library was not freed - 128.08KiB left allocated. This might indicate a memory leak. Cleaning up...
+
+11:11:49.7203 [WARNING] cpu: Some memory allocated by the translation library was not freed - 128.08KiB left allocated. This might indicate a memory leak. Cleaning up...
 11:11:49.7265 [INFO] rs: Disposed.
 
 ### R4-RUNNER: exit code 0

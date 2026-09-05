@@ -91,7 +91,11 @@ pub struct SpawnOptions {
 }
 
 impl SpawnOptions {
-    fn apply(self, mut options: LaunchOptions) -> LaunchOptions {
+    /// `pub(crate)` rather than private: [`crate::stdio`] applies exactly the
+    /// same options to exactly the same [`LaunchOptions`], so that the contract
+    /// suite drives the launch this command would have launched rather than a
+    /// second one that looks like it.
+    pub(crate) fn apply(self, mut options: LaunchOptions) -> LaunchOptions {
         if let Some(attempts) = self.boot_attempts {
             options.boot_attempts = attempts.max(1);
         }

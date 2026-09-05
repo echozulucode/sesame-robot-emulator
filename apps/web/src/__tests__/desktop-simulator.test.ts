@@ -1,5 +1,6 @@
 /**
- * The desktop shell picks the simulator, and says so — Phase 5 T1.
+ * What the desktop shell opens on, and whether it says so — Phase 5 T1, flipped
+ * by T4.
  *
  * W8 made QEMU the default and made one rule about it that is not negotiable:
  * **an unreachable lab host stays on QEMU and reports `absent`**, because
@@ -8,16 +9,20 @@
  * asserts that rule and this file does not touch it.
  *
  * The desktop shell is a *third* case rather than an exception to it. There is
- * no origin behind a packaged `.exe`, no lab host to start, and — until T4 —
- * no emulator at all. So it opens on the simulator, and the price of doing that
- * on the reader's behalf is that it must be announced. Both halves are asserted
+ * no origin behind a packaged `.exe` and no lab host to start, so the selection
+ * is made from the runtime rather than from a probe — and while there was no
+ * emulator behind the window, the price of choosing the host model on the
+ * reader's behalf was that it had to be announced. Both halves are asserted
  * here: the selection, and the announcement.
  *
- * The last block is the seam. T4 sets `TAURI_EMULATOR_BACKEND` to the id of its
- * `TauriSesameRobot` and every branch has to follow — including the
- * announcement, which must then stop appearing, because it will no longer be
- * true. Asserting that with the constant injected means the seam is exercised
- * before the backend on the other side of it exists.
+ * The last block was the seam, and **T4 flipped it**:
+ * `TAURI_EMULATOR_BACKEND` is `'qemu'`, so the desktop shell now opens on
+ * `TauriBackend` and the announcement is no longer reachable. The block is kept
+ * and inverted rather than deleted, because both halves still have to hold —
+ * the constant selects the backend, and the announcement appears exactly when
+ * there is nothing behind the window. Every case that asks about the
+ * *unbacked* shell now injects `null` explicitly, which is what a desktop build
+ * with the constant set back to `null` would be.
  */
 import { describe, expect, it } from 'vitest';
 
@@ -61,16 +66,20 @@ describe('what the app opens on', () => {
     expect(DEFAULT_BACKEND).toBe('qemu');
   });
 
-  it('in the desktop shell with no emulator backend: the simulator', () => {
-    expect(initialBackend(detectDesktopShell(tauriV2))).toBe('sim');
+  it('in a desktop shell with NO emulator backend: the simulator', () => {
+    expect(initialBackend(detectDesktopShell(tauriV2, null))).toBe('sim');
   });
 
-  it('T1 really does ship with no emulator backend', () => {
-    expect(TAURI_EMULATOR_BACKEND).toBeNull();
+  it('T4 ships one, so the real desktop shell opens on the emulator', () => {
+    expect(TAURI_EMULATOR_BACKEND).toBe('qemu');
+    expect(initialBackend(detectDesktopShell(tauriV2))).toBe('qemu');
   });
 });
 
 describe('and it says so — the announcement is the price of choosing', () => {
+  // Still reachable, still correct, and still tested: it is what a desktop
+  // build with no emulator behind it must render. T4 made it unreachable in
+  // THIS build by giving the window an emulator, not by deleting the state.
   const probe = desktopSimulatorProbe();
 
   it('names the behavioural simulator in words', () => {
@@ -104,17 +113,30 @@ describe("W8's rule is untouched", () => {
   });
 });
 
-describe('the seam T4 replaces', () => {
-  it('an emulator backend takes over the selection', () => {
-    const shell = detectDesktopShell(tauriV2, 'qemu');
+describe('the seam T4 flipped', () => {
+  it('the emulator backend has taken over the selection', () => {
+    const shell = detectDesktopShell(tauriV2);
+    expect(shell.emulatorBackend).toBe('qemu');
     expect(shell.selectsSimulator).toBe(false);
     expect(initialBackend(shell)).toBe('qemu');
   });
 
-  it('and with it the announcement, because it stops being true', () => {
+  it('and with it the announcement, because it stopped being true', () => {
     // The UI renders the line off `labHost === 'desktop'`, which only
     // `desktopSimulatorProbe()` produces and which App.tsx only reaches through
-    // `selectsSimulator`. One constant, one branch, nothing to unpick.
-    expect(detectDesktopShell(tauriV2, 'qemu').selectsSimulator).toBe(false);
+    // `selectsSimulator`. One constant, one branch, nothing to unpick — and
+    // this is the assertion T1 wrote before there was anything to flip to.
+    expect(detectDesktopShell(tauriV2).selectsSimulator).toBe(false);
+    expect(detectDesktopShell(tauriGlobal).selectsSimulator).toBe(false);
+  });
+
+  it('setting it back to null restores the announced simulator, unchanged', () => {
+    // The seam still works in the other direction. If the emulator ever had to
+    // be withdrawn from a build, the window would say so rather than looking
+    // like an emulator that had gone quiet.
+    const unbacked = detectDesktopShell(tauriV2, null);
+    expect(unbacked.selectsSimulator).toBe(true);
+    expect(initialBackend(unbacked)).toBe('sim');
+    expect(desktopSimulatorProbe().labHost).toBe('desktop');
   });
 });

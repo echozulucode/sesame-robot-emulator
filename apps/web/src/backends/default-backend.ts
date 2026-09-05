@@ -60,10 +60,12 @@ export interface LabHostProbe {
    * - `absent` — nothing answered `/lab/session`. The UI shows the "no lab
    *   host" guidance in this state, and it is the ONLY state that does.
    * - `desktop` — Phase 5 T1. There is no lab host and none is expected: this
-   *   page is inside the Tauri desktop shell, which has no emulator backend
-   *   yet. Distinct from `absent` precisely so the "start a lab host" guidance
-   *   stays off — that advice is unactionable in a packaged `.exe` — and so a
-   *   line naming the behavioural simulator appears instead. See
+   *   page is inside the Tauri desktop shell, and that build has **no emulator
+   *   backend**. Distinct from `absent` precisely so the "start a lab host"
+   *   guidance stays off — that advice is unactionable in a packaged `.exe` —
+   *   and so a line naming the behavioural simulator appears instead. **T4 gave
+   *   the shell an emulator**, so this state is not reached in the build that
+   *   ships; it remains the correct answer for one that has none. See
    *   {@link desktopSimulatorProbe}.
    */
   readonly labHost: 'qemu' | 'sim' | 'unknown' | 'absent' | 'desktop';
@@ -164,21 +166,39 @@ export async function probeLabHost(
  * because it derives that from the driving origin rather than from a
  * constant — is the app telling the reader exactly what it did.
  *
- * **This is a seam, not a hack.** When T4 lands `TauriSesameRobot`,
- * {@link TAURI_EMULATOR_BACKEND} becomes its `BackendId` and
- * {@link detectDesktopShell} stops selecting `sim` on its own —
- * `desktop-simulator.test.ts` asserts that flipping the constant flips the
- * selection, so the seam is exercised before the backend exists.
+ * **This was a seam, and T4 flipped it.** {@link TAURI_EMULATOR_BACKEND} is now
+ * `'qemu'`, so `selectsSimulator` is false, the desktop shell opens on the
+ * emulator, and the announcement below is no longer reachable —
+ * `desktop-simulator.test.ts` asserted that this is what flipping the constant
+ * would do, before the backend on the other side existed, and it is what it
+ * did.
+ *
+ * {@link desktopSimulatorProbe} is kept rather than deleted, and so is its
+ * branch: it is the correct thing to render for *any* desktop build with no
+ * emulator behind it, which is what setting the constant back to `null` would
+ * produce. Deleting it would make that state silently indistinguishable from a
+ * booted emulator.
  */
 
 /**
- * The backend a Tauri build should open on once one exists.
+ * The backend a Tauri build opens on.
  *
- * `null` today: T1 ships the shell and nothing behind it. T4 sets this to the
- * id of its `TauriSesameRobot` and every branch below follows, including the
- * announcement, which then stops appearing because it is no longer true.
+ * **`'qemu'` since Phase 5 T4** — `TauriBackend`, over `TauriSesameRobot`, over
+ * the Rust supervisor and the bundled QEMU. T1 left this `null` and everything
+ * else was already written to follow it: `selectsSimulator` goes false,
+ * `initialBackend()` returns the emulator, and {@link desktopSimulatorProbe}
+ * stops being reached, so the "this is the behavioural simulator" line stops
+ * rendering because it has stopped being true.
+ *
+ * `'qemu'` rather than a fourth `BackendId`, deliberately. What is behind the
+ * wire is the same thing the browser path has: real firmware under Espressif's
+ * QEMU, commanded over the firmware's own serial console. The difference is
+ * only *who owns the process* — a lab host on an origin, or this app — and
+ * `App.tsx` is where that is decided, in one line, next to the other backend
+ * arms. A new id would have meant teaching the rail, the trace panel and W8's
+ * default about a distinction the reader does not have.
  */
-export const TAURI_EMULATOR_BACKEND: BackendId | null = null;
+export const TAURI_EMULATOR_BACKEND: BackendId | null = 'qemu';
 
 /** What {@link detectDesktopShell} concluded about the runtime. */
 export interface DesktopShell {
