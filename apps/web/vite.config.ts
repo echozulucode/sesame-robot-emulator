@@ -182,6 +182,22 @@ export default defineConfig({
   },
   server: {
     host: '127.0.0.1',
+    /*
+     * Pin the port, and fail loudly if it is taken.
+     *
+     * `src-tauri/tauri.conf.json` hard-codes `devUrl: http://127.0.0.1:5173`.
+     * Vite's default behaviour on a busy port is to silently move to 5174,
+     * which leaves the Tauri window showing "127.0.0.1 refused to connect"
+     * with nothing in either log to say why — the desktop shell has no address
+     * bar to reveal that it is pointed somewhere nothing is serving.
+     *
+     * T1 recorded this hazard and nothing guarded it; a user hit it. With
+     * `strictPort` the failure moves to the terminal that caused it, which is
+     * the same reason `scripts/dev-lab.mjs` pre-flights :8099 rather than
+     * letting EADDRINUSE surface as a stack trace.
+     */
+    port: 5173,
+    strictPort: true,
     fs: {
       // The GLB is read through the middleware above, but allow the repo root
       // so source maps into the workspace packages resolve in dev.
